@@ -40,6 +40,7 @@ BACK_ANY = re.compile(r"/web(/(questions|food(/catalogue|/usual|/trends)?|ideas(
 _STATIC_DIR = pathlib.Path(__file__).resolve().parent / "static"
 _STATIC = {"app.css": "text/css; charset=utf-8", "app.js": "text/javascript; charset=utf-8", "theme.js": "text/javascript; charset=utf-8",
            "geist-latin-wght-normal.woff2": "font/woff2", "geist-latin-ext-wght-normal.woff2": "font/woff2",
+           "geist-mono-latin-wght-normal.woff2": "font/woff2", "geist-mono-latin-ext-wght-normal.woff2": "font/woff2",
            "zxing.min.js": "text/javascript; charset=utf-8",  # zxing: the barcode reader, loaded only when scanning
            "manifest.webmanifest": "application/manifest+json", "gratitude.webmanifest": "application/manifest+json", "icon.svg": "image/svg+xml", "icon-192.png": "image/png",
            "icon-512.png": "image/png", "apple-touch-icon.png": "image/png"}
