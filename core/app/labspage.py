@@ -1,5 +1,5 @@
 """The web app's Medical page: the reports (each opening with its values, ranges and flags; H and L in amber,
-A in red, decided 26.10.2026), the values flagged in the newest lab report, one test over time with its reference range
+A in red, decided 26.10.2026; A in amber too since 15.11.2026), the values flagged in the newest lab report, one test over time with its reference range
 as a band, and the medication courses. All reports are shown, 2014 included (decided 26.10.). Values are written the
 way the logger prints them (v1's own helpers). Corrections post to weblabs.py; this module only reads."""
 import json
@@ -123,7 +123,7 @@ def render_reports(csrf: str, q) -> str:
                     f'<b>{esc(_val_text(r))}</b> <span class="small">range {esc(_ref_text(r["ref_low"], r["ref_high"]))}</span></a>' for r in flagged)
     top = (f'<div class="card"><h2>Flagged in your newest report <span class="small">{newest["collected_date"]:%d.%m.%Y}</span></h2>'
            f'<div class="flagged">{chips or "<span class=empty>Nothing flagged.</span>"}</div>'
-           '<p class="small hint">Click one to see it over time. H high and L low in amber, A abnormal in red.</p></div>') if newest else ""
+           '<p class="small hint">Click one to see it over time. H high, L low and A abnormal in amber.</p></div>') if newest else ""
     table = ('<div class="card"><div class="tablewrap"><table class="ft"><thead><tr><th>Date</th><th class="l">Report</th><th class="l">Kind</th>'
              '<th class="l hide-sm">From</th><th>Values</th><th>Flagged</th></tr></thead>'
              f'<tbody>{"".join(rows) or "<tr><td colspan=6 class=empty>No reports yet.</td></tr>"}</tbody></table></div>'

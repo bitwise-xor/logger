@@ -186,9 +186,7 @@ def _day_view(cur, csrf: str, day: date, today: date, edit, note) -> str:
            + ('' if day == today else '<a class="ghost dim" href="/web/food">Today</a>') + '</form>')
     return (f'<div class="card"><div class="head sub">{_modes("day")}{nav}</div>'
             f'<h2>{_dm(day)}{" · today" if day == today else ""}{line}</h2>{day_table(cur, csrf, day, today, edit, note)}'
-            '<p class="small hint">Click a food to change its amount, time or food, or to delete it. The pencil adds a note. '
-            'Colours: kcal, fat and carbs green up to the target, amber up to 10% over, red beyond; '
-            'protein green once reached, amber from 80%.</p></div>')
+            '<p class="small hint">Click a food to change its amount, time or food, or to delete it. The pencil adds a note.</p></div>')
 
 
 # ---- date range ------------------------------------------------------------------------------------
@@ -241,7 +239,7 @@ def _range_view(cur, csrf: str, start: date, end: date, today: date, open_day) -
             '<button class="ghost sm" type="submit">Show</button></form>')
     return (f'<div class="card"><div class="head sub">{_modes("range", start, end)}{pick}</div><p class="chips">{chips}</p>'
             f'<div class="tablewrap"><table class="ft"><thead><tr><th>Day</th>{heads}</tr></thead><tbody>{"".join(rows)}</tbody></table></div>'
-            '<p class="small hint">Day totals against your targets: kcal over the target in amber, protein reached in green. '
+            '<p class="small hint">Day totals against your targets: kcal over the target in bold. '
             'Today is left out of the average because it is not over yet. Click a day to see its log.</p></div>')
 
 

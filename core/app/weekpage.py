@@ -49,8 +49,7 @@ def _bars(totals: dict) -> str:
                     f'width="{min(150, pct):.1f}" height="4" rx="2"/><rect class="goal" x="100" width="1" height="4"/></svg></td>'
                     f'<td class="{cls}">{pct:.0f}%</td></tr>')
     return ('<table class="ft plain far"><tbody>' + "".join(rows) + "</tbody></table>"
-            '<p class="small hint">Average day as a share of the target; the thin line is 100%. Calories, fat and carbs are green up to the target, '
-            'protein from the target on.</p>')
+            '<p class="small hint">Average day as a share of the target; the thin line is 100%.</p>')
 
 
 def _cards(totals: dict) -> str:

@@ -163,7 +163,7 @@ def test_the_health_charts_carry_the_limit_lines(web):
     assert ch["c-sugar"]["lines"] == [[126, "r", "126"], [100, "w", "100"]]
     assert ch["c-sleep"]["lines"] == [[7, "w", "7 h"], [6, "r", "6 h"]]
     assert "lines" not in ch["c-weight"]
-    assert "amber from 130/80" in web[0].get("/web/health").text
+    assert "amber from 140/90" in web[0].get("/web/health").text
 
 
 def test_the_script_and_style_carry_the_new_behaviour(web):

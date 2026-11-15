@@ -1,27 +1,33 @@
-/* The web app's one stylesheet (restyled 31.10.2026: Inter, soft cards, icons, light and dark). Two columns on the PC
-   (food left; habits, health, review right), one on the phone. Colours are tokens on :root; dark follows the system
-   unless a choice is saved on the device (theme.js sets data-theme before the page paints). */
-@font-face{font-family:Inter;src:url(inter.woff2) format("woff2");font-weight:400 700;font-style:normal;font-display:swap}
-:root{--bg:#f5f4f0;--card:#fff;--ink:#1d1d1b;--dim:#62625c;--line:#ebe9e3;--line2:#dcdad3;--accent:#2f6f4f;--accent-soft:#e3efe7;
-      --warn:#8f5408;--warn-soft:#fbf0dc;--bad:#b3261e;--bad-soft:#fbe8e6;--bar:#ebeae4;--field:#f7f6f2;--c2:#3d6fb6;
-      --mp:#3d6fb6;--mc:#c4513a;--mf:#c98c12;--mw:#1f8597;--shadow:0 1px 2px rgba(25,25,20,.05),0 8px 24px rgba(25,25,20,.05);
+/* The web app's one stylesheet (restyled 31.10.2026; new look 15.11.2026: the home dashboard's look, Geist, flat cards with a
+   hairline, light and dark). Two columns on the PC (food left; habits, health, review right), one on the phone. Colours are tokens
+   on :root with the hub's values (packages/tokens/tokens.css): neutral, no green; amber (--warn) only for what needs you, blue
+   (--live) for what is live (focus, the page you are on, links, the microphone, a running timer). --bad is amber too: no red.
+   Dark follows the system unless a choice is saved on the device (theme.js sets data-theme before the page paints). */
+@font-face{font-family:Geist;src:url(geist-latin-wght-normal.woff2) format("woff2");font-weight:100 900;font-style:normal;font-display:swap;
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:Geist;src:url(geist-latin-ext-wght-normal.woff2) format("woff2");font-weight:100 900;font-style:normal;font-display:swap;
+  unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+:root{--bg:#f1f1ee;--card:#ffffff;--ink:#16171a;--dim:#5a5d66;--line:#deded8;--line2:#deded8;--accent:#16171a;--accent-soft:#ecece8;
+      --live:#1d4fbf;--live-soft:#e3ebfb;--warn:#8a5300;--warn-soft:#fbebcf;--bad:#8a5300;--bad-soft:#fbebcf;--bar:#e4e4df;--field:#f6f6f3;
+      --c2:#3d6fb6;--mp:#3d6fb6;--mc:#c4513a;--mf:#c98c12;--mw:#1f8597;--shadow:0 0 0 1px var(--line);
       --shadow-pop:0 12px 32px rgba(25,25,20,.16);color-scheme:light}
-@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#111211;--card:#1b1c1b;--ink:#ecece8;--dim:#a6a6a0;--line:#2a2b29;
-      --line2:#3a3b38;--accent:#76c99c;--accent-soft:#1d3226;--warn:#f0b35a;--warn-soft:#3a2d17;--bad:#ff8f86;--bad-soft:#3b1f1d;
-      --bar:#2b2c29;--field:#151615;--c2:#8db2ea;--mp:#8db2ea;--mc:#ee8a72;--mf:#f0c14f;--mw:#62c6d6;--shadow:0 0 0 1px #262725;
-      --shadow-pop:0 12px 32px rgba(0,0,0,.55);color-scheme:dark}}
-:root[data-theme=dark]{--bg:#111211;--card:#1b1c1b;--ink:#ecece8;--dim:#a6a6a0;--line:#2a2b29;--line2:#3a3b38;--accent:#76c99c;
-      --accent-soft:#1d3226;--warn:#f0b35a;--warn-soft:#3a2d17;--bad:#ff8f86;--bad-soft:#3b1f1d;--bar:#2b2c29;--field:#151615;
-      --c2:#8db2ea;--mp:#8db2ea;--mc:#ee8a72;--mf:#f0c14f;--mw:#62c6d6;--shadow:0 0 0 1px #262725;--shadow-pop:0 12px 32px rgba(0,0,0,.55);color-scheme:dark}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0c0d0f;--card:#141518;--ink:#ecedef;--dim:#9a9da6;--line:#27292e;
+      --line2:#27292e;--accent:#ecedef;--accent-soft:#22242a;--live:#8ab4ff;--live-soft:#16233d;--warn:#f2b34c;--warn-soft:#332510;
+      --bad:#f2b34c;--bad-soft:#332510;--bar:#27292e;--field:#1b1d21;--c2:#8db2ea;--mp:#8db2ea;--mc:#ee8a72;--mf:#f0c14f;--mw:#62c6d6;
+      --shadow:0 0 0 1px var(--line);--shadow-pop:0 12px 32px rgba(0,0,0,.55);color-scheme:dark}}
+:root[data-theme=dark]{--bg:#0c0d0f;--card:#141518;--ink:#ecedef;--dim:#9a9da6;--line:#27292e;--line2:#27292e;--accent:#ecedef;
+      --accent-soft:#22242a;--live:#8ab4ff;--live-soft:#16233d;--warn:#f2b34c;--warn-soft:#332510;--bad:#f2b34c;--bad-soft:#332510;
+      --bar:#27292e;--field:#1b1d21;--c2:#8db2ea;--mp:#8db2ea;--mc:#ee8a72;--mf:#f0c14f;--mw:#62c6d6;--shadow:0 0 0 1px var(--line);
+      --shadow-pop:0 12px 32px rgba(0,0,0,.55);color-scheme:dark}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
-body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 Inter,system-ui,-apple-system,"Segoe UI",sans-serif;
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 Geist,system-ui,-apple-system,"Segoe UI",sans-serif;
      -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
 a{color:inherit}
 button{font:inherit;cursor:pointer}
 input,select,textarea{font:inherit;color:var(--ink);background:var(--field);border:1px solid var(--line2);border-radius:10px;padding:.45rem .65rem}
-input:focus,select:focus,textarea:focus{border-color:var(--accent)}
-button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,a:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+input:focus,select:focus,textarea:focus{border-color:var(--live)}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,a:focus-visible,summary:focus-visible{outline:2px solid var(--live);outline-offset:2px}
 .small{font-size:.85rem;color:var(--dim)}
 .err{color:var(--bad)}
 .num{font-variant-numeric:tabular-nums}
@@ -39,16 +45,16 @@ nav.top>a,nav.top summary{display:inline-flex;align-items:center;gap:.4rem;paddi
      text-decoration:none;font-weight:500;font-size:.92rem;list-style:none;cursor:pointer;white-space:nowrap}
 nav.top>a svg,nav.top summary svg,.tabs a svg,.tabs summary svg,.panel a svg{order:-1}
 nav.top>a:hover,nav.top summary:hover{color:var(--ink);background:var(--field)}
-nav.top>a[aria-current],nav.top summary[aria-current]{background:var(--accent-soft);color:var(--accent)}
+nav.top>a[aria-current],nav.top summary[aria-current]{background:var(--live-soft);color:var(--live)}
 nav.top summary::-webkit-details-marker{display:none}
 nav.top details{position:relative}
 .panel{position:absolute;right:0;top:calc(100% + .4rem);min-width:14rem;background:var(--card);border-radius:14px;padding:.35rem;
        box-shadow:var(--shadow-pop);z-index:5;display:flex;flex-direction:column}
 .panel a{display:flex;align-items:center;gap:.6rem;padding:.6rem .75rem;border-radius:10px;color:var(--ink);text-decoration:none;font-weight:500}
 .panel a:hover{background:var(--field)}
-.panel a[aria-current]{background:var(--accent-soft);color:var(--accent)}
+.panel a[aria-current]{background:var(--live-soft);color:var(--live)}
 .panel a svg{color:var(--dim)}
-.panel a[aria-current] svg{color:var(--accent)}
+.panel a[aria-current] svg{color:var(--live)}
 .badge{display:inline-block;min-width:1.3rem;padding:0 .4rem;margin-left:.15rem;border-radius:1rem;background:var(--warn-soft);color:var(--warn);
        font-size:.75rem;font-weight:700;text-align:center;line-height:1.35rem}
 .bar form{margin:0}
@@ -65,7 +71,7 @@ html[data-theme] .themebtn{display:inline-flex}
 .ghost{background:var(--card);border:1px solid var(--line2);color:var(--ink);border-radius:10px;padding:.42rem .85rem;font-weight:500}
 .ghost:hover{background:var(--field)}
 .ghost.dim{color:var(--dim)}
-.ghost.bad{color:var(--bad)}
+.ghost.bad{color:var(--ink)}  /* no red: Delete and Sign out are plain buttons */
 .primary{background:var(--ink);color:var(--card);border:1px solid var(--ink);border-radius:10px;padding:.45rem 1rem;font-weight:600}
 .primary:hover{opacity:.88}
 
@@ -79,7 +85,7 @@ h2 a:hover{color:var(--ink);text-decoration:underline}
 /* entry box and reply */
 .entry{display:flex;align-items:flex-end;gap:.6rem;margin-bottom:1.25rem;background:var(--card);border-radius:16px;box-shadow:var(--shadow);
        padding:.45rem .45rem .45rem 1.1rem}
-.entry:focus-within{box-shadow:var(--shadow),0 0 0 2px var(--accent)}
+.entry:focus-within{box-shadow:var(--shadow),0 0 0 2px var(--live)}
 .entry textarea{flex:1;resize:vertical;min-height:2.75rem;max-height:12rem;padding:.6rem 0;border:0;border-radius:0;background:transparent;outline:none}
 .entry textarea:focus-visible{outline:none}
 .entry .primary{border-radius:12px;min-height:2.75rem;padding:0 1.3rem}
@@ -106,7 +112,7 @@ h2 a:hover{color:var(--ink);text-decoration:underline}
 .total .n{font-size:1.5rem;font-weight:700;letter-spacing:-.02em}
 .total .of{color:var(--dim);font-size:.85rem}
 .total .left{margin-top:.35rem;font-size:.8rem}
-.total .left.over{color:var(--warn);font-weight:600}
+.total .left.over{color:var(--ink);font-weight:600}  /* over a target: neutral, not amber (15.11.2026) */
 .total .left.met{color:var(--accent);font-weight:600}
 .meter{display:block;width:100%;height:6px;margin-top:.55rem}
 .meter .track{fill:var(--bar)}
@@ -117,7 +123,7 @@ h2 a:hover{color:var(--ink);text-decoration:underline}
 .meter .fill.water{fill:var(--mw)}
 .total.water{margin:-.25rem 0 1.25rem}
 .total.water .wrow{display:flex;justify-content:space-between;align-items:center;gap:.75rem;flex-wrap:wrap}
-.meter .fill.over{fill:var(--warn)}
+.meter .fill.over{fill:var(--ink)}
 .tablewrap{overflow-x:auto}
 .ft{width:100%;border-collapse:separate;border-spacing:0;font-variant-numeric:tabular-nums}
 .ft th{font-size:.72rem;font-weight:600;color:var(--dim);text-transform:uppercase;letter-spacing:.05em;text-align:right;padding:.2rem 0 .55rem .9rem;border-bottom:1px solid var(--line);white-space:nowrap}
@@ -259,7 +265,7 @@ details.ugt>summary:hover{text-decoration:underline}
 .rev form{margin:0}
 .rev details>summary{list-style:none;border:1px solid var(--line2);border-radius:10px;padding:.42rem .85rem;cursor:pointer;font-weight:500}
 .rev details>summary::-webkit-details-marker{display:none}
-.rev details.bad>summary{color:var(--bad)}
+.rev details.bad>summary{color:var(--ink)}
 .rev details[open]{flex-basis:100%}
 .rev details[open]>summary{display:inline-block}
 .rev .edit{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin-top:.5rem}
@@ -340,7 +346,7 @@ table.bt th:not(:first-child){text-align:right}
 .bdue .row{margin-top:0}
 .bdue a.primary{text-decoration:none;display:inline-flex;align-items:center}
 .bchecks{flex-wrap:wrap;gap:.4rem 1.2rem;margin:.3rem 0 0}
-.chart text{fill:var(--dim);font-size:11px;font-family:Inter,system-ui,sans-serif}
+.chart text{fill:var(--dim);font-size:11px;font-family:Geist,system-ui,sans-serif}
 .chart .grid-line{stroke:var(--line)}
 .chart .a{fill:var(--accent)}
 .chart .b{fill:var(--c2)}
@@ -395,7 +401,7 @@ p.row{margin:.5rem 0 0}
 .ft tr.sel td{background:var(--accent-soft)}
 .ft tr.panel>td,.ft tr.acts>td{text-align:left;white-space:normal;padding-left:.8rem}
 .ft tr.acts details{display:inline-block}
-.ft td.over{color:var(--warn)}
+.ft td.over{color:var(--ink);font-weight:600}
 .ft td.met{color:var(--accent)}
 .ft.plain td{text-align:left;padding-left:0;padding-right:.6rem;border-top:1px solid var(--line)}
 .ft.plain tr:first-child td{border-top:0}
@@ -417,12 +423,12 @@ form.word{display:inline-flex;align-items:center;gap:.2rem;border:1px solid var(
 @media (max-width:520px){.hide-sm{display:none}}
 .ft.plain select{max-width:18rem}
 @media (max-width:520px){.ft.plain tr{display:flex;flex-wrap:wrap;align-items:center;gap:.3rem .6rem;padding:.45rem 0;border-top:1px solid var(--line)}.ft.plain td{display:block;padding:0;border-top:0}.ft.plain select{max-width:100%;width:100%}.ft.plain td:first-child{flex-basis:100%}}
-/* One day: % of target and left / over, coloured (kcal, fat, carbs: not to go over; protein: to reach) */
+/* One day: % of target and left / over in bold (kcal, fat, carbs: not to go over; protein: to reach); over is neutral, not amber */
 .ft tfoot tr.tg td{color:var(--dim);font-size:.9rem;padding-top:.15rem}
 .ft tfoot tr.tg td:first-child{white-space:nowrap}
 .ft tfoot tr.tg td.good{color:var(--accent);font-weight:600}
-.ft tfoot tr.tg td.warn{color:var(--warn);font-weight:600}
-.ft tfoot tr.tg td.bad{color:var(--bad);font-weight:600}
+.ft tfoot tr.tg td.warn{color:var(--ink);font-weight:600}
+.ft tfoot tr.tg td.bad{color:var(--ink);font-weight:600}
 /* Ideas: thoughts and Todoist */
 .th{border-top:1px solid var(--line);padding:.65rem 0}
 .th:first-of-type{border-top:0}
@@ -464,7 +470,7 @@ form.word{display:inline-flex;align-items:center;gap:.2rem;border:1px solid var(
         color:var(--dim);text-decoration:none;font-size:.72rem;font-weight:500;list-style:none;cursor:pointer;position:relative}
   .tabs svg.ic{width:22px;height:22px}
   .tabs summary::-webkit-details-marker{display:none}
-  .tabs [aria-current]{color:var(--accent);font-weight:650}
+  .tabs [aria-current]{color:var(--live);font-weight:650}
   .tabs .badge{position:absolute;top:.25rem;left:calc(50% + .3rem);min-width:1.1rem;line-height:1.1rem;font-size:.66rem}
   .tabs details{flex:1;position:relative;display:flex}
   .tabs details>summary{flex:1}
@@ -534,7 +540,7 @@ textarea.wide{width:100%;resize:vertical}
 .key.sq.b{background:var(--c2)}
 .grid2.gap{margin:1.25rem 0}
 .ft td.first{white-space:normal;max-width:32rem}
-/* Medical: flags H and L amber, A red; the reference band; medication */
+/* Medical: flags H, L and A amber (no red since 15.11.2026); the reference band; medication */
 .flag{display:inline-block;min-width:1.4rem;text-align:center;font-size:.75rem;font-weight:700;padding:.05rem .4rem;border-radius:1rem}
 .flag.H,.flag.L{background:var(--warn-soft);color:var(--warn)}
 .flag.A{background:var(--bad-soft);color:var(--bad)}
@@ -544,7 +550,7 @@ textarea.wide{width:100%;resize:vertical}
 .fl:hover{border-color:var(--ink)}
 .fl b{font-variant-numeric:tabular-nums}
 .find{white-space:pre-wrap;margin:.6rem 0 0}
-.med-run{color:var(--accent);font-weight:600}
+.med-run{color:var(--live);font-weight:600}  /* a medication taken now */
 .row.end{justify-content:flex-end;flex-wrap:nowrap}
 .row.end form{margin:0}
 .chart .band{fill:var(--accent-soft)}
@@ -561,14 +567,14 @@ body.busy,body.busy button{cursor:progress}
 button:disabled{opacity:.6;cursor:progress}
 .reply form{margin-top:.5rem}
 .chart .ref{stroke-width:1.2;stroke-dasharray:5 4}
-.chart .ref.w{stroke:var(--warn)}
+.chart .ref.w{stroke:var(--dim)}
 .chart .ref.r{stroke:var(--bad)}
 .chart text.reflbl{font-size:10px}
-.chart text.reflbl.w{fill:var(--warn)}
+.chart text.reflbl.w{fill:var(--dim)}
 .chart text.reflbl.r{fill:var(--bad)}
 .chart .tip rect{fill:var(--ink)}
 .chart .tip text{fill:var(--card);font-size:11px}
-.key.ref{height:0;border-top:2px dashed var(--warn);background:none;border-radius:0;width:.9rem;vertical-align:.2rem}
+.key.ref{height:0;border-top:2px dashed var(--dim);background:none;border-radius:0;width:.9rem;vertical-align:.2rem}
 .key.ref.r{border-top-color:var(--bad)}
 @media (pointer:coarse),(max-width:520px){
   button,.ghost,.primary,.chip,.cand,.habit,.icon,summary.ghost,a.ghost{min-height:2.75rem}
@@ -593,8 +599,8 @@ a.primary{text-decoration:none;display:inline-block}
 .hm-ctl form{margin:0;display:inline-flex;flex-wrap:wrap;align-items:center;gap:.4rem}
 .hm-pop[open]{flex:1 1 100%}
 .hm-pop form{margin-top:.4rem}
-.hm-link{background:none;border:0;padding:.3rem .1rem;color:var(--accent);text-decoration:underline;cursor:pointer;font-size:inherit;list-style:none}
-.hm-link.bad{color:var(--bad)}
+.hm-link{background:none;border:0;padding:.3rem .1rem;color:var(--live);text-decoration:underline;cursor:pointer;font-size:inherit;list-style:none}
+.hm-link.bad{color:var(--ink)}
 .hm-pop summary::-webkit-details-marker{display:none}
 .hm-sw{width:44px;height:26px;border-radius:13px;border:1px solid var(--line2);background:var(--bar);position:relative;padding:0;cursor:pointer;flex:none}
 .hm-sw::after{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:var(--card);box-shadow:0 1px 2px rgba(0,0,0,.25)}
@@ -636,8 +642,8 @@ a.primary{text-decoration:none;display:inline-block}
 .ms tfoot td{font-weight:650;border-bottom:0}
 .dp{display:inline-block;padding:.08rem .55rem;border-radius:1rem;font-weight:600;font-size:.82rem}
 .dp.ok{background:var(--accent-soft);color:var(--accent)}
-.dp.warn{background:var(--warn-soft);color:var(--warn)}
-.dp.bad{background:var(--bad-soft);color:var(--bad)}
+.dp.warn{background:var(--bar);color:var(--ink)}
+.dp.bad{background:var(--bar);color:var(--ink)}
 .habit.static{cursor:default}
 .habit.static:hover{border-color:var(--line2)}
 .habit.static.done:hover{border-color:transparent}
@@ -691,7 +697,7 @@ details.again[open]{flex-basis:100%}
 
 /* Round 2 (31.10.2026): the microphone in the entry box, Settings > Notifications */
 .entry .mic{width:2.75rem;height:2.75rem;flex:none}
-.entry .mic.on{background:var(--bad-soft);color:var(--bad)}
+.entry .mic.on{background:var(--live-soft);color:var(--live)}  /* blue while it listens */
 .entry .mic.on svg{animation:listen 1.1s ease-in-out infinite}
 @keyframes listen{50%{transform:scale(1.18)}}
 @media (prefers-reduced-motion:reduce){.entry .mic.on svg{animation:none}}
@@ -861,6 +867,7 @@ ol.steps{padding-left:1.2rem;display:grid;gap:.35rem}
 .hojob ol.steps{margin:.3rem 0 .6rem}
 .hotimer{text-align:center}
 .hoclock{font-size:3.4rem;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.2;margin:.2rem 0 .6rem}
+.hoclock[data-left]{color:var(--live)}  /* the timer while it runs */
 .hoclock.over{color:var(--accent)}
 .hoover{margin:.2rem 0 .6rem;font-weight:600;color:var(--accent)}
 .hotimer .row{justify-content:center}
@@ -919,7 +926,7 @@ ol.steps{padding-left:1.2rem;display:grid;gap:.35rem}
 .coparts label.row{min-height:2.2rem;align-items:center}
 /* 05.11.2026: the Health page's sleep-times chart (healthpage._times): one row per date, the clock across */
 svg.times{display:block;width:100%;height:auto;margin:.4rem 0 .2rem}
-svg.times text{fill:var(--dim);font-size:11px;font-family:Inter,system-ui,sans-serif}
+svg.times text{fill:var(--dim);font-size:11px;font-family:Geist,system-ui,sans-serif}
 svg.times .grid{stroke:var(--line);stroke-width:1}
 svg.times .slp{fill:var(--accent)}
 svg.times .slp.nap{fill:var(--accent-soft);stroke:var(--accent);stroke-width:1}

@@ -58,7 +58,7 @@ def again_foods(cur, today: date, wake_at=None, now: Optional[datetime] = None) 
         out += [dict(r) for r in cur.fetchall() if r["id"] not in have][:AGAIN - len(out)]
     return out
 MACROS = (("kcal", "Calories", "kcal"), ("protein", "Protein", "g"), ("fat", "Fat", "g"), ("carbs", "Carbs", "g"))
-GOALS = ("protein", "water")  # targets to reach; the others are limits (past them the bar turns amber)
+GOALS = ("protein", "water")  # targets to reach; the others are limits (past them the bar turns dark: over is neutral, not amber)
 WATER_GLASS = 250  # ml logged by the water bar's one-tap button
 THOUGHT_TYPES = ("idea", "question", "task", "project", "note", "journal", "reading", "progress")
 AREAS = ("health", "projects", "finance", "immigration", "learning", "personal")
@@ -250,7 +250,7 @@ def _checkin_day(cur, day: date, today: date, w, got: dict):
 # ---- food -----------------------------------------------------------------------------------------
 
 def _bar(value, target, k: str = "") -> str:
-    """A thin bar in the macro's colour; past the target it turns amber (not for protein or water, goals to reach)."""
+    """A thin bar in the macro's colour; past the target it turns dark (not for protein or water, goals to reach)."""
     pct = min(100.0, float(value or 0) / float(target) * 100) if target else 0
     over = " over" if target and k not in GOALS and float(value or 0) > float(target) else ""
     return (f'<svg class="meter" viewBox="0 0 100 4" preserveAspectRatio="none" aria-hidden="true">'

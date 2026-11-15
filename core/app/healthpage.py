@@ -215,7 +215,7 @@ def _charts(d: dict) -> str:
         series.append({"mark": mark, "cls": "b", "pts": [[idx(day), b, tip(day, a, b, per)] for day, a, b in bp[col]]})
     mean = lambda rows: f"{round(_avg([r[1] for r in rows]))}/{round(_avg([r[2] for r in rows]))}" if rows else "–"
     bpstat = f'Morning avg <b>{mean(bp["bm"])}</b> · evening avg <b>{mean(bp["be"])}</b>'
-    # dashed lines at the limits decided for the Sheet (27.10.2026): amber from 130/80, red from 140/90
+    # dashed lines at the limits decided for the Sheet (27.10.2026): grey from 130/80, amber from 140/90 (no red since 15.11.2026)
     pressure = _chart("c-bp", d, series, label="Blood pressure in mmHg", lines=[[140, "r", "140"], [130, "w", "130"], [90, "r", "90"], [80, "w", "80"]])
     # fasted sugar
     s = [(day, float(d["vals"][day]["s"]["v"][0])) for day in days if d["vals"].get(day, {}).get("s")]
@@ -247,12 +247,12 @@ def _charts(d: dict) -> str:
             + card("Weight", wstat, weight, '<i class="key a"></i>daily <i class="key line b"></i>7-day average')
             + card('Blood pressure <span class="small">mmHg</span>', bpstat, pressure,
                    '<i class="key a"></i>systolic <i class="key b"></i>diastolic · filled = morning, ring = evening · '
-                   '<i class="key ref"></i>amber from 130/80 <i class="key ref r"></i>red from 140/90')
+                   '<i class="key ref"></i>grey from 130/80 <i class="key ref r"></i>amber from 140/90')
             + card('Blood sugar <span class="small">fasted, mg/dL</span>', sstat, sugar,
-                   '<i class="key ref"></i>amber from 100 <i class="key ref r"></i>red from 126')
+                   '<i class="key ref"></i>grey from 100 <i class="key ref r"></i>amber from 126')
             + card("Sleep", slstat, sleep, '<i class="key a"></i>night <i class="key line b"></i>7-day average · '
                    'hours from bed to wake-up; point at or tap a bar for the times · '
-                   '<i class="key ref"></i>amber under 7 h <i class="key ref r"></i>red under 6 h')
+                   '<i class="key ref"></i>grey under 7 h <i class="key ref r"></i>amber under 6 h')
             + card('Mood and energy <span class="small">1 to 5</span>', fstat, mood,
                    '<i class="key a"></i>mood <i class="key b"></i>energy · from the evening check-in on Today')
             + _times(d) + "</div>")

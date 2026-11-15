@@ -39,7 +39,8 @@ BACK_ANY = re.compile(r"/web(/(questions|food(/catalogue|/usual|/trends)?|ideas(
                       r"(\?[A-Za-z0-9=&._%+-]*)?")
 _STATIC_DIR = pathlib.Path(__file__).resolve().parent / "static"
 _STATIC = {"app.css": "text/css; charset=utf-8", "app.js": "text/javascript; charset=utf-8", "theme.js": "text/javascript; charset=utf-8",
-           "inter.woff2": "font/woff2", "zxing.min.js": "text/javascript; charset=utf-8",  # zxing: the barcode reader, loaded only when scanning
+           "geist-latin-wght-normal.woff2": "font/woff2", "geist-latin-ext-wght-normal.woff2": "font/woff2",
+           "zxing.min.js": "text/javascript; charset=utf-8",  # zxing: the barcode reader, loaded only when scanning
            "manifest.webmanifest": "application/manifest+json", "gratitude.webmanifest": "application/manifest+json", "icon.svg": "image/svg+xml", "icon-192.png": "image/png",
            "icon-512.png": "image/png", "apple-touch-icon.png": "image/png"}
 # Where sign-in may send the browser after it (?next=): a page of this app by its path only: /web/, then lowercase letters, digits,
@@ -103,7 +104,9 @@ def _pop_flash(session):
 def page(title: str, body: str, status: int = 200, cls: str = "", app: str = "Logger", manifest: str = "manifest.webmanifest") -> HTMLResponse:
     """app, manifest: the name and the manifest "Add to Home Screen" uses (the Gratitude page has its own, 14.11.2026)."""
     doc = ('<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">'
-           f'<meta name="theme-color" content="#2f6f4f"><link rel="manifest" href="/web/static/{manifest}">'
+           '<meta name="theme-color" content="#f1f1ee" media="(prefers-color-scheme: light)">'
+           '<meta name="theme-color" content="#0c0d0f" media="(prefers-color-scheme: dark)">'  # the page's own background (15.11.2026)
+           f'<link rel="manifest" href="/web/static/{manifest}">'
            '<link rel="icon" href="/web/static/icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/web/static/apple-touch-icon.png">'
            '<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">'
            f'<meta name="apple-mobile-web-app-title" content="{html.escape(app)}"><meta name="apple-mobile-web-app-status-bar-style" content="default">'
