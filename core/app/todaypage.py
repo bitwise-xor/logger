@@ -145,7 +145,7 @@ def load(asked: date | None = None) -> dict:
                     (day, day))
         water = cur.fetchone()
         cur.execute("""SELECT l.id, l.meal, l.time, l.food, l.amount, l.unit, l.portion_text, l.kcal, l.protein, l.fat, l.carbs,
-                              l.raw_id, e.usual_meal_id, u.name AS usual
+                              l.raw_id, e.usual_meal_id, u.name AS usual, e.food_id
                        FROM v_food_log l JOIN food_entries e ON e.id = l.id LEFT JOIN usual_meals u ON u.id = e.usual_meal_id
                        WHERE l.day = %s ORDER BY l.meal, l.time NULLS LAST, l.id""", (day,))
         foods = cur.fetchall()
@@ -177,6 +177,9 @@ def load(asked: date | None = None) -> dict:
         logday = cur.fetchone()["d"]
         beds, wakes = healthpage.beds_near(cur, day, day)
         b = healthpage.pick_bed(beds, wakes, healthpage.bed_anchor(day, logday, w["event_at"] if w else None))
+        # the same times as plain values for the JSON door (reads.py, 16.11.2026); the page itself uses the strings above
+        raw = {"wake_at": w["event_at"] if w else None, "bed_at": b[1] if b else None, "slept_from": None, "awake_until": None,
+               "naps": [], "next_sleep": False}
         if b:
             health["bed"] = {"id": f"e{b[0]}", "v": [_hm(b[1])], "at": ""}
         cur.execute("""SELECT DISTINCT ON (t.name) t.name, m.value1 FROM measurements m JOIN log_types t ON t.id = m.type_id
@@ -188,17 +191,21 @@ def load(asked: date | None = None) -> dict:
             s = cur.fetchone()
             if s:
                 health["wake"]["slept"] = "slept " + _hours(w["event_at"] - s["bed_at"])
+                raw["slept_from"] = s["bed_at"]
         if w and day == today:  # how long the day has run (05.11.2026, cycle.py): a day can be much shorter or longer than 24 hours
             cur.execute("""SELECT 1 FROM events e JOIN log_types t ON t.id = e.type_id WHERE t.name = 'bed' AND e.event_at > %s
                              AND NOT EXISTS (SELECT 1 FROM events x JOIN log_types tx ON tx.id = x.type_id AND tx.name = 'nap'
                                              WHERE x.event_at > e.event_at)""", (w["event_at"],))
             if not cur.fetchone() and clock() > w["event_at"]:
-                health["wake"]["awake"] = "awake " + _hours(clock() - w["event_at"])
+                raw["awake_until"] = clock()
+                health["wake"]["awake"] = "awake " + _hours(raw["awake_until"] - w["event_at"])
         naps = cycle.naps(cur, day)  # naps and night wakings that started no day
+        raw["naps"] = [{"bed_at": n["bed_at"], "wake_at": n["wake_at"]} for n in naps]
         if naps and "wake" in health:
             health["wake"]["naps"] = ", ".join("nap " + _hours(n["wake_at"] - n["bed_at"]) for n in naps)
         if w and day == today and clock() - w["event_at"] > timedelta(hours=cycle.NEW_DAY_H):
             _next_sleep(cur, health, w["event_at"])
+            raw["next_sleep"] = True
         watch_up = cycle.watch_wake(cur, clock()) if day == today else None
         cur.execute("""SELECT * FROM (
                          SELECT 't' || t.id AS ref, 'thought' AS kind, t.summary AS what, (t.logged_at AT TIME ZONE 'Europe/Berlin')::date AS day,
@@ -218,7 +225,7 @@ def load(asked: date | None = None) -> dict:
         due = body.due(cur, today, bool(w)) if day == today else None  # body measurements every 4 weeks, after the wake-up
     return {"day": day, "food": food, "foods": foods, "usual": usual, "habits": habits, "last_tick": last_tick, "health": health,
             "review": review, "prefs": prefs, "today": today, "past": day < today, "again": again, "checkin": checkin, "body_due": due,
-            "ci_day": ci_day, "ci_got": ci_got, "avoid": avoid, "watch_up": watch_up, "water": water}
+            "ci_day": ci_day, "ci_got": ci_got, "avoid": avoid, "watch_up": watch_up, "water": water, "raw": raw}
 
 
 def _checkin_day(cur, day: date, today: date, w, got: dict):

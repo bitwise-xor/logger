@@ -29,3 +29,7 @@ PILOT_TOOLS = os.environ.get("PILOT_TOOLS", "0") == "1"
 # The hub (the home dashboard) calls the MCP endpoint from the server with this token instead of the owner's sign-in
 # (auth.hub_access, 13.11.2026). The owner types it into .env; unset or shorter than 32 characters, no such token is accepted.
 HUB_TOKEN = os.environ.get("HUB_TOKEN", "").strip()
+
+# The new front end's service token for the JSON door /api/v1 (api.py, 16.11.2026): its server sends it with every call from
+# inside Docker. The owner types it into .env; unset or shorter than 32 characters, the whole door answers 404.
+FRONT_TOKEN = os.environ.get("FRONT_TOKEN", "").strip()

@@ -7,7 +7,7 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 from urllib.parse import quote
 
-from . import held, home, rules, todaypage, uiprefs, webactions, webentry, webfood, webquestions
+from . import home, reads, rules, todaypage, webactions, webentry, webfood, webquestions
 from .config import APP_HOST
 from .db import connect
 
@@ -19,21 +19,12 @@ SHOWN = 5  # review items and chores listed; the counts are of all of them
 WATER_ML = (50, 2000)
 
 
-def _num(x):
-    """A plain JSON number from a database value (Decimal): whole numbers without ".0"."""
-    if x is None:
-        return None
-    v = float(x)
-    return int(v) if v == int(v) else v
+_num = reads.num  # a plain JSON number from a database value (Decimal): whole numbers without ".0"
 
 
 # ---- today_summary -----------------------------------------------------------------------------------
 
-def _habits(d: dict) -> list:
-    """The habits as Today lists them: without the hidden ones, in the chosen order (todaypage._habit_section)."""
-    prefs = d["prefs"]
-    return uiprefs.ordered([h for h in d["habits"] if uiprefs.shown("habit", h["type_name"], prefs)],
-                           lambda h: h["type_name"], prefs["order"].get("habit", []))
+_habits = reads.habits_shown  # the habits as Today lists them: without the hidden ones, in the chosen order
 
 
 def _usual_hours(cur, day: date, names: list) -> dict:
@@ -67,14 +58,9 @@ def _history(cur, day: date, habits: list, avoid: set) -> dict:
 
 
 def _food(d: dict, cur) -> dict:
-    total = next((r for r in d["food"] if r["meal"] is None), None)
-    if total:
-        targets = {k: total["target_" + k] for k, _l, _u in todaypage.MACROS}
-    else:  # nothing eaten yet: the day has no total row to bring the targets (v_food_day), so they are read here
-        cur.execute("SELECT kcal, protein, fat, carbs FROM food_targets WHERE valid_from <= %s ORDER BY valid_from DESC LIMIT 1", (d["day"],))
-        targets = cur.fetchone() or {}
-    return {**{k: _num(total[k]) if total else 0 for k, _l, _u in todaypage.MACROS},
-            "targets": {k: _num(targets.get(k)) for k, _l, _u in todaypage.MACROS}}
+    """The day's totals and targets, read as the JSON door reads them (reads.totals)."""
+    tot, targets = reads.totals(d, cur)
+    return {**tot, "targets": targets}
 
 
 def _health(d: dict) -> dict:
@@ -118,7 +104,9 @@ def _chores(cur) -> dict:
 
 
 def today_summary() -> dict:
-    d = todaypage.load()
+    """Since 16.11.2026 on the JSON door's day read (reads.snapshot: todaypage.load plus the questions and the messages not read
+    yet), so the hub and the new front end cannot drift apart; the keys are unchanged."""
+    d = reads.snapshot()
     day, avoid = d["day"], d["avoid"]
     habits = _habits(d)
     with connect() as conn, conn.cursor() as cur:
@@ -142,7 +130,7 @@ def today_summary() -> dict:
                    "items": [{"ref": r["ref"], "kind": r["kind"], "what": _what(r), "reason": r["reason"] or "", "link": TODAY}
                              for r in d["review"][:SHOWN]]},
         # count: the open questions (the number on the Today link); not_read: messages kept but not read yet, shown above them
-        "questions": {"count": webquestions.count(), "not_read": len(held.rows()), "link": TODAY},
+        "questions": {"count": webquestions.count(), "not_read": len(d["held"]), "link": TODAY},
         "chores": chores,
     }
 

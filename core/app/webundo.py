@@ -2,6 +2,7 @@
 stays until the device's next action (web.py done keeps it in web_sessions.undo). A save that logged a message (a tick,
 a value, a usual meal, an Again chip) is undone by the chat's own undo of that message; a delete or a correction of a
 food entry, a tick or a health value is undone by putting the rows back as they were just before it."""
+import hmac
 import secrets
 import time
 from typing import Optional
@@ -42,6 +43,21 @@ def record(resp: dict, rows: Optional[list] = None) -> Optional[dict]:
     """What the Undo bar offers after this reply (with the time it was made), or None (then the bar goes away)."""
     rec = _record(resp, rows)
     return rec and {**rec, "at": time.time()}
+
+
+def settle(resp: dict) -> tuple[bool, Optional[dict]]:
+    """After an action (web.py done, and the JSON door's saves in api.py): takes the rows before a change out of resp (kept for
+    Undo, never shown) -> (whether the device's Undo record is replaced, the new record or None). Every action replaces the
+    last one's Undo (or clears it), except a double tap's repeat or a refusal: they changed nothing, and wiping the Undo of
+    the change just made lost it (until 04.11.2026)."""
+    rows = resp.pop("undo_rows", None)
+    new = record(resp, rows)
+    return new is not None or not (resp.get("replayed") or resp.get("outcome") == "rejected"), new
+
+
+def matches(rec, token) -> bool:
+    """Whether an Undo record is still offered and this is its token (compared in constant time)."""
+    return fresh(rec) and hmac.compare_digest(str(token or ""), str(rec.get("token", "")))
 
 
 def _record(resp: dict, rows: Optional[list] = None) -> Optional[dict]:

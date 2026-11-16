@@ -161,7 +161,7 @@ def _today_tab(session, csrf: str) -> str:
 
 def _devices(session, csrf: str) -> str:
     with connect() as c:
-        rows = c.execute("""SELECT sid, token_hash, user_agent, created_at, last_seen, expires_at FROM web_sessions
+        rows = c.execute("""SELECT sid, token_hash, user_agent, created_at, last_seen, expires_at, front FROM web_sessions
                             WHERE expires_at > now() ORDER BY last_seen DESC""").fetchall()
     out = []
     for r in rows:
@@ -172,7 +172,8 @@ def _devices(session, csrf: str) -> str:
         btn = ('<span class="pill ok">this device</span>' if here else
                f'<form method="post" action="/web/settings/device">{hidden("csrf", csrf)}{hidden("back", url(tab="devices"))}{hidden("sid", str(r["sid"]))}'
                '<button class="ghost sm bad" type="submit">Sign out</button></form>')
-        out.append(f'<div class="dev"><div><b>{esc(device_name(r["user_agent"]))}</b>'
+        name = device_name(r["user_agent"]) + (" · new front end" if r["front"] else "")  # signed in through the JSON door (api.py)
+        out.append(f'<div class="dev"><div><b>{esc(name)}</b>'
                    f'<span class="small">signed in {made} · last used {seen} · stays signed in until {until}</span></div>{btn}</div>')
     others = sum(1 for r in rows if r["token_hash"] != session["token_hash"])
     allout = (f'<form class="row" method="post" action="/web/settings/others">{hidden("csrf", csrf)}{hidden("back", url(tab="devices"))}'

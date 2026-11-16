@@ -14,7 +14,7 @@ from starlette.responses import JSONResponse
 from . import logbook, service
 from mcp.server.auth.settings import AuthSettings, ClientRegistrationOptions
 
-from . import auth, hubtools, watch, web
+from . import api, auth, hubtools, watch, web
 from .config import EXTRA_ALLOWED_HOSTS, MCP_PATH, PILOT_TOOLS, PUBLIC_URL
 from .db import connect
 
@@ -254,6 +254,7 @@ async def ready(_: Request) -> JSONResponse:
 auth.add_login_routes(mcp, provider)
 web.add_routes(mcp)
 watch.add_routes(mcp)
+api.add_routes(mcp)  # the new front end's JSON door /api/v1 (16.11.2026), off until FRONT_TOKEN is set
 
 
 def build_app():

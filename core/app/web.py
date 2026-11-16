@@ -67,7 +67,8 @@ def current_session(request: Request):
     if not token:
         return None
     with connect() as c:
-        row = c.execute("SELECT * FROM web_sessions WHERE token_hash=%s AND expires_at > now()", (_h(token),)).fetchone()
+        # front IS NULL: a session of the new front end (migration 031, api.py) never works as this app's cookie
+        row = c.execute("SELECT * FROM web_sessions WHERE token_hash=%s AND expires_at > now() AND front IS NULL", (_h(token),)).fetchone()
         if row:
             c.execute("UPDATE web_sessions SET last_seen=now() WHERE token_hash=%s", (row["token_hash"],))
             row = {**row, "token": token}  # for _renew; never shown or stored
@@ -241,6 +242,39 @@ def _renew(session, resp) -> None:
     with connect() as c:
         c.execute("UPDATE web_sessions SET expires_at = now() + make_interval(days => %s) WHERE token_hash = %s", (SESSION_DAYS, session["token_hash"]))
     resp.set_cookie(COOKIE, token, max_age=SESSION_DAYS * 86400, path="/", secure=True, httponly=True, samesite="strict")
+
+
+def sign_in(password: str, code: str, device_token, user_agent: str, front=None) -> dict:
+    """The checks of a sign-in, shared by /web/login and the new front end's POST /api/v1/session (api.py, 16.11.2026): the
+    failure limit (a device that signed in before counts its own failures; every other attempt shares one pool, so a
+    stranger's tries can lock out strangers but never the owner's own phone or PC), password and authenticator code (each
+    code once), then a new session row (front: None for this app, "logger" for the new front end).
+    -> {"ok": True, "token", "device_token", "expires_at"} or {"ok": False, "status": 429 or 401, "message"}."""
+    with connect() as c:
+        c.execute("DELETE FROM web_sessions WHERE expires_at < now()")
+        c.execute("DELETE FROM login_failures WHERE at < now() - interval '1 day'")
+        known = bool(device_token) and c.execute("SELECT 1 FROM trusted_devices WHERE device_hash = %s", (_h(device_token),)).fetchone()
+        pool = _h(device_token) if known else None
+        fails = c.execute("""SELECT count(*) AS n FROM login_failures WHERE device_hash IS NOT DISTINCT FROM %s
+                             AND at > now() - make_interval(mins => %s)""", (pool, auth.FAILURE_WINDOW_MIN)).fetchone()["n"]
+        if fails >= auth.MAX_FAILURES:
+            return {"ok": False, "status": 429, "message": f"Too many failed attempts. Try again in {auth.FAILURE_WINDOW_MIN} minutes."}
+        owner = c.execute("SELECT * FROM owner_credentials WHERE id=1").fetchone()
+        ok_pw = auth.check_password(password, owner["password_hash"] if owner else "x$0$0$0$00$00")
+        step = auth.check_totp(owner["totp_secret"], code, owner["last_totp_step"]) if owner else None
+        if not (owner and ok_pw and step):
+            c.execute("INSERT INTO login_failures (device_hash) VALUES (%s)", (pool,))
+            return {"ok": False, "status": 401, "message": "Wrong password or code."}
+        c.execute("UPDATE owner_credentials SET last_totp_step=%s WHERE id=1", (step,))
+        c.execute("DELETE FROM login_failures WHERE device_hash IS NOT DISTINCT FROM %s", (pool,))
+        device_token = device_token if known else secrets.token_urlsafe(32)
+        c.execute("""INSERT INTO trusted_devices (device_hash) VALUES (%s)
+                     ON CONFLICT (device_hash) DO UPDATE SET last_seen = now()""", (_h(device_token),))
+        token, csrf = secrets.token_urlsafe(32), secrets.token_urlsafe(24)
+        expires = datetime.now(timezone.utc) + timedelta(days=SESSION_DAYS)
+        c.execute("INSERT INTO web_sessions (token_hash, csrf, expires_at, user_agent, device_hash, front) VALUES (%s,%s,%s,%s,%s,%s)",
+                  (_h(token), csrf, expires, str(user_agent or "")[:300], _h(device_token), front))
+    return {"ok": True, "token": token, "device_token": device_token, "expires_at": expires}
 
 
 def home(session, asked=None) -> HTMLResponse:
@@ -440,36 +474,12 @@ def add_routes(mcp) -> None:
         form = await request.form()
         password, code = str(form.get("password", "")), str(form.get("code", ""))
         nxt = safe_next(form.get("next"))
-        device_token = request.cookies.get(DEVICE_COOKIE)
-        with connect() as c:
-            c.execute("DELETE FROM web_sessions WHERE expires_at < now()")
-            c.execute("DELETE FROM login_failures WHERE at < now() - interval '1 day'")
-            # A device that signed in before counts its own failures; every other attempt shares one pool, so a stranger's
-            # tries can lock out strangers but never the owner's own phone or PC.
-            known = bool(device_token) and c.execute("SELECT 1 FROM trusted_devices WHERE device_hash = %s", (_h(device_token),)).fetchone()
-            pool = _h(device_token) if known else None
-            fails = c.execute("""SELECT count(*) AS n FROM login_failures WHERE device_hash IS NOT DISTINCT FROM %s
-                                 AND at > now() - make_interval(mins => %s)""", (pool, auth.FAILURE_WINDOW_MIN)).fetchone()["n"]
-            if fails >= auth.MAX_FAILURES:
-                return _login_page(f"Too many failed attempts. Try again in {auth.FAILURE_WINDOW_MIN} minutes.", 429, nxt)
-            owner = c.execute("SELECT * FROM owner_credentials WHERE id=1").fetchone()
-            ok_pw = auth.check_password(password, owner["password_hash"] if owner else "x$0$0$0$00$00")
-            step = auth.check_totp(owner["totp_secret"], code, owner["last_totp_step"]) if owner else None
-            if not (owner and ok_pw and step):
-                c.execute("INSERT INTO login_failures (device_hash) VALUES (%s)", (pool,))
-                return _login_page("Wrong password or code.", 401, nxt)
-            c.execute("UPDATE owner_credentials SET last_totp_step=%s WHERE id=1", (step,))
-            c.execute("DELETE FROM login_failures WHERE device_hash IS NOT DISTINCT FROM %s", (pool,))
-            device_token = device_token if known else secrets.token_urlsafe(32)
-            c.execute("""INSERT INTO trusted_devices (device_hash) VALUES (%s)
-                         ON CONFLICT (device_hash) DO UPDATE SET last_seen = now()""", (_h(device_token),))
-            token, csrf = secrets.token_urlsafe(32), secrets.token_urlsafe(24)
-            c.execute("INSERT INTO web_sessions (token_hash, csrf, expires_at, user_agent, device_hash) VALUES (%s,%s,%s,%s,%s)",
-                      (_h(token), csrf, datetime.now(timezone.utc) + timedelta(days=SESSION_DAYS),
-                       request.headers.get("user-agent", "")[:300], _h(device_token)))
+        out = sign_in(password, code, request.cookies.get(DEVICE_COOKIE), request.headers.get("user-agent", ""))
+        if not out["ok"]:
+            return _login_page(out["message"], out["status"], nxt)
         resp = RedirectResponse(nxt or "/web/", status_code=303, headers={"Cache-Control": "no-store"})
-        resp.set_cookie(COOKIE, token, max_age=SESSION_DAYS * 86400, path="/", secure=True, httponly=True, samesite="strict")
-        resp.set_cookie(DEVICE_COOKIE, device_token, max_age=DEVICE_DAYS * 86400, path="/", secure=True, httponly=True, samesite="strict")
+        resp.set_cookie(COOKIE, out["token"], max_age=SESSION_DAYS * 86400, path="/", secure=True, httponly=True, samesite="strict")
+        resp.set_cookie(DEVICE_COOKIE, out["device_token"], max_age=DEVICE_DAYS * 86400, path="/", secure=True, httponly=True, samesite="strict")
         return resp
 
     async def post_form(request: Request):
@@ -490,12 +500,9 @@ def add_routes(mcp) -> None:
         return session, form
 
     def done(session, resp: dict, back: str = "/web/") -> Response:
-        rows = resp.pop("undo_rows", None)  # the rows before a change: kept for Undo, not shown
+        replace, new = webundo.settle(resp)  # takes the rows before a change out of resp (kept for Undo, not shown)
         _set_flash(session, resp)
-        new = webundo.record(resp, rows)
-        # every action replaces the last one's Undo (or clears it), except a double tap's repeat or a refusal: they changed
-        # nothing, and wiping the Undo of the change just made lost it (until 04.11.2026)
-        if new is not None or not (resp.get("replayed") or resp.get("outcome") == "rejected"):
+        if replace:
             _set_undo(session, new)
         return RedirectResponse(back, status_code=303, headers={"Cache-Control": "no-store"})
 
@@ -536,7 +543,7 @@ def add_routes(mcp) -> None:
         if form is None:
             return session
         rec = session.get("undo") or {}
-        if not webundo.fresh(rec) or not hmac.compare_digest(str(form.get("token", "")), str(rec.get("token", ""))):
+        if not webundo.matches(rec, form.get("token")):
             return done(session, {"outcome": "rejected", "head": "Nothing undone.", "reason": "There is nothing to undo any more."}, back_any(form))
         return done(session, await _run(lambda: webundo.apply(rec)), back_any(form))
 
