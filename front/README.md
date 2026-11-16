@@ -5,7 +5,7 @@ A trial of Logger in the hub's look (SvelteKit, Svelte 5, Tailwind 4, shadcn-sve
 doc's Current tab, "Plan: the SvelteKit front end (16.11.2026)", in six steps (deploys 78 to 83). Step A (deploy 78): this
 skeleton, the sign-in and an empty Today. Step B (deploy 79): Today read-only from `GET /api/v1/day`, all its cards. Step C
 (deploy 80): the taps save in place (water, Again and usual chips, habits, check-in, review, Health card, question buttons,
-Try again / Delete for a message not read yet, Undo).
+Try again / Delete for a message not read yet, Undo). Step D (deploy 81): the logging box.
 
 ## How it fits
 
@@ -28,6 +28,15 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   is kept (sessionStorage, 10 minutes) and sent again with its key after the sign-in. `src/lib/today.svelte.ts` puts the
   answer's fresh day on screen (a new row gets a blue edge) and its head, tone, read-back (Yes = the same tap with
   `confirmed`) and Undo in the answer bar (`components/today/AnswerBar.svelte`; after a reload from GET /day's `undo`).
+- The logging box (step D): `src/lib/components/today/LogBox.svelte`, above the tab bar on phones and at the top on the PC,
+  text only (Enter sends, Shift+Enter is a new line; "Barcode and label: full app" links to app.). A line goes to the form
+  action `log` (the door's `/log`, keyed, 60 s); `Today.log` shows a blue "being read" row meanwhile (a private or gratitude
+  line as "Private line", never its words), then the answer as for a tap: the receipt with Undo, a held line or a question
+  under Needs you, a look-up's `result`, "Saved privately." and nothing else. A typed line's read-back is a question under
+  Needs you (the door's `/log` takes no `confirmed`). "Correct it" on a question and an answer's `refill` put the words back
+  into the box. A line's answer is never dropped for a tap made while it was read (`SLOW` in `saver.ts`). Signed out
+  mid-save, the line and its key are sent again after the sign-in; one kept over 10 minutes comes back into the box instead,
+  and so do words that got no answer (sent again, they keep their key: `src/lib/logbox.ts`).
 - `src/lib/tokens/`: the hub's tokens, copied (`SOURCE.md` says from where and when).
 - `src/env.ts`: the settings (`DOOR_URL`, `FRONT_TOKEN`, `APP_URL`); `ORIGIN` and the memory cap are in `compose.yaml`.
 
@@ -45,7 +54,9 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
      checks reset before each run and sign out once, to see a tap sent again after the sign-in).
 - The stand-in's `GET /day` starts as `tests/samples/day.json`, a real answer of the door for an invented day; its saves answer
   in the shape of `tests/samples/save.json` (a real "saved" and "needs_confirmation" answer, without their day) and change the
-  day a little, as the core would. `tests/test_front_samples.py` checks on every Python run that both samples still have the
+  day a little, as the core would; `/log` answers from `tests/samples/log.json` (real answers of a typed line: saved, a
+  question, a change read back, a look-up, private, held), after a moment's "reading" (`door.mjs` says which words do what;
+  POST `/standin/ai-down` and `/standin/ai-up` make it hold lines). `tests/test_front_samples.py` checks on every Python run that the samples still have the
   door's shape; after a change of the door, write it again with
   `WRITE_FRONT_SAMPLES=1 .venv/bin/python -m pytest -q tests/test_front_samples.py` and commit the diff.
 - Deploy: `tools/deploy-front.sh <N>` (the core: `tools/deploy.sh`). Rollback of deploy N:

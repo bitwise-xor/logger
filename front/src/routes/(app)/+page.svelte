@@ -8,7 +8,7 @@
   import HealthCard from '#lib/components/today/HealthCard.svelte';
   import NeedsCard from '#lib/components/today/NeedsCard.svelte';
   import { Button } from '#lib/components/ui/button/index.js';
-  import AnswerBar from '#lib/components/today/AnswerBar.svelte';
+  import LogBox from '#lib/components/today/LogBox.svelte';
   import { headerLine } from '#lib/day.js';
   import { dayLine } from '#lib/format.js';
   import { setToday, Today } from '#lib/today.svelte.js';
@@ -18,6 +18,7 @@
   let { data }: PageProps = $props();
 
   // Step C: the taps save in place; a save's answer brings the fresh day, which replaces the loaded one (src/lib/today.svelte.ts).
+  // Step D: the logging box (LogBox.svelte), above the tab bar on phones, at the top on the PC; the answer bar is drawn in it.
   // The first load is drawn on the server too; later loads (after a sign-in) come through the effect.
   const today = setToday(untrack(() => new Today(data.day, data.undo)));
   $effect.pre(() => today.load(data.day, data.undo));
@@ -41,6 +42,8 @@
   </form>
 </header>
 
+<LogBox appUrl={data.appUrl} />
+
 {#if !day}
   <p role="alert" class="m-0 rounded-card border border-line bg-panel p-3.5">
     {data.problem} The <a href="{data.appUrl}/web/">full app</a> may still work.
@@ -62,6 +65,3 @@
     </div>
   </main>
 {/if}
-<!-- Room for the answer bar, so it never covers the last card. -->
-{#if today.bar}<div class="h-16 shrink-0" aria-hidden="true"></div>{/if}
-<AnswerBar />

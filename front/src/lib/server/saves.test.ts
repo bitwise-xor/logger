@@ -87,6 +87,18 @@ describe('the save bodies', () => {
     expect(bodyFor('undo', form({ token: 'tok' }), undefined)).toEqual({ token: 'tok', view: 'day' });
   });
 
+  it('sends a typed line with its key, every line of it, and waits up to 60 s for the AI (step D)', () => {
+    expect(bodyFor('log', form({ text: '  150 g skyr\nweight 82.4  ', key: KEY }), '2026-01-31')).toEqual({
+      text: '150 g skyr\nweight 82.4',
+      key: KEY,
+      view: 'day',
+      view_day: '2026-01-31',
+    });
+    expect((bodyFor('log', form({ text: 'x'.repeat(5000), key: KEY }), undefined).text as string).length).toBe(4000);
+    expect(bodyFor('log', form({ text: '   ', key: KEY }), undefined)).toEqual({ key: KEY, view: 'day' }); // the door says it is empty
+    expect(SAVES.log).toMatchObject({ path: '/log', keyed: true, timeoutMs: 60_000 });
+  });
+
   it('leaves out empty fields and asks for the day shown', () => {
     expect(bodyFor('health', form({ row: 'wake', ref: '', time: '06:10', v1: '', key: KEY }), '2026-01-31')).toEqual({
       row: 'wake',

@@ -73,8 +73,8 @@
             >
           {/each}
           {#if q.refill}
-            <!-- Puts the words back in the logging box, which comes in step D (deploy 81). -->
-            <button type="button" class="{btn} {STYLE.plain}" disabled title="With the logging box, in the next step">{q.refill.label}</button>
+            <!-- "Correct it" / "Log again": the words go back into the logging box, to change and send again. -->
+            <button type="button" class="{btn} {STYLE.plain}" onclick={() => today.refill(q.refill!.text)}>{q.refill.label}</button>
           {/if}
         </form>
       </div>

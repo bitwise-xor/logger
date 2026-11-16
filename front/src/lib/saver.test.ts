@@ -142,4 +142,63 @@ describe('the saver', () => {
     expect(store.m.has(RESEND_ITEM)).toBe(false);
     expect(n.calls).toHaveLength(2);
   });
+
+  // Step D: the logging box's typed line
+  it('never drops a typed line\'s answer for a tap made while the AI read it (its day is read after that tap\'s)', async () => {
+    const n = fakeNet();
+    const s = new Saver({ ...n, storage: null, newKey: () => 'line-key-0000001' });
+    const line = s.send('log', { text: '40 g radishes' });
+    const glass = s.send('water', {});
+    await tick();
+    expect(n.calls[0]!.fields).toEqual({ text: ['40 g radishes'], key: ['line-key-0000001'] });
+    n.calls[1]!.answer(ok('Water saved.'));
+    n.calls[0]!.answer(ok('Saved.')); // the line came back last, after the newer tap
+    expect(await glass).toMatchObject({ kind: 'answer' });
+    expect(await line).toEqual({ kind: 'answer', answer: { head: 'Saved.' } });
+    // and a quick tap that started before the line and comes back after it is still dropped
+    const older = s.send('water', {});
+    const later = s.send('log', { text: 'skyr' });
+    await tick();
+    n.calls[3]!.answer(ok('Saved.'));
+    n.calls[2]!.answer(ok('Water saved.'));
+    expect(await later).toMatchObject({ kind: 'answer' });
+    expect(await older).toEqual({ kind: 'stale' });
+  });
+
+  it('keeps a typed line that met a gone session, and sends its words again after the sign-in with the same key', async () => {
+    const n = fakeNet();
+    const store = memory();
+    let t = 5_000_000;
+    const s = new Saver({ ...n, storage: store, newKey: () => 'never-used-key-01', now: () => t });
+    const p = s.send('log', { text: '150 g skyr\nweight 82.4', key: 'the-line-key-0001' });
+    await tick();
+    n.calls[0]!.answer({ type: 'failure', status: 401, data: { signedOut: true, message: 'Sign in again.' } });
+    expect(await p).toEqual({ kind: 'signed_out' });
+
+    t += 9 * 60_000;
+    const after = new Saver({ ...n, storage: store, newKey: () => 'another-key-00001', now: () => t });
+    const kept = after.takeKept();
+    expect(kept).toMatchObject({ action: 'log', fresh: true, fields: { text: '150 g skyr\nweight 82.4', key: 'the-line-key-0001' } });
+    expect(store.m.has(RESEND_ITEM)).toBe(false); // taken out: sent once at most
+    const again = after.send('log', kept!.fields);
+    await tick();
+    expect(n.calls[1]!.fields).toEqual({ text: ['150 g skyr\nweight 82.4'], key: ['the-line-key-0001'] });
+    n.calls[1]!.answer(ok('Saved.'));
+    expect(await again).toMatchObject({ kind: 'answer' });
+  });
+
+  it('gives back the words of a line kept too long, so the box can show them again, but does not send them', async () => {
+    const n = fakeNet();
+    const store = memory();
+    let t = 0;
+    const s = new Saver({ ...n, storage: store, now: () => t });
+    const p = s.send('log', { text: 'oats with milk' });
+    await tick();
+    n.calls[0]!.answer({ type: 'failure', status: 401, data: { signedOut: true } });
+    await p;
+    t += RESEND_MS + 1;
+    expect(s.takeKept()).toMatchObject({ action: 'log', fresh: false, fields: { text: 'oats with milk' } });
+    expect(s.takeKept()).toBeNull();
+    expect(n.calls).toHaveLength(1);
+  });
 });

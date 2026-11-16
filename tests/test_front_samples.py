@@ -1,4 +1,4 @@
-"""Sample answers of the JSON door for the new front end's page tests (front/tests/samples/, 16.11.2026, front end steps B and C).
+"""Sample answers of the JSON door for the new front end's page tests (front/tests/samples/, 16.11.2026, front end steps B to D).
 
 The front end's stand-in door (front/tests/standin/door.mjs) answers with these files, so the page tests and the screenshots run
 on the real door's shapes. This test builds a full invented day (meals, drinks, questions, a message not read yet, items to review,
@@ -20,7 +20,7 @@ from app import todaypage
 from app.rules import BERLIN
 from conftest import owner_sql
 from test_api_door import door, door_on, signed_in  # noqa: F401 - door_on is autouse
-from test_log import fake  # noqa: F401 - the AI is a fake (a save must never reach it)
+from test_log import fake, skyr  # noqa: F401 - the AI is a fake (a save must never reach it); skyr: the food of its lines
 from test_api_reads import api, pending  # noqa: F401 - api is a fixture
 from test_webfood import eat_on
 from test_webtoday import day, food, no_targets, raw  # noqa: F401 - no_targets: clean targets and usual meals
@@ -151,3 +151,50 @@ def test_the_save_sample_has_the_doors_shape(four_pm, fake):
     assert sample.keys() == answers.keys()
     gone = [x for k in answers for x in differences(sample[k], answers[k], f"save.{k}")]
     assert not gone, "front/tests/samples/save.json no longer has the door's shape; run this test with WRITE_FRONT_SAMPLES=1:\n" + "\n".join(gone)
+
+
+def test_the_log_sample_has_the_doors_shape(fake, skyr):
+    """Real answers of POST /log (step D, the logging box), without their day: a food line saved, a line that asks (the same words
+    twice: "Log it again?", with Correct it), a change read back first (its question under Needs you), a look-up, a line kept
+    because the AI did not answer, and a private line ("Saved privately.", nothing else). The AI is test_log's fake; every line is
+    invented, and no private words are in an answer (the door never sends them)."""
+    from app import logbook
+    from test_api_saves import SKYR_LINE
+
+    c, bearer, _ = signed_in()
+    keys = iter(f"sample-log-key-{i:04}" for i in range(1, 99))
+    post = lambda line: c.post("/api/v1/log", headers=bearer, json={"text": line, "key": next(keys), "view": "day"}).json()  # noqa: E731
+    answers = {"saved": post(SKYR_LINE)}
+    food("Radishes", 16, 0.7, 0.1, 3.4)
+    post("40 g radishes")
+    answers["question"] = post("40 g radishes")
+    answers["confirm"] = post("the skyr was 120 g")
+    answers["answered"] = post("what did I eat today")
+    answers["private"] = post("g: an invented sample line")
+
+    class Down:
+        def json(self, *a, **k):
+            from app.api import ProviderError
+            raise ProviderError("down")
+
+    logbook.PROVIDER = Down()
+    answers["held"] = post("200 g invented soup")
+    logbook.PROVIDER = fake
+    want = {"saved": "saved", "question": "needs_confirmation", "confirm": "needs_confirmation", "answered": "answered",
+            "private": "saved", "held": "held"}
+    for name, a in answers.items():
+        assert a["outcome"] == want[name] and a.pop("day")["day"] == day().isoformat(), (name, a)
+    assert answers["question"]["questions"][0]["refill"]["label"] == "Correct it"
+    assert answers["confirm"]["questions"] and answers["confirm"]["read_back"] and answers["confirm"]["confirm"] is None
+    assert answers["answered"]["result"] and answers["saved"]["undo"] and answers["held"]["reason"]
+    p = answers["private"]
+    assert p["head"] == "Saved privately." and not (p["receipt"] or p["notes"] or p["result"] or p["read_back"] or p["reason"])
+    assert "invented sample line" not in json.dumps(answers)
+    path = SAMPLES / "log.json"
+    if os.environ.get("WRITE_FRONT_SAMPLES") == "1":
+        path.write_text(json.dumps(answers, indent=1, ensure_ascii=False) + "\n")
+        return
+    sample = json.loads(path.read_text())
+    assert sample.keys() == answers.keys()
+    gone = [x for k in answers for x in differences(sample[k], answers[k], f"log.{k}")]
+    assert not gone, "front/tests/samples/log.json no longer has the door's shape; run this test with WRITE_FRONT_SAMPLES=1:\n" + "\n".join(gone)

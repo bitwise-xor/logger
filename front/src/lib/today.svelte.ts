@@ -2,12 +2,16 @@
  * Today's state in the browser (step C, deploy 80): the day on screen, which taps are on their way, the rows a save added (blue
  * edge), and the answer bar at the bottom (the save's head and tone, its read-back to confirm, and Undo for 15 minutes).
  * The cards reach it through getToday(); each tap is a form posted to a form action by the Saver (src/lib/saver.ts).
+ * Step D (deploy 81): the logging box's words (`box`), the typed lines being read (`reading`, a blue row each), and "Correct it"
+ * or an answer's words put back into the box (src/lib/logbox.ts has the plain rules).
  */
 import { goto } from '$app/navigation';
 import { deserialize } from '$app/forms';
 import { getContext, setContext } from 'svelte';
 import { freshRefs, type Day, type SaveAnswer, type Undo } from './day.js';
-import { Saver, type FieldValues, type Sent } from './saver.js';
+import { hm } from './format.js';
+import { LineKeys, readingText, wordsBack } from './logbox.js';
+import { makeKey, Saver, type FieldValues, type Sent } from './saver.js';
 
 export interface Bar {
   id: number;
@@ -21,6 +25,13 @@ export interface Bar {
   confirm: null | { readBack: string; label: string; noLabel: string; action: string; fields: FieldValues };
 }
 
+/** A typed line on its way: the blue "being read" row. */
+export interface Reading {
+  id: number;
+  at: string;
+  text: string;
+}
+
 /** How long a plain "saved" line stays (an Undo, a warning or a question stays until closed or over). */
 const QUIET_MS = 6000;
 
@@ -29,8 +40,14 @@ export class Today {
   fresh = $state.raw<Set<string>>(new Set());
   bar = $state<Bar | null>(null);
   busy = $state<Record<string, boolean>>({});
+  /** The logging box's words, and the lines being read. */
+  box = $state('');
+  reading = $state<Reading[]>([]);
 
   #saver: Saver;
+  #keys = new LineKeys();
+  #lines = 0;
+  #boxEl: HTMLTextAreaElement | null = null;
   #undoToken: string | null = null;
   #bars = 0;
   #timer: ReturnType<typeof setTimeout> | undefined;
@@ -57,10 +74,71 @@ export class Today {
     if (undo && Date.parse(undo.expires_at) > Date.now()) this.#show({ tone: 'ok', head: undo.head, lines: [], undo, confirm: null });
   }
 
-  /** After the sign-in: a tap that met a gone session is sent again, with its key (src/lib/saver.ts). */
+  /**
+   * After the sign-in: a tap that met a gone session is sent again, with its key (src/lib/saver.ts). A typed line goes the
+   * box's way (its blue row); one that cannot be sent any more (over 10 minutes) puts its words back into the box.
+   */
   async resend() {
-    const sent = await this.#saver.resend<SaveAnswer>();
-    if (sent) this.#handle(sent, '', {});
+    const kept = this.#saver.takeKept();
+    if (!kept) return;
+    const text = typeof kept.fields.text === 'string' ? kept.fields.text : '';
+    const key = typeof kept.fields.key === 'string' ? kept.fields.key : undefined;
+    if (kept.action === 'log' && text) {
+      if (kept.fresh) return void (await this.log(text, key));
+      this.#putBack(text);
+      this.#show({ tone: 'warning', head: 'Not sent.', lines: ['You were signed out for a while. Your words are back in the box.'], undo: null, confirm: null });
+      return;
+    }
+    if (!kept.fresh) return;
+    this.#handle(await this.#saver.send<SaveAnswer>(kept.action, kept.fields), kept.action, kept.fields);
+  }
+
+  /** The box's textarea, so "Correct it" can put words in and the cursor after them. */
+  bindBox(el: HTMLTextAreaElement | null) {
+    this.#boxEl = el;
+  }
+
+  /** "Correct it" (a question) or "Log again": the words go into the box, to change and send again. */
+  refill(text: string) {
+    this.box = text;
+    const el = this.#boxEl;
+    if (!el) return;
+    queueMicrotask(() => {
+      el.focus();
+      el.setSelectionRange(el.value.length, el.value.length);
+    });
+  }
+
+  /**
+   * A typed line: a blue "being read" row while the door reads it (the AI, up to about 40 s), then the answer as for a tap
+   * (the fresh day, the bar with the receipt, Undo, a held line or a question under Needs you). Lines may overlap: each has its
+   * own row. key: a re-send's own key; the same words that got no answer before go with their key again (LineKeys).
+   */
+  async log(text: string, key?: string) {
+    const words = text.trim();
+    if (!words) return;
+    const k = key ?? this.#keys.keyFor(words) ?? makeKey();
+    const id = ++this.#lines;
+    this.reading = [...this.reading, { id, at: hm(new Date().toISOString()), text: readingText(words) }];
+    try {
+      const fields = { text: words, key: k };
+      const sent = await this.#saver.send<SaveAnswer>('log', fields);
+      if (sent.kind === 'problem') this.#keys.remember(words, k);
+      else if (sent.kind === 'answer') this.#keys.forget(words);
+      this.#handle(sent, 'log', fields);
+      if (wordsBack(sent, words) && this.#putBack(words) && this.bar) {
+        this.bar = { ...this.bar, lines: [...this.bar.lines, 'Your words are back in the box.'] };
+      }
+    } finally {
+      this.reading = this.reading.filter((r) => r.id !== id);
+    }
+  }
+
+  /** Words back into the box, only when it is empty (never over a line being typed). True when they went in. */
+  #putBack(words: string): boolean {
+    if (this.box.trim()) return false;
+    this.refill(words);
+    return true;
   }
 
   /** A form's submit: the tap goes to the form action, the page stays. `id` marks the tapped thing as busy. */
@@ -127,15 +205,29 @@ export class Today {
     // The Undo button only for the save that made this Undo: an older one would undo something else than the line says.
     const madeUndo = a.undo && a.undo.token !== this.#undoToken ? a.undo : null;
     this.#undoToken = a.undo?.token ?? null;
-    const lines = [a.reason, a.result, a.refill ? `Its words: “${a.refill.text}”` : null].filter((x): x is string => !!x);
+    // The door's /log takes no "confirmed": a typed line's read-back is a question under Needs you (its card has the read-back).
+    const confirm = a.confirm && action !== 'log' ? a.confirm : null;
+    const typed = action === 'log' || action === 'held_retry';
+    // An answer's words ("Log again" on a message that is not an entry) go back into the box; into an empty box only.
+    const refilled = !!a.refill && this.#putBack(a.refill.text);
+    const lines = [
+      // a typed line's receipt and notes, as app. shows them under its box
+      typed && a.receipt.length ? a.receipt.join('\n') : null,
+      ...(typed ? a.notes : []),
+      a.result,
+      !confirm && !a.questions.length ? a.read_back : null,
+      a.reason,
+      a.questions.length ? (a.questions.length === 1 ? 'The question is under Needs you.' : 'The questions are under Needs you.') : null,
+      a.refill ? (refilled ? 'Its words are back in the box.' : `Its words: “${a.refill.text}”`) : null,
+    ].filter((x): x is string => !!x);
+    // A private line: "Saved privately." and nothing else (the door sends nothing else either).
+    const quiet = a.head === 'Saved privately.';
     this.#show({
       tone: a.tone,
       head: a.head,
-      lines,
-      undo: madeUndo,
-      confirm: a.confirm
-        ? { readBack: a.read_back ?? '', label: a.confirm.label, noLabel: a.confirm.no_label, action, fields }
-        : null,
+      lines: quiet ? [] : lines,
+      undo: quiet ? null : madeUndo,
+      confirm: confirm ? { readBack: a.read_back ?? '', label: confirm.label, noLabel: confirm.no_label, action, fields } : null,
     });
     return a;
   }

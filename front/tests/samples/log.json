@@ -1,0 +1,164 @@
+{
+ "saved": {
+  "v": 1,
+  "outcome": "saved",
+  "tone": "ok",
+  "head": "Saved.",
+  "receipt": [
+   "+ m1 weight 82.4 kg | day 16.11. | 16.11.2026 12:22",
+   "+ f1 Skyr natural 150 g | 94 kcal, P 16.5 | 16.11. meal 1 12:22 [day by 05:00 rule]",
+   "= 1 item: 94 kcal, protein 16 g",
+   "Day 16.11. (1 item): kcal 94 | P 16.5 g | F 0.3 g | C 6.0 g | sat fat unknown in 1; total sugar unknown in 1; added sugar unknown in 1"
+  ],
+  "notes": [
+   "'skyr' -> N1 Skyr natural"
+  ],
+  "reason": null,
+  "questions": [],
+  "read_back": null,
+  "confirm": null,
+  "result": null,
+  "refill": null,
+  "replayed": false,
+  "undo": {
+   "token": "Oz8UPXE15dLz2qEa",
+   "head": "Saved: + m1 weight 82.4 kg | day 16.11. | 16.11.2026 12:22; + f1 Skyr natural 150 g | 94 kcal, P 16.5 | 16.11. meal 1 12:22 [day by 05:00 rule]; = 1 item: 94 kc",
+   "expires_at": "2026-11-16T11:37:07.863366+00:00"
+  }
+ },
+ "question": {
+  "v": 1,
+  "outcome": "needs_confirmation",
+  "tone": "warning",
+  "head": "Nothing saved yet: please confirm.",
+  "receipt": [],
+  "notes": [],
+  "reason": "This exact message was already logged at 12:22.",
+  "questions": [
+   {
+    "id": "pab015f31",
+    "tool": "log_repeat",
+    "kind": null,
+    "asked_at": "2026-11-16T12:22:08.005057+01:00",
+    "open_until": "2026-11-19T12:22:08.004259+01:00",
+    "message": "40 g radishes",
+    "text": "Log it again?",
+    "read_back": "same message already logged at 12:22",
+    "answers": [
+     {
+      "reply": "yes",
+      "label": "Yes",
+      "style": "primary"
+     },
+     {
+      "reply": "no",
+      "label": "No",
+      "style": "plain"
+     }
+    ],
+    "free": null,
+    "lookup": null,
+    "refill": {
+     "label": "Correct it",
+     "text": "40 g radishes"
+    }
+   }
+  ],
+  "read_back": null,
+  "confirm": null,
+  "result": null,
+  "refill": null,
+  "replayed": false,
+  "undo": null
+ },
+ "confirm": {
+  "v": 1,
+  "outcome": "needs_confirmation",
+  "tone": "warning",
+  "head": "Nothing saved yet: please confirm.",
+  "receipt": [],
+  "notes": [],
+  "reason": null,
+  "questions": [
+   {
+    "id": "p2582c585",
+    "tool": "command_confirm",
+    "kind": null,
+    "asked_at": "2026-11-16T12:22:08.089625+01:00",
+    "open_until": "2026-11-19T12:22:08.089625+01:00",
+    "message": "the skyr was 120 g",
+    "text": "Make this change?",
+    "read_back": "OK changed f1: amount, portion_text\nf1 12:22 Skyr natural 120 g | 76 kcal, P 13.2\nDay 16.11. (2 items): kcal 82 | P 13.5 g | F 0.3 g | C 6.2 g | sat fat unknown in 2; total sugar unknown in 2; added sugar unknown in 2",
+    "answers": [
+     {
+      "reply": "yes",
+      "label": "Yes",
+      "style": "primary"
+     },
+     {
+      "reply": "no",
+      "label": "No",
+      "style": "plain"
+     }
+    ],
+    "free": null,
+    "lookup": null,
+    "refill": null
+   }
+  ],
+  "read_back": "Preview, nothing changed yet:\nOK changed f1: amount, portion_text\nf1 12:22 Skyr natural 120 g | 76 kcal, P 13.2\nDay 16.11. (2 items): kcal 82 | P 13.5 g | F 0.3 g | C 6.2 g | sat fat unknown in 2; total sugar unknown in 2; added sugar unknown in 2",
+  "confirm": null,
+  "result": null,
+  "refill": null,
+  "replayed": false,
+  "undo": null
+ },
+ "answered": {
+  "v": 1,
+  "outcome": "answered",
+  "tone": "ok",
+  "head": "Found.",
+  "receipt": [],
+  "notes": [],
+  "reason": null,
+  "questions": [],
+  "read_back": null,
+  "confirm": null,
+  "result": "Food 16.11.2026 Mon:\nMeal 1:\n  f1 12:22 Skyr natural 150 g | 94 kcal, P 16.5\n  f2 12:22 Radishes 40 g | 6 kcal, P 0.3\n  meal 1: 101 kcal, P 17 g\nDay 16.11. (2 items): kcal 101 | P 16.8 g | F 0.3 g | C 7.4 g | sat fat unknown in 2; total sugar unknown in 2; added sugar unknown in 2",
+  "refill": null,
+  "replayed": false,
+  "undo": null
+ },
+ "private": {
+  "v": 1,
+  "outcome": "saved",
+  "tone": "ok",
+  "head": "Saved privately.",
+  "receipt": [],
+  "notes": [],
+  "reason": null,
+  "questions": [],
+  "read_back": null,
+  "confirm": null,
+  "result": null,
+  "refill": null,
+  "replayed": false,
+  "undo": null
+ },
+ "held": {
+  "v": 1,
+  "outcome": "held",
+  "tone": "warning",
+  "head": "Not read yet, but kept.",
+  "receipt": [],
+  "notes": [],
+  "reason": "The AI service did not answer. Your words are kept: the logger tries again by itself every 5 minutes for 2 hours, and Today has a Try again button.",
+  "questions": [],
+  "read_back": null,
+  "confirm": null,
+  "result": null,
+  "refill": null,
+  "replayed": false,
+  "undo": null
+ }
+}

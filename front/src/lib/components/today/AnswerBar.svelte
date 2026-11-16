@@ -7,11 +7,11 @@
 </script>
 
 <!-- A save's answer (the mockup's Undo bar): its head, drawn as a warning when the tone says so; a read-back to confirm; Undo for
-     15 minutes. Above the tab bar on phones, at the bottom right on the PC. -->
+     15 minutes. On phones just above the logging box (it is drawn inside LogBox.svelte), at the bottom right on the PC. -->
 <div
   role="status"
   aria-live="polite"
-  class="pointer-events-none fixed inset-x-3.5 bottom-[calc(60px+env(safe-area-inset-bottom))] z-20 flex justify-center desktop:inset-x-auto desktop:right-6 desktop:bottom-6 desktop:w-[440px]"
+  class="pointer-events-none flex justify-center empty:hidden desktop:fixed desktop:right-6 desktop:bottom-6 desktop:z-20 desktop:w-[440px]"
 >
   {#if bar}
     {#key bar.id}

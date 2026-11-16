@@ -4,8 +4,13 @@
 // shape of tests/samples/save.json (written by the same test) and change the day a little, as the core would (a glass of water,
 // a tick, a new row), so the page tests can see the page change without a reload; Undo puts the day back. It also checks what the
 // real door checks: the token, the call without proxy headers and the bearer.
+// Step D: POST /log answers as the core does (from tests/samples/log.json, real answers of the door): a line is read for a
+// moment ("being read"), then a food line ("40 g radishes") is saved with a new row and Undo, the same words again ask "Log it
+// again?" (with Correct it), "the … was/were …" is a change read back first (a question), "what …" or "…?" is a look-up, a
+// "g:"/"gratitude:"/"private:" line is "Saved privately." and nothing else, and while the AI is "down" every line is held.
 // Usage: node tests/standin/door.mjs [port]  (FRONT_TOKEN from the environment). POST /standin/reset starts the day again,
-// POST /standin/drop-sessions signs every session out (for the re-send after a sign-in).
+// POST /standin/drop-sessions signs every session out (for the re-send after a sign-in), POST /standin/ai-down and
+// /standin/ai-up make /log hold its lines or read them again.
 import { createServer } from 'node:http';
 import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
@@ -17,11 +22,13 @@ const PROXY = ['cf-ray', 'cf-connecting-ip', 'cf-visitor', 'x-forwarded-for', 'x
 const ends = () => new Date(Date.now() + 30 * 86400_000).toISOString();
 const read = (name) => JSON.parse(readFileSync(new URL(`../samples/${name}`, import.meta.url), 'utf8'));
 const SAVE = read('save.json');
+const LOG = read('log.json');
+const READ_MS = 1200; // the AI's moment: long enough to see the "being read" row
 
-let state; // { day, undo: {token, head, expires_at} | null, before: the day before the last save (for Undo), keys: Set }
+let state; // { day, undo: {token, head, expires_at} | null, before: the day before the last save (for Undo), keys: Map, lines: Map, aiDown }
 let ids = 9000;
 function reset() {
-  state = { day: read('day.json').day, undo: null, before: null, keys: new Map() };
+  state = { day: read('day.json').day, undo: null, before: null, keys: new Map(), lines: new Map(), aiDown: false };
 }
 reset();
 
@@ -49,6 +56,60 @@ function eat(d, food, food_id, amount, unit, nutrients, drink = false) {
 }
 
 const ZERO = { kcal: 0, protein: 0, fat: 0, carbs: 0 };
+const hm = (d = new Date()) => d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' });
+const ddmm = (iso) => `${iso.slice(8, 10)}.${iso.slice(5, 7)}.`;
+
+/** A question as the door sends it (a sample's), asked now about these words. */
+function ask(sample, words, readBack) {
+  const now = new Date();
+  return { ...structuredClone(sample), id: `p${randomBytes(4).toString('hex')}`, asked_at: now.toISOString(),
+    open_until: new Date(now.getTime() + 3 * 86400_000).toISOString(), message: words,
+    read_back: readBack ?? sample.read_back, refill: sample.refill ? { ...sample.refill, text: words } : null };
+}
+
+/** A typed line (POST /log), read as the core reads it, in the shape of tests/samples/log.json. */
+function logLine(b) {
+  const words = String(b.text ?? '').trim();
+  if (!words) return { answer: { ...LOG.held, outcome: 'rejected', head: 'Nothing saved.', reason: 'Nothing saved: the message is empty.' } };
+  const d = structuredClone(state.day);
+  const label = /^\s*(gratitude|private|g)\s*:\s*(.*)$/is.exec(words);
+  if (label) {
+    if (!label[2].trim()) return { answer: { ...LOG.held, outcome: 'rejected', head: 'Nothing saved.', reason: 'Nothing saved: the line has a label but no words.' } };
+    if (label[1].toLowerCase() !== 'private') d.gratitude.count += 1;
+    return { answer: { ...LOG.private }, day: d, undo: false };
+  }
+  if (state.aiDown) {
+    d.needs.not_read.push({ id: ++ids, received_at: new Date().toISOString(), text: words, tries: 1, needs_you: false, reading: false });
+    return { answer: { ...LOG.held }, day: d, undo: false };
+  }
+  if (/^what\b/i.test(words) || words.endsWith('?')) {
+    const food = d.rows.filter((r) => r.kind === 'food').map((r) => `  ${r.ref} ${hm(new Date(r.at))} ${r.food} ${r.amount} ${r.unit}`);
+    return { answer: { ...LOG.answered, result: [`Food ${ddmm(d.day)}:`, ...food].join('\n') } };
+  }
+  if (/^the .+ (was|were) .+/i.test(words)) {
+    const q = ask(LOG.confirm.questions[0], words, `OK changed: ${words.replace(/^the /i, '')}`);
+    d.needs.questions.unshift(q);
+    return { answer: { ...LOG.confirm, read_back: `Preview, nothing changed yet:\n${q.read_back}`, questions: [q] }, day: d, undo: false };
+  }
+  const said = state.lines.get(words.toLowerCase());
+  if (said) {
+    const q = ask(LOG.question.questions[0], words, `same message already logged at ${said}`);
+    d.needs.questions.unshift(q);
+    return { answer: { ...LOG.question, reason: `This exact message was already logged at ${said}.`, questions: [q] }, day: d, undo: false };
+  }
+  state.lines.set(words.toLowerCase(), hm());
+  const m = /^(\d+(?:[.,]\d+)?)\s*(g|ml)\s+(.+)$/i.exec(words);
+  const amount = m ? Number(m[1].replace(',', '.')) : 100;
+  const unit = m ? m[2].toLowerCase() : 'g';
+  const name = (m ? m[3] : words).replace(/^./, (c) => c.toUpperCase());
+  const k = amount / 100;
+  const nutrients = { kcal: Math.round(80 * k), protein: +(4 * k).toFixed(1), fat: +(2 * k).toFixed(1), carbs: +(10 * k).toFixed(1) };
+  eat(d, name, ++ids, amount, unit, nutrients, unit === 'ml');
+  const row = d.rows.at(-1);
+  const receipt = [`+ ${row.ref} ${name} ${amount} ${unit} | ${nutrients.kcal} kcal, P ${nutrients.protein} | ${ddmm(d.day)} meal ${row.meal} ${hm()}`,
+    `= 1 item: ${nutrients.kcal} kcal, protein ${Math.round(nutrients.protein)} g`];
+  return { answer: { ...LOG.saved, receipt, notes: [] }, day: d, undo: `Saved: ${receipt.join('; ')}`.slice(0, 160) };
+}
 
 /** One save: changes the day and answers with its head, or null for a request the core would refuse. */
 function save(path, b) {
@@ -117,7 +178,7 @@ function save(path, b) {
   return { outcome, head, undo: state.undo, tone: 'ok' };
 }
 
-const KEYED = ['/water', '/again', '/usual', '/habit', '/checkin', '/health', '/held/retry', '/held/delete'];
+const KEYED = ['/log', '/water', '/again', '/usual', '/habit', '/checkin', '/health', '/held/retry', '/held/delete'];
 
 createServer(async (req, res) => {
   let raw = '';
@@ -127,6 +188,10 @@ createServer(async (req, res) => {
   if (req.url === '/standin/reset' && req.method === 'POST') {
     reset();
     return send(res, 200, { outcome: 'reset' });
+  }
+  if (['/standin/ai-down', '/standin/ai-up'].includes(req.url) && req.method === 'POST') {
+    state.aiDown = req.url.endsWith('down');
+    return send(res, 200, { outcome: req.url.slice(9) });
   }
   if (req.url === '/standin/drop-sessions' && req.method === 'POST') {
     sessions.clear(); // as if the session ended elsewhere: the next call is signed out
@@ -169,6 +234,18 @@ createServer(async (req, res) => {
     // The key rule, as logbook's: the same key again answers as before and saves nothing twice.
     if (KEYED.includes(path) && body.key && state.keys.has(body.key)) {
       return send(res, 200, { ...state.keys.get(body.key), replayed: true, head: 'Already saved earlier (same message).', day: state.day }, signedIn);
+    }
+    if (path === '/log') {
+      await new Promise((r) => setTimeout(r, READ_MS));
+      if (!sessions.has(bearer)) return send(res, 401, { error: 'signed_out', message: 'Sign in again.' });
+      const r = logLine(body);
+      if (r.day) {
+        if (r.undo) [state.before, state.undo] = [state.day, { token: randomBytes(12).toString('base64url'), head: r.undo, expires_at: new Date(Date.now() + 15 * 60_000).toISOString() }];
+        state.day = r.day;
+      }
+      const answer = { ...r.answer, v: 1, replayed: false, undo: r.undo ? state.undo : null };
+      if (body.key && !['rejected', 'needs_confirmation', 'held'].includes(answer.outcome)) state.keys.set(body.key, answer);
+      return send(res, 200, { ...answer, day: state.day }, signedIn);
     }
     const out = save(path, body);
     if (!out) return send(res, 404, { error: 'not_found', message: 'Not found.' });

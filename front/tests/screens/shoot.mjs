@@ -3,6 +3,9 @@
 // (tests/standin/door.mjs: password "test", code "123456"; GET /day answers with tests/samples/day.json, a real door answer).
 // Step C: the taps save in place: each save changes the page without a reload, a new row gets a blue edge, the answer bar shows
 // the head and Undo, a read-back is confirmed, and a tap that met a gone session is sent again after the sign-in.
+// Step D: the logging box: a line is "being read" (a blue row), then saved with a new row and Undo, asks a question (Correct it
+// puts the words back in the box), is read back first, answers a look-up, is held under Needs you, or is "Saved privately."
+// and nothing else; a line that met a gone session is sent again after the sign-in, one kept too long comes back into the box.
 // Every check throws on a failure, so the script ends with an error.
 // Usage: node tests/screens/shoot.mjs <base url> <out dir> <stand-in url>
 import assert from 'node:assert/strict';
@@ -138,6 +141,123 @@ async function checkSaves(page, name, theme) {
   await page.locator('[data-water]').getByText(`${grouped(ml)} / ${grouped(day.water.target_ml)} ml`).waitFor();
 }
 
+/** Step D: the logging box, every outcome of a typed line. */
+async function checkLogBox(page, name, theme) {
+  await page.evaluate(() => (window.__noReload = true));
+  const box = page.locator('#log-text');
+  const bar = page.locator('[data-bar]');
+  const head = bar.locator('[data-bar-head]');
+  const needs = page.locator('[data-card="needs"]');
+  const send = async (line) => {
+    await box.fill(line);
+    await box.press('Enter');
+  };
+  const read = async () => page.locator('[data-reading]').first().waitFor({ state: 'detached' });
+
+  // where it sits: above the tab bar on phones, at the top on the PC
+  const form = await page.locator('[data-logbox] form').boundingBox();
+  if (name === 'phone') {
+    const nav = await page.locator('nav[aria-label="Places"]').boundingBox();
+    assert.ok(Math.abs(form.y + form.height - nav.y) < 2, 'phone: the box sits right above the tab bar');
+  } else {
+    const card = await page.locator('[data-card="chips"]').boundingBox();
+    assert.ok(form.y + form.height < card.y, 'PC: the box is above the cards');
+  }
+  assert.equal(await page.getByRole('link', { name: 'Barcode and label: full app' }).count(), 1, 'the link to the full app');
+  // Shift+Enter is a new line, not a send
+  await box.fill('40 g radishes');
+  await box.press('Shift+Enter');
+  assert.equal(await box.inputValue(), '40 g radishes\n', 'Shift+Enter: a new line');
+  assert.equal(await page.locator('[data-reading]').count(), 0, 'Shift+Enter sends nothing');
+
+  // a food line: "being read" (a blue row, the box empty again), then saved: a new row with a blue edge, the receipt, Undo
+  await send('40 g radishes');
+  await page.locator('[data-reading]', { hasText: '40 g radishes' }).waitFor();
+  assert.equal(await box.inputValue(), '', 'the box is empty while the line is read');
+  await page.screenshot({ path: `${out}/today-reading-${name}-${theme}.png` });
+  await read();
+  await page.locator('[data-fresh]', { hasText: 'Radishes' }).waitFor();
+  assert.equal(await text(head), 'Saved.', 'line: the head');
+  assert.match(await text(bar), /\+ f\d+ Radishes 40 g/, 'line: the receipt');
+  await page.screenshot({ path: `${out}/today-logged-${name}-${theme}.png` });
+  await bar.getByRole('button', { name: 'Undo' }).click();
+  await page.locator('[data-row]', { hasText: 'Radishes' }).waitFor({ state: 'detached' });
+  assert.equal(await text(head), 'Undone.', 'line: undone');
+
+  // the same words again: a question under Needs you; Correct it puts the words in the box, changed and sent again they save
+  await send('40 g radishes');
+  await read();
+  assert.equal(await text(head), 'Nothing saved yet: please confirm.', 'question: the head');
+  assert.ok((await text(bar)).includes('The question is under Needs you.'), 'question: where it is');
+  const q = needs.getByText('Log it again?').locator('..');
+  await q.getByRole('button', { name: 'Correct it' }).click();
+  assert.equal(await box.inputValue(), '40 g radishes', 'Correct it: the words in the box');
+  assert.ok(await box.evaluate((el) => el === document.activeElement), 'Correct it: the box has the cursor');
+  await page.screenshot({ path: `${out}/today-correct-${name}-${theme}.png` });
+  await send('60 g radishes');
+  await read();
+  await page.locator('[data-fresh]', { hasText: 'Radishes' }).getByText('60 g').waitFor();
+  await q.getByRole('button', { name: 'No' }).click();
+  await needs.getByText('Log it again?').waitFor({ state: 'detached' });
+
+  // a change: read back first, as a question with its read-back; Yes answers it
+  await send('the radishes were 50 g');
+  await read();
+  await needs.getByText('Make this change?').waitFor();
+  assert.ok((await text(needs)).includes('OK changed: radishes were 50 g'), 'change: the read-back on its card');
+  await needs.getByText('Make this change?').locator('..').getByRole('button', { name: 'Yes' }).click();
+  await needs.getByText('Make this change?').waitFor({ state: 'detached' });
+
+  // a look-up: its answer in the bar
+  await send('what did I eat today');
+  await read();
+  assert.equal(await text(head), 'Found.', 'look-up: the head');
+  assert.ok((await text(bar)).includes('Radishes 60 g'), 'look-up: the answer');
+
+  // a private line: never its words on the page, "Saved privately." and nothing else (no lines, no Undo)
+  const words = 'an invented note';
+  await send(`private: ${words}`);
+  await page.locator('[data-reading]', { hasText: 'Private line' }).waitFor();
+  assert.ok(!(await page.locator('body').innerText()).includes(words), 'private: the words are not on the page while read');
+  await read();
+  assert.equal(await text(head), 'Saved privately.', 'private: the head');
+  assert.equal(await bar.locator('p').count(), 0, 'private: nothing else');
+  assert.equal(await bar.getByRole('button', { name: 'Undo' }).count(), 0, 'private: no Undo');
+  assert.ok(!(await page.locator('body').innerText()).includes(words), 'private: the words are not on the page');
+
+  // the AI does not answer: held under Needs you, with Try again
+  await standinPost('/standin/ai-down');
+  await send('200 g invented soup');
+  await read();
+  assert.equal(await text(head), 'Not read yet, but kept.', 'held: the head');
+  await needs.getByText('200 g invented soup').waitFor();
+  await page.screenshot({ path: `${out}/today-held-${name}-${theme}.png` });
+  await standinPost('/standin/ai-up');
+  await needs.getByText('200 g invented soup').locator('..').locator('..').getByRole('button', { name: 'Try again' }).click();
+  await needs.getByText('200 g invented soup').waitFor({ state: 'detached' });
+  assert.ok(await page.evaluate(() => window.__noReload === true), 'no reload while logging');
+
+  // signed out mid-save: the line and its key are kept, and sent again after the sign-in (once)
+  await standinPost('/standin/drop-sessions');
+  await send('30 g walnuts');
+  await page.getByRole('button', { name: 'Sign in' }).waitFor();
+  await signIn(page);
+  await page.locator('[data-row]', { hasText: 'Walnuts' }).waitFor();
+  await page.reload();
+  await page.locator('[data-row]', { hasText: 'Walnuts' }).first().waitFor();
+  assert.equal(await page.locator('[data-row]', { hasText: 'Walnuts' }).count(), 1, 'the line was saved once');
+
+  // a line kept too long (over 10 minutes) is not sent again: its words come back into the box
+  await page.evaluate(() =>
+    sessionStorage.setItem('logger-resend', JSON.stringify({ action: 'log', fields: { text: '20 g old words', key: 'an-old-line-key-01' }, at: 0 })),
+  );
+  await page.reload();
+  await page.getByText('Your words are back in the box.').waitFor();
+  assert.equal(await box.inputValue(), '20 g old words', 'an old line: its words in the box');
+  assert.equal(await page.locator('[data-row]', { hasText: 'Old words' }).count(), 0, 'an old line: not sent');
+  await box.fill('');
+}
+
 const browser = await chromium.launch();
 const sizes = { phone: { width: 390, height: 844 }, pc: { width: 1280, height: 800 } };
 
@@ -159,6 +279,8 @@ for (const theme of ['dark', 'light']) {
     await checkToday(page, name);
     await checkSaves(page, name, theme);
     console.log(`saves ${name} ${theme}: checks passed`);
+    await checkLogBox(page, name, theme);
+    console.log(`logging box ${name} ${theme}: checks passed`);
     if (name === 'phone' && theme === 'dark') {
       await page.getByRole('button', { name: 'Sign out' }).click();
       await page.getByRole('button', { name: 'Sign in' }).waitFor();

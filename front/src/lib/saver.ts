@@ -4,6 +4,8 @@
  *
  * - The key rule: every tap gets a new `key`; the same tap sent again (after a sign-in) keeps its key, so the door saves it once.
  * - Newest answer wins: when two saves overlap, an answer that comes back after a newer one's is dropped (its day is older).
+ *   Not a typed line's (step D, deploy 81): the AI reads it for up to 40 s, and its day is read only after that, so it is newer
+ *   than that of a tap made meanwhile (SLOW).
  * - Signed out mid-save: the tap and its key are kept in the tab's sessionStorage; after the sign-in Today sends it again
  *   (only a tap the door can tell apart by its key, and only within 10 minutes).
  *
@@ -38,7 +40,9 @@ export interface SaverDeps {
 }
 
 /** The actions whose door route takes a key (src/lib/server/saves.ts, `keyed`): only these are re-sent after a sign-in. */
-export const KEYED = new Set(['water', 'again', 'usual', 'habit', 'checkin', 'health', 'held_retry', 'held_delete']);
+export const KEYED = new Set(['log', 'water', 'again', 'usual', 'habit', 'checkin', 'health', 'held_retry', 'held_delete']);
+/** The actions the AI reads (up to about 40 s): their answer is never dropped for a tap made while they were read. */
+export const SLOW = new Set(['log', 'held_retry']);
 export const RESEND_ITEM = 'logger-resend';
 export const RESEND_MS = 10 * 60_000;
 
@@ -48,7 +52,7 @@ export function makeKey(): string {
   return Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
 }
 
-interface Kept {
+export interface Kept {
   action: string;
   fields: FieldValues;
   at: number;
@@ -84,10 +88,10 @@ export class Saver {
       });
       result = this.#d.deserialize(await res.text());
     } catch {
-      return this.#take(seq, { kind: 'problem', message: 'No connection to the logger. Nothing was saved; try again.' });
+      return this.#take(seq, action, { kind: 'problem', message: 'No connection to the logger. Nothing was saved; try again.' });
     }
 
-    if (result.type === 'success') return this.#take(seq, { kind: 'answer', answer: result.data?.answer as A });
+    if (result.type === 'success') return this.#take(seq, action, { kind: 'answer', answer: result.data?.answer as A });
     if (result.type === 'failure' && result.data?.signedOut) {
       // Kept whatever its age in the race: a sign-in is needed either way.
       if (KEYED.has(action)) this.#keep({ action, fields: all, at: this.#d.now() });
@@ -98,11 +102,20 @@ export class Saver {
       result.type === 'failure' && typeof result.data?.message === 'string'
         ? result.data.message
         : 'Something went wrong. Nothing was saved; try again in a moment.';
-    return this.#take(seq, { kind: 'problem', message });
+    return this.#take(seq, action, { kind: 'problem', message });
   }
 
   /** After the sign-in: the tap kept when the session was gone, sent again with its own key (once; dropped after 10 minutes). */
   async resend<A>(): Promise<Sent<A> | null> {
+    const kept = this.takeKept();
+    return kept?.fresh ? this.send<A>(kept.action, kept.fields) : null;
+  }
+
+  /**
+   * The tap kept when the session was gone, taken out (it is sent once at most). fresh: it may be sent again (within 10
+   * minutes, with a key); a stale typed line's words can still go back into the logging box.
+   */
+  takeKept(): (Kept & { fresh: boolean }) | null {
     const kept = this.#kept();
     if (!kept) return null;
     try {
@@ -110,14 +123,13 @@ export class Saver {
     } catch {
       /* storage blocked: nothing was kept anyway */
     }
-    if (this.#d.now() - kept.at > RESEND_MS || !KEYED.has(kept.action)) return null;
-    return this.send<A>(kept.action, kept.fields);
+    return { ...kept, fresh: this.#d.now() - kept.at <= RESEND_MS && KEYED.has(kept.action) };
   }
 
-  /** Only the newest save's answer counts: an older one that arrives after it is dropped. */
-  #take<A>(seq: number, sent: Sent<A>): Sent<A> {
-    if (seq < this.#shown) return { kind: 'stale' };
-    this.#shown = seq;
+  /** Only the newest save's answer counts: an older one that arrives after it is dropped (but never a typed line's, SLOW). */
+  #take<A>(seq: number, action: string, sent: Sent<A>): Sent<A> {
+    if (seq < this.#shown && !SLOW.has(action)) return { kind: 'stale' };
+    this.#shown = Math.max(this.#shown, seq);
     return sent;
   }
 

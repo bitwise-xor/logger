@@ -1,5 +1,5 @@
 /**
- * Today's saves (step C, deploy 80): which form action calls which door route with which body (docs/API.md, "Saves").
+ * Today's saves (step C, deploy 80; the logging box's typed line since step D, deploy 81): which form action calls which door route with which body (docs/API.md, "Saves").
  *
  * Every tap on Today is a SvelteKit form action (src/routes/(app)/+page.server.ts). The browser sends the form's fields and a
  * new `key` per tap (the same key again when it re-sends that tap after a sign-in, src/lib/saver.ts); this file turns the fields
@@ -24,7 +24,7 @@ interface Save {
   /** The door's route takes a re-send key (docs/API.md): a re-sent tap then saves once. */
   keyed: boolean;
   body: (f: Fields) => Body;
-  /** /held/retry reads the message with the AI, like /log: up to about 40 s. */
+  /** /log and /held/retry read the words with the AI: up to about 40 s. */
   timeoutMs?: number;
 }
 
@@ -42,6 +42,8 @@ const int = (f: Fields, name: string): number | undefined => {
 };
 
 export const SAVES = {
+  // A typed line, as many lines as the box holds (each can be its own entry); 4000 characters as app.'s box (webentry.MAX_TEXT).
+  log: { path: '/log', keyed: true, body: (f) => ({ text: str(f, 'text', 4000) }), timeoutMs: 60_000 },
   water: { path: '/water', keyed: true, body: (f) => ({ ml: int(f, 'ml') }) },
   again: { path: '/again', keyed: true, body: (f) => ({ food_id: str(f, 'food_id', 12), amount: str(f, 'amount', 20) }) },
   usual: { path: '/usual', keyed: true, body: (f) => ({ meal_id: str(f, 'meal_id', 12) }) },
