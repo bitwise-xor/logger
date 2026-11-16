@@ -8,7 +8,8 @@ app. site passes / and /web/* only) and the tunnel's calls carry Cloudflare's he
 then, for every route but the sign-in, the owner's session as "Authorization: Bearer <token>" (a web_sessions row of this
 front end, migration 031; a session of app. never works here and the reverse). A session renews like a page view (30 days
 from its last use); the end comes back in the X-Session-Expires header. Every answer is JSON with "v": 1, never cached.
-The reads are reads.py; the saves call the same functions as the live forms (webactions, webfood, logbook, webundo, webheld, gym, home)."""
+The reads are reads.py; the saves call the same functions as the live forms (webactions, webfood, logbook, webundo, webheld, gym, home,
+coach)."""
 import hashlib
 import hmac
 import json
@@ -21,7 +22,7 @@ from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-from . import body as tape, gym, gympage, habitspage, healthpage, home as homelib, hubtools, labelread, logbook, privateline, reads, web, webactions, webentry, webfood, webhabits, webheld, webundo
+from . import body as tape, coach, gym, gympage, habitspage, healthpage, home as homelib, hubtools, labelread, logbook, privateline, reads, trendspage, web, webactions, webentry, webfood, webhabits, webheld, webundo, weekpage
 from .ai.provider import ProviderError
 from .config import FRONT_TOKEN
 from .db import connect
@@ -413,6 +414,8 @@ def saved(session, out: dict, body: dict, view: str = "day", private: bool = Fal
         res[shown] = GYM_VIEWS[shown]()
     elif shown in HOME_VIEWS:  # a Home page (deploy 98), as its GET with the body's view_min, view_n, view_limit, view_id
         res[shown] = HOME_VIEWS[shown](body)
+    elif shown == "week":  # the Week page (deploy 101), as GET /week with the body's view_p (7 when not given or unknown)
+        res["week"] = reads.week(_period(body.get("view_p"), strict=False))
     else:
         res["day"] = reads.day(asked)
     return res
@@ -1282,3 +1285,90 @@ def _home_route(action: str):
 
 for _action in HOME_FORMS:
     route(f"/home/{_action}", "POST")(_home_route(_action))
+
+
+# ---- Trends (deploy 101) -----------------------------------------------------------------------------------------------------------
+# app.'s Week page (with its Week review card), the Food page's Trends tab and the Insights page as data, through the same functions
+# (weekpage.data, trendspage.data, insightspage.data, coachpage.week_review), and the Week review's button (coach.start, as app.'s
+# /web/coach/start) with its status poll (coach.status, as app.'s /web/coach/status). A review is read by the AI in the background
+# and costs money: it starts only when the owner presses the button, and its request is never sent again by a page (no key: coach.start
+# takes none; a second press while one reads is "The coach is already on it.").
+
+def _period(raw, strict: bool = True) -> str:
+    """The Week page's period: 7, last, 30 or this (7 when not given; strict: anything else is a bad request, else 7)."""
+    if raw in (None, ""):
+        return "7"
+    if isinstance(raw, str) and raw in dict(weekpage.PERIODS):
+        return raw
+    if strict:
+        raise Refused(400, "bad_request", "p must be 7, last, 30 or this.")
+    return "7"
+
+
+@route("/week", "GET")
+def week_read(request, _body, session):
+    """The Week page: ?p=7|last|30|this (7); and the session's Undo."""
+    return {"week": reads.week(_period(request.query_params.get("p"))), "undo": _undo_out(session.get("undo"))}
+
+
+def _trend_range(raw) -> int:
+    """The Trends tab's range: 7, 30 or 90 days (30 when not given; anything else is a bad request)."""
+    if raw in (None, ""):
+        return trendspage.DEFAULT_RANGE
+    if str(raw) in {str(r) for r in trendspage.RANGES}:
+        return int(raw)
+    raise Refused(400, "bad_request", "range must be 7, 30 or 90.")
+
+
+@route("/food/trends", "GET")
+def food_trends_read(request, _body, session):
+    """The Food page's Trends tab: ?range=7|30|90 (30); and the session's Undo."""
+    return {"trends": reads.food_trends(_trend_range(request.query_params.get("range"))), "undo": _undo_out(session.get("undo"))}
+
+
+@route("/insights", "GET")
+def insights_read(_request, _body, session):
+    return {"insights": reads.insights(), "undo": _undo_out(session.get("undo"))}
+
+
+@route("/coach/status", "GET")
+def coach_status(request, _body, session):
+    """?id=<coaching id>: working, done, failed (also a cut-off one) or gone; not digits is 400."""
+    cid = request.query_params.get("id", "")
+    if not re.fullmatch(r"\d{1,12}", cid):
+        raise Refused(400, "bad_request", "id must be a coaching's id.")
+    return {"coaching": reads.coaching(int(cid)), "undo": _undo_out(session.get("undo"))}
+
+
+def _iso_day(body: dict, name: str) -> str:
+    v = body.get(name)
+    if not isinstance(v, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", v):
+        raise Refused(400, "bad_request", f"{name} must be a date yyyy-mm-dd.")
+    return v
+
+
+@route("/coach/start", "POST")
+def coach_start(_request, body, session):
+    """The Week review's button (app.'s /web/coach/start, coach.start with its checks): kind "week" (a day coaching is not in the
+    door yet), start and end (yyyy-mm-dd). No key, and never sent again by a page. The answer: the save's shape with coaching
+    {id, state} (null when refused) and the fresh Week page (view "week", view_p: the period of start and end when it is last
+    week or this week so far, else 7; or another view)."""
+    if body.get("kind") != "week":
+        raise Refused(400, "bad_request", 'kind must be "week" (a day coaching is not in the door yet).')
+    a, b = _iso_day(body, "start"), _iso_day(body, "end")
+    out = _work(lambda: coach.start(Form({"kind": "week", "start": a, "end": b})))
+    started = None
+    if out.get("outcome") != "rejected":
+        with connect() as c, c.cursor() as cur:
+            row = coach.latest(cur, "week", date.fromisoformat(a), date.fromisoformat(b))
+        if row:
+            started = {"id": row["id"], "state": "failed" if row["stale"] else row["status"]}
+    view = dict(body)
+    if not view.get("view_p") and (view.get("view") or "week") == "week":
+        try:
+            view["view_p"] = weekpage.period_of(date.fromisoformat(a), date.fromisoformat(b))
+        except ValueError:  # not a calendar day: coach.start refused it
+            view["view_p"] = "7"
+    res = saved(session, out, view, view="week")
+    res["coaching"] = started
+    return res

@@ -89,42 +89,74 @@ def _fmt(v: float, digits: int, sign: bool, unit: str) -> str:
     return f"{v:+.{digits}f} {unit}" if sign else f"{v:.{digits}f} {unit}"
 
 
-def _bars(rows: list[tuple[str, float, int, str]], digits: int, sign: bool, unit: str) -> str:
-    """One bar per group, from zero (zero in the middle when a value is below it), the value written beside it."""
-    vals = [v for _, v, _, _ in rows]
-    lo, hi = min(0.0, *vals), max(0.0, *vals)
-    span = (hi - lo) or 1.0
-    zero = (0 - lo) / span * 100
-    out = []
-    for label, v, n, cls in rows:
-        x = (v - lo) / span * 100
-        out.append(f'<div class="ib"><span class="ib-l">{esc(label)} <span class="small">· {n} days</span></span>'
-                   f'<svg class="ibar" viewBox="0 0 100 8" preserveAspectRatio="none" aria-hidden="true"><rect class="track" width="100" height="8" rx="4"/>'
-                   f'<rect class="fill {cls}" x="{min(zero, x):.1f}" width="{max(abs(x - zero), 0.8):.1f}" height="8" rx="4"/></svg>'
-                   f'<span class="ib-v num">{_fmt(v, digits, sign, unit)}</span></div>')
-    return "".join(out)
+NOTE = ('These are patterns in your own numbers, not proof that one thing causes the other: other things change '
+        'on the same days. They get steadier with more days. "Late" counts from your bed time, not the clock.')
+_B = "\x00"  # marks the bold numbers of a sentence while it is split into parts
 
 
-def card(i: dict) -> str:
+def card_data(i: dict) -> dict:
+    """One insight as data (deploy 101: app.'s card and the JSON door read the same): key, title, waiting (too few days in a group)
+    with app.'s words, else the chip ("+12 mg/dL" or "no difference"), the sentence as parts (the two averages bold) and the two
+    groups ({key: yes | no, label, n, mean, text, cls}) with each bar from zero as app. draws it (left, width: percent of the
+    track; zero: where zero is, 0 or in the middle when a value is below it)."""
     yes = [v for g, v in i["pairs"] if g]
     no = [v for g, v in i["pairs"] if not g]
-    if len(yes) < MIN_EACH or len(no) < MIN_EACH:
-        return (f'<div class="card insight wait"><h2>{esc(i["title"])}</h2>'
-                f'<p class="small">Not enough days yet: {len(yes)} for "{esc(i["yes"].lower())}" and {len(no)} for "{esc(i["no"].lower())}"; '
-                f'each needs {MIN_EACH}. It counts {esc(i["needs"])}.</p></div>')
+    out = {"key": i["key"], "title": i["title"], "unit": i["unit"], "digits": i["digits"], "sign": i["sign"], "needs": i["needs"],
+           "waiting": len(yes) < MIN_EACH or len(no) < MIN_EACH, "wait_text": None, "chip": None, "say": None, "zero": None,
+           "groups": [{"key": k, "label": i[k], "n": len(vs), "mean": None, "text": None, "cls": cls, "left": None, "width": None}
+                      for k, vs, cls in (("yes", yes, "a"), ("no", no, "b"))]}
+    if out["waiting"]:
+        out["wait_text"] = (f'Not enough days yet: {len(yes)} for "{i["yes"].lower()}" and {len(no)} for "{i["no"].lower()}"; '
+                            f'each needs {MIN_EACH}. It counts {i["needs"]}.')
+        return out
     my, mn = mean(yes), mean(no)
     fmt = lambda v: _fmt(v, i["digits"], i["sign"], i["unit"])  # noqa: E731
     diff = my - mn
-    said = i["say"].format(ny=len(yes), nn=len(no), my=f"<b>{fmt(my)}</b>", mn=f"<b>{fmt(mn)}</b>")
-    corner = "no difference" if round(diff, i["digits"]) == 0 else f'{diff:+.{i["digits"]}f} {i["unit"]}'
-    return (f'<div class="card insight"><h2>{esc(i["title"])}<span class="dp">{corner}</span></h2>'
-            f'<p class="isay">{said}</p>{_bars([(i["yes"], my, len(yes), "a"), (i["no"], mn, len(no), "b")], i["digits"], i["sign"], i["unit"])}</div>')
+    said = i["say"].format(ny=len(yes), nn=len(no), my=f"{_B}{fmt(my)}{_B}", mn=f"{_B}{fmt(mn)}{_B}")
+    out["say"] = [{"text": s, "bold": k % 2 == 1} for k, s in enumerate(said.split(_B)) if s]
+    out["chip"] = "no difference" if round(diff, i["digits"]) == 0 else f'{diff:+.{i["digits"]}f} {i["unit"]}'
+    lo, hi = min(0.0, my, mn), max(0.0, my, mn)
+    span = (hi - lo) or 1.0
+    zero = (0 - lo) / span * 100
+    out["zero"] = zero
+    for g, v in zip(out["groups"], (my, mn)):
+        x = (v - lo) / span * 100
+        g.update(mean=v, text=fmt(v), left=min(zero, x), width=max(abs(x - zero), 0.8))
+    return out
+
+
+def data() -> dict:
+    """The Insights page as data (deploy 101): the last DAYS days, MIN_EACH days needed in each group, the three cards, the note."""
+    return {"days": DAYS, "min_each": MIN_EACH, "title": "Insights", "small": f"From the last {DAYS} days",
+            "cards": [card_data(i) for i in insights(load())], "note": NOTE}
+
+
+def _bars(c: dict) -> str:
+    """One bar per group, from zero (zero in the middle when a value is below it), the value written beside it."""
+    return "".join(f'<div class="ib"><span class="ib-l">{esc(g["label"])} <span class="small">· {g["n"]} days</span></span>'
+                   f'<svg class="ibar" viewBox="0 0 100 8" preserveAspectRatio="none" aria-hidden="true"><rect class="track" width="100" height="8" rx="4"/>'
+                   f'<rect class="fill {g["cls"]}" x="{g["left"]:.1f}" width="{g["width"]:.1f}" height="8" rx="4"/></svg>'
+                   f'<span class="ib-v num">{g["text"]}</span></div>' for g in c["groups"])
+
+
+def card_html(c: dict) -> str:
+    if c["waiting"]:
+        yes, no = c["groups"]
+        return (f'<div class="card insight wait"><h2>{esc(c["title"])}</h2>'
+                f'<p class="small">Not enough days yet: {yes["n"]} for "{esc(yes["label"].lower())}" and {no["n"]} for "{esc(no["label"].lower())}"; '
+                f'each needs {MIN_EACH}. It counts {esc(c["needs"])}.</p></div>')
+    said = "".join(f'<b>{p["text"]}</b>' if p["bold"] else p["text"] for p in c["say"])
+    return (f'<div class="card insight"><h2>{esc(c["title"])}<span class="dp">{c["chip"]}</span></h2>'
+            f'<p class="isay">{said}</p>{_bars(c)}</div>')
+
+
+def card(i: dict) -> str:
+    return card_html(card_data(i))
 
 
 def render(csrf: str) -> str:
-    d = load()
-    cards = "".join(card(i) for i in insights(d))
-    return (f'<div class="head"><h1>Insights</h1><span class="small">From the last {DAYS} days</span></div>'
+    d = data()
+    cards = "".join(card_html(c) for c in d["cards"])
+    return (f'<div class="head"><h1>{d["title"]}</h1><span class="small">{d["small"]}</span></div>'
             f'<div class="grid2 insights">{cards}</div>'
-            '<p class="small hint">These are patterns in your own numbers, not proof that one thing causes the other: other things change '
-            'on the same days. They get steadier with more days. "Late" counts from your bed time, not the clock.</p>')
+            f'<p class="small hint">{d["note"]}</p>')

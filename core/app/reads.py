@@ -8,7 +8,7 @@ import re
 from datetime import date, datetime, timedelta
 from typing import Optional
 
-from . import activitypage, body as tape, bodypage, foodpage, gratitude, gym as gymlib, gympage, habitspage, healthpage, held, home as homelib, homepage, privateline, todaypage, uiprefs, webquestions
+from . import activitypage, body as tape, bodypage, coach, coachpage, foodpage, gratitude, gym as gymlib, gympage, habitspage, healthpage, held, home as homelib, homepage, insightspage, privateline, todaypage, trendspage, uiprefs, webquestions, weekpage
 from .db import connect
 from .rules import BERLIN
 from .webentry import readable
@@ -872,3 +872,50 @@ def home_edit() -> dict:
             "zone_options": [{"zone_id": None, "label": "Whole flat (each zone on its own)", "active": True}]
                             + [{"zone_id": z["id"], "label": z["name"] + ("" if z["active"] else " (retired)"), "active": z["active"]} for z in zones],
             "limits": HOME_LIMITS}
+
+
+# ---- Trends (deploy 101, step 4 of the move to logger.) ------------------------------------------------------------------------------
+# app.'s Week page with its Week review card, the Food page's Trends tab and the Insights page as data (weekpage.data,
+# trendspage.data, insightspage.data, coachpage.week_review: app.'s pages draw from the same). The charts are the Health page's card
+# shape ({id, title, small, stat, chart, legend}, chart = exactly app.'s data-chart object). Numbers rounded for reading; the words
+# are app.'s own.
+
+def _week_review(c: Optional[dict]) -> Optional[dict]:
+    if c is None:
+        return None
+    out = {**c, "start": iso(c["start"]), "end": iso(c["end"])}
+    if c["meta"]:
+        out["meta"] = {**c["meta"], "at": iso(c["meta"]["at"]), "usd": _r(c["meta"]["usd"], 4)}
+    if c["latest"]:
+        out["latest"] = {**c["latest"], "start": iso(c["latest"]["start"]), "end": iso(c["latest"]["end"])}
+    return out
+
+
+def week(p: str = "7") -> dict:
+    """The Week page of the period p (7, last, 30, this; weekpage.data)."""
+    w = weekpage.data(p)
+    return {**w, "today": iso(w["today"]), "start": iso(w["start"]), "end": iso(w["end"]),
+            "food": [{**t, "average": _r(t["average"], 1), "target": num(t["target"]), "pct": _r(t["pct"], 1)} for t in w["food"]],
+            "foods": {k: [{**r, "kcal": num(r["kcal"])} for r in rs] for k, rs in w["foods"].items()},
+            "days": [{**r, "day": iso(r["day"]), **{k: _r(r[k], 1) for k in ("kcal", "protein", "fat", "carbs")}, "kg": _r(r["kg"], 2)}
+                     for r in w["days"]],
+            "review": _week_review(w["review"])}
+
+
+def food_trends(days: int = trendspage.DEFAULT_RANGE) -> dict:
+    """The Food page's Trends tab of the last `days` complete days (7, 30, 90; trendspage.data)."""
+    t = trendspage.data(days)
+    return {**t, "start": iso(t["start"]), "end": iso(t["end"])}
+
+
+def insights() -> dict:
+    """The Insights page (insightspage.data): the three cards of the last 90 days."""
+    d = insightspage.data()
+    return {**d, "cards": [{**c, "zero": _r(c["zero"], 1),
+                            "groups": [{**g, "mean": _r(g["mean"], 2), "left": _r(g["left"], 1), "width": _r(g["width"], 1)} for g in c["groups"]]}
+                           for c in d["cards"]]}
+
+
+def coaching(cid: int) -> dict:
+    """A coaching's state as app.'s card polls it (coach.status): working, done, failed (also cut off) or gone."""
+    return {"id": cid, "state": coach.status(cid)}

@@ -1,0 +1,162 @@
+{
+ "insights": {
+  "v": 1,
+  "insights": {
+   "days": 90,
+   "min_each": 4,
+   "title": "Insights",
+   "small": "From the last 90 days",
+   "cards": [
+    {
+     "key": "late",
+     "title": "Food close to bedtime and fasting sugar",
+     "unit": "mg/dL",
+     "digits": 0,
+     "sign": false,
+     "needs": "days with a bed time, the time of the last food and a fasting sugar the next morning",
+     "waiting": false,
+     "wait_text": null,
+     "chip": "+11 mg/dL",
+     "say": [
+      {
+       "text": "On the 24 days your last food was less than 3 hours before bed, fasting sugar the next morning averaged ",
+       "bold": false
+      },
+      {
+       "text": "112 mg/dL",
+       "bold": true
+      },
+      {
+       "text": ", against ",
+       "bold": false
+      },
+      {
+       "text": "101 mg/dL",
+       "bold": true
+      },
+      {
+       "text": " after the 60 days with a longer gap.",
+       "bold": false
+      }
+     ],
+     "zero": 0,
+     "groups": [
+      {
+       "key": "yes",
+       "label": "Last food under 3 h before bed",
+       "n": 24,
+       "mean": 112,
+       "text": "112 mg/dL",
+       "cls": "a",
+       "left": 0,
+       "width": 100
+      },
+      {
+       "key": "no",
+       "label": "3 h or more before bed",
+       "n": 60,
+       "mean": 100.78,
+       "text": "101 mg/dL",
+       "cls": "b",
+       "left": 0,
+       "width": 90
+      }
+     ]
+    },
+    {
+     "key": "sleep",
+     "title": "Short nights and weight",
+     "unit": "g",
+     "digits": 0,
+     "sign": true,
+     "needs": "nights with a bed and wake-up time and a weight that day and the day before",
+     "waiting": true,
+     "wait_text": "Not enough days yet: 3 for \"under 6 h of sleep\" and 5 for \"6 h or more\"; each needs 4. It counts nights with a bed and wake-up time and a weight that day and the day before.",
+     "chip": null,
+     "say": null,
+     "zero": null,
+     "groups": [
+      {
+       "key": "yes",
+       "label": "Under 6 h of sleep",
+       "n": 3,
+       "mean": null,
+       "text": null,
+       "cls": "a",
+       "left": null,
+       "width": null
+      },
+      {
+       "key": "no",
+       "label": "6 h or more",
+       "n": 5,
+       "mean": null,
+       "text": null,
+       "cls": "b",
+       "left": null,
+       "width": null
+      }
+     ]
+    },
+    {
+     "key": "carbs",
+     "title": "Carb share and fasting sugar",
+     "unit": "mg/dL",
+     "digits": 0,
+     "sign": false,
+     "needs": "days with food logged and a fasting sugar the next morning",
+     "waiting": false,
+     "wait_text": null,
+     "chip": "+4 mg/dL",
+     "say": [
+      {
+       "text": "After the 42 days with more of the calories from carbs (above 46 %), fasting sugar the next morning averaged ",
+       "bold": false
+      },
+      {
+       "text": "106 mg/dL",
+       "bold": true
+      },
+      {
+       "text": ", against ",
+       "bold": false
+      },
+      {
+       "text": "102 mg/dL",
+       "bold": true
+      },
+      {
+       "text": " after the 42 days with less.",
+       "bold": false
+      }
+     ],
+     "zero": 0,
+     "groups": [
+      {
+       "key": "yes",
+       "label": "Carbs above 46 % of calories",
+       "n": 42,
+       "mean": 105.98,
+       "text": "106 mg/dL",
+       "cls": "a",
+       "left": 0,
+       "width": 100
+      },
+      {
+       "key": "no",
+       "label": "46 % or less",
+       "n": 42,
+       "mean": 102,
+       "text": "102 mg/dL",
+       "cls": "b",
+       "left": 0,
+       "width": 96.2
+      }
+     ]
+    }
+   ],
+   "note": "These are patterns in your own numbers, not proof that one thing causes the other: other things change on the same days. They get steadier with more days. \"Late\" counts from your bed time, not the clock."
+  },
+  "undo": null
+ }
+}

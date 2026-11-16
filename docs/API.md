@@ -1,11 +1,11 @@
 # The JSON door `/api/v1` (for the new front end)
 
 Since deploys 75 and 76 (16.11.2026); deploy 77 (16.11.2026) made the changes of the door's review (marked "since 77");
-deploy 78 removed the old field names that 77 kept for one deploy; deploy 86 added the usual-meal editor; deploy 89 the scanner, the label photo and the look-up; deploy 91 the Health page and body measurements; deploy 93 the Habits page; deploy 95 the Gym; deploy 98 Home. The front end that calls it: `front/` (`front/README.md`).
+deploy 78 removed the old field names that 77 kept for one deploy; deploy 86 added the usual-meal editor; deploy 89 the scanner, the label photo and the look-up; deploy 91 the Health page and body measurements; deploy 93 the Habits page; deploy 95 the Gym; deploy 98 Home; deploy 101 Trends (Week, Food trends, Insights, the Week review). The front end that calls it: `front/` (`front/README.md`).
 Code: `core/app/api.py` (the door, the saves), `core/app/reads.py` (the reads).
 Tests: `tests/test_api_door.py`, `tests/test_api_reads.py`, `tests/test_api_saves.py`, `tests/test_api_shape.py` (77),
 `tests/test_api_usual.py` (86), `tests/test_api_scan.py` (89), `tests/test_api_health.py` (91), `tests/test_api_habits.py` (93),
-`tests/test_api_gym.py` (95), `tests/test_api_home.py` (98).
+`tests/test_api_gym.py` (95), `tests/test_api_home.py` (98), `tests/test_api_trends.py` (101).
 
 The door is for one caller only: the new front end's own server, from inside Docker. The browser never calls it.
 The live web app at `app.` does not use it and did not change.
@@ -537,6 +537,131 @@ EditChore = {chore_id, name, zone_id, flat, active, interval, interval_text, min
                                                    // zone, on or off, its own days and minutes (null = blank = the chore's own)
 ```
 
+### Trends (101): the Week page, the Food page's Trends tab, Insights
+
+app.'s Week page with its Week review card, the Trends tab of its Food page and its Insights page as data (`weekpage.data`,
+`trendspage.data`, `insightspage.data`, `coachpage.week_review`: app.'s pages draw from the same, byte for byte as before). Only complete
+days count: today is left out, and a day under half its calorie target is "partly logged" (its bar shows; averages and counts leave it
+out). Where app. writes words, both come: the numbers and app.'s words (`*_text`, `note`, `detail`, the stat line's parts). Every chart
+card has the Health page's shape (`Chart` above: `{id, title, small, stat: [{text, bold}], chart, legend: [{key, text}]}`), and `chart` is
+exactly what app. puts into `data-chart` for `drawChart`; the legend's keys here are `sq a` (the daily bars), `line b` (the 7-day
+average) and `ref t` (the target line, only with a target).
+
+#### `GET /api/v1/week?p=7|last|30|this` → `{"week": Week, "undo": Undo}`
+
+`p`: the last 7 days (default), last week (Monday to Sunday), the last 30 days, this week so far (Monday to yesterday); another value is
+400 `bad_request` ("p must be 7, last, 30 or this.").
+
+```
+Week = {
+  p, periods: [{p, label, current}],          // the four tabs: "Last 7 days", "Last week", "Last 30 days", "This week so far"
+  today, start, end, ndays,                   // the period: start .. end (yyyy-mm-dd), ndays its days
+  empty, empty_text,                          // empty: no complete day yet (this week so far, on a Monday): then only the period,
+                                              // empty_text ("No complete day in this period yet (this week so far starts after
+                                              // Monday).") and the words; every list below is [], review null
+  with_food, dates_text, days_text,           // the header line: dates_text "Mon 09.11. to Sun 15.11.2026", days_text "5 of 7 days
+  left_out, today_text,                       // with food", left_out "1 partly logged day left out (11.11.: under half the
+                                              // calorie target)" or null, today_text "today is left out, it is not over yet";
+                                              // app. writes them joined by " · "
+  food: [Tile],                               // the Food card: kcal, protein, fat, carbs
+  meter_hint,                                 // "Average day as a share of the target; the thin line is 100%."
+  health: [{key, label, value, detail}],      // "Health and habits", app.'s order, only rows with data (see below)
+  health_none,                                // "Nothing logged in this period." (when health is [])
+  foods: {by_kcal: [Food], by_count: [Food]}, // "Foods that count most": "Most calories" and "Eaten most often", eight each
+  charts: [Chart],                            // kcal, protein, fat, carbs over the period (app.'s page draws them under the foods)
+  days: [{day, label, kcal, protein, fat, carbs, kg, partly}],   // "The days", newest first; label app.'s "Mon 09.11.";
+                                              // kg the day's last weight or null; partly: under half the calorie target (app.'s
+                                              // table does not mark it, its charts and averages do)
+  days_none,                                  // "No complete days with food." (when days is [])
+  review: Review | null                       // the Week review card (null when empty)
+}
+Tile = {key, label, unit,                     // label "Calories", unit "kcal" or "g" (app.: "2,095 / 2,000 kcal", "112 g / 120 g")
+        average, target, pct,                 // the average complete day, the latest target, the average in % of the target
+        level, over,                          // the meter as app. draws it: level "good" | "warn" | "bad" | "" (protein: ""
+                                              // under 80 %), over: the bar drawn as over (kcal, fat, carbs at warn or bad)
+        average_text, target_text,            // app.'s numbers ("2,095", "–" without days; target_text null without a target)
+        note}                                 // instead of the bar: "no target set" or "no complete days"; else null
+Food = {name, kcal, n, text}                  // text: app.'s "1,240 kcal" (by_kcal) or "5×" (by_count)
+```
+
+- `health` rows, each only when there is data: `weight` ("80.9 kg", detail "(−0.2 kg since 05.11.)"), `bp_morning` and `bp_evening`
+  ("120/79", "average of 2"), `sugar` ("100 mg/dL", "average of 7"), `sleep` ("6 h 30", "average night"), `feel` (label
+  "Mood · energy": "mood 3.2 · energy 2.8", "average of 4 evenings, 1 to 5"), `body` (one per measuring session: "Measured 04.11.:
+  waist −1.0 cm since last", "(1 value)"), `habits` ("57%", "of habit-days done (8 of 14)"), `avoid` (one per habit to avoid; label the
+  habit's: "6 of 7 days without", "(a habit to avoid)"), `gym` (once there are exercises: "1 workout", detail the days "Sat 07.11. (Push)"
+  or null). app. writes `value` and then `detail` small.
+
+```
+Review = {
+  offered,                                    // true for last and this (the review is of a Monday-to-Sunday week); false for 7, 30
+  kind: "week", start, end,                   // the period the button reviews (null when not offered)
+  title, small,                               // "Week review", "this period · on demand" ("Monday to Sunday" when not offered)
+  state,                                      // "none" | "working" | "done" | "failed"; null when not offered
+  id,                                         // the coaching (working, done, failed): poll GET /coach/status?id= while "working"
+  wait, wait_note,                            // working: "Reviewing… about 45 seconds", "You can leave this page: …"
+  parts: [Part], caution, meta,               // done: the sections, "Comments only on what you logged; not medical advice.",
+                                              // meta {model: "Claude Opus", usd, at, at_text: "16.11. 14:05", text: app.'s whole line
+                                              // "Claude Opus · $0.21 · 16.11. 14:05"} (usd null when not known)
+  failed,                                     // failed: "That did not work (cut off); nothing was charged if the AI did not answer. Try
+                                              // again." ("cut off": a review still "working" after 10 minutes, app.'s rule)
+  intro, cost,                                // none and failed: app.'s intro and "about 45 seconds · about 20 cents"
+  button,                                     // "Review last week" | "Review this week so far" (none, failed), "Review again" (done),
+                                              // null while working → POST /coach/start with kind, start, end
+  links: [{label, href}],                     // "All coachings", "Your goals" (app.'s pages: /web/coach, /web/settings?tab=coach)
+  blurb, latest, weeks                        // not offered: "The review looks at one week from Monday to Sunday.", the latest
+                                              // finished review {start, end, text: "Latest review: 02.11. to 08.11."} or null, and
+                                              // the two tabs to go to [{p: "last", label: "Last week"}, {p: "this", …}]
+}
+Part = {key, title, style, tone, items, meal, text}
+                                              // in app.'s order, without the parts the owner switched off (Settings > Coach) and
+                                              // without empty ones: targets "Against your targets", trends "Trends", habits "Habits,
+                                              // gym and home", days "Best and hardest day" (items: best, hardest), focus "Focus for
+                                              // next week" (style "numbered"), doctor (style "note", the words in text; app. shows no
+                                              // title); style "list" otherwise; tone, meal: for the day coaching (not in the door yet)
+```
+
+#### `GET /api/v1/food/trends?range=7|30|90` → `{"trends": Trends, "undo": Undo}`
+
+The Food page's Trends tab: the last `range` complete days (30 when not given; another value is 400 `bad_request`, "range must be 7,
+30 or 90.").
+
+```
+Trends = {range, ranges: [7, 30, 90], start, end,     // start .. end = yesterday
+          title, small,                               // "Last 30 complete days", "17.10. to 15.11., today not counted"
+          charts: [Chart]}                            // kcal, protein, fat, carbs
+```
+
+Each chart's `stat` is app.'s line in parts: `average ` **`2,095 kcal`** ` · target 2,000` ` · over the target on ` **`9`** ` of 23 days`
+(protein: ` · target reached on ` **`n`** ` of m days`), the kcal card also the left-out words (` · 2 partly logged days left out (…)`);
+without a target only the average; with no complete day "no complete days with food in this range". The chart: `bar` per day with
+food (`cls` a; a partly logged day's hover says "(partly logged)"), `line` the 7-day average of the complete days (`cls` b), `lines`
+the target `[value, "t", "2,000"]`, `min` 0, `unit` "" (kcal) or " g", `label` "Calories per day".
+
+#### `GET /api/v1/insights` → `{"insights": Insights, "undo": Undo}`
+
+```
+Insights = {days: 90, min_each: 4, title: "Insights", small: "From the last 90 days",
+            cards: [Insight],                         // late (food close to bedtime and fasting sugar), sleep (short nights and
+                                                      // weight), carbs (carb share and fasting sugar), in app.'s order
+            note}                                     // "These are patterns in your own numbers, not proof …"
+Insight = {key, title, unit, digits, sign, needs,     // unit "mg/dL" or "g"; digits after the point; sign: values with + / −
+           waiting, wait_text,                        // waiting: a group has fewer than min_each days; wait_text app.'s
+                                                      // "Not enough days yet: 3 for "…" and 5 for "…"; each needs 4. It counts …"
+           chip,                                      // the corner: "+11 mg/dL" or "no difference" (null while waiting)
+           say: [{text, bold}],                       // app.'s sentence, the two averages bold (null while waiting)
+           zero,                                      // where zero is on the bars' track (percent: 0, or more when a value is below 0)
+           groups: [{key, label, n, mean, text, cls, left, width}]}
+                                                      // yes (the group the sentence is about, cls a) and no (cls b): label, days,
+                                                      // the average and app.'s words for it; the bar from left, width (percent of the
+                                                      // track, as app. draws it); mean, text, left, width null while waiting
+```
+
+#### `GET /api/v1/coach/status?id=<coaching id>` → `{"coaching": {id, state}, "undo": Undo}`
+
+As app.'s card asks every few seconds while a review reads (`coach.status`): `state` is `working`, `done`, `failed` (also one still
+"working" after 10 minutes: cut off) or `gone` (no such coaching). `id` not digits: 400 `bad_request` ("id must be a coaching's id.").
+Then read `GET /week` again for the finished card.
+
 ## The label photo: `POST /api/v1/food/label` (89)
 
 One to three photos of ONE package (the name and the nutrition table often need two), read together in one AI call
@@ -592,6 +717,7 @@ function takes one, so a re-sent request saves once (`replayed: true`).
 | `/api/v1/habits/manage` (93) | `action`: `track`, `retire`, `restore`, `edit`, `delete` or `new`, and its fields (below), `key`; `show` for the fresh read | `webhabits.ACTIONS[action]` |
 | `/api/v1/gym/<action>` (95) | `action` in the path: `tick`, `remove`, `pick`, `new`, `rename`, `active`, `daynew`, `dayedit`, `dayactive`, `itemadd`, `itemset`, `itemmove`, `itemremove`; its fields (below), `key`; `view` for another fresh read | `gym.ACTIONS[action]` (app.'s `/web/gym/<action>`) |
 | `/api/v1/home/<action>` (98) | `action` in the path: one of the 20 of `home.ACTIONS` (below); its fields, `key` on six; `view` (+ `view_min`, `view_n`, `view_limit`, `view_id`) for another fresh read | `home.ACTIONS[action]` (app.'s `/web/home/<action>`) |
+| `/api/v1/coach/start` (101) | `kind: "week"`, `start`, `end` (yyyy-mm-dd: the Week review's period); **no `key`**; `view`, `view_p` for another fresh read | `coach.start` (app.'s `/web/coach/start`; see below) |
 | `/api/v1/lookup` (89) | `text` (a name, or a barcode of 8 to 14 digits), optional `question_id` (an open food question it answers; without `text` the question's word is looked up) | `webfood.look_up` → `logbook.food_lookup` (no key: it saves nothing) |
 
 The usual-meal saves (86): the front end sends `confirmed: true` and the change is made at once, with Undo (without it a change or
@@ -763,6 +889,23 @@ Home's saves (98), each like app.'s form of the same name (`home.ACTIONS`):
 - Not here (as at app.): the starter list (`python -m app.homeseed`); chores typed in a line go through `POST /log` (and `/answer`) as
   before (`homechat`).
 
+The Week review's button (101), `POST /api/v1/coach/start`, through `coach.start` exactly as app.'s `/web/coach/start`:
+
+- `kind` must be `"week"`: the door has no day coaching yet (Today's Coach card comes with step 6); anything else is 400 `bad_request`
+  (`kind must be "week" (a day coaching is not in the door yet).`). `start` and `end` as yyyy-mm-dd (else 400, `start must be a date
+  yyyy-mm-dd.`): the Week card's `review.start` and `review.end`.
+- **No `key`, and a page must never send this request again by itself** (not after a sign-in, not on a retry): `coach.start` takes no
+  key, and every review that starts is read by the AI and costs about 20 cents. Only the owner's press starts one.
+- app.'s checks, each `rejected` with app.'s `reason` and `coaching: null`: "That is not a day or week to coach." (not a calendar day,
+  end before start, end after today, more than 31 days), "That is 10 coachings today, the daily limit. Tomorrow there are new ones."
+  (day coachings and reviews together, per logging day).
+- Started: `changed`, `head` "The coach is reading your week: about 45 seconds.", `coaching: {id, state}` (`working`; the coach reads
+  in the background, 20 to 60 s: poll `GET /coach/status?id=`). One for the same period still reading: `changed`, `head` "The coach is
+  already on it." and that one's `coaching` (nothing new starts).
+- The answer has the save's shape plus `coaching`, and the fresh Week page (`week`) of `view_p`; without `view_p` the period of
+  `start`/`end` when it is last week or this week so far, else 7 (`view` chooses another read). No Undo; as app., it ends the session's
+  Undo bar.
+
 Field names since 77: `action` (was `act` on `/review` and `/food/entry`), `time` (was `t` on `/health`), `items[].item_id` (was
 `items[].id` on `/usual`). Since deploy 78 only the new names work: a field sent under its old name counts as missing.
 
@@ -784,13 +927,16 @@ Every save answers (HTTP 200, also when nothing was saved):
   day: Day  |  food_day: FoodDay  |  usual: [Usual]  |  health: Health  |  body: Body  |  habits: Habits
        |  gym: Workout  |  gym_plan: Plan  |  gym_exercises: Exercises
        |  home: Now  |  home_pick: Pick  |  home_zones: Zones  |  home_history: History  |  home_chore: Chore  |  home_edit: Edit
+       |  week: Week
                                                        // the fresh read; body "view": "day" | "food" | "usual" (86) | "health" |
                                                        // "body" (91) | "habits" (93, with "show") | "gym" | "gym_plan" |
                                                        // "gym_exercises" (95) | "home" | "home_pick" | "home_zones" |
                                                        // "home_history" | "home_chore" | "home_edit" (98, with view_min,
-                                                       // view_n, view_limit, view_id) and "view_day": "yyyy-mm-dd" choose it;
+                                                       // view_n, view_limit, view_id) | "week" (101, with view_p) and
+                                                       // "view_day": "yyyy-mm-dd" choose it;
                                                        // /gym/<action> defaults to its tab (see the Gym's saves);
                                                        // /home/<action> to its page (see Home's saves);
+                                                       // /coach/start to "week" (see the Week review's button);
                                                        // /habit/day and /habits/manage default to "habits"; /usual/meal and
                                                        // /usual/new default to "usual", /usual/from_meal and /food/* to "food",
                                                        // /health/day to "health" (with "range", "all"), /body to "body" (its day),
@@ -829,5 +975,6 @@ Texts in `read_back`, `result` and questions never carry the lines meant for the
 - Errors inside a save (the AI or the database not answering) are `outcome: "rejected"` with a reason that nothing was saved; a typed
   line's words stay kept (`held`) and appear in `day.needs.not_read`.
 
-Not in the door (on purpose, for now): Coach, the body settings (interval, hidden measures, height: read in
+Not in the door (on purpose, for now): the day coaching (Today's Coach card, step 6), the Coach page and Settings > Coach (the
+Week review is in since 101), the body settings (interval, hidden measures, height: read in
 `GET /body`, changed at app.), the Food catalogue editor, the gratitude list itself (only its count), Ideas and Private.

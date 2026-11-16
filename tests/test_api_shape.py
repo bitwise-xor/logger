@@ -2,8 +2,8 @@
 the private guard on questions and on lines the AI files as private, one name per field (the old names gone since deploy 78), Undo on a
 reload, a mixed line's look-up in result, answer styles and refill buttons, the outcome's tone, no chat lines in read-backs, and
 Try again / Delete on a message not read yet; the usual-meal editor's shapes (deploy 86); the scanner's, label photo's and look-up's
-shapes (deploy 89); the Health page's and body measurements' shapes (deploy 91); the Habits page's shapes (deploy 93); the Gym's shapes (deploy 95); Home's shapes (deploy 98). Every name, food, number and sentence is invented."""
-from datetime import datetime
+shapes (deploy 89); the Health page's and body measurements' shapes (deploy 91); the Habits page's shapes (deploy 93); the Gym's shapes (deploy 95); Home's shapes (deploy 98); Trends' shapes (deploy 101). Every name, food, number and sentence is invented."""
+from datetime import datetime, timedelta
 
 import pytest
 
@@ -497,3 +497,41 @@ def test_the_home_shapes(sv, fake):
     for action, body, view in (("alldone", {"chore_id": x["vacuum"], "key": "shape-home-2"}, "home_zones"), ("remove", {"ids": [1]}, "home_history"),
                                ("goalset", {"goal": 4}, "home_edit"), ("skip", {"pairs": [[x["towels"], x["bath"]]]}, "home_pick")):
         assert set(sv.post(f"/home/{action}", **body)) == KEYS | {view}, action
+
+
+# ---- 14. Trends (deploy 101) -------------------------------------------------------------------------------------------------------
+
+def test_the_trends_shapes(sv, monkeypatch):
+    from app import coach
+    from test_api_trends import CARD, REVIEW, TILE, WEEK, invented, review
+    from test_coach import FakeCoach
+
+    monkeypatch.setattr(coach, "PROVIDER", FakeCoach())
+    monkeypatch.setattr(coach, "BACKGROUND", False)
+    t0 = invented()
+    review("last", t0=t0)
+    part = {"key", "title", "style", "tone", "items", "meal", "text"}
+    for p in ("7", "last", "30", "this"):
+        w = get(sv, f"/week?p={p}")["week"]
+        assert set(w) == WEEK and all(set(t) == TILE for t in w["food"]) and all(set(r) == {"key", "label", "value", "detail"} for r in w["health"])
+        assert set(w["foods"]) == {"by_kcal", "by_count"} and all(set(r) == {"name", "kcal", "n", "text"} for rs in w["foods"].values() for r in rs)
+        assert all(set(c) == CARD and all(set(x) == {"text", "bold"} for x in c["stat"]) and all(set(k) == {"key", "text"} for k in c["legend"])
+                   for c in w["charts"])
+        assert all(set(r) == {"day", "label", "kcal", "protein", "fat", "carbs", "kg", "partly"} for r in w["days"])
+        assert w["review"] is None or set(w["review"]) == REVIEW and all(set(x) == part for x in w["review"]["parts"])
+    r = get(sv, "/week?p=last")["week"]["review"]
+    assert r["state"] == "done" and set(r["meta"]) == {"model", "usd", "at", "at_text", "text"} and OFFSET.search(r["meta"]["at"])
+    assert all(set(x) == {"label", "href"} for x in r["links"])
+    r = get(sv, "/week?p=7")["week"]["review"]
+    assert set(r["latest"]) == {"start", "end", "text"} and all(set(x) == {"p", "label"} for x in r["weeks"])
+    t = get(sv, "/food/trends?range=7")["trends"]
+    assert set(t) == {"range", "ranges", "start", "end", "title", "small", "charts"} and all(set(c) == CARD for c in t["charts"])
+    i = get(sv, "/insights")["insights"]
+    assert set(i) == {"days", "min_each", "title", "small", "cards", "note"}
+    keys = {"key", "title", "unit", "digits", "sign", "needs", "waiting", "wait_text", "chip", "say", "zero", "groups"}
+    assert all(set(c) == keys and all(set(g) == {"key", "label", "n", "mean", "text", "cls", "left", "width"} for g in c["groups"]) for c in i["cards"])
+    assert get(sv, "/coach/status?id=1")["coaching"].keys() == {"id", "state"}
+    from app import weekpage
+    a, b = weekpage.bounds("30", t0)
+    j = sv.post("/coach/start", kind="week", start=(a - timedelta(days=10)).isoformat(), end=b.isoformat())  # 40 days: refused
+    assert set(j) == KEYS | {"week", "coaching"} and j["outcome"] == "rejected" and j["coaching"] is None

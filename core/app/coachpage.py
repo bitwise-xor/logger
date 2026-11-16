@@ -10,39 +10,70 @@ CAUTION = "Comments only on what you logged; not medical advice."
 WAIT = {"day": "Coaching… about 30 seconds", "week": "Reviewing… about 45 seconds"}
 
 
-def _items(xs) -> str:
-    return "".join(f"<li>{esc(x)}</li>" for x in xs or [] if str(x).strip())
+def _items(xs) -> list:
+    return [str(x) for x in xs or [] if str(x).strip()]
 
 
-def _section(title: str, xs, cls: str = "") -> str:
-    li = _items(xs)
-    attr = f' class="{cls}"' if cls else ""
-    return f'<div class="cosec"><h3{attr}>{esc(title)}</h3><ul>{li}</ul></div>' if li else ""
+def _part(key: str, title: str, items: list, style: str = "list", tone=None, meal=None, text=None) -> dict:
+    return {"key": key, "title": title, "style": style, "tone": tone, "items": items, "meal": meal, "text": text}
+
+
+def parts(row: dict, hidden: frozenset = frozenset()) -> list:
+    """A finished coaching's sections as data (deploy 101: app. and the JSON door read the same), in app.'s order, without the parts
+    switched off in Settings > Coach (also in older coachings) and without empty ones. Each: key (coach.PARTS' key), title (app.'s
+    heading; the doctor note has none on app.), style ("list", "numbered" for the focus, "meal" for the next meal, "note" for the
+    doctor note), tone (day coaching: "ok" for what went well, "warn" for what to improve), items (the lines), meal
+    ({title, why, kcal, protein, carbs, fat, macros}: app.'s line of the four), text (the doctor note)."""
+    off = {k for k, _ in coach.PARTS[row["kind"]] if f'{row["kind"]}:{k}' in hidden}
+    fields = {f for k in off for f in coach.FIELDS.get(k, (k,))}
+    b = {k: v for k, v in (row["body"] or {}).items() if k not in fields}
+    out = []
+    if row["kind"] == "day":
+        meal = b.get("next_meal")
+        for k, title, tone in (("went_well", "What went well", "ok"), ("improve", "To improve", "warn")):
+            if _items(b.get(k)):
+                out.append(_part(k, title, _items(b.get(k)), tone=tone))
+        if meal:
+            nums = {k: round(meal.get(k) or 0) for k in ("kcal", "protein", "carbs", "fat")}
+            macros = " · ".join(f"{v} {u}" for v, u in ((nums["kcal"], "kcal"), (nums["protein"], "g protein"), (nums["carbs"], "g carbs"), (nums["fat"], "g fat")))
+            out.append(_part("next_meal", "Next meal", [], "meal",
+                             meal={"title": str(meal.get("title", "")), "why": str(meal.get("why", "")), **nums, "macros": macros}))
+        if _items(b.get("gaps")):
+            out.append(_part("gaps", "Missing in the log", _items(b.get("gaps"))))
+    else:
+        for k, title in (("targets", "Against your targets"), ("trends", "Trends"), ("habits", "Habits, gym and home")):
+            if _items(b.get(k)):
+                out.append(_part(k, title, _items(b.get(k))))
+        days = [str(x) for x in (b.get("best_day"), b.get("hardest_day")) if x]
+        if days:
+            out.append(_part("days", "Best and hardest day", days))
+        if _items(b.get("focus")):
+            out.append(_part("focus", "Focus for next week", _items(b.get("focus")), "numbered"))
+    if b.get("doctor"):
+        out.append(_part("doctor", "Doctor note", [], "note", text=str(b["doctor"])))
+    return out
+
+
+def _li(xs: list) -> str:
+    return "".join(f"<li>{esc(x)}</li>" for x in xs)
+
+
+def _part_html(p: dict) -> str:
+    if p["style"] == "meal":
+        m = p["meal"]
+        return (f'<div class="comeal"><div class="small">Next meal</div><b>{esc(m["title"])}</b>'
+                f'<div>{esc(m["macros"])}</div><div class="small">{esc(m["why"])}</div></div>')
+    if p["style"] == "numbered":
+        return f'<div class="comeal"><div class="small">{p["title"]}</div><ol>{_li(p["items"])}</ol></div>'
+    if p["style"] == "note":
+        return f'<p class="small">{esc(p["text"])}</p>'
+    attr = f' class="{p["tone"]}"' if p["tone"] else ""
+    return f'<div class="cosec"><h3{attr}>{esc(p["title"])}</h3><ul>{_li(p["items"])}</ul></div>'
 
 
 def body_html(row: dict, hidden: frozenset = frozenset()) -> str:
     """A finished coaching's sections, without the parts switched off in Settings > Coach (also in older coachings)."""
-    off = {k for k, _ in coach.PARTS[row["kind"]] if f'{row["kind"]}:{k}' in hidden}
-    fields = {f for k in off for f in coach.FIELDS.get(k, (k,))}
-    b = {k: v for k, v in (row["body"] or {}).items() if k not in fields}
-    if row["kind"] == "day":
-        meal = b.get("next_meal")
-        meal_html = ""
-        if meal:
-            macros = " · ".join(f"{v} {u}" for v, u in ((round(meal.get("kcal") or 0), "kcal"), (round(meal.get("protein") or 0), "g protein"),
-                                                         (round(meal.get("carbs") or 0), "g carbs"), (round(meal.get("fat") or 0), "g fat")))
-            meal_html = (f'<div class="comeal"><div class="small">Next meal</div><b>{esc(meal.get("title", ""))}</b>'
-                         f'<div>{esc(macros)}</div><div class="small">{esc(meal.get("why", ""))}</div></div>')
-        out = (_section("What went well", b.get("went_well"), "ok") + _section("To improve", b.get("improve"), "warn") + meal_html
-               + _section("Missing in the log", b.get("gaps")))
-    else:
-        focus = _items(b.get("focus"))
-        days = "".join(f"<li>{esc(x)}</li>" for x in (b.get("best_day"), b.get("hardest_day")) if x)
-        out = (_section("Against your targets", b.get("targets")) + _section("Trends", b.get("trends")) + _section("Habits, gym and home", b.get("habits"))
-               + (f'<div class="cosec"><h3>Best and hardest day</h3><ul>{days}</ul></div>' if days else "")
-               + (f'<div class="comeal"><div class="small">Focus for next week</div><ol>{focus}</ol></div>' if focus else ""))
-    doctor = f'<p class="small">{esc(b["doctor"])}</p>' if b.get("doctor") else ""
-    return out + doctor + f'<p class="small">{CAUTION}</p>'
+    return "".join(_part_html(p) for p in parts(row, hidden)) + f'<p class="small">{CAUTION}</p>'
 
 
 def _meta(row: dict) -> str:
@@ -51,55 +82,111 @@ def _meta(row: dict) -> str:
     return f'Claude Opus{usd} · {at:%d.%m. %H:%M}'
 
 
+def meta(row: dict) -> dict:
+    """The line under a finished coaching as data: model (app.'s "Claude Opus"), usd (null when not known), at (finished, or
+    started), at_text ("16.11. 14:05") and app.'s whole line."""
+    at = (row["finished_at"] or row["created_at"]).astimezone(rules.BERLIN)
+    return {"model": "Claude Opus", "usd": float(row["usd"]) if row["usd"] is not None else None, "at": at,
+            "at_text": f"{at:%d.%m. %H:%M}", "text": _meta(row)}
+
+
 def _button(kind: str, a, b, csrf: str, back: str, label: str, primary: bool) -> str:
     return (f'<form method="post" action="/web/coach/start">{hidden("csrf", csrf)}{hidden("key", key())}{hidden("kind", kind)}'
             f'{hidden("start", a.isoformat())}{hidden("end", b.isoformat())}{hidden("back", back)}'
             f'<button class="{"primary" if primary else "ghost"}" type="submit">{label}</button></form>')
 
 
-def card(kind: str, a, b, csrf: str, back: str, first_label: str = "") -> str:
-    """The Coach card (day) or the Week review card (week) for one period."""
+WAIT_NOTE = "You can leave this page: the coaching is kept and shows here when it is ready."
+INTRO = {"day": "A short look at this day: what went well, what to improve, your next meal and what is missing in the log.",
+         "week": "The period against your targets and goals: trends, habits, gym and home, best and hardest day, "
+                 "and one or two things to focus on next."}
+COST = {"day": "about 30 seconds · about 6 cents", "week": "about 45 seconds · about 20 cents"}
+LINKS = [{"label": "All coachings", "href": "/web/coach"}, {"label": "Your goals", "href": "/web/settings?tab=coach"}]
+
+
+def card_data(kind: str, a, b, first_label: str = "") -> dict:
+    """The Coach card (day) or the Week review card (week) of one period as data (deploy 101: app.'s card and the JSON door read the
+    same). state: "none" (never asked), "working" (the coach reads; poll coach.status with id), "done" (parts, meta, caution;
+    the button asks again), "failed" (failed, or "working" for longer than coach.STALE_MINUTES: cut off; app.'s words in failed,
+    and the first button again). With app.'s words for each: wait and wait_note, button, intro, cost, links."""
     with connect() as conn, conn.cursor() as cur:
         row = coach.latest(cur, kind, a, b)
         hidden = frozenset(coach.prefs(cur)["hidden"])
-    title = "Coach" if kind == "day" else "Week review"
-    again = "Coach me again" if kind == "day" else "Review again"
-    first = first_label or ("Coach me" if kind == "day" else "Review this week")
-    links = '<p class="row small"><a href="/web/coach">All coachings ›</a><a href="/web/settings?tab=coach">Your goals ›</a></p>'
+    out = {"kind": kind, "start": a, "end": b, "title": "Coach" if kind == "day" else "Week review",
+           "small": f'{"this day" if kind == "day" else "this period"} · on demand', "state": "none", "id": row["id"] if row else None,
+           "wait": None, "wait_note": None, "parts": [], "caution": None, "meta": None, "failed": None, "intro": None, "cost": None,
+           "button": first_label or ("Coach me" if kind == "day" else "Review this week"), "links": LINKS}
     if row and row["status"] == "working" and not row["stale"]:
-        inner = (f'<div class="cowait" data-coach-wait="{row["id"]}" role="status"><b>{WAIT[kind]}</b>'
-                 '<span class="small">You can leave this page: the coaching is kept and shows here when it is ready.</span></div>')
+        out.update(state="working", wait=WAIT[kind], wait_note=WAIT_NOTE, button=None)
     elif row and row["status"] == "done":
-        inner = (body_html(row, hidden) + f'<div class="cofoot"><span class="small">{esc(_meta(row))}</span>'
-                 f'{_button(kind, a, b, csrf, back, again, False)}</div>')
+        out.update(state="done", parts=parts(row, hidden), caution=CAUTION, meta=meta(row), button="Coach me again" if kind == "day" else "Review again")
     else:
-        failed = (f'<p class="notice">That did not work ({esc("cut off" if row["stale"] else row["error"] or "an error")}); nothing was charged '
-                  'if the AI did not answer. Try again.</p>' if row else "")
-        intro = ("A short look at this day: what went well, what to improve, your next meal and what is missing in the log."
-                 if kind == "day" else "The period against your targets and goals: trends, habits, gym and home, best and hardest day, "
-                 "and one or two things to focus on next.")
-        cost = "about 30 seconds · about 6 cents" if kind == "day" else "about 45 seconds · about 20 cents"
-        inner = f'{failed}<p>{intro}</p>{_button(kind, a, b, csrf, back, first, True)}<p class="small coc">{cost}</p>'
-    return (f'<div class="card coachcard"><h2><span>{icon("coach")}{title}</span>'
-            f'<span class="small">{"this day" if kind == "day" else "this period"} · on demand</span></h2>{inner}{links}</div>')
+        if row:
+            out.update(state="failed", failed=f'That did not work ({"cut off" if row["stale"] else row["error"] or "an error"}); nothing was charged '
+                                              'if the AI did not answer. Try again.')
+        out.update(intro=INTRO[kind], cost=COST[kind])
+    return out
+
+
+def card_html(c: dict, csrf: str, back: str) -> str:
+    kind, a, b = c["kind"], c["start"], c["end"]
+    links = "".join(f'<a href="{x["href"]}">{x["label"]} ›</a>' for x in c["links"])
+    if c["state"] == "working":
+        inner = (f'<div class="cowait" data-coach-wait="{c["id"]}" role="status"><b>{c["wait"]}</b>'
+                 f'<span class="small">{c["wait_note"]}</span></div>')
+    elif c["state"] == "done":
+        inner = ("".join(_part_html(p) for p in c["parts"]) + f'<p class="small">{c["caution"]}</p>'
+                 f'<div class="cofoot"><span class="small">{esc(c["meta"]["text"])}</span>{_button(kind, a, b, csrf, back, c["button"], False)}</div>')
+    else:
+        failed = f'<p class="notice">{esc(c["failed"])}</p>' if c["failed"] else ""
+        inner = f'{failed}<p>{c["intro"]}</p>{_button(kind, a, b, csrf, back, c["button"], True)}<p class="small coc">{c["cost"]}</p>'
+    return (f'<div class="card coachcard"><h2><span>{icon("coach")}{c["title"]}</span>'
+            f'<span class="small">{c["small"]}</span></h2>{inner}<p class="row small">{links}</p></div>')
+
+
+def card(kind: str, a, b, csrf: str, back: str, first_label: str = "") -> str:
+    """The Coach card (day) or the Week review card (week) for one period."""
+    return card_html(card_data(kind, a, b, first_label), csrf, back)
 
 
 def today_card(day, csrf: str) -> str:
     return card("day", day, day, csrf, f"/web/?day={day.isoformat()}")
 
 
-def week_card(a, b, p: str, csrf: str) -> str:
-    """The review is for a Monday-to-Sunday week (04.11.2026): a rolling 7 or 30 days found no review the next day, and the
-    button said "this week" over 30 days. Those periods link to the week and to the latest review instead."""
-    if p in ("last", "this"):
-        return card("week", a, b, csrf, f"/web/week?p={p}", "Review last week" if p == "last" else "Review this week so far")
+REVIEWED = ("last", "this")  # the Week page's periods that are a Monday-to-Sunday week (or its days so far): a review is offered
+FIRST = {"last": "Review last week", "this": "Review this week so far"}
+BLURB = "The review looks at one week from Monday to Sunday."
+
+
+def week_review(a, b, p: str) -> dict:
+    """The Week review card of the Week page as data (deploy 101): offered for last week and this week so far (card_data's keys,
+    the period a to b); for the rolling 7 and 30 days not offered: app.'s blurb, links to the two weeks and the latest finished
+    review's period (latest, null when there is none). Every key is there in both cases (null when it does not apply)."""
+    if p in REVIEWED:
+        return {"offered": True, **card_data("week", a, b, FIRST[p]), "blurb": None, "latest": None, "weeks": None}
     with connect() as conn, conn.cursor() as cur:
         cur.execute("SELECT start_day, end_day FROM coachings WHERE kind = 'week' AND status = 'done' ORDER BY id DESC LIMIT 1")
         r = cur.fetchone()
-    latest = (f'<a href="/web/coach?f=weeks">Latest review: {r["start_day"]:%d.%m.} to {r["end_day"]:%d.%m.} ›</a>' if r else "")
-    return (f'<div class="card coachcard"><h2><span>{icon("coach")}Week review</span><span class="small">Monday to Sunday</span></h2>'
-            '<p>The review looks at one week from Monday to Sunday.</p>'
-            f'<p class="row"><a class="ghost sm" href="/web/week?p=last">Last week</a><a class="ghost sm" href="/web/week?p=this">This week so far</a>{latest}</p></div>')
+    latest = {"start": r["start_day"], "end": r["end_day"], "text": f'Latest review: {r["start_day"]:%d.%m.} to {r["end_day"]:%d.%m.}'} if r else None
+    return {"offered": False, "kind": "week", "start": None, "end": None, "title": "Week review", "small": "Monday to Sunday", "state": None,
+            "id": None, "wait": None, "wait_note": None, "parts": [], "caution": None, "meta": None, "failed": None, "intro": None,
+            "cost": None, "button": None, "links": [], "blurb": BLURB, "latest": latest,
+            "weeks": [{"p": "last", "label": "Last week"}, {"p": "this", "label": "This week so far"}]}
+
+
+def week_html(c: dict, p: str, csrf: str) -> str:
+    if c["offered"]:
+        return card_html(c, csrf, f"/web/week?p={p}")
+    latest = f'<a href="/web/coach?f=weeks">{c["latest"]["text"]} ›</a>' if c["latest"] else ""
+    weeks = "".join(f'<a class="ghost sm" href="/web/week?p={w["p"]}">{w["label"]}</a>' for w in c["weeks"])
+    return (f'<div class="card coachcard"><h2><span>{icon("coach")}{c["title"]}</span><span class="small">{c["small"]}</span></h2>'
+            f'<p>{c["blurb"]}</p><p class="row">{weeks}{latest}</p></div>')
+
+
+def week_card(a, b, p: str, csrf: str) -> str:
+    """The review is for a Monday-to-Sunday week (04.11.2026): a rolling 7 or 30 days found no review the next day, and the
+    button said "this week" over 30 days. Those periods link to the week and to the latest review instead."""
+    return week_html(week_review(a, b, p), p, csrf)
 
 
 FILTERS = (("all", "All"), ("days", "Days"), ("weeks", "Weeks"))

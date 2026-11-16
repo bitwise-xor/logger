@@ -37,22 +37,33 @@ def full_days(totals: dict) -> dict:
     return {d: r for d, r in totals.items() if not partly(r)}
 
 
-def left_out(totals: dict) -> str:
-    """" · 1 partly logged day left out (03.11.)", or "" """
+def left_out_text(totals: dict):
+    """"1 partly logged day left out (03.11.: under half the calorie target)", or None (deploy 101: the words without the dot)."""
     ds = sorted(d for d, r in totals.items() if partly(r))
     if not ds:
-        return ""
-    return (f' · {len(ds)} partly logged day{"" if len(ds) == 1 else "s"} left out ({", ".join(f"{d:%d.%m.}" for d in ds[:4])}'
+        return None
+    return (f'{len(ds)} partly logged day{"" if len(ds) == 1 else "s"} left out ({", ".join(f"{d:%d.%m.}" for d in ds[:4])}'
             f'{"…" if len(ds) > 4 else ""}: under half the calorie target)')
 
 
-def _chart(cid: str, start: date, days: int, series: list, **opts) -> str:
-    data = {"start": start.isoformat(), "days": days, "series": series, **opts}
-    return f'<div class="chart" id="{cid}" data-chart="{esc(json.dumps(data, separators=(",", ":")))}"></div>'
+def left_out(totals: dict) -> str:
+    """" · 1 partly logged day left out (03.11.)", or "" """
+    text = left_out_text(totals)
+    return f" · {text}" if text else ""
 
 
-def cards(totals: dict, start: date, end: date) -> str:
-    """One card per nutrient: daily bars, the 7-day average, the target line, a line of numbers."""
+def _t(text: str) -> dict:
+    return {"text": text, "bold": False}
+
+
+def _b(text: str) -> dict:
+    return {"text": text, "bold": True}
+
+
+def charts(totals: dict, start: date, end: date) -> list[dict]:
+    """One card per nutrient as data (deploy 101: app.'s cards and the JSON door read the same; the Health page's card shape):
+    id (kcal, protein, fat, carbs), title, small, the stat line as parts (bold or not), the chart as app.js's drawChart takes it
+    (daily bars, the 7-day average, the target line) and the legend ({key: the colour key's class, text})."""
     days = (end - start).days + 1
     every = sorted(totals)
     have = sorted(full_days(totals))  # averages and counts leave out partly logged days (04.11.2026)
@@ -67,34 +78,70 @@ def cards(totals: dict, start: date, end: date) -> str:
             avg7.append([(d - start).days, round(sum(window) / len(window), 1)])
         target = next((float(totals[d]["target_" + key]) for d in reversed(have) if totals[d]["target_" + key]), None)
         series = [{"mark": "bar", "cls": "a", "pts": pts}, {"mark": "line", "cls": "b", "pts": avg7}]
-        chart = _chart(f"c-trend-{key}", start, days, series, label=f"{label} per day", min=0, unit="" if key == "kcal" else unit,  # "2,000 kcal" does not fit the axis
-                       **({"lines": [[target, "t", f"{target:,.0f}"]]} if target else {}))
+        chart = {"start": start.isoformat(), "days": days, "series": series, "label": f"{label} per day", "min": 0,
+                 "unit": "" if key == "kcal" else unit,  # "2,000 kcal" does not fit the axis
+                 **({"lines": [[target, "t", f"{target:,.0f}"]]} if target else {})}
         if vals:
             mean = sum(vals.values()) / len(vals)
-            if key == "protein":
+            stat = [_t("average "), _b(f"{mean:,.0f}{unit}")] + ([_t(f" · target {target:,.0f}")] if target else [])
+            if target and key == "protein":
                 hit = sum(1 for d in have if totals[d]["target_protein"] and vals[d] >= float(totals[d]["target_protein"]))
-                note = f' · target reached on <b>{hit}</b> of {len(have)} days' if target else ""
-            else:
+                stat += [_t(" · target reached on "), _b(str(hit)), _t(f" of {len(have)} days")]
+            elif target:
                 over = sum(1 for d in have if totals[d]["target_" + key] and vals[d] > float(totals[d]["target_" + key]))
-                note = f' · over the target on <b>{over}</b> of {len(have)} days' if target else ""
-            stat = f'average <b>{mean:,.0f}{unit}</b>' + (f" · target {target:,.0f}" if target else "") + note + (left_out(totals) if key == "kcal" else "")
+                stat += [_t(" · over the target on "), _b(str(over)), _t(f" of {len(have)} days")]
+            if key == "kcal" and left_out(totals):
+                stat.append(_t(left_out(totals)))
         else:
-            stat = "no complete days with food in this range"
-        legend = ('<i class="key sq a"></i>day <i class="key line b"></i>7-day average'
-                  + ('<i class="key ref t"></i>target' if target else ""))
-        out.append(f'<div class="card"><h2>{label} <span class="small">per day</span></h2><p class="stat">{stat}</p>{chart}<p class="legend">{legend}</p></div>')
-    return "".join(out)
+            stat = [_t("no complete days with food in this range")]
+        legend = [{"key": "sq a", "text": "day"}, {"key": "line b", "text": "7-day average"}] + ([{"key": "ref t", "text": "target"}] if target else [])
+        out.append({"id": key, "title": label, "small": "per day", "stat": stat, "chart": chart, "legend": legend})
+    return out
 
 
-def render(csrf: str, q) -> str:
-    r = str(q.get("r", ""))
-    days = int(r) if r in {str(x) for x in RANGES} else DEFAULT_RANGE
+def _chart(cid: str, data: dict) -> str:
+    return f'<div class="chart" id="{cid}" data-chart="{esc(json.dumps(data, separators=(",", ":")))}"></div>'
+
+
+def _stat(parts: list) -> str:
+    return "".join(f"<b>{esc(p['text'])}</b>" if p["bold"] else esc(p["text"]) for p in parts)
+
+
+def _legend(items: list) -> str:
+    """app.'s legend: a space after the first key's words only ("day 7-day averagetarget" as the page has it)."""
+    return "".join(f'<i class="key {k["key"]}"></i>{esc(k["text"])}' + (" " if i == 0 else "") for i, k in enumerate(items))
+
+
+def cards_html(cs: list) -> str:
+    return "".join(f'<div class="card"><h2>{c["title"]} <span class="small">{c["small"]}</span></h2><p class="stat">{_stat(c["stat"])}</p>'
+                   f'{_chart("c-trend-" + c["id"], c["chart"])}<p class="legend">{_legend(c["legend"])}</p></div>' for c in cs)
+
+
+def cards(totals: dict, start: date, end: date) -> str:
+    """One card per nutrient: daily bars, the 7-day average, the target line, a line of numbers."""
+    return cards_html(charts(totals, start, end))
+
+
+def days_of(raw) -> int:
+    """?r= as app. reads it: 7, 30 or 90; anything else is 30."""
+    r = str(raw or "")
+    return int(r) if r in {str(x) for x in RANGES} else DEFAULT_RANGE
+
+
+def data(days: int) -> dict:
+    """The Trends tab as data (deploy 101): the last `days` complete days (today left out), the header's words, the four cards."""
     with connect() as conn, conn.cursor() as cur:
         cur.execute("SELECT log_day(now()) AS d")
         today = cur.fetchone()["d"]
         end = today - timedelta(days=1)
         start = end - timedelta(days=days - 1)
-        body = cards(day_totals(cur, start, end), start, end)
-    seg = "".join(f'<a href="/web/food/trends?r={x}"{" aria-current=\"page\"" if x == days else ""}>{x} days</a>' for x in RANGES)
-    return (f'<div class="head sub"><h2>Last {days} complete days <span class="small">{start:%d.%m.} to {end:%d.%m.}, today not counted</span></h2>'
-            f'<nav class="seg" aria-label="Range">{seg}</nav></div><div class="grid2">{body}</div>')
+        totals = day_totals(cur, start, end)
+    return {"range": days, "ranges": list(RANGES), "start": start, "end": end, "title": f"Last {days} complete days",
+            "small": f"{start:%d.%m.} to {end:%d.%m.}, today not counted", "charts": charts(totals, start, end)}
+
+
+def render(csrf: str, q) -> str:
+    d = data(days_of(q.get("r", "")))
+    seg = "".join(f'<a href="/web/food/trends?r={x}"{" aria-current=\"page\"" if x == d["range"] else ""}>{x} days</a>' for x in RANGES)
+    return (f'<div class="head sub"><h2>{d["title"]} <span class="small">{d["small"]}</span></h2>'
+            f'<nav class="seg" aria-label="Range">{seg}</nav></div><div class="grid2">{cards_html(d["charts"])}</div>')

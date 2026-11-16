@@ -7,7 +7,8 @@ water, saved with Undo, and an odd weight correction read back first, with confi
 the Food day (food.json, step E: GET /food/day of the day and the day before, GET /food/entry, a change and a note), the usual
 meals (usual.json, deploy 86: GET /usual, GET /foods, a change with Undo and a refusal), the scanner, label photo and look-up
 (scan.json, deploy 89), the Health page and body measurements (health.json, deploy 91), the Habits page (habits.json, deploy 93), the
-Gym (gym.json, deploy 95), Home (home.json, deploy 98; day.json has Today's Home card since then), and
+Gym (gym.json, deploy 95), Home (home.json, deploy 98; day.json has Today's Home card since then), Trends (week.json, food_trends.json,
+insights.json, deploy 101), and
 - with WRITE_FRONT_SAMPLES=1: writes the answer to the sample file (then look at the diff and commit it);
 - otherwise: checks that the committed sample still has the door's shape (the same keys at every level), so a change of the door
   that the stand-in does not know about fails here.
@@ -587,3 +588,98 @@ def test_the_home_sample_has_the_doors_shape(fake):
     assert sample.keys() == answers.keys()
     gone = differences(sample, answers, "home")
     assert not gone, "front/tests/samples/home.json no longer has the door's shape; run this test with WRITE_FRONT_SAMPLES=1:\n" + "\n".join(gone)
+
+
+def _trends_today(monkeypatch):
+    """The samples of Trends are read as on a Wednesday (every period has days; "this week so far" two of them)."""
+    from app import weekpage
+    from test_api_trends import today
+    t0 = today()
+    wed = t0 - timedelta(days=(t0.weekday() - 2) % 7)
+    monkeypatch.setattr(weekpage, "today_of", lambda cur: wed)
+    return wed
+
+
+def _write_or_check(name: str, answers: dict):
+    path = SAMPLES / name
+    if os.environ.get("WRITE_FRONT_SAMPLES") == "1":
+        path.write_text(json.dumps(answers, indent=1, ensure_ascii=False) + "\n")
+        return
+    sample = json.loads(path.read_text())
+    assert sample.keys() == answers.keys()
+    gone = differences(sample, answers, name.removesuffix(".json"))
+    assert not gone, f"front/tests/samples/{name} no longer has the door's shape; run this test with WRITE_FRONT_SAMPLES=1:\n" + "\n".join(gone)
+
+
+def test_the_week_sample_has_the_doors_shape(monkeypatch):
+    """The Week page (deploy 101, for the pages of deploys 102 and 103): about 90 invented days (test_api_trends.invented), read as on a
+    Wednesday. Every period with the Week review card in each state: last week done (the parts, meta, Review again), none and failed,
+    this week so far working (and cut off), the rolling 7 and 30 days with the blurb and the latest review; this week so far on a
+    Monday (empty). The button (POST /coach/start, without its fresh read): started (working), already on it, the daily limit; and the
+    status poll (working, done, failed, gone). The AI is a fake that never answers here: no review is read."""
+    from app import coach, weekpage
+    from test_api_trends import WEEK_BODY, invented, review
+    from test_coach import FakeCoach
+
+    f = FakeCoach()
+    monkeypatch.setattr(coach, "PROVIDER", f)
+    monkeypatch.setattr(coach, "BACKGROUND", False)
+    monkeypatch.setattr(coach, "run", lambda cid: None)  # a started review stays "working"
+    try:
+        invented(plain=True)
+        wed = _trends_today(monkeypatch)
+        c, bearer, _ = signed_in()
+        get = lambda path: c.get("/api/v1" + path, headers=bearer).json()  # noqa: E731
+        post = lambda path, **body: c.post("/api/v1" + path, headers=bearer, json=body).json()  # noqa: E731
+        answers = {"7": get("/week?p=7"), "30": get("/week?p=30"), "last_none": get("/week?p=last")}
+        failed = review("last", "failed", error="ProviderError", t0=wed)
+        answers["last_failed"] = get("/week?p=last")
+        done = review("last", body=dict(WEEK_BODY, doctor="Ask your doctor about the morning sugar."), t0=wed)
+        answers["last_done"] = get("/week?p=last")
+        working = review("this", "working", t0=wed)
+        answers["this_working"] = get("/week?p=this")
+        owner_sql("UPDATE coachings SET created_at = now() - interval '11 minutes' WHERE id = %s", working)
+        answers["this_cut_off"] = get("/week?p=this")
+        answers["7_latest"] = get("/week?p=7")
+        statuses = {"working": review("this", "working", t0=wed), "done": done, "failed": failed, "gone": 999999}
+        answers["status"] = {k: get(f"/coach/status?id={v}") for k, v in statuses.items()}
+        monkeypatch.setattr(weekpage, "today_of", lambda cur: wed - timedelta(days=2))
+        answers["this_monday"] = get("/week?p=this")
+        monkeypatch.setattr(weekpage, "today_of", lambda cur: wed)
+        a, b = weekpage.bounds("last", today_real := owner_sql("SELECT log_day(now()) AS d")[0]["d"])
+        owner_sql("DELETE FROM coachings")
+        saves = {"start": post("/coach/start", kind="week", start=a.isoformat(), end=b.isoformat())}
+        saves["on_it"] = post("/coach/start", kind="week", start=a.isoformat(), end=b.isoformat())
+        for _ in range(coach.DAILY_LIMIT):
+            owner_sql("INSERT INTO coachings (kind, start_day, end_day, status) VALUES ('day', %s, %s, 'done')", today_real, today_real)
+        saves["limit"] = post("/coach/start", kind="week", start=(a - timedelta(days=7)).isoformat(), end=(b - timedelta(days=7)).isoformat())
+    finally:
+        owner_sql("DELETE FROM food_targets")
+    assert answers["last_done"]["week"]["review"]["state"] == "done" and answers["last_done"]["week"]["review"]["parts"]
+    assert (answers["last_none"]["week"]["review"]["state"], answers["last_failed"]["week"]["review"]["state"]) == ("none", "failed")
+    assert answers["this_working"]["week"]["review"]["state"] == "working" and answers["this_cut_off"]["week"]["review"]["state"] == "failed"
+    assert answers["7_latest"]["week"]["review"]["latest"] and answers["this_monday"]["week"]["empty"]
+    assert [answers["status"][k]["coaching"]["state"] for k in statuses] == list(statuses)
+    assert saves["start"]["coaching"]["state"] == "working" and saves["on_it"]["head"] == "The coach is already on it."
+    assert saves["limit"]["outcome"] == "rejected" and saves["limit"]["coaching"] is None and not f.calls
+    for a_ in saves.values():
+        assert a_.pop("week")
+    answers["saves"] = saves
+    _write_or_check("week.json", answers)
+
+
+def test_the_food_trends_and_insights_samples_have_the_doors_shape(monkeypatch):
+    """The Food page's Trends tab in its three ranges, and Insights with two cards and one waiting (deploy 101)."""
+    from test_api_trends import invented
+    try:
+        invented(plain=True)
+        c, bearer, _ = signed_in()
+        get = lambda path: c.get("/api/v1" + path, headers=bearer).json()  # noqa: E731
+        trends = {str(r): get(f"/food/trends?range={r}") for r in (7, 30, 90)}
+        insights = {"insights": get("/insights")}
+    finally:
+        owner_sql("DELETE FROM food_targets")
+    assert all(len(t["trends"]["charts"]) == 4 for t in trends.values())
+    assert [c_["waiting"] for c_ in insights["insights"]["insights"]["cards"]] == [False, True, False]
+    _write_or_check("food_trends.json", trends)
+    _write_or_check("insights.json", insights)

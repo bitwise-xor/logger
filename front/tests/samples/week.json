@@ -1,0 +1,7419 @@
+{
+ "7": {
+  "v": 1,
+  "week": {
+   "p": "7",
+   "periods": [
+    {
+     "p": "7",
+     "label": "Last 7 days",
+     "current": true
+    },
+    {
+     "p": "last",
+     "label": "Last week",
+     "current": false
+    },
+    {
+     "p": "30",
+     "label": "Last 30 days",
+     "current": false
+    },
+    {
+     "p": "this",
+     "label": "This week so far",
+     "current": false
+    }
+   ],
+   "today": "2026-11-11",
+   "start": "2026-11-04",
+   "end": "2026-11-10",
+   "ndays": 7,
+   "empty": false,
+   "empty_text": null,
+   "with_food": 7,
+   "dates_text": "Wed 04.11. to Tue 10.11.2026",
+   "days_text": "7 of 7 days with food",
+   "left_out": null,
+   "today_text": "today is left out, it is not over yet",
+   "food": [
+    {
+     "key": "kcal",
+     "label": "Calories",
+     "unit": "kcal",
+     "average": 2033,
+     "target": 2000,
+     "pct": 101.6,
+     "level": "warn",
+     "over": true,
+     "average_text": "2,033",
+     "target_text": "2,000",
+     "note": null
+    },
+    {
+     "key": "protein",
+     "label": "Protein",
+     "unit": "g",
+     "average": 108.7,
+     "target": 120,
+     "pct": 90.6,
+     "level": "warn",
+     "over": false,
+     "average_text": "109",
+     "target_text": "120",
+     "note": null
+    },
+    {
+     "key": "fat",
+     "label": "Fat",
+     "unit": "g",
+     "average": 66.4,
+     "target": 70,
+     "pct": 94.9,
+     "level": "good",
+     "over": false,
+     "average_text": "66",
+     "target_text": "70",
+     "note": null
+    },
+    {
+     "key": "carbs",
+     "label": "Carbs",
+     "unit": "g",
+     "average": 249,
+     "target": 220,
+     "pct": 113.2,
+     "level": "bad",
+     "over": true,
+     "average_text": "249",
+     "target_text": "220",
+     "note": null
+    }
+   ],
+   "meter_hint": "Average day as a share of the target; the thin line is 100%.",
+   "health": [
+    {
+     "key": "weight",
+     "label": "Weight",
+     "value": "80.9 kg",
+     "detail": "(−0.2 kg since 05.11.)"
+    },
+    {
+     "key": "bp_morning",
+     "label": "Blood pressure morning",
+     "value": "121/78",
+     "detail": "average of 3"
+    },
+    {
+     "key": "bp_evening",
+     "label": "Blood pressure evening",
+     "value": "125/79",
+     "detail": "average of 2"
+    },
+    {
+     "key": "sugar",
+     "label": "Fasting sugar",
+     "value": "109 mg/dL",
+     "detail": "average of 7"
+    },
+    {
+     "key": "sleep",
+     "label": "Sleep",
+     "value": "6 h 39",
+     "detail": "average night"
+    },
+    {
+     "key": "feel",
+     "label": "Mood · energy",
+     "value": "mood 2.5 · energy 3.2",
+     "detail": "average of 4 evenings, 1 to 5"
+    },
+    {
+     "key": "body",
+     "label": "Body measurements",
+     "value": "Measured 04.11.: waist −1.0 cm since last",
+     "detail": "(1 value)"
+    },
+    {
+     "key": "habits",
+     "label": "Habits",
+     "value": "50%",
+     "detail": "of habit-days done (7 of 14)"
+    },
+    {
+     "key": "avoid",
+     "label": "Scrolling",
+     "value": "6 of 7 days without",
+     "detail": "(a habit to avoid)"
+    },
+    {
+     "key": "gym",
+     "label": "Gym",
+     "value": "1 workout",
+     "detail": "Sat 07.11."
+    }
+   ],
+   "health_none": "Nothing logged in this period.",
+   "foods": {
+    "by_kcal": [
+     {
+      "name": "Pasta with vegetables",
+      "kcal": 5691,
+      "n": 7,
+      "text": "5,691 kcal"
+     },
+     {
+      "name": "Oats with milk",
+      "kcal": 4270,
+      "n": 7,
+      "text": "4,270 kcal"
+     },
+     {
+      "name": "Lentil soup",
+      "kcal": 3028,
+      "n": 5,
+      "text": "3,028 kcal"
+     },
+     {
+      "name": "Rice & beans",
+      "kcal": 1242,
+      "n": 2,
+      "text": "1,242 kcal"
+     }
+    ],
+    "by_count": [
+     {
+      "name": "Oats with milk",
+      "kcal": 4270,
+      "n": 7,
+      "text": "7×"
+     },
+     {
+      "name": "Pasta with vegetables",
+      "kcal": 5691,
+      "n": 7,
+      "text": "7×"
+     },
+     {
+      "name": "Lentil soup",
+      "kcal": 3028,
+      "n": 5,
+      "text": "5×"
+     },
+     {
+      "name": "Rice & beans",
+      "kcal": 1242,
+      "n": 2,
+      "text": "2×"
+     }
+    ]
+   },
+   "charts": [
+    {
+     "id": "kcal",
+     "title": "Calories",
+     "small": "per day",
+     "stat": [
+      {
+       "text": "average ",
+       "bold": false
+      },
+      {
+       "text": "2,033 kcal",
+       "bold": true
+      },
+      {
+       "text": " · target 2,000",
+       "bold": false
+      },
+      {
+       "text": " · over the target on ",
+       "bold": false
+      },
+      {
+       "text": "4",
+       "bold": true
+      },
+      {
+       "text": " of 7 days",
+       "bold": false
+      }
+     ],
+     "chart": {
+      "start": "2026-11-04",
+      "days": 7,
+      "series": [
+       {
+        "mark": "bar",
+        "cls": "a",
+        "pts": [
+         [
+          0,
+          2144.0,
+          "Wed 04.11.: 2,144 kcal"
+         ],
+         [
+          1,
+          2107.0,
+          "Thu 05.11.: 2,107 kcal"
+         ],
+         [
+          2,
+          2070.0,
+          "Fri 06.11.: 2,070 kcal"
+         ],
+         [
+          3,
+          2033.0,
+          "Sat 07.11.: 2,033 kcal"
+         ],
+         [
+          4,
+          1996.0,
+          "Sun 08.11.: 1,996 kcal"
+         ],
+         [
+          5,
+          1959.0,
+          "Mon 09.11.: 1,959 kcal"
+         ],
+         [
+          6,
+          1922.0,
+          "Tue 10.11.: 1,922 kcal"
+         ]
+        ]
+       },
+       {
+        "mark": "line",
+        "cls": "b",
+        "pts": [
+         [
+          0,
+          2144.0
+         ],
+         [
+          1,
+          2125.5
+         ],
+         [
+          2,
+          2107.0
+         ],
+         [
+          3,
+          2088.5
+         ],
+         [
+          4,
+          2070.0
+         ],
+         [
+          5,
+          2051.5
+         ],
+         [
+          6,
+          2033.0
+         ]
+        ]
+       }
+      ],
+      "label": "Calories per day",
+      "min": 0,
+      "unit": "",
+      "lines": [
+       [
+        2000.0,
+        "t",
+        "2,000"
+       ]
+      ]
+     },
+     "legend": [
+      {
+       "key": "sq a",
+       "text": "day"
+      },
+      {
+       "key": "line b",
+       "text": "7-day average"
+      },
+      {
+       "key": "ref t",
+       "text": "target"
+      }
+     ]
+    },
+    {
+     "id": "protein",
+     "title": "Protein",
+     "small": "per day",
+     "stat": [
+      {
+       "text": "average ",
+       "bold": false
+      },
+      {
+       "text": "109 g",
+       "bold": true
+      },
+      {
+       "text": " · target 120",
+       "bold": false
+      },
+      {
+       "text": " · target reached on ",
+       "bold": false
+      },
+      {
+       "text": "3",
+       "bold": true
+      },
+      {
+       "text": " of 7 days",
+       "bold": false
+      }
+     ],
+     "chart": {
+      "start": "2026-11-04",
+      "days": 7,
+      "series": [
+       {
+        "mark": "bar",
+        "cls": "a",
+        "pts": [
+         [
+          0,
+          104.0,
+          "Wed 04.11.: 104 g"
+         ],
+         [
+          1,
+          97.0,
+          "Thu 05.11.: 97 g"
+         ],
+         [
+          2,
+          90.0,
+          "Fri 06.11.: 90 g"
+         ],
+         [
+          3,
+          83.0,
+          "Sat 07.11.: 83 g"
+         ],
+         [
+          4,
+          136.0,
+          "Sun 08.11.: 136 g"
+         ],
+         [
+          5,
+          129.0,
+          "Mon 09.11.: 129 g"
+         ],
+         [
+          6,
+          122.0,
+          "Tue 10.11.: 122 g"
+         ]
+        ]
+       },
+       {
+        "mark": "line",
+        "cls": "b",
+        "pts": [
+         [
+          0,
+          104.0
+         ],
+         [
+          1,
+          100.5
+         ],
+         [
+          2,
+          97.0
+         ],
+         [
+          3,
+          93.5
+         ],
+         [
+          4,
+          102.0
+         ],
+         [
+          5,
+          106.5
+         ],
+         [
+          6,
+          108.7
+         ]
+        ]
+       }
+      ],
+      "label": "Protein per day",
+      "min": 0,
+      "unit": " g",
+      "lines": [
+       [
+        120.0,
+        "t",
+        "120"
+       ]
+      ]
+     },
+     "legend": [
+      {
+       "key": "sq a",
+       "text": "day"
+      },
+      {
+       "key": "line b",
+       "text": "7-day average"
+      },
+      {
+       "key": "ref t",
+       "text": "target"
+      }
+     ]
+    },
+    {
+     "id": "fat",
+     "title": "Fat",
+     "small": "per day",
+     "stat": [
+      {
+       "text": "average ",
+       "bold": false
+      },
+      {
+       "text": "66 g",
+       "bold": true
+      },
+      {
+       "text": " · target 70",
+       "bold": false
+      },
+      {
+       "text": " · over the target on ",
+       "bold": false
+      },
+      {
+       "text": "2",
+       "bold": true
+      },
+      {
+       "text": " of 7 days",
+       "bold": false
+      }
+     ],
+     "chart": {
+      "start": "2026-11-04",
+      "days": 7,
+      "series": [
+       {
+        "mark": "bar",
+        "cls": "a",
+        "pts": [
+         [
+          0,
+          70.0,
+          "Wed 04.11.: 70 g"
+         ],
+         [
+          1,
+          65.0,
+          "Thu 05.11.: 65 g"
+         ],
+         [
+          2,
+          60.0,
+          "Fri 06.11.: 60 g"
+         ],
+         [
+          3,
+          55.0,
+          "Sat 07.11.: 55 g"
+         ],
+         [
+          4,
+          50.0,
+          "Sun 08.11.: 50 g"
+         ],
+         [
+          5,
+          85.0,
+          "Mon 09.11.: 85 g"
+         ],
+         [
+          6,
+          80.0,
+          "Tue 10.11.: 80 g"
+         ]
+        ]
+       },
+       {
+        "mark": "line",
+        "cls": "b",
+        "pts": [
+         [
+          0,
+          70.0
+         ],
+         [
+          1,
+          67.5
+         ],
+         [
+          2,
+          65.0
+         ],
+         [
+          3,
+          62.5
+         ],
+         [
+          4,
+          60.0
+         ],
+         [
+          5,
+          64.2
+         ],
+         [
+          6,
+          66.4
+         ]
+        ]
+       }
+      ],
+      "label": "Fat per day",
+      "min": 0,
+      "unit": " g",
+      "lines": [
+       [
+        70.0,
+        "t",
+        "70"
+       ]
+      ]
+     },
+     "legend": [
+      {
+       "key": "sq a",
+       "text": "day"
+      },
+      {
+       "key": "line b",
+       "text": "7-day average"
+      },
+      {
+       "key": "ref t",
+       "text": "target"
+      }
+     ]
+    },
+    {
+     "id": "carbs",
+     "title": "Carbs",
+     "small": "per day",
+     "stat": [
+      {
+       "text": "average ",
+       "bold": false
+      },
+      {
+       "text": "249 g",
+       "bold": true
+      },
+      {
+       "text": " · target 220",
+       "bold": false
+      },
+      {
+       "text": " · over the target on ",
+       "bold": false
+      },
+      {
+       "text": "6",
+       "bold": true
+      },
+      {
+       "text": " of 7 days",
+       "bold": false
+      }
+     ],
+     "chart": {
+      "start": "2026-11-04",
+      "days": 7,
+      "series": [
+       {
+        "mark": "bar",
+        "cls": "a",
+        "pts": [
+         [
+          0,
+          282.0,
+          "Wed 04.11.: 282 g"
+         ],
+         [
+          1,
+          271.0,
+          "Thu 05.11.: 271 g"
+         ],
+         [
+          2,
+          260.0,
+          "Fri 06.11.: 260 g"
+         ],
+         [
+          3,
+          249.0,
+          "Sat 07.11.: 249 g"
+         ],
+         [
+          4,
+          238.0,
+          "Sun 08.11.: 238 g"
+         ],
+         [
+          5,
+          227.0,
+          "Mon 09.11.: 227 g"
+         ],
+         [
+          6,
+          216.0,
+          "Tue 10.11.: 216 g"
+         ]
+        ]
+       },
+       {
+        "mark": "line",
+        "cls": "b",
+        "pts": [
+         [
+          0,
+          282.0
+         ],
+         [
+          1,
+          276.5
+         ],
+         [
+          2,
+          271.0
+         ],
+         [
+          3,
+          265.5
+         ],
+         [
+          4,
+          260.0
+         ],
+         [
+          5,
+          254.5
+         ],
+         [
+          6,
+          249.0
+         ]
+        ]
+       }
+      ],
+      "label": "Carbs per day",
+      "min": 0,
+      "unit": " g",
+      "lines": [
+       [
+        220.0,
+        "t",
+        "220"
+       ]
+      ]
+     },
+     "legend": [
+      {
+       "key": "sq a",
+       "text": "day"
+      },
+      {
+       "key": "line b",
+       "text": "7-day average"
+      },
+      {
+       "key": "ref t",
+       "text": "target"
+      }
+     ]
+    }
+   ],
+   "days": [
+    {
+     "day": "2026-11-10",
+     "label": "Tue 10.11.",
+     "kcal": 1922,
+     "protein": 122,
+     "fat": 80,
+     "carbs": 216,
+     "kg": null,
+     "partly": false
+    },
+    {
+     "day": "2026-11-09",
+     "label": "Mon 09.11.",
+     "kcal": 1959,
+     "protein": 129,
+     "fat": 85,
+     "carbs": 227,
+     "kg": null,
+     "partly": false
+    },
+    {
+     "day": "2026-11-08",
+     "label": "Sun 08.11.",
+     "kcal": 1996,
+     "protein": 136,
+     "fat": 50,
+     "carbs": 238,
+     "kg": null,
+     "partly": false
+    },
+    {
+     "day": "2026-11-07",
+     "label": "Sat 07.11.",
+     "kcal": 2033,
+     "protein": 83,
+     "fat": 55,
+     "carbs": 249,
+     "kg": null,
+     "partly": false
+    },
+    {
+     "day": "2026-11-06",
+     "label": "Fri 06.11.",
+     "kcal": 2070,
+     "protein": 90,
+     "fat": 60,
+     "carbs": 260,
+     "kg": 80.9,
+     "partly": false
+    },
+    {
+     "day": "2026-11-05",
+     "label": "Thu 05.11.",
+     "kcal": 2107,
+     "protein": 97,
+     "fat": 65,
+     "carbs": 271,
+     "kg": 81.11,
+     "partly": false
+    },
+    {
+     "day": "2026-11-04",
+     "label": "Wed 04.11.",
+     "kcal": 2144,
+     "protein": 104,
+     "fat": 70,
+     "carbs": 282,
+     "kg": null,
+     "partly": false
+    }
+   ],
+   "days_none": "No complete days with food.",
+   "review": {
+    "offered": false,
+    "kind": "week",
+    "start": null,
+    "end": null,
+    "title": "Week review",
+    "small": "Monday to Sunday",
+    "state": null,
+    "id": null,
+    "wait": null,
+    "wait_note": null,
+    "parts": [],
+    "caution": null,
+    "meta": null,
+    "failed": null,
+    "intro": null,
+    "cost": null,
+    "button": null,
+    "links": [],
+    "blurb": "The review looks at one week from Monday to Sunday.",
+    "latest": null,
+    "weeks": [
+     {
+      "p": "last",
+      "label": "Last week"
+     },
+     {
+      "p": "this",
+      "label": "This week so far"
+     }
+    ]
+   }
+  },
+  "undo": null
+ },
+ "30": {
+  "v": 1,
+  "week": {
+   "p": "30",
+   "periods": [
+    {
+     "p": "7",
+     "label": "Last 7 days",
+     "current": false
+    },
+    {
+     "p": "last",
+     "label": "Last week",
+     "current": false
+    },
+    {
+     "p": "30",
+     "label": "Last 30 days",
+     "current": true
+    },
+    {
+     "p": "this",
+     "label": "This week so far",
+     "current": false
+    }
+   ],
+   "today": "2026-11-11",
+   "start": "2026-10-12",
+   "end": "2026-11-10",
+   "ndays": 30,
+   "empty": false,
+   "empty_text": null,
+   "with_food": 28,
+   "dates_text": "Mon 12.10. to Tue 10.11.2026",
+   "days_text": "28 of 30 days with food",
+   "left_out": "2 partly logged days left out (16.10., 25.10.: under half the calorie target)",
+   "today_text": "today is left out, it is not over yet",
+   "food": [
+    {
+     "key": "kcal",
+     "label": "Calories",
+     "unit": "kcal",
+     "average": 2067.3,
+     "target": 2000,
+     "pct": 103.4,
+     "level": "warn",
+     "over": true,
+     "average_text": "2,067",
+     "target_text": "2,000",
+     "note": null
+    },
+    {
+     "key": "protein",
+     "label": "Protein",
+     "unit": "g",
+     "average": 112.3,
+     "target": 120,
+     "pct": 93.6,
+     "level": "warn",
+     "over": false,
+     "average_text": "112",
+     "target_text": "120",
+     "note": null
+    },
+    {
+     "key": "fat",
+     "label": "Fat",
+     "unit": "g",
+     "average": 66,
+     "target": 70,
+     "pct": 94.2,
+     "level": "good",
+     "over": false,
+     "average_text": "66",
+     "target_text": "70",
+     "note": null
+    },
+    {
+     "key": "carbs",
+     "label": "Carbs",
+     "unit": "g",
+     "average": 221.3,
+     "target": 220,
+     "pct": 100.6,
+     "level": "warn",
+     "over": true,
+     "average_text": "221",
+     "target_text": "220",
+     "note": null
+    }
+   ],
+   "meter_hint": "Average day as a share of the target; the thin line is 100%.",
+   "health": [
+    {
+     "key": "weight",
+     "label": "Weight",
+     "value": "80.9 kg",
+     "detail": "(+0.4 kg since 16.10.)"
+    },
+    {
+     "key": "bp_morning",
+     "label": "Blood pressure morning",
+     "value": "121/78",
+     "detail": "average of 10"
+    },
+    {
+     "key": "bp_evening",
+     "label": "Blood pressure evening",
+     "value": "125/79",
+     "detail": "average of 7"
+    },
+    {
+     "key": "sugar",
+     "label": "Fasting sugar",
+     "value": "105 mg/dL",
+     "detail": "average of 30"
+    },
+    {
+     "key": "sleep",
+     "label": "Sleep",
+     "value": "6 h 36",
+     "detail": "average night"
+    },
+    {
+     "key": "feel",
+     "label": "Mood · energy",
+     "value": "mood 3.0 · energy 3.0",
+     "detail": "average of 15 evenings, 1 to 5"
+    },
+    {
+     "key": "body",
+     "label": "Body measurements",
+     "value": "Measured 04.11.: waist −1.0 cm since last",
+     "detail": "(1 value)"
+    },
+    {
+     "key": "habits",
+     "label": "Habits",
+     "value": "58%",
+     "detail": "of habit-days done (35 of 60)"
+    },
+    {
+     "key": "avoid",
+     "label": "Scrolling",
+     "value": "24 of 30 days without",
+     "detail": "(a habit to avoid)"
+    },
+    {
+     "key": "gym",
+     "label": "Gym",
+     "value": "3 workouts",
+     "detail": "Wed 14.10., Sat 31.10. (Push), Sat 07.11."
+    }
+   ],
+   "health_none": "Nothing logged in this period.",
+   "foods": {
+    "by_kcal": [
+     {
+      "name": "Pasta with vegetables",
+      "kcal": 21501,
+      "n": 26,
+      "text": "21,501 kcal"
+     },
+     {
+      "name": "Oats with milk",
+      "kcal": 16125,
+      "n": 26,
+      "text": "16,125 kcal"
+     },
+     {
+      "name": "Lentil soup",
+      "kcal": 11841,
+      "n": 19,
+      "text": "11,841 kcal"
+     },
+     {
+      "name": "Rice & beans",
+      "kcal": 4284,
+      "n": 7,
+      "text": "4,284 kcal"
+     },
+     {
+      "name": "Fruit bar",
+      "kcal": 900,
+      "n": 2,
+      "text": "900 kcal"
+     }
+    ],
+    "by_count": [
+     {
+      "name": "Oats with milk",
+      "kcal": 16125,
+      "n": 26,
+      "text": "26×"
+     },
+     {
+      "name": "Pasta with vegetables",
+      "kcal": 21501,
+      "n": 26,
+      "text": "26×"
+     },
+     {
+      "name": "Lentil soup",
+      "kcal": 11841,
+      "n": 19,
+      "text": "19×"
+     },
+     {
+      "name": "Rice & beans",
+      "kcal": 4284,
+      "n": 7,
+      "text": "7×"
+     },
+     {
+      "name": "Fruit bar",
+      "kcal": 900,
+      "n": 2,
+      "text": "2×"
+     }
+    ]
+   },
+   "charts": [
+    {
+     "id": "kcal",
+     "title": "Calories",
+     "small": "per day",
+     "stat": [
+      {
+       "text": "average ",
+       "bold": false
+      },
+      {
+       "text": "2,067 kcal",
+       "bold": true
+      },
+      {
+       "text": " · target 2,000",
+       "bold": false
+      },
+      {
+       "text": " · over the target on ",
+       "bold": false
+      },
+      {
+       "text": "16",
+       "bold": true
+      },
+      {
+       "text": " of 26 days",
+       "bold": false
+      },
+      {
+       "text": " · 2 partly logged days left out (16.10., 25.10.: under half the calorie target)",
+       "bold": false
+      }
+     ],
+     "chart": {
+      "start": "2026-10-12",
+      "days": 30,
+      "series": [
+       {
+        "mark": "bar",
+        "cls": "a",
+        "pts": [
+         [
+          0,
+          2295.0,
+          "Mon 12.10.: 2,295 kcal"
+         ],
+         [
+          1,
+          2258.0,
+          "Tue 13.10.: 2,258 kcal"
+         ],
+         [
+          2,
+          2221.0,
+          "Wed 14.10.: 2,221 kcal"
+         ],
+         [
+          3,
+          2184.0,
+          "Thu 15.10.: 2,184 kcal"
+         ],
+         [
+          4,
+          450.0,
+          "Fri 16.10.: 450 kcal (partly logged)"
+         ],
+         [
+          5,
+          2110.0,
+          "Sat 17.10.: 2,110 kcal"
+         ],
+         [
+          6,
+          2073.0,
+          "Sun 18.10.: 2,073 kcal"
+         ],
+         [
+          7,
+          2036.0,
+          "Mon 19.10.: 2,036 kcal"
+         ],
+         [
+          8,
+          1999.0,
+          "Tue 20.10.: 1,999 kcal"
+         ],
+         [
+          10,
+          1925.0,
+          "Thu 22.10.: 1,925 kcal"
+         ],
+         [
+          11,
+          1888.0,
+          "Fri 23.10.: 1,888 kcal"
+         ],
+         [
+          12,
+          1851.0,
+          "Sat 24.10.: 1,851 kcal"
+         ],
+         [
+          13,
+          450.0,
+          "Sun 25.10.: 450 kcal (partly logged)"
+         ],
+         [
+          14,
+          1777.0,
+          "Mon 26.10.: 1,777 kcal"
+         ],
+         [
+          15,
+          1740.0,
+          "Tue 27.10.: 1,740 kcal"
+         ],
+         [
+          16,
+          1703.0,
+          "Wed 28.10.: 1,703 kcal"
+         ],
+         [
+          17,
+          2366.0,
+          "Thu 29.10.: 2,366 kcal"
+         ],
+         [
+          18,
+          2329.0,
+          "Fri 30.10.: 2,329 kcal"
+         ],
+         [
+          19,
+          2292.0,
+          "Sat 31.10.: 2,292 kcal"
+         ],
+         [
+          20,
+          2255.0,
+          "Sun 01.11.: 2,255 kcal"
+         ],
+         [
+          21,
+          2218.0,
+          "Mon 02.11.: 2,218 kcal"
+         ],
+         [
+          23,
+          2144.0,
+          "Wed 04.11.: 2,144 kcal"
+         ],
+         [
+          24,
+          2107.0,
+          "Thu 05.11.: 2,107 kcal"
+         ],
+         [
+          25,
+          2070.0,
+          "Fri 06.11.: 2,070 kcal"
+         ],
+         [
+          26,
+          2033.0,
+          "Sat 07.11.: 2,033 kcal"
+         ],
+         [
+          27,
+          1996.0,
+          "Sun 08.11.: 1,996 kcal"
+         ],
+         [
+          28,
+          1959.0,
+          "Mon 09.11.: 1,959 kcal"
+         ],
+         [
+          29,
+          1922.0,
+          "Tue 10.11.: 1,922 kcal"
+         ]
+        ]
+       },
+       {
+        "mark": "line",
+        "cls": "b",
+        "pts": [
+         [
+          0,
+          2295.0
+         ],
+         [
+          1,
+          2276.5
+         ],
+         [
+          2,
+          2258.0
+         ],
+         [
+          3,
+          2239.5
+         ],
+         [
+          5,
+          2213.6
+         ],
+         [
+          6,
+          2190.2
+         ],
+         [
+          7,
+          2147.0
+         ],
+         [
+          8,
+          2103.8
+         ],
+         [
+          10,
+          2028.6
+         ],
+         [
+          11,
+          2005.2
+         ],
+         [
+          12,
+          1962.0
+         ],
+         [
+          14,
+          1888.0
+         ],
+         [
+          15,
+          1836.2
+         ],
+         [
+          16,
+          1814.0
+         ],
+         [
+          17,
+          1887.5
+         ],
+         [
+          18,
+          1961.0
+         ],
+         [
+          19,
+          2034.5
+         ],
+         [
+          20,
+          2066.0
+         ],
+         [
+          21,
+          2129.0
+         ],
+         [
+          23,
+          2267.3
+         ],
+         [
+          24,
+          2224.2
+         ],
+         [
+          25,
+          2181.0
+         ],
+         [
+          26,
+          2137.8
+         ],
+         [
+          27,
+          2094.7
+         ],
+         [
+          28,
+          2051.5
+         ],
+         [
+          29,
+          2033.0
+         ]
+        ]
+       }
+      ],
+      "label": "Calories per day",
+      "min": 0,
+      "unit": "",
+      "lines": [
+       [
+        2000.0,
+        "t",
+        "2,000"
+       ]
+      ]
+     },
+     "legend": [
+      {
+       "key": "sq a",
+       "text": "day"
+      },
+      {
+       "key": "line b",
+       "text": "7-day average"
+      },
+      {
+       "key": "ref t",
+       "text": "target"
+      }
+     ]
+    },
+    {
+     "id": "protein",
+     "title": "Protein",
+     "small": "per day",
+     "stat": [
+      {
+       "text": "average ",
+       "bold": false
+      },
+      {
+       "text": "112 g",
+       "bold": true
+      },
+      {
+       "text": " · target 120",
+       "bold": false
+      },
+      {
+       "text": " · target reached on ",
+       "bold": false
+      },
+      {
+       "text": "12",
+       "bold": true
+      },
+      {
+       "text": " of 26 days",
+       "bold": false
+      }
+     ],
+     "chart": {
+      "start": "2026-10-12",
+      "days": 30,
+      "series": [
+       {
+        "mark": "bar",
+        "cls": "a",
+        "pts": [
+         [
+          0,
+          85.0,
+          "Mon 12.10.: 85 g"
+         ],
+         [
+          1,
+          138.0,
+          "Tue 13.10.: 138 g"
+         ],
+         [
+          2,
+          131.0,
+          "Wed 14.10.: 131 g"
+         ],
+         [
+          3,
+          124.0,
+          "Thu 15.10.: 124 g"
+         ],
+         [
+          4,
+          10.0,
+          "Fri 16.10.: 10 g (partly logged)"
+         ],
+         [
+          5,
+          110.0,
+          "Sat 17.10.: 110 g"
+         ],
+         [
+          6,
+          103.0,
+          "Sun 18.10.: 103 g"
+         ],
+         [
+          7,
+          96.0,
+          "Mon 19.10.: 96 g"
+         ],
+         [
+          8,
+          89.0,
+          "Tue 20.10.: 89 g"
+         ],
+         [
+          10,
+          135.0,
+          "Thu 22.10.: 135 g"
+         ],
+         [
+          11,
+          128.0,
+          "Fri 23.10.: 128 g"
+         ],
+         [
+          12,
+          121.0,
+          "Sat 24.10.: 121 g"
+         ],
+         [
+          13,
+          10.0,
+          "Sun 25.10.: 10 g (partly logged)"
+         ],
+         [
+          14,
+          107.0,
+          "Mon 26.10.: 107 g"
+         ],
+         [
+          15,
+          100.0,
+          "Tue 27.10.: 100 g"
+         ],
+         [
+          16,
+          93.0,
+          "Wed 28.10.: 93 g"
+         ],
+         [
+          17,
+          86.0,
+          "Thu 29.10.: 86 g"
+         ],
+         [
+          18,
+          139.0,
+          "Fri 30.10.: 139 g"
+         ],
+         [
+          19,
+          132.0,
+          "Sat 31.10.: 132 g"
+         ],
+         [
+          20,
+          125.0,
+          "Sun 01.11.: 125 g"
+         ],
+         [
+          21,
+          118.0,
+          "Mon 02.11.: 118 g"
+         ],
+         [
+          23,
+          104.0,
+          "Wed 04.11.: 104 g"
+         ],
+         [
+          24,
+          97.0,
+          "Thu 05.11.: 97 g"
+         ],
+         [
+          25,
+          90.0,
+          "Fri 06.11.: 90 g"
+         ],
+         [
+          26,
+          83.0,
+          "Sat 07.11.: 83 g"
+         ],
+         [
+          27,
+          136.0,
+          "Sun 08.11.: 136 g"
+         ],
+         [
+          28,
+          129.0,
+          "Mon 09.11.: 129 g"
+         ],
+         [
+          29,
+          122.0,
+          "Tue 10.11.: 122 g"
+         ]
+        ]
+       },
+       {
+        "mark": "line",
+        "cls": "b",
+        "pts": [
+         [
+          0,
+          85.0
+         ],
+         [
+          1,
+          111.5
+         ],
+         [
+          2,
+          118.0
+         ],
+         [
+          3,
+          119.5
+         ],
+         [
+          5,
+          117.6
+         ],
+         [
+          6,
+          115.2
+         ],
+         [
+          7,
+          117.0
+         ],
+         [
+          8,
+          108.8
+         ],
+         [
+          10,
+          106.6
+         ],
+         [
+          11,
+          110.2
+         ],
+         [
+          12,
+          112.0
+         ],
+         [
+          14,
+          116.0
+         ],
+         [
+          15,
+          118.2
+         ],
+         [
+          16,
+          114.0
+         ],
+         [
+          17,
+          105.8
+         ],
+         [
+          18,
+          107.7
+         ],
+         [
+          19,
+          109.5
+         ],
+         [
+          20,
+          111.7
+         ],
+         [
+          21,
+          113.3
+         ],
+         [
+          23,
+          117.3
+         ],
+         [
+          24,
+          119.2
+         ],
+         [
+          25,
+          111.0
+         ],
+         [
+          26,
+          102.8
+         ],
+         [
+          27,
+          104.7
+         ],
+         [
+          28,
+          106.5
+         ],
+         [
+          29,
+          108.7
+         ]
+        ]
+       }
+      ],
+      "label": "Protein per day",
+      "min": 0,
+      "unit": " g",
+      "lines": [
+       [
+        120.0,
+        "t",
+        "120"
+       ]
+      ]
+     },
+     "legend": [
+      {
+       "key": "sq a",
+       "text": "day"
+      },
+      {
+       "key": "line b",
+       "text": "7-day average"
+      },
+      {
+       "key": "ref t",
+       "text": "target"
+      }
+     ]
+    },
+    {
+     "id": "fat",
+     "title": "Fat",
+     "small": "per day",
+     "stat": [
+      {
+       "text": "average ",
+       "bold": false
+      },
+      {
+       "text": "66 g",
+       "bold": true
+      },
+      {
+       "text": " · target 70",
+       "bold": false
+      },
+      {
+       "text": " · over the target on ",
+       "bold": false
+      },
+      {
+       "text": "8",
+       "bold": true
+      },
+      {
+       "text": " of 26 days",
+       "bold": false
+      }
+     ],
+     "chart": {
+      "start": "2026-10-12",
+      "days": 30,
+      "series": [
+       {
+        "mark": "bar",
+        "cls": "a",
+        "pts": [
+         [
+          0,
+          65.0,
+          "Mon 12.10.: 65 g"
+         ],
+         [
+          1,
+          60.0,
+          "Tue 13.10.: 60 g"
+         ],
+         [
+          2,
+          55.0,
+          "Wed 14.10.: 55 g"
+         ],
+         [
+          3,
+          50.0,
+          "Thu 15.10.: 50 g"
+         ],
+         [
+          4,
+          15.0,
+          "Fri 16.10.: 15 g (partly logged)"
+         ],
+         [
+          5,
+          80.0,
+          "Sat 17.10.: 80 g"
+         ],
+         [
+          6,
+          75.0,
+          "Sun 18.10.: 75 g"
+         ],
+         [
+          7,
+          70.0,
+          "Mon 19.10.: 70 g"
+         ],
+         [
+          8,
+          65.0,
+          "Tue 20.10.: 65 g"
+         ],
+         [
+          10,
+          55.0,
+          "Thu 22.10.: 55 g"
+         ],
+         [
+          11,
+          50.0,
+          "Fri 23.10.: 50 g"
+         ],
+         [
+          12,
+          85.0,
+          "Sat 24.10.: 85 g"
+         ],
+         [
+          13,
+          15.0,
+          "Sun 25.10.: 15 g (partly logged)"
+         ],
+         [
+          14,
+          75.0,
+          "Mon 26.10.: 75 g"
+         ],
+         [
+          15,
+          70.0,
+          "Tue 27.10.: 70 g"
+         ],
+         [
+          16,
+          65.0,
+          "Wed 28.10.: 65 g"
+         ],
+         [
+          17,
+          60.0,
+          "Thu 29.10.: 60 g"
+         ],
+         [
+          18,
+          55.0,
+          "Fri 30.10.: 55 g"
+         ],
+         [
+          19,
+          50.0,
+          "Sat 31.10.: 50 g"
+         ],
+         [
+          20,
+          85.0,
+          "Sun 01.11.: 85 g"
+         ],
+         [
+          21,
+          80.0,
+          "Mon 02.11.: 80 g"
+         ],
+         [
+          23,
+          70.0,
+          "Wed 04.11.: 70 g"
+         ],
+         [
+          24,
+          65.0,
+          "Thu 05.11.: 65 g"
+         ],
+         [
+          25,
+          60.0,
+          "Fri 06.11.: 60 g"
+         ],
+         [
+          26,
+          55.0,
+          "Sat 07.11.: 55 g"
+         ],
+         [
+          27,
+          50.0,
+          "Sun 08.11.: 50 g"
+         ],
+         [
+          28,
+          85.0,
+          "Mon 09.11.: 85 g"
+         ],
+         [
+          29,
+          80.0,
+          "Tue 10.11.: 80 g"
+         ]
+        ]
+       },
+       {
+        "mark": "line",
+        "cls": "b",
+        "pts": [
+         [
+          0,
+          65.0
+         ],
+         [
+          1,
+          62.5
+         ],
+         [
+          2,
+          60.0
+         ],
+         [
+          3,
+          57.5
+         ],
+         [
+          5,
+          62.0
+         ],
+         [
+          6,
+          64.2
+         ],
+         [
+          7,
+          65.0
+         ],
+         [
+          8,
+          65.8
+         ],
+         [
+          10,
+          69.0
+         ],
+         [
+          11,
+          65.8
+         ],
+         [
+          12,
+          66.7
+         ],
+         [
+          14,
+          66.0
+         ],
+         [
+          15,
+          67.0
+         ],
+         [
+          16,
+          66.7
+         ],
+         [
+          17,
+          67.5
+         ],
+         [
+          18,
+          68.3
+         ],
+         [
+          19,
+          62.5
+         ],
+         [
+          20,
+          65.7
+         ],
+         [
+          21,
+          66.4
+         ],
+         [
+          23,
+          66.7
+         ],
+         [
+          24,
+          67.5
+         ],
+         [
+          25,
+          68.3
+         ],
+         [
+          26,
+          69.2
+         ],
+         [
+          27,
+          63.3
+         ],
+         [
+          28,
+          64.2
+         ],
+         [
+          29,
+          66.4
+         ]
+        ]
+       }
+      ],
+      "label": "Fat per day",
+      "min": 0,
+      "unit": " g",
+      "lines": [
+       [
+        70.0,
+        "t",
+        "70"
+       ]
+      ]
+     },
+     "legend": [
+      {
+       "key": "sq a",
+       "text": "day"
+      },
+      {
+       "key": "line b",
+       "text": "7-day average"
+      },
+      {
+       "key": "ref t",
+       "text": "target"
+      }
+     ]
+    },
+    {
+     "id": "carbs",
+     "title": "Carbs",
+     "small": "per day",
+     "stat": [
+      {
+       "text": "average ",
+       "bold": false
+      },
+      {
+       "text": "221 g",
+       "bold": true
+      },
+      {
+       "text": " · target 220",
+       "bold": false
+      },
+      {
+       "text": " · over the target on ",
+       "bold": false
+      },
+      {
+       "text": "13",
+       "bold": true
+      },
+      {
+       "text": " of 26 days",
+       "bold": false
+      }
+     ],
+     "chart": {
+      "start": "2026-10-12",
+      "days": 30,
+      "series": [
+       {
+        "mark": "bar",
+        "cls": "a",
+        "pts": [
+         [
+          0,
+          235.0,
+          "Mon 12.10.: 235 g"
+         ],
+         [
+          1,
+          224.0,
+          "Tue 13.10.: 224 g"
+         ],
+         [
+          2,
+          213.0,
+          "Wed 14.10.: 213 g"
+         ],
+         [
+          3,
+          202.0,
+          "Thu 15.10.: 202 g"
+         ],
+         [
+          4,
+          60.0,
+          "Fri 16.10.: 60 g (partly logged)"
+         ],
+         [
+          5,
+          180.0,
+          "Sat 17.10.: 180 g"
+         ],
+         [
+          6,
+          169.0,
+          "Sun 18.10.: 169 g"
+         ],
+         [
+          7,
+          158.0,
+          "Mon 19.10.: 158 g"
+         ],
+         [
+          8,
+          297.0,
+          "Tue 20.10.: 297 g"
+         ],
+         [
+          10,
+          275.0,
+          "Thu 22.10.: 275 g"
+         ],
+         [
+          11,
+          264.0,
+          "Fri 23.10.: 264 g"
+         ],
+         [
+          12,
+          253.0,
+          "Sat 24.10.: 253 g"
+         ],
+         [
+          13,
+          60.0,
+          "Sun 25.10.: 60 g (partly logged)"
+         ],
+         [
+          14,
+          231.0,
+          "Mon 26.10.: 231 g"
+         ],
+         [
+          15,
+          220.0,
+          "Tue 27.10.: 220 g"
+         ],
+         [
+          16,
+          209.0,
+          "Wed 28.10.: 209 g"
+         ],
+         [
+          17,
+          198.0,
+          "Thu 29.10.: 198 g"
+         ],
+         [
+          18,
+          187.0,
+          "Fri 30.10.: 187 g"
+         ],
+         [
+          19,
+          176.0,
+          "Sat 31.10.: 176 g"
+         ],
+         [
+          20,
+          165.0,
+          "Sun 01.11.: 165 g"
+         ],
+         [
+          21,
+          154.0,
+          "Mon 02.11.: 154 g"
+         ],
+         [
+          23,
+          282.0,
+          "Wed 04.11.: 282 g"
+         ],
+         [
+          24,
+          271.0,
+          "Thu 05.11.: 271 g"
+         ],
+         [
+          25,
+          260.0,
+          "Fri 06.11.: 260 g"
+         ],
+         [
+          26,
+          249.0,
+          "Sat 07.11.: 249 g"
+         ],
+         [
+          27,
+          238.0,
+          "Sun 08.11.: 238 g"
+         ],
+         [
+          28,
+          227.0,
+          "Mon 09.11.: 227 g"
+         ],
+         [
+          29,
+          216.0,
+          "Tue 10.11.: 216 g"
+         ]
+        ]
+       },
+       {
+        "mark": "line",
+        "cls": "b",
+        "pts": [
+         [
+          0,
+          235.0
+         ],
+         [
+          1,
+          229.5
+         ],
+         [
+          2,
+          224.0
+         ],
+         [
+          3,
+          218.5
+         ],
+         [
+          5,
+          210.8
+         ],
+         [
+          6,
+          203.8
+         ],
+         [
+          7,
+          191.0
+         ],
+         [
+          8,
+          203.2
+         ],
+         [
+          10,
+          215.8
+         ],
+         [
+          11,
+          223.8
+         ],
+         [
+          12,
+          236.0
+         ],
+         [
+          14,
+          264.0
+         ],
+         [
+          15,
+          248.6
+         ],
+         [
+          16,
+          242.0
+         ],
+         [
+          17,
+          229.2
+         ],
+         [
+          18,
+          216.3
+         ],
+         [
+          19,
+          203.5
+         ],
+         [
+          20,
+          198.0
+         ],
+         [
+          21,
+          187.0
+         ],
+         [
+          23,
+          193.7
+         ],
+         [
+          24,
+          205.8
+         ],
+         [
+          25,
+          218.0
+         ],
+         [
+          26,
+          230.2
+         ],
+         [
+          27,
+          242.3
+         ],
+         [
+          28,
+          254.5
+         ],
+         [
+          29,
+          249.0
+         ]
+        ]
+       }
+      ],
+      "label": "Carbs per day",
+      "min": 0,
+      "unit": " g",
+      "lines": [
+       [
+        220.0,
+        "t",
+        "220"
+       ]
+      ]
+     },
+     "legend": [
+      {
+       "key": "sq a",
+       "text": "day"
+      },
+      {
+       "key": "line b",
+       "text": "7-day average"
+      },
+      {
+       "key": "ref t",
+       "text": "target"
+      }
+     ]
+    }
+   ],
+   "days": [
+    {
+     "day": "2026-11-10",
+     "label": "Tue 10.11.",
+     "kcal": 1922,
+     "protein": 122,
+     "fat": 80,
+     "carbs": 216,
+     "kg": null,
+     "partly": false
+    },
+    {
+     "day": "2026-11-09",
+     "label": "Mon 09.11.",
+     "kcal": 1959,
+     "protein": 129,
+     "fat": 85,
+     "carbs": 227,
+     "kg": null,
+     "partly": false
+    },
+    {
+     "day": "2026-11-08",
+     "label": "Sun 08.11.",
+     "kcal": 1996,
+     "protein": 136,
+     "fat": 50,
+     "carbs": 238,
+     "kg": null,
+     "partly": false
+    },
+    {
+     "day": "2026-11-07",
+     "label": "Sat 07.11.",
+     "kcal": 2033,
+     "protein": 83,
+     "fat": 55,
+     "carbs": 249,
+     "kg": null,
+     "partly": false
+    },
+    {
+     "day": "2026-11-06",
+     "label": "Fri 06.11.",
+     "kcal": 2070,
+     "protein": 90,
+     "fat": 60,
+     "carbs": 260,
+     "kg": 80.9,
+     "partly": false
+    },
+    {
+     "day": "2026-11-05",
+     "label": "Thu 05.11.",
+     "kcal": 2107,
+     "protein": 97,
+     "fat": 65,
+     "carbs": 271,
+     "kg": 81.11,
+     "partly": false
+    },
+    {
+     "day": "2026-11-04",
+     "label": "Wed 04.11.",
+     "kcal": 2144,
+     "protein": 104,
+     "fat": 70,
+     "carbs": 282,
+     "kg": null,
+     "partly": false
+    },
+    {
+     "day": "2026-11-02",
+     "label": "Mon 02.11.",
+     "kcal": 2218,
+     "protein": 118,
+     "fat": 80,
+     "carbs": 154,
+     "kg": null,
+     "partly": false
+    },
+    {
+     "day": "2026-11-01",
+     "label": "Sun 01.11.",
+     "kcal": 2255,
+     "protein": 125,
+     "fat": 85,
+     "carbs": 165,
+     "kg": null,
+     "partly": false
+    },
+    {
+     "day": "2026-10-31",
+     "label": "Sat 31.10.",
+     "kcal": 2292,
+     "protein": 132,
+     "fat": 50,
+     "carbs": 176,
+     "kg": null,
+     "partly": false
+    },
+    {
+     "day": "2026-10-30",
+     "label": "Fri 30.10.",
+     "kcal": 2329,
+     "protein": 139,
+     "fat": 55,
+     "carbs": 187,
+     "kg": null,
+     "partly": false
+    },
+    {
+     "day": "2026-10-29",
+     "label": "Thu 29.10.",
+     "kcal": 2366,
+     "protein": 86,
+     "fat": 60,
+     "carbs": 198,
+     "kg": null,
+     "partly": false
+    },
+    {
+     "day": "2026-10-28",
+     "label": "Wed 28.10.",
+     "kcal": 1703,
+     "protein": 93,
+     "fat": 65,
+     "carbs": 209,
+     "kg": null,
+     "partly": false
+    },
+    {
+     "day": "2026-10-27",
+     "label": "Tue 27.10.",
+     "kcal": 1740,
+     "protein": 100,
+     "fat": 70,
+     "carbs": 220,
+     "kg": 80.6,
+     "partly": false
+    },
+    {
+     "day": "2026-10-26",
+     "label": "Mon 26.10.",
+     "kcal": 1777,
+     "protein": 107,
+     "fat": 75,
+     "carbs": 231,
+     "kg": 80.81,
+     "partly": false
+    },
+    {
+     "day": "2026-10-25",
+     "label": "Sun 25.10.",
+     "kcal": 450,
+     "protein": 10,
+     "fat": 15,
+     "carbs": 60,
+     "kg": null,
+     "partly": true
+    },
+    {
+     "day": "2026-10-24",
+     "label": "Sat 24.10.",
+     "kcal": 1851,
+     "protein": 121,
+     "fat": 85,
+     "carbs": 253,
+     "kg": null,
+     "partly": false
+    },
+    {
+     "day": "2026-10-23",
+     "label": "Fri 23.10.",
+     "kcal": 1888,
+     "protein": 128,
+     "fat": 50,
+     "carbs": 264,
+     "kg": null,
+     "partly": false
+    },
+    {
+     "day": "2026-10-22",
+     "label": "Thu 22.10.",
+     "kcal": 1925,
+     "protein": 135,
+     "fat": 55,
+     "carbs": 275,
+     "kg": null,
+     "partly": false
+    },
+    {
+     "day": "2026-10-20",
+     "label": "Tue 20.10.",
+     "kcal": 1999,
+     "protein": 89,
+     "fat": 65,
+     "carbs": 297,
+     "kg": null,
+     "partly": false
+    },
+    {
+     "day": "2026-10-19",
+     "label": "Mon 19.10.",
+     "kcal": 2036,
+     "protein": 96,
+     "fat": 70,
+     "carbs": 158,
+     "kg": null,
+     "partly": false
+    },
+    {
+     "day": "2026-10-18",
+     "label": "Sun 18.10.",
+     "kcal": 2073,
+     "protein": 103,
+     "fat": 75,
+     "carbs": 169,
+     "kg": null,
+     "partly": false
+    },
+    {
+     "day": "2026-10-17",
+     "label": "Sat 17.10.",
+     "kcal": 2110,
+     "protein": 110,
+     "fat": 80,
+     "carbs": 180,
+     "kg": 80.3,
+     "partly": false
+    },
+    {
+     "day": "2026-10-16",
+     "label": "Fri 16.10.",
+     "kcal": 450,
+     "protein": 10,
+     "fat": 15,
+     "carbs": 60,
+     "kg": 80.51,
+     "partly": true
+    },
+    {
+     "day": "2026-10-15",
+     "label": "Thu 15.10.",
+     "kcal": 2184,
+     "protein": 124,
+     "fat": 50,
+     "carbs": 202,
+     "kg": null,
+     "partly": false
+    },
+    {
+     "day": "2026-10-14",
+     "label": "Wed 14.10.",
+     "kcal": 2221,
+     "protein": 131,
+     "fat": 55,
+     "carbs": 213,
+     "kg": null,
+     "partly": false
+    },
+    {
+     "day": "2026-10-13",
+     "label": "Tue 13.10.",
+     "kcal": 2258,
+     "protein": 138,
+     "fat": 60,
+     "carbs": 224,
+     "kg": null,
+     "partly": false
+    },
+    {
+     "day": "2026-10-12",
+     "label": "Mon 12.10.",
+     "kcal": 2295,
+     "protein": 85,
+     "fat": 65,
+     "carbs": 235,
+     "kg": null,
+     "partly": false
+    }
+   ],
+   "days_none": "No complete days with food.",
+   "review": {
+    "offered": false,
+    "kind": "week",
+    "start": null,
+    "end": null,
+    "title": "Week review",
+    "small": "Monday to Sunday",
+    "state": null,
+    "id": null,
+    "wait": null,
+    "wait_note": null,
+    "parts": [],
+    "caution": null,
+    "meta": null,
+    "failed": null,
+    "intro": null,
+    "cost": null,
+    "button": null,
+    "links": [],
+    "blurb": "The review looks at one week from Monday to Sunday.",
+    "latest": null,
+    "weeks": [
+     {
+      "p": "last",
+      "label": "Last week"
+     },
+     {
+      "p": "this",
+      "label": "This week so far"
+     }
+    ]
+   }
+  },
+  "undo": null
+ },
+ "last_none": {
+  "v": 1,
+  "week": {
+   "p": "last",
+   "periods": [
+    {
+     "p": "7",
+     "label": "Last 7 days",
+     "current": false
+    },
+    {
+     "p": "last",
+     "label": "Last week",
+     "current": true
+    },
+    {
+     "p": "30",
+     "label": "Last 30 days",
+     "current": false
+    },
+    {
+     "p": "this",
+     "label": "This week so far",
+     "current": false
+    }
+   ],
+   "today": "2026-11-11",
+   "start": "2026-11-02",
+   "end": "2026-11-08",
+   "ndays": 7,
+   "empty": false,
+   "empty_text": null,
+   "with_food": 6,
+   "dates_text": "Mon 02.11. to Sun 08.11.2026",
+   "days_text": "6 of 7 days with food",
+   "left_out": null,
+   "today_text": "today is left out, it is not over yet",
+   "food": [
+    {
+     "key": "kcal",
+     "label": "Calories",
+     "unit": "kcal",
+     "average": 2094.7,
+     "target": 2000,
+     "pct": 104.7,
+     "level": "warn",
+     "over": true,
+     "average_text": "2,095",
+     "target_text": "2,000",
+     "note": null
+    },
+    {
+     "key": "protein",
+     "label": "Protein",
+     "unit": "g",
+     "average": 104.7,
+     "target": 120,
+     "pct": 87.2,
+     "level": "warn",
+     "over": false,
+     "average_text": "105",
+     "target_text": "120",
+     "note": null
+    },
+    {
+     "key": "fat",
+     "label": "Fat",
+     "unit": "g",
+     "average": 63.3,
+     "target": 70,
+     "pct": 90.5,
+     "level": "good",
+     "over": false,
+     "average_text": "63",
+     "target_text": "70",
+     "note": null
+    },
+    {
+     "key": "carbs",
+     "label": "Carbs",
+     "unit": "g",
+     "average": 242.3,
+     "target": 220,
+     "pct": 110.2,
+     "level": "bad",
+     "over": true,
+     "average_text": "242",
+     "target_text": "220",
+     "note": null
+    }
+   ],
+   "meter_hint": "Average day as a share of the target; the thin line is 100%.",
+   "health": [
+    {
+     "key": "weight",
+     "label": "Weight",
+     "value": "80.9 kg",
+     "detail": "(−0.2 kg since 05.11.)"
+    },
+    {
+     "key": "bp_morning",
+     "label": "Blood pressure morning",
+     "value": "120/79",
+     "detail": "average of 2"
+    },
+    {
+     "key": "bp_evening",
+     "label": "Blood pressure evening",
+     "value": "125/79",
+     "detail": "average of 2"
+    },
+    {
+     "key": "sugar",
+     "label": "Fasting sugar",
+     "value": "105 mg/dL",
+     "detail": "average of 7"
+    },
+    {
+     "key": "sleep",
+     "label": "Sleep",
+     "value": "6 h 30",
+     "detail": "average night"
+    },
+    {
+     "key": "feel",
+     "label": "Mood · energy",
+     "value": "mood 3.2 · energy 2.8",
+     "detail": "average of 4 evenings, 1 to 5"
+    },
+    {
+     "key": "body",
+     "label": "Body measurements",
+     "value": "Measured 04.11.: waist −1.0 cm since last",
+     "detail": "(1 value)"
+    },
+    {
+     "key": "habits",
+     "label": "Habits",
+     "value": "57%",
+     "detail": "of habit-days done (8 of 14)"
+    },
+    {
+     "key": "avoid",
+     "label": "Scrolling",
+     "value": "6 of 7 days without",
+     "detail": "(a habit to avoid)"
+    },
+    {
+     "key": "gym",
+     "label": "Gym",
+     "value": "1 workout",
+     "detail": "Sat 07.11."
+    }
+   ],
+   "health_none": "Nothing logged in this period.",
+   "foods": {
+    "by_kcal": [
+     {
+      "name": "Pasta with vegetables",
+      "kcal": 5028,
+      "n": 6,
+      "text": "5,028 kcal"
+     },
+     {
+      "name": "Oats with milk",
+      "kcal": 3770,
+      "n": 6,
+      "text": "3,770 kcal"
+     },
+     {
+      "name": "Lentil soup",
+      "kcal": 2528,
+      "n": 4,
+      "text": "2,528 kcal"
+     },
+     {
+      "name": "Rice & beans",
+      "kcal": 1242,
+      "n": 2,
+      "text": "1,242 kcal"
+     }
+    ],
+    "by_count": [
+     {
+      "name": "Oats with milk",
+      "kcal": 3770,
+      "n": 6,
+      "text": "6×"
+     },
+     {
+      "name": "Pasta with vegetables",
+      "kcal": 5028,
+      "n": 6,
+      "text": "6×"
+     },
+     {
+      "name": "Lentil soup",
+      "kcal": 2528,
+      "n": 4,
+      "text": "4×"
+     },
+     {
+      "name": "Rice & beans",
+      "kcal": 1242,
+      "n": 2,
+      "text": "2×"
+     }
+    ]
+   },
+   "charts": [
+    {
+     "id": "kcal",
+     "title": "Calories",
+     "small": "per day",
+     "stat": [
+      {
+       "text": "average ",
+       "bold": false
+      },
+      {
+       "text": "2,095 kcal",
+       "bold": true
+      },
+      {
+       "text": " · target 2,000",
+       "bold": false
+      },
+      {
+       "text": " · over the target on ",
+       "bold": false
+      },
+      {
+       "text": "5",
+       "bold": true
+      },
+      {
+       "text": " of 6 days",
+       "bold": false
+      }
+     ],
+     "chart": {
+      "start": "2026-11-02",
+      "days": 7,
+      "series": [
+       {
+        "mark": "bar",
+        "cls": "a",
+        "pts": [
+         [
+          0,
+          2218.0,
+          "Mon 02.11.: 2,218 kcal"
+         ],
+         [
+          2,
+          2144.0,
+          "Wed 04.11.: 2,144 kcal"
+         ],
+         [
+          3,
+          2107.0,
+          "Thu 05.11.: 2,107 kcal"
+         ],
+         [
+          4,
+          2070.0,
+          "Fri 06.11.: 2,070 kcal"
+         ],
+         [
+          5,
+          2033.0,
+          "Sat 07.11.: 2,033 kcal"
+         ],
+         [
+          6,
+          1996.0,
+          "Sun 08.11.: 1,996 kcal"
+         ]
+        ]
+       },
+       {
+        "mark": "line",
+        "cls": "b",
+        "pts": [
+         [
+          0,
+          2218.0
+         ],
+         [
+          2,
+          2181.0
+         ],
+         [
+          3,
+          2156.3
+         ],
+         [
+          4,
+          2134.8
+         ],
+         [
+          5,
+          2114.4
+         ],
+         [
+          6,
+          2094.7
+         ]
+        ]
+       }
+      ],
+      "label": "Calories per day",
+      "min": 0,
+      "unit": "",
+      "lines": [
+       [
+        2000.0,
+        "t",
+        "2,000"
+       ]
+      ]
+     },
+     "legend": [
+      {
+       "key": "sq a",
+       "text": "day"
+      },
+      {
+       "key": "line b",
+       "text": "7-day average"
+      },
+      {
+       "key": "ref t",
+       "text": "target"
+      }
+     ]
+    },
+    {
+     "id": "protein",
+     "title": "Protein",
+     "small": "per day",
+     "stat": [
+      {
+       "text": "average ",
+       "bold": false
+      },
+      {
+       "text": "105 g",
+       "bold": true
+      },
+      {
+       "text": " · target 120",
+       "bold": false
+      },
+      {
+       "text": " · target reached on ",
+       "bold": false
+      },
+      {
+       "text": "1",
+       "bold": true
+      },
+      {
+       "text": " of 6 days",
+       "bold": false
+      }
+     ],
+     "chart": {
+      "start": "2026-11-02",
+      "days": 7,
+      "series": [
+       {
+        "mark": "bar",
+        "cls": "a",
+        "pts": [
+         [
+          0,
+          118.0,
+          "Mon 02.11.: 118 g"
+         ],
+         [
+          2,
+          104.0,
+          "Wed 04.11.: 104 g"
+         ],
+         [
+          3,
+          97.0,
+          "Thu 05.11.: 97 g"
+         ],
+         [
+          4,
+          90.0,
+          "Fri 06.11.: 90 g"
+         ],
+         [
+          5,
+          83.0,
+          "Sat 07.11.: 83 g"
+         ],
+         [
+          6,
+          136.0,
+          "Sun 08.11.: 136 g"
+         ]
+        ]
+       },
+       {
+        "mark": "line",
+        "cls": "b",
+        "pts": [
+         [
+          0,
+          118.0
+         ],
+         [
+          2,
+          111.0
+         ],
+         [
+          3,
+          106.3
+         ],
+         [
+          4,
+          102.2
+         ],
+         [
+          5,
+          98.4
+         ],
+         [
+          6,
+          104.7
+         ]
+        ]
+       }
+      ],
+      "label": "Protein per day",
+      "min": 0,
+      "unit": " g",
+      "lines": [
+       [
+        120.0,
+        "t",
+        "120"
+       ]
+      ]
+     },
+     "legend": [
+      {
+       "key": "sq a",
+       "text": "day"
+      },
+      {
+       "key": "line b",
+       "text": "7-day average"
+      },
+      {
+       "key": "ref t",
+       "text": "target"
+      }
+     ]
+    },
+    {
+     "id": "fat",
+     "title": "Fat",
+     "small": "per day",
+     "stat": [
+      {
+       "text": "average ",
+       "bold": false
+      },
+      {
+       "text": "63 g",
+       "bold": true
+      },
+      {
+       "text": " · target 70",
+       "bold": false
+      },
+      {
+       "text": " · over the target on ",
+       "bold": false
+      },
+      {
+       "text": "1",
+       "bold": true
+      },
+      {
+       "text": " of 6 days",
+       "bold": false
+      }
+     ],
+     "chart": {
+      "start": "2026-11-02",
+      "days": 7,
+      "series": [
+       {
+        "mark": "bar",
+        "cls": "a",
+        "pts": [
+         [
+          0,
+          80.0,
+          "Mon 02.11.: 80 g"
+         ],
+         [
+          2,
+          70.0,
+          "Wed 04.11.: 70 g"
+         ],
+         [
+          3,
+          65.0,
+          "Thu 05.11.: 65 g"
+         ],
+         [
+          4,
+          60.0,
+          "Fri 06.11.: 60 g"
+         ],
+         [
+          5,
+          55.0,
+          "Sat 07.11.: 55 g"
+         ],
+         [
+          6,
+          50.0,
+          "Sun 08.11.: 50 g"
+         ]
+        ]
+       },
+       {
+        "mark": "line",
+        "cls": "b",
+        "pts": [
+         [
+          0,
+          80.0
+         ],
+         [
+          2,
+          75.0
+         ],
+         [
+          3,
+          71.7
+         ],
+         [
+          4,
+          68.8
+         ],
+         [
+          5,
+          66.0
+         ],
+         [
+          6,
+          63.3
+         ]
+        ]
+       }
+      ],
+      "label": "Fat per day",
+      "min": 0,
+      "unit": " g",
+      "lines": [
+       [
+        70.0,
+        "t",
+        "70"
+       ]
+      ]
+     },
+     "legend": [
+      {
+       "key": "sq a",
+       "text": "day"
+      },
+      {
+       "key": "line b",
+       "text": "7-day average"
+      },
+      {
+       "key": "ref t",
+       "text": "target"
+      }
+     ]
+    },
+    {
+     "id": "carbs",
+     "title": "Carbs",
+     "small": "per day",
+     "stat": [
+      {
+       "text": "average ",
+       "bold": false
+      },
+      {
+       "text": "242 g",
+       "bold": true
+      },
+      {
+       "text": " · target 220",
+       "bold": false
+      },
+      {
+       "text": " · over the target on ",
+       "bold": false
+      },
+      {
+       "text": "5",
+       "bold": true
+      },
+      {
+       "text": " of 6 days",
+       "bold": false
+      }
+     ],
+     "chart": {
+      "start": "2026-11-02",
+      "days": 7,
+      "series": [
+       {
+        "mark": "bar",
+        "cls": "a",
+        "pts": [
+         [
+          0,
+          154.0,
+          "Mon 02.11.: 154 g"
+         ],
+         [
+          2,
+          282.0,
+          "Wed 04.11.: 282 g"
+         ],
+         [
+          3,
+          271.0,
+          "Thu 05.11.: 271 g"
+         ],
+         [
+          4,
+          260.0,
+          "Fri 06.11.: 260 g"
+         ],
+         [
+          5,
+          249.0,
+          "Sat 07.11.: 249 g"
+         ],
+         [
+          6,
+          238.0,
+          "Sun 08.11.: 238 g"
+         ]
+        ]
+       },
+       {
+        "mark": "line",
+        "cls": "b",
+        "pts": [
+         [
+          0,
+          154.0
+         ],
+         [
+          2,
+          218.0
+         ],
+         [
+          3,
+          235.7
+         ],
+         [
+          4,
+          241.8
+         ],
+         [
+          5,
+          243.2
+         ],
+         [
+          6,
+          242.3
+         ]
+        ]
+       }
+      ],
+      "label": "Carbs per day",
+      "min": 0,
+      "unit": " g",
+      "lines": [
+       [
+        220.0,
+        "t",
+        "220"
+       ]
+      ]
+     },
+     "legend": [
+      {
+       "key": "sq a",
+       "text": "day"
+      },
+      {
+       "key": "line b",
+       "text": "7-day average"
+      },
+      {
+       "key": "ref t",
+       "text": "target"
+      }
+     ]
+    }
+   ],
+   "days": [
+    {
+     "day": "2026-11-08",
+     "label": "Sun 08.11.",
+     "kcal": 1996,
+     "protein": 136,
+     "fat": 50,
+     "carbs": 238,
+     "kg": null,
+     "partly": false
+    },
+    {
+     "day": "2026-11-07",
+     "label": "Sat 07.11.",
+     "kcal": 2033,
+     "protein": 83,
+     "fat": 55,
+     "carbs": 249,
+     "kg": null,
+     "partly": false
+    },
+    {
+     "day": "2026-11-06",
+     "label": "Fri 06.11.",
+     "kcal": 2070,
+     "protein": 90,
+     "fat": 60,
+     "carbs": 260,
+     "kg": 80.9,
+     "partly": false
+    },
+    {
+     "day": "2026-11-05",
+     "label": "Thu 05.11.",
+     "kcal": 2107,
+     "protein": 97,
+     "fat": 65,
+     "carbs": 271,
+     "kg": 81.11,
+     "partly": false
+    },
+    {
+     "day": "2026-11-04",
+     "label": "Wed 04.11.",
+     "kcal": 2144,
+     "protein": 104,
+     "fat": 70,
+     "carbs": 282,
+     "kg": null,
+     "partly": false
+    },
+    {
+     "day": "2026-11-02",
+     "label": "Mon 02.11.",
+     "kcal": 2218,
+     "protein": 118,
+     "fat": 80,
+     "carbs": 154,
+     "kg": null,
+     "partly": false
+    }
+   ],
+   "days_none": "No complete days with food.",
+   "review": {
+    "offered": true,
+    "kind": "week",
+    "start": "2026-11-02",
+    "end": "2026-11-08",
+    "title": "Week review",
+    "small": "this period · on demand",
+    "state": "none",
+    "id": null,
+    "wait": null,
+    "wait_note": null,
+    "parts": [],
+    "caution": null,
+    "meta": null,
+    "failed": null,
+    "intro": "The period against your targets and goals: trends, habits, gym and home, best and hardest day, and one or two things to focus on next.",
+    "cost": "about 45 seconds · about 20 cents",
+    "button": "Review last week",
+    "links": [
+     {
+      "label": "All coachings",
+      "href": "/web/coach"
+     },
+     {
+      "label": "Your goals",
+      "href": "/web/settings?tab=coach"
+     }
+    ],
+    "blurb": null,
+    "latest": null,
+    "weeks": null
+   }
+  },
+  "undo": null
+ },
+ "last_failed": {
+  "v": 1,
+  "week": {
+   "p": "last",
+   "periods": [
+    {
+     "p": "7",
+     "label": "Last 7 days",
+     "current": false
+    },
+    {
+     "p": "last",
+     "label": "Last week",
+     "current": true
+    },
+    {
+     "p": "30",
+     "label": "Last 30 days",
+     "current": false
+    },
+    {
+     "p": "this",
+     "label": "This week so far",
+     "current": false
+    }
+   ],
+   "today": "2026-11-11",
+   "start": "2026-11-02",
+   "end": "2026-11-08",
+   "ndays": 7,
+   "empty": false,
+   "empty_text": null,
+   "with_food": 6,
+   "dates_text": "Mon 02.11. to Sun 08.11.2026",
+   "days_text": "6 of 7 days with food",
+   "left_out": null,
+   "today_text": "today is left out, it is not over yet",
+   "food": [
+    {
+     "key": "kcal",
+     "label": "Calories",
+     "unit": "kcal",
+     "average": 2094.7,
+     "target": 2000,
+     "pct": 104.7,
+     "level": "warn",
+     "over": true,
+     "average_text": "2,095",
+     "target_text": "2,000",
+     "note": null
+    },
+    {
+     "key": "protein",
+     "label": "Protein",
+     "unit": "g",
+     "average": 104.7,
+     "target": 120,
+     "pct": 87.2,
+     "level": "warn",
+     "over": false,
+     "average_text": "105",
+     "target_text": "120",
+     "note": null
+    },
+    {
+     "key": "fat",
+     "label": "Fat",
+     "unit": "g",
+     "average": 63.3,
+     "target": 70,
+     "pct": 90.5,
+     "level": "good",
+     "over": false,
+     "average_text": "63",
+     "target_text": "70",
+     "note": null
+    },
+    {
+     "key": "carbs",
+     "label": "Carbs",
+     "unit": "g",
+     "average": 242.3,
+     "target": 220,
+     "pct": 110.2,
+     "level": "bad",
+     "over": true,
+     "average_text": "242",
+     "target_text": "220",
+     "note": null
+    }
+   ],
+   "meter_hint": "Average day as a share of the target; the thin line is 100%.",
+   "health": [
+    {
+     "key": "weight",
+     "label": "Weight",
+     "value": "80.9 kg",
+     "detail": "(−0.2 kg since 05.11.)"
+    },
+    {
+     "key": "bp_morning",
+     "label": "Blood pressure morning",
+     "value": "120/79",
+     "detail": "average of 2"
+    },
+    {
+     "key": "bp_evening",
+     "label": "Blood pressure evening",
+     "value": "125/79",
+     "detail": "average of 2"
+    },
+    {
+     "key": "sugar",
+     "label": "Fasting sugar",
+     "value": "105 mg/dL",
+     "detail": "average of 7"
+    },
+    {
+     "key": "sleep",
+     "label": "Sleep",
+     "value": "6 h 30",
+     "detail": "average night"
+    },
+    {
+     "key": "feel",
+     "label": "Mood · energy",
+     "value": "mood 3.2 · energy 2.8",
+     "detail": "average of 4 evenings, 1 to 5"
+    },
+    {
+     "key": "body",
+     "label": "Body measurements",
+     "value": "Measured 04.11.: waist −1.0 cm since last",
+     "detail": "(1 value)"
+    },
+    {
+     "key": "habits",
+     "label": "Habits",
+     "value": "57%",
+     "detail": "of habit-days done (8 of 14)"
+    },
+    {
+     "key": "avoid",
+     "label": "Scrolling",
+     "value": "6 of 7 days without",
+     "detail": "(a habit to avoid)"
+    },
+    {
+     "key": "gym",
+     "label": "Gym",
+     "value": "1 workout",
+     "detail": "Sat 07.11."
+    }
+   ],
+   "health_none": "Nothing logged in this period.",
+   "foods": {
+    "by_kcal": [
+     {
+      "name": "Pasta with vegetables",
+      "kcal": 5028,
+      "n": 6,
+      "text": "5,028 kcal"
+     },
+     {
+      "name": "Oats with milk",
+      "kcal": 3770,
+      "n": 6,
+      "text": "3,770 kcal"
+     },
+     {
+      "name": "Lentil soup",
+      "kcal": 2528,
+      "n": 4,
+      "text": "2,528 kcal"
+     },
+     {
+      "name": "Rice & beans",
+      "kcal": 1242,
+      "n": 2,
+      "text": "1,242 kcal"
+     }
+    ],
+    "by_count": [
+     {
+      "name": "Oats with milk",
+      "kcal": 3770,
+      "n": 6,
+      "text": "6×"
+     },
+     {
+      "name": "Pasta with vegetables",
+      "kcal": 5028,
+      "n": 6,
+      "text": "6×"
+     },
+     {
+      "name": "Lentil soup",
+      "kcal": 2528,
+      "n": 4,
+      "text": "4×"
+     },
+     {
+      "name": "Rice & beans",
+      "kcal": 1242,
+      "n": 2,
+      "text": "2×"
+     }
+    ]
+   },
+   "charts": [
+    {
+     "id": "kcal",
+     "title": "Calories",
+     "small": "per day",
+     "stat": [
+      {
+       "text": "average ",
+       "bold": false
+      },
+      {
+       "text": "2,095 kcal",
+       "bold": true
+      },
+      {
+       "text": " · target 2,000",
+       "bold": false
+      },
+      {
+       "text": " · over the target on ",
+       "bold": false
+      },
+      {
+       "text": "5",
+       "bold": true
+      },
+      {
+       "text": " of 6 days",
+       "bold": false
+      }
+     ],
+     "chart": {
+      "start": "2026-11-02",
+      "days": 7,
+      "series": [
+       {
+        "mark": "bar",
+        "cls": "a",
+        "pts": [
+         [
+          0,
+          2218.0,
+          "Mon 02.11.: 2,218 kcal"
+         ],
+         [
+          2,
+          2144.0,
+          "Wed 04.11.: 2,144 kcal"
+         ],
+         [
+          3,
+          2107.0,
+          "Thu 05.11.: 2,107 kcal"
+         ],
+         [
+          4,
+          2070.0,
+          "Fri 06.11.: 2,070 kcal"
+         ],
+         [
+          5,
+          2033.0,
+          "Sat 07.11.: 2,033 kcal"
+         ],
+         [
+          6,
+          1996.0,
+          "Sun 08.11.: 1,996 kcal"
+         ]
+        ]
+       },
+       {
+        "mark": "line",
+        "cls": "b",
+        "pts": [
+         [
+          0,
+          2218.0
+         ],
+         [
+          2,
+          2181.0
+         ],
+         [
+          3,
+          2156.3
+         ],
+         [
+          4,
+          2134.8
+         ],
+         [
+          5,
+          2114.4
+         ],
+         [
+          6,
+          2094.7
+         ]
+        ]
+       }
+      ],
+      "label": "Calories per day",
+      "min": 0,
+      "unit": "",
+      "lines": [
+       [
+        2000.0,
+        "t",
+        "2,000"
+       ]
+      ]
+     },
+     "legend": [
+      {
+       "key": "sq a",
+       "text": "day"
+      },
+      {
+       "key": "line b",
+       "text": "7-day average"
+      },
+      {
+       "key": "ref t",
+       "text": "target"
+      }
+     ]
+    },
+    {
+     "id": "protein",
+     "title": "Protein",
+     "small": "per day",
+     "stat": [
+      {
+       "text": "average ",
+       "bold": false
+      },
+      {
+       "text": "105 g",
+       "bold": true
+      },
+      {
+       "text": " · target 120",
+       "bold": false
+      },
+      {
+       "text": " · target reached on ",
+       "bold": false
+      },
+      {
+       "text": "1",
+       "bold": true
+      },
+      {
+       "text": " of 6 days",
+       "bold": false
+      }
+     ],
+     "chart": {
+      "start": "2026-11-02",
+      "days": 7,
+      "series": [
+       {
+        "mark": "bar",
+        "cls": "a",
+        "pts": [
+         [
+          0,
+          118.0,
+          "Mon 02.11.: 118 g"
+         ],
+         [
+          2,
+          104.0,
+          "Wed 04.11.: 104 g"
+         ],
+         [
+          3,
+          97.0,
+          "Thu 05.11.: 97 g"
+         ],
+         [
+          4,
+          90.0,
+          "Fri 06.11.: 90 g"
+         ],
+         [
+          5,
+          83.0,
+          "Sat 07.11.: 83 g"
+         ],
+         [
+          6,
+          136.0,
+          "Sun 08.11.: 136 g"
+         ]
+        ]
+       },
+       {
+        "mark": "line",
+        "cls": "b",
+        "pts": [
+         [
+          0,
+          118.0
+         ],
+         [
+          2,
+          111.0
+         ],
+         [
+          3,
+          106.3
+         ],
+         [
+          4,
+          102.2
+         ],
+         [
+          5,
+          98.4
+         ],
+         [
+          6,
+          104.7
+         ]
+        ]
+       }
+      ],
+      "label": "Protein per day",
+      "min": 0,
+      "unit": " g",
+      "lines": [
+       [
+        120.0,
+        "t",
+        "120"
+       ]
+      ]
+     },
+     "legend": [
+      {
+       "key": "sq a",
+       "text": "day"
+      },
+      {
+       "key": "line b",
+       "text": "7-day average"
+      },
+      {
+       "key": "ref t",
+       "text": "target"
+      }
+     ]
+    },
+    {
+     "id": "fat",
+     "title": "Fat",
+     "small": "per day",
+     "stat": [
+      {
+       "text": "average ",
+       "bold": false
+      },
+      {
+       "text": "63 g",
+       "bold": true
+      },
+      {
+       "text": " · target 70",
+       "bold": false
+      },
+      {
+       "text": " · over the target on ",
+       "bold": false
+      },
+      {
+       "text": "1",
+       "bold": true
+      },
+      {
+       "text": " of 6 days",
+       "bold": false
+      }
+     ],
+     "chart": {
+      "start": "2026-11-02",
+      "days": 7,
+      "series": [
+       {
+        "mark": "bar",
+        "cls": "a",
+        "pts": [
+         [
+          0,
+          80.0,
+          "Mon 02.11.: 80 g"
+         ],
+         [
+          2,
+          70.0,
+          "Wed 04.11.: 70 g"
+         ],
+         [
+          3,
+          65.0,
+          "Thu 05.11.: 65 g"
+         ],
+         [
+          4,
+          60.0,
+          "Fri 06.11.: 60 g"
+         ],
+         [
+          5,
+          55.0,
+          "Sat 07.11.: 55 g"
+         ],
+         [
+          6,
+          50.0,
+          "Sun 08.11.: 50 g"
+         ]
+        ]
+       },
+       {
+        "mark": "line",
+        "cls": "b",
+        "pts": [
+         [
+          0,
+          80.0
+         ],
+         [
+          2,
+          75.0
+         ],
+         [
+          3,
+          71.7
+         ],
+         [
+          4,
+          68.8
+         ],
+         [
+          5,
+          66.0
+         ],
+         [
+          6,
+          63.3
+         ]
+        ]
+       }
+      ],
+      "label": "Fat per day",
+      "min": 0,
+      "unit": " g",
+      "lines": [
+       [
+        70.0,
+        "t",
+        "70"
+       ]
+      ]
+     },
+     "legend": [
+      {
+       "key": "sq a",
+       "text": "day"
+      },
+      {
+       "key": "line b",
+       "text": "7-day average"
+      },
+      {
+       "key": "ref t",
+       "text": "target"
+      }
+     ]
+    },
+    {
+     "id": "carbs",
+     "title": "Carbs",
+     "small": "per day",
+     "stat": [
+      {
+       "text": "average ",
+       "bold": false
+      },
+      {
+       "text": "242 g",
+       "bold": true
+      },
+      {
+       "text": " · target 220",
+       "bold": false
+      },
+      {
+       "text": " · over the target on ",
+       "bold": false
+      },
+      {
+       "text": "5",
+       "bold": true
+      },
+      {
+       "text": " of 6 days",
+       "bold": false
+      }
+     ],
+     "chart": {
+      "start": "2026-11-02",
+      "days": 7,
+      "series": [
+       {
+        "mark": "bar",
+        "cls": "a",
+        "pts": [
+         [
+          0,
+          154.0,
+          "Mon 02.11.: 154 g"
+         ],
+         [
+          2,
+          282.0,
+          "Wed 04.11.: 282 g"
+         ],
+         [
+          3,
+          271.0,
+          "Thu 05.11.: 271 g"
+         ],
+         [
+          4,
+          260.0,
+          "Fri 06.11.: 260 g"
+         ],
+         [
+          5,
+          249.0,
+          "Sat 07.11.: 249 g"
+         ],
+         [
+          6,
+          238.0,
+          "Sun 08.11.: 238 g"
+         ]
+        ]
+       },
+       {
+        "mark": "line",
+        "cls": "b",
+        "pts": [
+         [
+          0,
+          154.0
+         ],
+         [
+          2,
+          218.0
+         ],
+         [
+          3,
+          235.7
+         ],
+         [
+          4,
+          241.8
+         ],
+         [
+          5,
+          243.2
+         ],
+         [
+          6,
+          242.3
+         ]
+        ]
+       }
+      ],
+      "label": "Carbs per day",
+      "min": 0,
+      "unit": " g",
+      "lines": [
+       [
+        220.0,
+        "t",
+        "220"
+       ]
+      ]
+     },
+     "legend": [
+      {
+       "key": "sq a",
+       "text": "day"
+      },
+      {
+       "key": "line b",
+       "text": "7-day average"
+      },
+      {
+       "key": "ref t",
+       "text": "target"
+      }
+     ]
+    }
+   ],
+   "days": [
+    {
+     "day": "2026-11-08",
+     "label": "Sun 08.11.",
+     "kcal": 1996,
+     "protein": 136,
+     "fat": 50,
+     "carbs": 238,
+     "kg": null,
+     "partly": false
+    },
+    {
+     "day": "2026-11-07",
+     "label": "Sat 07.11.",
+     "kcal": 2033,
+     "protein": 83,
+     "fat": 55,
+     "carbs": 249,
+     "kg": null,
+     "partly": false
+    },
+    {
+     "day": "2026-11-06",
+     "label": "Fri 06.11.",
+     "kcal": 2070,
+     "protein": 90,
+     "fat": 60,
+     "carbs": 260,
+     "kg": 80.9,
+     "partly": false
+    },
+    {
+     "day": "2026-11-05",
+     "label": "Thu 05.11.",
+     "kcal": 2107,
+     "protein": 97,
+     "fat": 65,
+     "carbs": 271,
+     "kg": 81.11,
+     "partly": false
+    },
+    {
+     "day": "2026-11-04",
+     "label": "Wed 04.11.",
+     "kcal": 2144,
+     "protein": 104,
+     "fat": 70,
+     "carbs": 282,
+     "kg": null,
+     "partly": false
+    },
+    {
+     "day": "2026-11-02",
+     "label": "Mon 02.11.",
+     "kcal": 2218,
+     "protein": 118,
+     "fat": 80,
+     "carbs": 154,
+     "kg": null,
+     "partly": false
+    }
+   ],
+   "days_none": "No complete days with food.",
+   "review": {
+    "offered": true,
+    "kind": "week",
+    "start": "2026-11-02",
+    "end": "2026-11-08",
+    "title": "Week review",
+    "small": "this period · on demand",
+    "state": "failed",
+    "id": 1,
+    "wait": null,
+    "wait_note": null,
+    "parts": [],
+    "caution": null,
+    "meta": null,
+    "failed": "That did not work (ProviderError); nothing was charged if the AI did not answer. Try again.",
+    "intro": "The period against your targets and goals: trends, habits, gym and home, best and hardest day, and one or two things to focus on next.",
+    "cost": "about 45 seconds · about 20 cents",
+    "button": "Review last week",
+    "links": [
+     {
+      "label": "All coachings",
+      "href": "/web/coach"
+     },
+     {
+      "label": "Your goals",
+      "href": "/web/settings?tab=coach"
+     }
+    ],
+    "blurb": null,
+    "latest": null,
+    "weeks": null
+   }
+  },
+  "undo": null
+ },
+ "last_done": {
+  "v": 1,
+  "week": {
+   "p": "last",
+   "periods": [
+    {
+     "p": "7",
+     "label": "Last 7 days",
+     "current": false
+    },
+    {
+     "p": "last",
+     "label": "Last week",
+     "current": true
+    },
+    {
+     "p": "30",
+     "label": "Last 30 days",
+     "current": false
+    },
+    {
+     "p": "this",
+     "label": "This week so far",
+     "current": false
+    }
+   ],
+   "today": "2026-11-11",
+   "start": "2026-11-02",
+   "end": "2026-11-08",
+   "ndays": 7,
+   "empty": false,
+   "empty_text": null,
+   "with_food": 6,
+   "dates_text": "Mon 02.11. to Sun 08.11.2026",
+   "days_text": "6 of 7 days with food",
+   "left_out": null,
+   "today_text": "today is left out, it is not over yet",
+   "food": [
+    {
+     "key": "kcal",
+     "label": "Calories",
+     "unit": "kcal",
+     "average": 2094.7,
+     "target": 2000,
+     "pct": 104.7,
+     "level": "warn",
+     "over": true,
+     "average_text": "2,095",
+     "target_text": "2,000",
+     "note": null
+    },
+    {
+     "key": "protein",
+     "label": "Protein",
+     "unit": "g",
+     "average": 104.7,
+     "target": 120,
+     "pct": 87.2,
+     "level": "warn",
+     "over": false,
+     "average_text": "105",
+     "target_text": "120",
+     "note": null
+    },
+    {
+     "key": "fat",
+     "label": "Fat",
+     "unit": "g",
+     "average": 63.3,
+     "target": 70,
+     "pct": 90.5,
+     "level": "good",
+     "over": false,
+     "average_text": "63",
+     "target_text": "70",
+     "note": null
+    },
+    {
+     "key": "carbs",
+     "label": "Carbs",
+     "unit": "g",
+     "average": 242.3,
+     "target": 220,
+     "pct": 110.2,
+     "level": "bad",
+     "over": true,
+     "average_text": "242",
+     "target_text": "220",
+     "note": null
+    }
+   ],
+   "meter_hint": "Average day as a share of the target; the thin line is 100%.",
+   "health": [
+    {
+     "key": "weight",
+     "label": "Weight",
+     "value": "80.9 kg",
+     "detail": "(−0.2 kg since 05.11.)"
+    },
+    {
+     "key": "bp_morning",
+     "label": "Blood pressure morning",
+     "value": "120/79",
+     "detail": "average of 2"
+    },
+    {
+     "key": "bp_evening",
+     "label": "Blood pressure evening",
+     "value": "125/79",
+     "detail": "average of 2"
+    },
+    {
+     "key": "sugar",
+     "label": "Fasting sugar",
+     "value": "105 mg/dL",
+     "detail": "average of 7"
+    },
+    {
+     "key": "sleep",
+     "label": "Sleep",
+     "value": "6 h 30",
+     "detail": "average night"
+    },
+    {
+     "key": "feel",
+     "label": "Mood · energy",
+     "value": "mood 3.2 · energy 2.8",
+     "detail": "average of 4 evenings, 1 to 5"
+    },
+    {
+     "key": "body",
+     "label": "Body measurements",
+     "value": "Measured 04.11.: waist −1.0 cm since last",
+     "detail": "(1 value)"
+    },
+    {
+     "key": "habits",
+     "label": "Habits",
+     "value": "57%",
+     "detail": "of habit-days done (8 of 14)"
+    },
+    {
+     "key": "avoid",
+     "label": "Scrolling",
+     "value": "6 of 7 days without",
+     "detail": "(a habit to avoid)"
+    },
+    {
+     "key": "gym",
+     "label": "Gym",
+     "value": "1 workout",
+     "detail": "Sat 07.11."
+    }
+   ],
+   "health_none": "Nothing logged in this period.",
+   "foods": {
+    "by_kcal": [
+     {
+      "name": "Pasta with vegetables",
+      "kcal": 5028,
+      "n": 6,
+      "text": "5,028 kcal"
+     },
+     {
+      "name": "Oats with milk",
+      "kcal": 3770,
+      "n": 6,
+      "text": "3,770 kcal"
+     },
+     {
+      "name": "Lentil soup",
+      "kcal": 2528,
+      "n": 4,
+      "text": "2,528 kcal"
+     },
+     {
+      "name": "Rice & beans",
+      "kcal": 1242,
+      "n": 2,
+      "text": "1,242 kcal"
+     }
+    ],
+    "by_count": [
+     {
+      "name": "Oats with milk",
+      "kcal": 3770,
+      "n": 6,
+      "text": "6×"
+     },
+     {
+      "name": "Pasta with vegetables",
+      "kcal": 5028,
+      "n": 6,
+      "text": "6×"
+     },
+     {
+      "name": "Lentil soup",
+      "kcal": 2528,
+      "n": 4,
+      "text": "4×"
+     },
+     {
+      "name": "Rice & beans",
+      "kcal": 1242,
+      "n": 2,
+      "text": "2×"
+     }
+    ]
+   },
+   "charts": [
+    {
+     "id": "kcal",
+     "title": "Calories",
+     "small": "per day",
+     "stat": [
+      {
+       "text": "average ",
+       "bold": false
+      },
+      {
+       "text": "2,095 kcal",
+       "bold": true
+      },
+      {
+       "text": " · target 2,000",
+       "bold": false
+      },
+      {
+       "text": " · over the target on ",
+       "bold": false
+      },
+      {
+       "text": "5",
+       "bold": true
+      },
+      {
+       "text": " of 6 days",
+       "bold": false
+      }
+     ],
+     "chart": {
+      "start": "2026-11-02",
+      "days": 7,
+      "series": [
+       {
+        "mark": "bar",
+        "cls": "a",
+        "pts": [
+         [
+          0,
+          2218.0,
+          "Mon 02.11.: 2,218 kcal"
+         ],
+         [
+          2,
+          2144.0,
+          "Wed 04.11.: 2,144 kcal"
+         ],
+         [
+          3,
+          2107.0,
+          "Thu 05.11.: 2,107 kcal"
+         ],
+         [
+          4,
+          2070.0,
+          "Fri 06.11.: 2,070 kcal"
+         ],
+         [
+          5,
+          2033.0,
+          "Sat 07.11.: 2,033 kcal"
+         ],
+         [
+          6,
+          1996.0,
+          "Sun 08.11.: 1,996 kcal"
+         ]
+        ]
+       },
+       {
+        "mark": "line",
+        "cls": "b",
+        "pts": [
+         [
+          0,
+          2218.0
+         ],
+         [
+          2,
+          2181.0
+         ],
+         [
+          3,
+          2156.3
+         ],
+         [
+          4,
+          2134.8
+         ],
+         [
+          5,
+          2114.4
+         ],
+         [
+          6,
+          2094.7
+         ]
+        ]
+       }
+      ],
+      "label": "Calories per day",
+      "min": 0,
+      "unit": "",
+      "lines": [
+       [
+        2000.0,
+        "t",
+        "2,000"
+       ]
+      ]
+     },
+     "legend": [
+      {
+       "key": "sq a",
+       "text": "day"
+      },
+      {
+       "key": "line b",
+       "text": "7-day average"
+      },
+      {
+       "key": "ref t",
+       "text": "target"
+      }
+     ]
+    },
+    {
+     "id": "protein",
+     "title": "Protein",
+     "small": "per day",
+     "stat": [
+      {
+       "text": "average ",
+       "bold": false
+      },
+      {
+       "text": "105 g",
+       "bold": true
+      },
+      {
+       "text": " · target 120",
+       "bold": false
+      },
+      {
+       "text": " · target reached on ",
+       "bold": false
+      },
+      {
+       "text": "1",
+       "bold": true
+      },
+      {
+       "text": " of 6 days",
+       "bold": false
+      }
+     ],
+     "chart": {
+      "start": "2026-11-02",
+      "days": 7,
+      "series": [
+       {
+        "mark": "bar",
+        "cls": "a",
+        "pts": [
+         [
+          0,
+          118.0,
+          "Mon 02.11.: 118 g"
+         ],
+         [
+          2,
+          104.0,
+          "Wed 04.11.: 104 g"
+         ],
+         [
+          3,
+          97.0,
+          "Thu 05.11.: 97 g"
+         ],
+         [
+          4,
+          90.0,
+          "Fri 06.11.: 90 g"
+         ],
+         [
+          5,
+          83.0,
+          "Sat 07.11.: 83 g"
+         ],
+         [
+          6,
+          136.0,
+          "Sun 08.11.: 136 g"
+         ]
+        ]
+       },
+       {
+        "mark": "line",
+        "cls": "b",
+        "pts": [
+         [
+          0,
+          118.0
+         ],
+         [
+          2,
+          111.0
+         ],
+         [
+          3,
+          106.3
+         ],
+         [
+          4,
+          102.2
+         ],
+         [
+          5,
+          98.4
+         ],
+         [
+          6,
+          104.7
+         ]
+        ]
+       }
+      ],
+      "label": "Protein per day",
+      "min": 0,
+      "unit": " g",
+      "lines": [
+       [
+        120.0,
+        "t",
+        "120"
+       ]
+      ]
+     },
+     "legend": [
+      {
+       "key": "sq a",
+       "text": "day"
+      },
+      {
+       "key": "line b",
+       "text": "7-day average"
+      },
+      {
+       "key": "ref t",
+       "text": "target"
+      }
+     ]
+    },
+    {
+     "id": "fat",
+     "title": "Fat",
+     "small": "per day",
+     "stat": [
+      {
+       "text": "average ",
+       "bold": false
+      },
+      {
+       "text": "63 g",
+       "bold": true
+      },
+      {
+       "text": " · target 70",
+       "bold": false
+      },
+      {
+       "text": " · over the target on ",
+       "bold": false
+      },
+      {
+       "text": "1",
+       "bold": true
+      },
+      {
+       "text": " of 6 days",
+       "bold": false
+      }
+     ],
+     "chart": {
+      "start": "2026-11-02",
+      "days": 7,
+      "series": [
+       {
+        "mark": "bar",
+        "cls": "a",
+        "pts": [
+         [
+          0,
+          80.0,
+          "Mon 02.11.: 80 g"
+         ],
+         [
+          2,
+          70.0,
+          "Wed 04.11.: 70 g"
+         ],
+         [
+          3,
+          65.0,
+          "Thu 05.11.: 65 g"
+         ],
+         [
+          4,
+          60.0,
+          "Fri 06.11.: 60 g"
+         ],
+         [
+          5,
+          55.0,
+          "Sat 07.11.: 55 g"
+         ],
+         [
+          6,
+          50.0,
+          "Sun 08.11.: 50 g"
+         ]
+        ]
+       },
+       {
+        "mark": "line",
+        "cls": "b",
+        "pts": [
+         [
+          0,
+          80.0
+         ],
+         [
+          2,
+          75.0
+         ],
+         [
+          3,
+          71.7
+         ],
+         [
+          4,
+          68.8
+         ],
+         [
+          5,
+          66.0
+         ],
+         [
+          6,
+          63.3
+         ]
+        ]
+       }
+      ],
+      "label": "Fat per day",
+      "min": 0,
+      "unit": " g",
+      "lines": [
+       [
+        70.0,
+        "t",
+        "70"
+       ]
+      ]
+     },
+     "legend": [
+      {
+       "key": "sq a",
+       "text": "day"
+      },
+      {
+       "key": "line b",
+       "text": "7-day average"
+      },
+      {
+       "key": "ref t",
+       "text": "target"
+      }
+     ]
+    },
+    {
+     "id": "carbs",
+     "title": "Carbs",
+     "small": "per day",
+     "stat": [
+      {
+       "text": "average ",
+       "bold": false
+      },
+      {
+       "text": "242 g",
+       "bold": true
+      },
+      {
+       "text": " · target 220",
+       "bold": false
+      },
+      {
+       "text": " · over the target on ",
+       "bold": false
+      },
+      {
+       "text": "5",
+       "bold": true
+      },
+      {
+       "text": " of 6 days",
+       "bold": false
+      }
+     ],
+     "chart": {
+      "start": "2026-11-02",
+      "days": 7,
+      "series": [
+       {
+        "mark": "bar",
+        "cls": "a",
+        "pts": [
+         [
+          0,
+          154.0,
+          "Mon 02.11.: 154 g"
+         ],
+         [
+          2,
+          282.0,
+          "Wed 04.11.: 282 g"
+         ],
+         [
+          3,
+          271.0,
+          "Thu 05.11.: 271 g"
+         ],
+         [
+          4,
+          260.0,
+          "Fri 06.11.: 260 g"
+         ],
+         [
+          5,
+          249.0,
+          "Sat 07.11.: 249 g"
+         ],
+         [
+          6,
+          238.0,
+          "Sun 08.11.: 238 g"
+         ]
+        ]
+       },
+       {
+        "mark": "line",
+        "cls": "b",
+        "pts": [
+         [
+          0,
+          154.0
+         ],
+         [
+          2,
+          218.0
+         ],
+         [
+          3,
+          235.7
+         ],
+         [
+          4,
+          241.8
+         ],
+         [
+          5,
+          243.2
+         ],
+         [
+          6,
+          242.3
+         ]
+        ]
+       }
+      ],
+      "label": "Carbs per day",
+      "min": 0,
+      "unit": " g",
+      "lines": [
+       [
+        220.0,
+        "t",
+        "220"
+       ]
+      ]
+     },
+     "legend": [
+      {
+       "key": "sq a",
+       "text": "day"
+      },
+      {
+       "key": "line b",
+       "text": "7-day average"
+      },
+      {
+       "key": "ref t",
+       "text": "target"
+      }
+     ]
+    }
+   ],
+   "days": [
+    {
+     "day": "2026-11-08",
+     "label": "Sun 08.11.",
+     "kcal": 1996,
+     "protein": 136,
+     "fat": 50,
+     "carbs": 238,
+     "kg": null,
+     "partly": false
+    },
+    {
+     "day": "2026-11-07",
+     "label": "Sat 07.11.",
+     "kcal": 2033,
+     "protein": 83,
+     "fat": 55,
+     "carbs": 249,
+     "kg": null,
+     "partly": false
+    },
+    {
+     "day": "2026-11-06",
+     "label": "Fri 06.11.",
+     "kcal": 2070,
+     "protein": 90,
+     "fat": 60,
+     "carbs": 260,
+     "kg": 80.9,
+     "partly": false
+    },
+    {
+     "day": "2026-11-05",
+     "label": "Thu 05.11.",
+     "kcal": 2107,
+     "protein": 97,
+     "fat": 65,
+     "carbs": 271,
+     "kg": 81.11,
+     "partly": false
+    },
+    {
+     "day": "2026-11-04",
+     "label": "Wed 04.11.",
+     "kcal": 2144,
+     "protein": 104,
+     "fat": 70,
+     "carbs": 282,
+     "kg": null,
+     "partly": false
+    },
+    {
+     "day": "2026-11-02",
+     "label": "Mon 02.11.",
+     "kcal": 2218,
+     "protein": 118,
+     "fat": 80,
+     "carbs": 154,
+     "kg": null,
+     "partly": false
+    }
+   ],
+   "days_none": "No complete days with food.",
+   "review": {
+    "offered": true,
+    "kind": "week",
+    "start": "2026-11-02",
+    "end": "2026-11-08",
+    "title": "Week review",
+    "small": "this period · on demand",
+    "state": "done",
+    "id": 2,
+    "wait": null,
+    "wait_note": null,
+    "parts": [
+     {
+      "key": "targets",
+      "title": "Against your targets",
+      "style": "list",
+      "tone": null,
+      "items": [
+       "Calories 1,890 a day on average."
+      ],
+      "meal": null,
+      "text": null
+     },
+     {
+      "key": "trends",
+      "title": "Trends",
+      "style": "list",
+      "tone": null,
+      "items": [
+       "Weight 82.4 to 81.9 kg."
+      ],
+      "meal": null,
+      "text": null
+     },
+     {
+      "key": "habits",
+      "title": "Habits, gym and home",
+      "style": "list",
+      "tone": null,
+      "items": [
+       "Stretching 6 of 7 days."
+      ],
+      "meal": null,
+      "text": null
+     },
+     {
+      "key": "days",
+      "title": "Best and hardest day",
+      "style": "list",
+      "tone": null,
+      "items": [
+       "Best: Thursday.",
+       "Hardest: Saturday."
+      ],
+      "meal": null,
+      "text": null
+     },
+     {
+      "key": "focus",
+      "title": "Focus for next week",
+      "style": "numbered",
+      "tone": null,
+      "items": [
+       "Protein at breakfast."
+      ],
+      "meal": null,
+      "text": null
+     },
+     {
+      "key": "doctor",
+      "title": "Doctor note",
+      "style": "note",
+      "tone": null,
+      "items": [],
+      "meal": null,
+      "text": "Ask your doctor about the morning sugar."
+     }
+    ],
+    "caution": "Comments only on what you logged; not medical advice.",
+    "meta": {
+     "model": "Claude Opus",
+     "usd": 0.21,
+     "at": "2026-11-16T23:53:18.209636+01:00",
+     "at_text": "16.11. 23:53",
+     "text": "Claude Opus · $0.21 · 16.11. 23:53"
+    },
+    "failed": null,
+    "intro": null,
+    "cost": null,
+    "button": "Review again",
+    "links": [
+     {
+      "label": "All coachings",
+      "href": "/web/coach"
+     },
+     {
+      "label": "Your goals",
+      "href": "/web/settings?tab=coach"
+     }
+    ],
+    "blurb": null,
+    "latest": null,
+    "weeks": null
+   }
+  },
+  "undo": null
+ },
+ "this_working": {
+  "v": 1,
+  "week": {
+   "p": "this",
+   "periods": [
+    {
+     "p": "7",
+     "label": "Last 7 days",
+     "current": false
+    },
+    {
+     "p": "last",
+     "label": "Last week",
+     "current": false
+    },
+    {
+     "p": "30",
+     "label": "Last 30 days",
+     "current": false
+    },
+    {
+     "p": "this",
+     "label": "This week so far",
+     "current": true
+    }
+   ],
+   "today": "2026-11-11",
+   "start": "2026-11-09",
+   "end": "2026-11-10",
+   "ndays": 2,
+   "empty": false,
+   "empty_text": null,
+   "with_food": 2,
+   "dates_text": "Mon 09.11. to Tue 10.11.2026",
+   "days_text": "2 of 2 days with food",
+   "left_out": null,
+   "today_text": "today is left out, it is not over yet",
+   "food": [
+    {
+     "key": "kcal",
+     "label": "Calories",
+     "unit": "kcal",
+     "average": 1940.5,
+     "target": 2000,
+     "pct": 97,
+     "level": "good",
+     "over": false,
+     "average_text": "1,940",
+     "target_text": "2,000",
+     "note": null
+    },
+    {
+     "key": "protein",
+     "label": "Protein",
+     "unit": "g",
+     "average": 125.5,
+     "target": 120,
+     "pct": 104.6,
+     "level": "good",
+     "over": false,
+     "average_text": "126",
+     "target_text": "120",
+     "note": null
+    },
+    {
+     "key": "fat",
+     "label": "Fat",
+     "unit": "g",
+     "average": 82.5,
+     "target": 70,
+     "pct": 117.9,
+     "level": "bad",
+     "over": true,
+     "average_text": "82",
+     "target_text": "70",
+     "note": null
+    },
+    {
+     "key": "carbs",
+     "label": "Carbs",
+     "unit": "g",
+     "average": 221.5,
+     "target": 220,
+     "pct": 100.7,
+     "level": "warn",
+     "over": true,
+     "average_text": "222",
+     "target_text": "220",
+     "note": null
+    }
+   ],
+   "meter_hint": "Average day as a share of the target; the thin line is 100%.",
+   "health": [
+    {
+     "key": "bp_morning",
+     "label": "Blood pressure morning",
+     "value": "124/77",
+     "detail": "average of 1"
+    },
+    {
+     "key": "sugar",
+     "label": "Fasting sugar",
+     "value": "110 mg/dL",
+     "detail": "average of 2"
+    },
+    {
+     "key": "sleep",
+     "label": "Sleep",
+     "value": "7 h 00",
+     "detail": "average night"
+    },
+    {
+     "key": "feel",
+     "label": "Mood · energy",
+     "value": "mood 2.0 · energy 4.0",
+     "detail": "average of 1 evening, 1 to 5"
+    },
+    {
+     "key": "habits",
+     "label": "Habits",
+     "value": "50%",
+     "detail": "of habit-days done (2 of 4)"
+    },
+    {
+     "key": "avoid",
+     "label": "Scrolling",
+     "value": "2 of 2 days without",
+     "detail": "(a habit to avoid)"
+    },
+    {
+     "key": "gym",
+     "label": "Gym",
+     "value": "0 workouts",
+     "detail": null
+    }
+   ],
+   "health_none": "Nothing logged in this period.",
+   "foods": {
+    "by_kcal": [
+     {
+      "name": "Pasta with vegetables",
+      "kcal": 1551,
+      "n": 2,
+      "text": "1,551 kcal"
+     },
+     {
+      "name": "Lentil soup",
+      "kcal": 1165,
+      "n": 2,
+      "text": "1,165 kcal"
+     },
+     {
+      "name": "Oats with milk",
+      "kcal": 1165,
+      "n": 2,
+      "text": "1,165 kcal"
+     }
+    ],
+    "by_count": [
+     {
+      "name": "Lentil soup",
+      "kcal": 1165,
+      "n": 2,
+      "text": "2×"
+     },
+     {
+      "name": "Oats with milk",
+      "kcal": 1165,
+      "n": 2,
+      "text": "2×"
+     },
+     {
+      "name": "Pasta with vegetables",
+      "kcal": 1551,
+      "n": 2,
+      "text": "2×"
+     }
+    ]
+   },
+   "charts": [
+    {
+     "id": "kcal",
+     "title": "Calories",
+     "small": "per day",
+     "stat": [
+      {
+       "text": "average ",
+       "bold": false
+      },
+      {
+       "text": "1,940 kcal",
+       "bold": true
+      },
+      {
+       "text": " · target 2,000",
+       "bold": false
+      },
+      {
+       "text": " · over the target on ",
+       "bold": false
+      },
+      {
+       "text": "0",
+       "bold": true
+      },
+      {
+       "text": " of 2 days",
+       "bold": false
+      }
+     ],
+     "chart": {
+      "start": "2026-11-09",
+      "days": 2,
+      "series": [
+       {
+        "mark": "bar",
+        "cls": "a",
+        "pts": [
+         [
+          0,
+          1959.0,
+          "Mon 09.11.: 1,959 kcal"
+         ],
+         [
+          1,
+          1922.0,
+          "Tue 10.11.: 1,922 kcal"
+         ]
+        ]
+       },
+       {
+        "mark": "line",
+        "cls": "b",
+        "pts": [
+         [
+          0,
+          1959.0
+         ],
+         [
+          1,
+          1940.5
+         ]
+        ]
+       }
+      ],
+      "label": "Calories per day",
+      "min": 0,
+      "unit": "",
+      "lines": [
+       [
+        2000.0,
+        "t",
+        "2,000"
+       ]
+      ]
+     },
+     "legend": [
+      {
+       "key": "sq a",
+       "text": "day"
+      },
+      {
+       "key": "line b",
+       "text": "7-day average"
+      },
+      {
+       "key": "ref t",
+       "text": "target"
+      }
+     ]
+    },
+    {
+     "id": "protein",
+     "title": "Protein",
+     "small": "per day",
+     "stat": [
+      {
+       "text": "average ",
+       "bold": false
+      },
+      {
+       "text": "126 g",
+       "bold": true
+      },
+      {
+       "text": " · target 120",
+       "bold": false
+      },
+      {
+       "text": " · target reached on ",
+       "bold": false
+      },
+      {
+       "text": "2",
+       "bold": true
+      },
+      {
+       "text": " of 2 days",
+       "bold": false
+      }
+     ],
+     "chart": {
+      "start": "2026-11-09",
+      "days": 2,
+      "series": [
+       {
+        "mark": "bar",
+        "cls": "a",
+        "pts": [
+         [
+          0,
+          129.0,
+          "Mon 09.11.: 129 g"
+         ],
+         [
+          1,
+          122.0,
+          "Tue 10.11.: 122 g"
+         ]
+        ]
+       },
+       {
+        "mark": "line",
+        "cls": "b",
+        "pts": [
+         [
+          0,
+          129.0
+         ],
+         [
+          1,
+          125.5
+         ]
+        ]
+       }
+      ],
+      "label": "Protein per day",
+      "min": 0,
+      "unit": " g",
+      "lines": [
+       [
+        120.0,
+        "t",
+        "120"
+       ]
+      ]
+     },
+     "legend": [
+      {
+       "key": "sq a",
+       "text": "day"
+      },
+      {
+       "key": "line b",
+       "text": "7-day average"
+      },
+      {
+       "key": "ref t",
+       "text": "target"
+      }
+     ]
+    },
+    {
+     "id": "fat",
+     "title": "Fat",
+     "small": "per day",
+     "stat": [
+      {
+       "text": "average ",
+       "bold": false
+      },
+      {
+       "text": "82 g",
+       "bold": true
+      },
+      {
+       "text": " · target 70",
+       "bold": false
+      },
+      {
+       "text": " · over the target on ",
+       "bold": false
+      },
+      {
+       "text": "2",
+       "bold": true
+      },
+      {
+       "text": " of 2 days",
+       "bold": false
+      }
+     ],
+     "chart": {
+      "start": "2026-11-09",
+      "days": 2,
+      "series": [
+       {
+        "mark": "bar",
+        "cls": "a",
+        "pts": [
+         [
+          0,
+          85.0,
+          "Mon 09.11.: 85 g"
+         ],
+         [
+          1,
+          80.0,
+          "Tue 10.11.: 80 g"
+         ]
+        ]
+       },
+       {
+        "mark": "line",
+        "cls": "b",
+        "pts": [
+         [
+          0,
+          85.0
+         ],
+         [
+          1,
+          82.5
+         ]
+        ]
+       }
+      ],
+      "label": "Fat per day",
+      "min": 0,
+      "unit": " g",
+      "lines": [
+       [
+        70.0,
+        "t",
+        "70"
+       ]
+      ]
+     },
+     "legend": [
+      {
+       "key": "sq a",
+       "text": "day"
+      },
+      {
+       "key": "line b",
+       "text": "7-day average"
+      },
+      {
+       "key": "ref t",
+       "text": "target"
+      }
+     ]
+    },
+    {
+     "id": "carbs",
+     "title": "Carbs",
+     "small": "per day",
+     "stat": [
+      {
+       "text": "average ",
+       "bold": false
+      },
+      {
+       "text": "222 g",
+       "bold": true
+      },
+      {
+       "text": " · target 220",
+       "bold": false
+      },
+      {
+       "text": " · over the target on ",
+       "bold": false
+      },
+      {
+       "text": "1",
+       "bold": true
+      },
+      {
+       "text": " of 2 days",
+       "bold": false
+      }
+     ],
+     "chart": {
+      "start": "2026-11-09",
+      "days": 2,
+      "series": [
+       {
+        "mark": "bar",
+        "cls": "a",
+        "pts": [
+         [
+          0,
+          227.0,
+          "Mon 09.11.: 227 g"
+         ],
+         [
+          1,
+          216.0,
+          "Tue 10.11.: 216 g"
+         ]
+        ]
+       },
+       {
+        "mark": "line",
+        "cls": "b",
+        "pts": [
+         [
+          0,
+          227.0
+         ],
+         [
+          1,
+          221.5
+         ]
+        ]
+       }
+      ],
+      "label": "Carbs per day",
+      "min": 0,
+      "unit": " g",
+      "lines": [
+       [
+        220.0,
+        "t",
+        "220"
+       ]
+      ]
+     },
+     "legend": [
+      {
+       "key": "sq a",
+       "text": "day"
+      },
+      {
+       "key": "line b",
+       "text": "7-day average"
+      },
+      {
+       "key": "ref t",
+       "text": "target"
+      }
+     ]
+    }
+   ],
+   "days": [
+    {
+     "day": "2026-11-10",
+     "label": "Tue 10.11.",
+     "kcal": 1922,
+     "protein": 122,
+     "fat": 80,
+     "carbs": 216,
+     "kg": null,
+     "partly": false
+    },
+    {
+     "day": "2026-11-09",
+     "label": "Mon 09.11.",
+     "kcal": 1959,
+     "protein": 129,
+     "fat": 85,
+     "carbs": 227,
+     "kg": null,
+     "partly": false
+    }
+   ],
+   "days_none": "No complete days with food.",
+   "review": {
+    "offered": true,
+    "kind": "week",
+    "start": "2026-11-09",
+    "end": "2026-11-10",
+    "title": "Week review",
+    "small": "this period · on demand",
+    "state": "working",
+    "id": 3,
+    "wait": "Reviewing… about 45 seconds",
+    "wait_note": "You can leave this page: the coaching is kept and shows here when it is ready.",
+    "parts": [],
+    "caution": null,
+    "meta": null,
+    "failed": null,
+    "intro": null,
+    "cost": null,
+    "button": null,
+    "links": [
+     {
+      "label": "All coachings",
+      "href": "/web/coach"
+     },
+     {
+      "label": "Your goals",
+      "href": "/web/settings?tab=coach"
+     }
+    ],
+    "blurb": null,
+    "latest": null,
+    "weeks": null
+   }
+  },
+  "undo": null
+ },
+ "this_cut_off": {
+  "v": 1,
+  "week": {
+   "p": "this",
+   "periods": [
+    {
+     "p": "7",
+     "label": "Last 7 days",
+     "current": false
+    },
+    {
+     "p": "last",
+     "label": "Last week",
+     "current": false
+    },
+    {
+     "p": "30",
+     "label": "Last 30 days",
+     "current": false
+    },
+    {
+     "p": "this",
+     "label": "This week so far",
+     "current": true
+    }
+   ],
+   "today": "2026-11-11",
+   "start": "2026-11-09",
+   "end": "2026-11-10",
+   "ndays": 2,
+   "empty": false,
+   "empty_text": null,
+   "with_food": 2,
+   "dates_text": "Mon 09.11. to Tue 10.11.2026",
+   "days_text": "2 of 2 days with food",
+   "left_out": null,
+   "today_text": "today is left out, it is not over yet",
+   "food": [
+    {
+     "key": "kcal",
+     "label": "Calories",
+     "unit": "kcal",
+     "average": 1940.5,
+     "target": 2000,
+     "pct": 97,
+     "level": "good",
+     "over": false,
+     "average_text": "1,940",
+     "target_text": "2,000",
+     "note": null
+    },
+    {
+     "key": "protein",
+     "label": "Protein",
+     "unit": "g",
+     "average": 125.5,
+     "target": 120,
+     "pct": 104.6,
+     "level": "good",
+     "over": false,
+     "average_text": "126",
+     "target_text": "120",
+     "note": null
+    },
+    {
+     "key": "fat",
+     "label": "Fat",
+     "unit": "g",
+     "average": 82.5,
+     "target": 70,
+     "pct": 117.9,
+     "level": "bad",
+     "over": true,
+     "average_text": "82",
+     "target_text": "70",
+     "note": null
+    },
+    {
+     "key": "carbs",
+     "label": "Carbs",
+     "unit": "g",
+     "average": 221.5,
+     "target": 220,
+     "pct": 100.7,
+     "level": "warn",
+     "over": true,
+     "average_text": "222",
+     "target_text": "220",
+     "note": null
+    }
+   ],
+   "meter_hint": "Average day as a share of the target; the thin line is 100%.",
+   "health": [
+    {
+     "key": "bp_morning",
+     "label": "Blood pressure morning",
+     "value": "124/77",
+     "detail": "average of 1"
+    },
+    {
+     "key": "sugar",
+     "label": "Fasting sugar",
+     "value": "110 mg/dL",
+     "detail": "average of 2"
+    },
+    {
+     "key": "sleep",
+     "label": "Sleep",
+     "value": "7 h 00",
+     "detail": "average night"
+    },
+    {
+     "key": "feel",
+     "label": "Mood · energy",
+     "value": "mood 2.0 · energy 4.0",
+     "detail": "average of 1 evening, 1 to 5"
+    },
+    {
+     "key": "habits",
+     "label": "Habits",
+     "value": "50%",
+     "detail": "of habit-days done (2 of 4)"
+    },
+    {
+     "key": "avoid",
+     "label": "Scrolling",
+     "value": "2 of 2 days without",
+     "detail": "(a habit to avoid)"
+    },
+    {
+     "key": "gym",
+     "label": "Gym",
+     "value": "0 workouts",
+     "detail": null
+    }
+   ],
+   "health_none": "Nothing logged in this period.",
+   "foods": {
+    "by_kcal": [
+     {
+      "name": "Pasta with vegetables",
+      "kcal": 1551,
+      "n": 2,
+      "text": "1,551 kcal"
+     },
+     {
+      "name": "Lentil soup",
+      "kcal": 1165,
+      "n": 2,
+      "text": "1,165 kcal"
+     },
+     {
+      "name": "Oats with milk",
+      "kcal": 1165,
+      "n": 2,
+      "text": "1,165 kcal"
+     }
+    ],
+    "by_count": [
+     {
+      "name": "Lentil soup",
+      "kcal": 1165,
+      "n": 2,
+      "text": "2×"
+     },
+     {
+      "name": "Oats with milk",
+      "kcal": 1165,
+      "n": 2,
+      "text": "2×"
+     },
+     {
+      "name": "Pasta with vegetables",
+      "kcal": 1551,
+      "n": 2,
+      "text": "2×"
+     }
+    ]
+   },
+   "charts": [
+    {
+     "id": "kcal",
+     "title": "Calories",
+     "small": "per day",
+     "stat": [
+      {
+       "text": "average ",
+       "bold": false
+      },
+      {
+       "text": "1,940 kcal",
+       "bold": true
+      },
+      {
+       "text": " · target 2,000",
+       "bold": false
+      },
+      {
+       "text": " · over the target on ",
+       "bold": false
+      },
+      {
+       "text": "0",
+       "bold": true
+      },
+      {
+       "text": " of 2 days",
+       "bold": false
+      }
+     ],
+     "chart": {
+      "start": "2026-11-09",
+      "days": 2,
+      "series": [
+       {
+        "mark": "bar",
+        "cls": "a",
+        "pts": [
+         [
+          0,
+          1959.0,
+          "Mon 09.11.: 1,959 kcal"
+         ],
+         [
+          1,
+          1922.0,
+          "Tue 10.11.: 1,922 kcal"
+         ]
+        ]
+       },
+       {
+        "mark": "line",
+        "cls": "b",
+        "pts": [
+         [
+          0,
+          1959.0
+         ],
+         [
+          1,
+          1940.5
+         ]
+        ]
+       }
+      ],
+      "label": "Calories per day",
+      "min": 0,
+      "unit": "",
+      "lines": [
+       [
+        2000.0,
+        "t",
+        "2,000"
+       ]
+      ]
+     },
+     "legend": [
+      {
+       "key": "sq a",
+       "text": "day"
+      },
+      {
+       "key": "line b",
+       "text": "7-day average"
+      },
+      {
+       "key": "ref t",
+       "text": "target"
+      }
+     ]
+    },
+    {
+     "id": "protein",
+     "title": "Protein",
+     "small": "per day",
+     "stat": [
+      {
+       "text": "average ",
+       "bold": false
+      },
+      {
+       "text": "126 g",
+       "bold": true
+      },
+      {
+       "text": " · target 120",
+       "bold": false
+      },
+      {
+       "text": " · target reached on ",
+       "bold": false
+      },
+      {
+       "text": "2",
+       "bold": true
+      },
+      {
+       "text": " of 2 days",
+       "bold": false
+      }
+     ],
+     "chart": {
+      "start": "2026-11-09",
+      "days": 2,
+      "series": [
+       {
+        "mark": "bar",
+        "cls": "a",
+        "pts": [
+         [
+          0,
+          129.0,
+          "Mon 09.11.: 129 g"
+         ],
+         [
+          1,
+          122.0,
+          "Tue 10.11.: 122 g"
+         ]
+        ]
+       },
+       {
+        "mark": "line",
+        "cls": "b",
+        "pts": [
+         [
+          0,
+          129.0
+         ],
+         [
+          1,
+          125.5
+         ]
+        ]
+       }
+      ],
+      "label": "Protein per day",
+      "min": 0,
+      "unit": " g",
+      "lines": [
+       [
+        120.0,
+        "t",
+        "120"
+       ]
+      ]
+     },
+     "legend": [
+      {
+       "key": "sq a",
+       "text": "day"
+      },
+      {
+       "key": "line b",
+       "text": "7-day average"
+      },
+      {
+       "key": "ref t",
+       "text": "target"
+      }
+     ]
+    },
+    {
+     "id": "fat",
+     "title": "Fat",
+     "small": "per day",
+     "stat": [
+      {
+       "text": "average ",
+       "bold": false
+      },
+      {
+       "text": "82 g",
+       "bold": true
+      },
+      {
+       "text": " · target 70",
+       "bold": false
+      },
+      {
+       "text": " · over the target on ",
+       "bold": false
+      },
+      {
+       "text": "2",
+       "bold": true
+      },
+      {
+       "text": " of 2 days",
+       "bold": false
+      }
+     ],
+     "chart": {
+      "start": "2026-11-09",
+      "days": 2,
+      "series": [
+       {
+        "mark": "bar",
+        "cls": "a",
+        "pts": [
+         [
+          0,
+          85.0,
+          "Mon 09.11.: 85 g"
+         ],
+         [
+          1,
+          80.0,
+          "Tue 10.11.: 80 g"
+         ]
+        ]
+       },
+       {
+        "mark": "line",
+        "cls": "b",
+        "pts": [
+         [
+          0,
+          85.0
+         ],
+         [
+          1,
+          82.5
+         ]
+        ]
+       }
+      ],
+      "label": "Fat per day",
+      "min": 0,
+      "unit": " g",
+      "lines": [
+       [
+        70.0,
+        "t",
+        "70"
+       ]
+      ]
+     },
+     "legend": [
+      {
+       "key": "sq a",
+       "text": "day"
+      },
+      {
+       "key": "line b",
+       "text": "7-day average"
+      },
+      {
+       "key": "ref t",
+       "text": "target"
+      }
+     ]
+    },
+    {
+     "id": "carbs",
+     "title": "Carbs",
+     "small": "per day",
+     "stat": [
+      {
+       "text": "average ",
+       "bold": false
+      },
+      {
+       "text": "222 g",
+       "bold": true
+      },
+      {
+       "text": " · target 220",
+       "bold": false
+      },
+      {
+       "text": " · over the target on ",
+       "bold": false
+      },
+      {
+       "text": "1",
+       "bold": true
+      },
+      {
+       "text": " of 2 days",
+       "bold": false
+      }
+     ],
+     "chart": {
+      "start": "2026-11-09",
+      "days": 2,
+      "series": [
+       {
+        "mark": "bar",
+        "cls": "a",
+        "pts": [
+         [
+          0,
+          227.0,
+          "Mon 09.11.: 227 g"
+         ],
+         [
+          1,
+          216.0,
+          "Tue 10.11.: 216 g"
+         ]
+        ]
+       },
+       {
+        "mark": "line",
+        "cls": "b",
+        "pts": [
+         [
+          0,
+          227.0
+         ],
+         [
+          1,
+          221.5
+         ]
+        ]
+       }
+      ],
+      "label": "Carbs per day",
+      "min": 0,
+      "unit": " g",
+      "lines": [
+       [
+        220.0,
+        "t",
+        "220"
+       ]
+      ]
+     },
+     "legend": [
+      {
+       "key": "sq a",
+       "text": "day"
+      },
+      {
+       "key": "line b",
+       "text": "7-day average"
+      },
+      {
+       "key": "ref t",
+       "text": "target"
+      }
+     ]
+    }
+   ],
+   "days": [
+    {
+     "day": "2026-11-10",
+     "label": "Tue 10.11.",
+     "kcal": 1922,
+     "protein": 122,
+     "fat": 80,
+     "carbs": 216,
+     "kg": null,
+     "partly": false
+    },
+    {
+     "day": "2026-11-09",
+     "label": "Mon 09.11.",
+     "kcal": 1959,
+     "protein": 129,
+     "fat": 85,
+     "carbs": 227,
+     "kg": null,
+     "partly": false
+    }
+   ],
+   "days_none": "No complete days with food.",
+   "review": {
+    "offered": true,
+    "kind": "week",
+    "start": "2026-11-09",
+    "end": "2026-11-10",
+    "title": "Week review",
+    "small": "this period · on demand",
+    "state": "failed",
+    "id": 3,
+    "wait": null,
+    "wait_note": null,
+    "parts": [],
+    "caution": null,
+    "meta": null,
+    "failed": "That did not work (cut off); nothing was charged if the AI did not answer. Try again.",
+    "intro": "The period against your targets and goals: trends, habits, gym and home, best and hardest day, and one or two things to focus on next.",
+    "cost": "about 45 seconds · about 20 cents",
+    "button": "Review this week so far",
+    "links": [
+     {
+      "label": "All coachings",
+      "href": "/web/coach"
+     },
+     {
+      "label": "Your goals",
+      "href": "/web/settings?tab=coach"
+     }
+    ],
+    "blurb": null,
+    "latest": null,
+    "weeks": null
+   }
+  },
+  "undo": null
+ },
+ "7_latest": {
+  "v": 1,
+  "week": {
+   "p": "7",
+   "periods": [
+    {
+     "p": "7",
+     "label": "Last 7 days",
+     "current": true
+    },
+    {
+     "p": "last",
+     "label": "Last week",
+     "current": false
+    },
+    {
+     "p": "30",
+     "label": "Last 30 days",
+     "current": false
+    },
+    {
+     "p": "this",
+     "label": "This week so far",
+     "current": false
+    }
+   ],
+   "today": "2026-11-11",
+   "start": "2026-11-04",
+   "end": "2026-11-10",
+   "ndays": 7,
+   "empty": false,
+   "empty_text": null,
+   "with_food": 7,
+   "dates_text": "Wed 04.11. to Tue 10.11.2026",
+   "days_text": "7 of 7 days with food",
+   "left_out": null,
+   "today_text": "today is left out, it is not over yet",
+   "food": [
+    {
+     "key": "kcal",
+     "label": "Calories",
+     "unit": "kcal",
+     "average": 2033,
+     "target": 2000,
+     "pct": 101.6,
+     "level": "warn",
+     "over": true,
+     "average_text": "2,033",
+     "target_text": "2,000",
+     "note": null
+    },
+    {
+     "key": "protein",
+     "label": "Protein",
+     "unit": "g",
+     "average": 108.7,
+     "target": 120,
+     "pct": 90.6,
+     "level": "warn",
+     "over": false,
+     "average_text": "109",
+     "target_text": "120",
+     "note": null
+    },
+    {
+     "key": "fat",
+     "label": "Fat",
+     "unit": "g",
+     "average": 66.4,
+     "target": 70,
+     "pct": 94.9,
+     "level": "good",
+     "over": false,
+     "average_text": "66",
+     "target_text": "70",
+     "note": null
+    },
+    {
+     "key": "carbs",
+     "label": "Carbs",
+     "unit": "g",
+     "average": 249,
+     "target": 220,
+     "pct": 113.2,
+     "level": "bad",
+     "over": true,
+     "average_text": "249",
+     "target_text": "220",
+     "note": null
+    }
+   ],
+   "meter_hint": "Average day as a share of the target; the thin line is 100%.",
+   "health": [
+    {
+     "key": "weight",
+     "label": "Weight",
+     "value": "80.9 kg",
+     "detail": "(−0.2 kg since 05.11.)"
+    },
+    {
+     "key": "bp_morning",
+     "label": "Blood pressure morning",
+     "value": "121/78",
+     "detail": "average of 3"
+    },
+    {
+     "key": "bp_evening",
+     "label": "Blood pressure evening",
+     "value": "125/79",
+     "detail": "average of 2"
+    },
+    {
+     "key": "sugar",
+     "label": "Fasting sugar",
+     "value": "109 mg/dL",
+     "detail": "average of 7"
+    },
+    {
+     "key": "sleep",
+     "label": "Sleep",
+     "value": "6 h 39",
+     "detail": "average night"
+    },
+    {
+     "key": "feel",
+     "label": "Mood · energy",
+     "value": "mood 2.5 · energy 3.2",
+     "detail": "average of 4 evenings, 1 to 5"
+    },
+    {
+     "key": "body",
+     "label": "Body measurements",
+     "value": "Measured 04.11.: waist −1.0 cm since last",
+     "detail": "(1 value)"
+    },
+    {
+     "key": "habits",
+     "label": "Habits",
+     "value": "50%",
+     "detail": "of habit-days done (7 of 14)"
+    },
+    {
+     "key": "avoid",
+     "label": "Scrolling",
+     "value": "6 of 7 days without",
+     "detail": "(a habit to avoid)"
+    },
+    {
+     "key": "gym",
+     "label": "Gym",
+     "value": "1 workout",
+     "detail": "Sat 07.11."
+    }
+   ],
+   "health_none": "Nothing logged in this period.",
+   "foods": {
+    "by_kcal": [
+     {
+      "name": "Pasta with vegetables",
+      "kcal": 5691,
+      "n": 7,
+      "text": "5,691 kcal"
+     },
+     {
+      "name": "Oats with milk",
+      "kcal": 4270,
+      "n": 7,
+      "text": "4,270 kcal"
+     },
+     {
+      "name": "Lentil soup",
+      "kcal": 3028,
+      "n": 5,
+      "text": "3,028 kcal"
+     },
+     {
+      "name": "Rice & beans",
+      "kcal": 1242,
+      "n": 2,
+      "text": "1,242 kcal"
+     }
+    ],
+    "by_count": [
+     {
+      "name": "Oats with milk",
+      "kcal": 4270,
+      "n": 7,
+      "text": "7×"
+     },
+     {
+      "name": "Pasta with vegetables",
+      "kcal": 5691,
+      "n": 7,
+      "text": "7×"
+     },
+     {
+      "name": "Lentil soup",
+      "kcal": 3028,
+      "n": 5,
+      "text": "5×"
+     },
+     {
+      "name": "Rice & beans",
+      "kcal": 1242,
+      "n": 2,
+      "text": "2×"
+     }
+    ]
+   },
+   "charts": [
+    {
+     "id": "kcal",
+     "title": "Calories",
+     "small": "per day",
+     "stat": [
+      {
+       "text": "average ",
+       "bold": false
+      },
+      {
+       "text": "2,033 kcal",
+       "bold": true
+      },
+      {
+       "text": " · target 2,000",
+       "bold": false
+      },
+      {
+       "text": " · over the target on ",
+       "bold": false
+      },
+      {
+       "text": "4",
+       "bold": true
+      },
+      {
+       "text": " of 7 days",
+       "bold": false
+      }
+     ],
+     "chart": {
+      "start": "2026-11-04",
+      "days": 7,
+      "series": [
+       {
+        "mark": "bar",
+        "cls": "a",
+        "pts": [
+         [
+          0,
+          2144.0,
+          "Wed 04.11.: 2,144 kcal"
+         ],
+         [
+          1,
+          2107.0,
+          "Thu 05.11.: 2,107 kcal"
+         ],
+         [
+          2,
+          2070.0,
+          "Fri 06.11.: 2,070 kcal"
+         ],
+         [
+          3,
+          2033.0,
+          "Sat 07.11.: 2,033 kcal"
+         ],
+         [
+          4,
+          1996.0,
+          "Sun 08.11.: 1,996 kcal"
+         ],
+         [
+          5,
+          1959.0,
+          "Mon 09.11.: 1,959 kcal"
+         ],
+         [
+          6,
+          1922.0,
+          "Tue 10.11.: 1,922 kcal"
+         ]
+        ]
+       },
+       {
+        "mark": "line",
+        "cls": "b",
+        "pts": [
+         [
+          0,
+          2144.0
+         ],
+         [
+          1,
+          2125.5
+         ],
+         [
+          2,
+          2107.0
+         ],
+         [
+          3,
+          2088.5
+         ],
+         [
+          4,
+          2070.0
+         ],
+         [
+          5,
+          2051.5
+         ],
+         [
+          6,
+          2033.0
+         ]
+        ]
+       }
+      ],
+      "label": "Calories per day",
+      "min": 0,
+      "unit": "",
+      "lines": [
+       [
+        2000.0,
+        "t",
+        "2,000"
+       ]
+      ]
+     },
+     "legend": [
+      {
+       "key": "sq a",
+       "text": "day"
+      },
+      {
+       "key": "line b",
+       "text": "7-day average"
+      },
+      {
+       "key": "ref t",
+       "text": "target"
+      }
+     ]
+    },
+    {
+     "id": "protein",
+     "title": "Protein",
+     "small": "per day",
+     "stat": [
+      {
+       "text": "average ",
+       "bold": false
+      },
+      {
+       "text": "109 g",
+       "bold": true
+      },
+      {
+       "text": " · target 120",
+       "bold": false
+      },
+      {
+       "text": " · target reached on ",
+       "bold": false
+      },
+      {
+       "text": "3",
+       "bold": true
+      },
+      {
+       "text": " of 7 days",
+       "bold": false
+      }
+     ],
+     "chart": {
+      "start": "2026-11-04",
+      "days": 7,
+      "series": [
+       {
+        "mark": "bar",
+        "cls": "a",
+        "pts": [
+         [
+          0,
+          104.0,
+          "Wed 04.11.: 104 g"
+         ],
+         [
+          1,
+          97.0,
+          "Thu 05.11.: 97 g"
+         ],
+         [
+          2,
+          90.0,
+          "Fri 06.11.: 90 g"
+         ],
+         [
+          3,
+          83.0,
+          "Sat 07.11.: 83 g"
+         ],
+         [
+          4,
+          136.0,
+          "Sun 08.11.: 136 g"
+         ],
+         [
+          5,
+          129.0,
+          "Mon 09.11.: 129 g"
+         ],
+         [
+          6,
+          122.0,
+          "Tue 10.11.: 122 g"
+         ]
+        ]
+       },
+       {
+        "mark": "line",
+        "cls": "b",
+        "pts": [
+         [
+          0,
+          104.0
+         ],
+         [
+          1,
+          100.5
+         ],
+         [
+          2,
+          97.0
+         ],
+         [
+          3,
+          93.5
+         ],
+         [
+          4,
+          102.0
+         ],
+         [
+          5,
+          106.5
+         ],
+         [
+          6,
+          108.7
+         ]
+        ]
+       }
+      ],
+      "label": "Protein per day",
+      "min": 0,
+      "unit": " g",
+      "lines": [
+       [
+        120.0,
+        "t",
+        "120"
+       ]
+      ]
+     },
+     "legend": [
+      {
+       "key": "sq a",
+       "text": "day"
+      },
+      {
+       "key": "line b",
+       "text": "7-day average"
+      },
+      {
+       "key": "ref t",
+       "text": "target"
+      }
+     ]
+    },
+    {
+     "id": "fat",
+     "title": "Fat",
+     "small": "per day",
+     "stat": [
+      {
+       "text": "average ",
+       "bold": false
+      },
+      {
+       "text": "66 g",
+       "bold": true
+      },
+      {
+       "text": " · target 70",
+       "bold": false
+      },
+      {
+       "text": " · over the target on ",
+       "bold": false
+      },
+      {
+       "text": "2",
+       "bold": true
+      },
+      {
+       "text": " of 7 days",
+       "bold": false
+      }
+     ],
+     "chart": {
+      "start": "2026-11-04",
+      "days": 7,
+      "series": [
+       {
+        "mark": "bar",
+        "cls": "a",
+        "pts": [
+         [
+          0,
+          70.0,
+          "Wed 04.11.: 70 g"
+         ],
+         [
+          1,
+          65.0,
+          "Thu 05.11.: 65 g"
+         ],
+         [
+          2,
+          60.0,
+          "Fri 06.11.: 60 g"
+         ],
+         [
+          3,
+          55.0,
+          "Sat 07.11.: 55 g"
+         ],
+         [
+          4,
+          50.0,
+          "Sun 08.11.: 50 g"
+         ],
+         [
+          5,
+          85.0,
+          "Mon 09.11.: 85 g"
+         ],
+         [
+          6,
+          80.0,
+          "Tue 10.11.: 80 g"
+         ]
+        ]
+       },
+       {
+        "mark": "line",
+        "cls": "b",
+        "pts": [
+         [
+          0,
+          70.0
+         ],
+         [
+          1,
+          67.5
+         ],
+         [
+          2,
+          65.0
+         ],
+         [
+          3,
+          62.5
+         ],
+         [
+          4,
+          60.0
+         ],
+         [
+          5,
+          64.2
+         ],
+         [
+          6,
+          66.4
+         ]
+        ]
+       }
+      ],
+      "label": "Fat per day",
+      "min": 0,
+      "unit": " g",
+      "lines": [
+       [
+        70.0,
+        "t",
+        "70"
+       ]
+      ]
+     },
+     "legend": [
+      {
+       "key": "sq a",
+       "text": "day"
+      },
+      {
+       "key": "line b",
+       "text": "7-day average"
+      },
+      {
+       "key": "ref t",
+       "text": "target"
+      }
+     ]
+    },
+    {
+     "id": "carbs",
+     "title": "Carbs",
+     "small": "per day",
+     "stat": [
+      {
+       "text": "average ",
+       "bold": false
+      },
+      {
+       "text": "249 g",
+       "bold": true
+      },
+      {
+       "text": " · target 220",
+       "bold": false
+      },
+      {
+       "text": " · over the target on ",
+       "bold": false
+      },
+      {
+       "text": "6",
+       "bold": true
+      },
+      {
+       "text": " of 7 days",
+       "bold": false
+      }
+     ],
+     "chart": {
+      "start": "2026-11-04",
+      "days": 7,
+      "series": [
+       {
+        "mark": "bar",
+        "cls": "a",
+        "pts": [
+         [
+          0,
+          282.0,
+          "Wed 04.11.: 282 g"
+         ],
+         [
+          1,
+          271.0,
+          "Thu 05.11.: 271 g"
+         ],
+         [
+          2,
+          260.0,
+          "Fri 06.11.: 260 g"
+         ],
+         [
+          3,
+          249.0,
+          "Sat 07.11.: 249 g"
+         ],
+         [
+          4,
+          238.0,
+          "Sun 08.11.: 238 g"
+         ],
+         [
+          5,
+          227.0,
+          "Mon 09.11.: 227 g"
+         ],
+         [
+          6,
+          216.0,
+          "Tue 10.11.: 216 g"
+         ]
+        ]
+       },
+       {
+        "mark": "line",
+        "cls": "b",
+        "pts": [
+         [
+          0,
+          282.0
+         ],
+         [
+          1,
+          276.5
+         ],
+         [
+          2,
+          271.0
+         ],
+         [
+          3,
+          265.5
+         ],
+         [
+          4,
+          260.0
+         ],
+         [
+          5,
+          254.5
+         ],
+         [
+          6,
+          249.0
+         ]
+        ]
+       }
+      ],
+      "label": "Carbs per day",
+      "min": 0,
+      "unit": " g",
+      "lines": [
+       [
+        220.0,
+        "t",
+        "220"
+       ]
+      ]
+     },
+     "legend": [
+      {
+       "key": "sq a",
+       "text": "day"
+      },
+      {
+       "key": "line b",
+       "text": "7-day average"
+      },
+      {
+       "key": "ref t",
+       "text": "target"
+      }
+     ]
+    }
+   ],
+   "days": [
+    {
+     "day": "2026-11-10",
+     "label": "Tue 10.11.",
+     "kcal": 1922,
+     "protein": 122,
+     "fat": 80,
+     "carbs": 216,
+     "kg": null,
+     "partly": false
+    },
+    {
+     "day": "2026-11-09",
+     "label": "Mon 09.11.",
+     "kcal": 1959,
+     "protein": 129,
+     "fat": 85,
+     "carbs": 227,
+     "kg": null,
+     "partly": false
+    },
+    {
+     "day": "2026-11-08",
+     "label": "Sun 08.11.",
+     "kcal": 1996,
+     "protein": 136,
+     "fat": 50,
+     "carbs": 238,
+     "kg": null,
+     "partly": false
+    },
+    {
+     "day": "2026-11-07",
+     "label": "Sat 07.11.",
+     "kcal": 2033,
+     "protein": 83,
+     "fat": 55,
+     "carbs": 249,
+     "kg": null,
+     "partly": false
+    },
+    {
+     "day": "2026-11-06",
+     "label": "Fri 06.11.",
+     "kcal": 2070,
+     "protein": 90,
+     "fat": 60,
+     "carbs": 260,
+     "kg": 80.9,
+     "partly": false
+    },
+    {
+     "day": "2026-11-05",
+     "label": "Thu 05.11.",
+     "kcal": 2107,
+     "protein": 97,
+     "fat": 65,
+     "carbs": 271,
+     "kg": 81.11,
+     "partly": false
+    },
+    {
+     "day": "2026-11-04",
+     "label": "Wed 04.11.",
+     "kcal": 2144,
+     "protein": 104,
+     "fat": 70,
+     "carbs": 282,
+     "kg": null,
+     "partly": false
+    }
+   ],
+   "days_none": "No complete days with food.",
+   "review": {
+    "offered": false,
+    "kind": "week",
+    "start": null,
+    "end": null,
+    "title": "Week review",
+    "small": "Monday to Sunday",
+    "state": null,
+    "id": null,
+    "wait": null,
+    "wait_note": null,
+    "parts": [],
+    "caution": null,
+    "meta": null,
+    "failed": null,
+    "intro": null,
+    "cost": null,
+    "button": null,
+    "links": [],
+    "blurb": "The review looks at one week from Monday to Sunday.",
+    "latest": {
+     "start": "2026-11-02",
+     "end": "2026-11-08",
+     "text": "Latest review: 02.11. to 08.11."
+    },
+    "weeks": [
+     {
+      "p": "last",
+      "label": "Last week"
+     },
+     {
+      "p": "this",
+      "label": "This week so far"
+     }
+    ]
+   }
+  },
+  "undo": null
+ },
+ "status": {
+  "working": {
+   "v": 1,
+   "coaching": {
+    "id": 4,
+    "state": "working"
+   },
+   "undo": null
+  },
+  "done": {
+   "v": 1,
+   "coaching": {
+    "id": 2,
+    "state": "done"
+   },
+   "undo": null
+  },
+  "failed": {
+   "v": 1,
+   "coaching": {
+    "id": 1,
+    "state": "failed"
+   },
+   "undo": null
+  },
+  "gone": {
+   "v": 1,
+   "coaching": {
+    "id": 999999,
+    "state": "gone"
+   },
+   "undo": null
+  }
+ },
+ "this_monday": {
+  "v": 1,
+  "week": {
+   "p": "this",
+   "periods": [
+    {
+     "p": "7",
+     "label": "Last 7 days",
+     "current": false
+    },
+    {
+     "p": "last",
+     "label": "Last week",
+     "current": false
+    },
+    {
+     "p": "30",
+     "label": "Last 30 days",
+     "current": false
+    },
+    {
+     "p": "this",
+     "label": "This week so far",
+     "current": true
+    }
+   ],
+   "today": "2026-11-09",
+   "start": "2026-11-09",
+   "end": "2026-11-08",
+   "ndays": 0,
+   "empty": true,
+   "empty_text": "No complete day in this period yet (this week so far starts after Monday).",
+   "with_food": null,
+   "dates_text": null,
+   "days_text": null,
+   "left_out": null,
+   "today_text": "today is left out, it is not over yet",
+   "food": [],
+   "meter_hint": "Average day as a share of the target; the thin line is 100%.",
+   "health": [],
+   "health_none": "Nothing logged in this period.",
+   "foods": {
+    "by_kcal": [],
+    "by_count": []
+   },
+   "charts": [],
+   "days": [],
+   "days_none": "No complete days with food.",
+   "review": null
+  },
+  "undo": null
+ },
+ "saves": {
+  "start": {
+   "v": 1,
+   "outcome": "changed",
+   "tone": "ok",
+   "head": "The coach is reading your week: about 45 seconds.",
+   "receipt": [],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": null,
+   "coaching": {
+    "id": 5,
+    "state": "working"
+   }
+  },
+  "on_it": {
+   "v": 1,
+   "outcome": "changed",
+   "tone": "ok",
+   "head": "The coach is already on it.",
+   "receipt": [],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": null,
+   "coaching": {
+    "id": 5,
+    "state": "working"
+   }
+  },
+  "limit": {
+   "v": 1,
+   "outcome": "rejected",
+   "tone": "warning",
+   "head": "Nothing saved.",
+   "receipt": [],
+   "notes": [],
+   "reason": "That is 10 coachings today, the daily limit. Tomorrow there are new ones.",
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": null,
+   "coaching": null
+  }
+ }
+}

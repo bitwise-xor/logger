@@ -55,7 +55,7 @@ EOF
 echo "== pages render against the live data (read only)"
 docker exec -i -w /srv logger-v2-core python - </dev/null <<'EOF'
 import traceback
-from app import foodpage, habitspage, healthpage, ideaspage, labspage, privatepage, searchpage, settingspage, todaypage, trendspage, usagepage, web, weekpage, webheld, gympage, homepage, reads
+from app import foodpage, habitspage, healthpage, ideaspage, insightspage, labspage, privatepage, searchpage, settingspage, todaypage, trendspage, usagepage, web, weekpage, webheld, gympage, homepage, reads, coachpage
 sess = {"csrf": "x", "token_hash": "none", "sid": "00000000-0000-0000-0000-000000000000"}
 checks = {
   "today": lambda: todaypage.render("x"), "health": lambda: healthpage.render("x", 30), "food log": lambda: foodpage.render_log("x", {}),
@@ -71,6 +71,9 @@ checks = {
   "home": lambda: homepage.render_now("x"), "home pick": lambda: homepage.render_pick("x", {"min": "30"}), "home zones": lambda: homepage.render_zones("x"),
   "home history": lambda: homepage.render_history("x"), "home chore": lambda: homepage.render_chore("x", {"id": "1"}), "home edit": lambda: homepage.render_edit("x"),
   "home card": homepage.today_card, "door home reads": lambda: str([reads.home({}), reads.home_pick({}), reads.home_zones(), reads.home_history({}), reads.home_edit(), reads.home_card()]),
+  "week last": lambda: weekpage.render("x", {"p": "last"}), "week this": lambda: weekpage.render("x", {"p": "this"}), "trends 90": lambda: trendspage.render("x", {"r": "90"}),
+  "insights": lambda: insightspage.render("x"), "coach page": lambda: coachpage.render("x", {}),
+  "door trends reads": lambda: str([reads.week(p) for p in ("7", "last", "30", "this")] + [reads.food_trends(r) for r in (7, 30, 90)] + [reads.insights()]),
 }
 for name, f in checks.items():
     try:
