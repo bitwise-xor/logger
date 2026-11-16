@@ -55,7 +55,7 @@ EOF
 echo "== pages render against the live data (read only)"
 docker exec -i -w /srv logger-v2-core python - </dev/null <<'EOF'
 import traceback
-from app import foodpage, habitspage, healthpage, ideaspage, labspage, privatepage, searchpage, settingspage, todaypage, trendspage, usagepage, web, weekpage, webheld, gympage
+from app import foodpage, habitspage, healthpage, ideaspage, labspage, privatepage, searchpage, settingspage, todaypage, trendspage, usagepage, web, weekpage, webheld, gympage, homepage, reads
 sess = {"csrf": "x", "token_hash": "none", "sid": "00000000-0000-0000-0000-000000000000"}
 checks = {
   "today": lambda: todaypage.render("x"), "health": lambda: healthpage.render("x", 30), "food log": lambda: foodpage.render_log("x", {}),
@@ -68,6 +68,9 @@ checks = {
   "shell": lambda: web.shell(sess, "<p>x</p>", active="today").body.decode(),
   "not read yet": lambda: webheld.section("x") or "(none waiting)",
   "gym": lambda: gympage.render_workout("x"), "gym exercises": lambda: gympage.render_exercises("x"), "gym card": gympage.today_card,
+  "home": lambda: homepage.render_now("x"), "home pick": lambda: homepage.render_pick("x", {"min": "30"}), "home zones": lambda: homepage.render_zones("x"),
+  "home history": lambda: homepage.render_history("x"), "home chore": lambda: homepage.render_chore("x", {"id": "1"}), "home edit": lambda: homepage.render_edit("x"),
+  "home card": homepage.today_card, "door home reads": lambda: str([reads.home({}), reads.home_pick({}), reads.home_zones(), reads.home_history({}), reads.home_edit(), reads.home_card()]),
 }
 for name, f in checks.items():
     try:

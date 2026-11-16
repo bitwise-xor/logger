@@ -7,7 +7,7 @@ water, saved with Undo, and an odd weight correction read back first, with confi
 the Food day (food.json, step E: GET /food/day of the day and the day before, GET /food/entry, a change and a note), the usual
 meals (usual.json, deploy 86: GET /usual, GET /foods, a change with Undo and a refusal), the scanner, label photo and look-up
 (scan.json, deploy 89), the Health page and body measurements (health.json, deploy 91), the Habits page (habits.json, deploy 93), the
-Gym (gym.json, deploy 95), and
+Gym (gym.json, deploy 95), Home (home.json, deploy 98; day.json has Today's Home card since then), and
 - with WRITE_FRONT_SAMPLES=1: writes the answer to the sample file (then look at the diff and commit it);
 - otherwise: checks that the committed sample still has the door's shape (the same keys at every level), so a change of the door
   that the stand-in does not know about fails here.
@@ -116,6 +116,8 @@ def differences(have, want, path="day") -> list:
 
 def test_the_day_sample_has_the_doors_shape(api, four_pm):
     full_day()
+    from test_api_home import invented
+    invented(plain=True)  # Today's Home card (deploy 98)
     r = api("/day")
     assert r.status_code == 200, r.text
     answer = r.json()
@@ -124,6 +126,7 @@ def test_the_day_sample_has_the_doors_shape(api, four_pm):
     for part in (d["rows"], d["energy"]["meals"], d["chips"]["again"], d["chips"]["usual"], d["needs"]["questions"],
                  d["needs"]["not_read"], d["needs"]["review"], d["habits"]):
         assert part, part
+    assert d["home"] and d["home"]["waiting"]
     assert d["needs"]["checkin"] is not None and d["header"]["awake_minutes"] and d["header"]["slept_minutes"] == 440
     path = SAMPLES / "day.json"
     if os.environ.get("WRITE_FRONT_SAMPLES") == "1":
@@ -529,3 +532,58 @@ def test_the_gym_sample_has_the_doors_shape(fake, monkeypatch):
     assert sample.keys() == answers.keys()
     gone = differences(sample, answers, "gym")
     assert not gone, "front/tests/samples/gym.json no longer has the door's shape; run this test with WRITE_FRONT_SAMPLES=1:\n" + "\n".join(gone)
+
+
+def test_the_home_sample_has_the_doors_shape(fake):
+    """Home (deploy 98, for the pages of deploys 99 and 100): four invented zones (one retired) and seven chores (two of the whole flat,
+    one retired) with done rows of every kind. Every read (the Now tab and the Pick page also with a timer running; a chore of a zone and
+    one of the whole flat), and the saves without their fresh read: a tick (with Undo), All done, a removal from History, Not today,
+    a starting point, a job done earlier, the timer started, paused and Done, a per-zone change, a refusal and an Undo."""
+    from test_api_home import invented
+
+    x = invented(plain=True)
+    c, bearer, _ = signed_in()
+    get = lambda path: c.get("/api/v1" + path, headers=bearer).json()  # noqa: E731
+    post = lambda path, **body: c.post("/api/v1" + path, headers=bearer, json=body).json()  # noqa: E731
+    answers = {"home": get("/home"), "pick": get("/home/pick"), "pick_hour": get("/home/pick?min=60"), "zones": get("/home/zones"),
+               "history": get("/home/history"), "chore": get(f'/home/chore?id={x["stove"]}'), "chore_flat": get(f'/home/chore?id={x["vacuum"]}'),
+               "edit": get("/home/edit")}
+    h = answers["home"]["home"]
+    assert h["rows"] and h["recent"] and answers["zones"]["home_zones"]["start"]["jobs"] and answers["zones"]["home_zones"]["flat"]
+    assert answers["pick_hour"]["home_pick"]["job"]["session"] and answers["history"]["home_history"]["days"]
+    assert answers["chore"]["home_chore"]["usually"] and answers["chore_flat"]["home_chore"]["zones"]
+    tick = post("/home/tick", chore_id=x["fridge"], zone_id=x["kitchen"], key="sample-home-key-0001")
+    entry = answers["history"]["home_history"]["days"][0]["rows"][0]
+    saves = {"tick": tick,
+             "alldone": post("/home/alldone", chore_id=x["dust"], key="sample-home-key-0002"),
+             "remove": post("/home/remove", ids=entry["ids"]),
+             "skip": post("/home/skip", pairs=[[x["shoes"], x["hall"]]]),
+             "startpoint": post("/home/startpoint", pairs=[[x["towels"], x["bath"]]], ago="week", key="sample-home-key-0003"),
+             "earlier": post("/home/earlier", pairs=[[x["sink"], x["bath"]]], when=1, key="sample-home-key-0004"),
+             "start": post("/home/start", pairs=[[x["stove"], x["kitchen"]]], minutes=15)}
+    t = saves["start"]["home_pick"]["timer"]
+    answers["home_timer"], answers["pick_timer"] = get("/home"), get("/home/pick")
+    saves["pause"] = post("/home/pause", timer_id=t["id"])
+    saves["pickdone"] = post("/home/pickdone", pairs=t["pairs"], timer_id=t["id"], key="sample-home-key-0005")
+    saves["undo"] = post("/undo", token=saves["pickdone"]["undo"]["token"], view="home")
+    saves["chorezones"] = post("/home/chorezones", chore_id=x["vacuum"], zones=[{"zone_id": x["kitchen"], "on": True, "days": 3},
+                                                                                {"zone_id": x["bath"], "on": True, "minutes": 5},
+                                                                                {"zone_id": x["hall"], "on": True}])
+    saves["refused"] = post("/home/goalset", goal=9)
+    views = {"tick": "home", "alldone": "home_zones", "remove": "home_history", "skip": "home_pick", "startpoint": "home_zones", "earlier": "home_pick",
+             "start": "home_pick", "pause": "home_pick", "pickdone": "home", "chorezones": "home_edit", "refused": "home_edit", "undo": "home"}
+    for k, a in saves.items():
+        assert views[k] in a and a.pop(views[k]), (k, a)
+    assert all(saves[k]["undo"] for k in ("tick", "alldone", "remove", "skip", "startpoint", "earlier")), saves
+    assert saves["start"]["undo"] is None and saves["pause"]["outcome"] == "changed" and saves["pickdone"]["outcome"] == "saved"
+    assert saves["refused"]["outcome"] == "rejected" and saves["undo"]["head"] == "Undone: the tick is gone."
+    assert answers["home_timer"]["home"]["timer"] and answers["pick_timer"]["home_pick"]["timer"]
+    answers["saves"] = saves
+    path = SAMPLES / "home.json"
+    if os.environ.get("WRITE_FRONT_SAMPLES") == "1":
+        path.write_text(json.dumps(answers, indent=1, ensure_ascii=False) + "\n")
+        return
+    sample = json.loads(path.read_text())
+    assert sample.keys() == answers.keys()
+    gone = differences(sample, answers, "home")
+    assert not gone, "front/tests/samples/home.json no longer has the door's shape; run this test with WRITE_FRONT_SAMPLES=1:\n" + "\n".join(gone)

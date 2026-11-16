@@ -1,0 +1,2021 @@
+{
+ "home": {
+  "v": 1,
+  "home": {
+   "today": "2026-11-16",
+   "empty": false,
+   "minutes": 15,
+   "minutes_options": [
+    {
+     "minutes": 5,
+     "label": "5 min"
+    },
+    {
+     "minutes": 15,
+     "label": "15 min"
+    },
+    {
+     "minutes": 30,
+     "label": "30 min"
+    },
+    {
+     "minutes": 60,
+     "label": "1 hour"
+    }
+   ],
+   "timer": null,
+   "week": {
+    "goal": 3,
+    "this": 1,
+    "weeks": [
+     1,
+     1,
+     2,
+     0
+    ]
+   },
+   "rows": [
+    {
+     "chore_id": 7,
+     "zone_id": 2,
+     "name": "Fresh towels",
+     "zone": "Bathroom",
+     "short": "Bath",
+     "label": "Fresh towels · Bathroom",
+     "flat": false,
+     "age": null,
+     "age_text": "not logged yet",
+     "interval": 5,
+     "interval_text": "every 5 days",
+     "minutes": 5,
+     "done_today": false,
+     "done_at": null
+    },
+    {
+     "chore_id": 2,
+     "zone_id": 2,
+     "name": "Vacuum",
+     "zone": "Bathroom",
+     "short": "Bath",
+     "label": "Vacuum · Bathroom",
+     "flat": true,
+     "age": null,
+     "age_text": "not logged yet",
+     "interval": 7,
+     "interval_text": "weekly",
+     "minutes": 5,
+     "done_today": false,
+     "done_at": null
+    },
+    {
+     "chore_id": 1,
+     "zone_id": 1,
+     "name": "Dust",
+     "zone": "Kitchen",
+     "short": "Kit",
+     "label": "Dust · Kitchen",
+     "flat": true,
+     "age": null,
+     "age_text": "not logged yet",
+     "interval": 14,
+     "interval_text": "every 2 weeks",
+     "minutes": 15,
+     "done_today": false,
+     "done_at": null
+    },
+    {
+     "chore_id": 4,
+     "zone_id": 1,
+     "name": "Clean the fridge",
+     "zone": "Kitchen",
+     "short": "Kit",
+     "label": "Clean the fridge · Kitchen",
+     "flat": false,
+     "age": 40,
+     "age_text": "5 weeks ago",
+     "interval": 30,
+     "interval_text": "monthly",
+     "minutes": 20,
+     "done_today": false,
+     "done_at": "2026-10-07T22:04:10.798186+02:00"
+    },
+    {
+     "chore_id": 3,
+     "zone_id": 1,
+     "name": "Wipe the stove",
+     "zone": "Kitchen",
+     "short": "Kit",
+     "label": "Wipe the stove · Kitchen",
+     "flat": false,
+     "age": 9,
+     "age_text": "9 days ago",
+     "interval": 7,
+     "interval_text": "weekly",
+     "minutes": 15,
+     "done_today": false,
+     "done_at": "2026-11-07T21:04:10.795440+01:00"
+    },
+    {
+     "chore_id": 6,
+     "zone_id": 3,
+     "name": "Tidy the shoes",
+     "zone": "Hallway",
+     "short": "Hall",
+     "label": "Tidy the shoes · Hallway",
+     "flat": false,
+     "age": 3,
+     "age_text": "3 days ago",
+     "interval": 30,
+     "interval_text": "monthly",
+     "minutes": 5,
+     "done_today": false,
+     "done_at": "2026-11-13T21:04:10.802489+01:00"
+    },
+    {
+     "chore_id": 5,
+     "zone_id": 2,
+     "name": "Scrub the sink",
+     "zone": "Bathroom",
+     "short": "Bath",
+     "label": "Scrub the sink · Bathroom",
+     "flat": false,
+     "age": 0,
+     "age_text": "today",
+     "interval": 7,
+     "interval_text": "weekly",
+     "minutes": 10,
+     "done_today": true,
+     "done_at": "2026-11-16T21:04:10.800278+01:00"
+    }
+   ],
+   "count": 7,
+   "shown": 6,
+   "hidden": 0,
+   "recent": [
+    {
+     "ids": [
+      7
+     ],
+     "chore_id": 5,
+     "chore": "Scrub the sink",
+     "zones": [
+      "Bathroom"
+     ],
+     "flat": false,
+     "label": "Scrub the sink · Bathroom",
+     "at": "2026-11-16T21:04:10.800278+01:00",
+     "day": "2026-11-16",
+     "dated": false,
+     "source": "web",
+     "how": "ticked",
+     "time": "21:04",
+     "when": "16.11. 21:04"
+    },
+    {
+     "ids": [
+      1
+     ],
+     "chore_id": 2,
+     "chore": "Vacuum",
+     "zones": [
+      "Kitchen"
+     ],
+     "flat": true,
+     "label": "Vacuum · Kitchen",
+     "at": "2026-11-14T21:04:10.780966+01:00",
+     "day": "2026-11-14",
+     "dated": false,
+     "source": "web",
+     "how": "ticked",
+     "time": "21:04",
+     "when": "14.11. 21:04"
+    },
+    {
+     "ids": [
+      5
+     ],
+     "chore_id": 3,
+     "chore": "Wipe the stove",
+     "zones": [
+      "Kitchen"
+     ],
+     "flat": false,
+     "label": "Wipe the stove · Kitchen",
+     "at": "2026-11-07T21:04:10.795440+01:00",
+     "day": "2026-11-07",
+     "dated": false,
+     "source": "pick",
+     "how": "timer",
+     "time": "21:04",
+     "when": "07.11. 21:04"
+    },
+    {
+     "ids": [
+      2
+     ],
+     "chore_id": 1,
+     "chore": "Dust",
+     "zones": [
+      "Bathroom"
+     ],
+     "flat": true,
+     "label": "Dust · Bathroom",
+     "at": "2026-10-27T21:04:10.786323+01:00",
+     "day": "2026-10-27",
+     "dated": false,
+     "source": "chat",
+     "how": "chat",
+     "time": "21:04",
+     "when": "27.10. 21:04"
+    },
+    {
+     "ids": [
+      4
+     ],
+     "chore_id": 3,
+     "chore": "Wipe the stove",
+     "zones": [
+      "Kitchen"
+     ],
+     "flat": false,
+     "label": "Wipe the stove · Kitchen",
+     "at": "2026-10-26T21:04:10.793059+01:00",
+     "day": "2026-10-26",
+     "dated": false,
+     "source": "web",
+     "how": "ticked",
+     "time": "21:04",
+     "when": "26.10. 21:04"
+    }
+   ]
+  },
+  "undo": null
+ },
+ "pick": {
+  "v": 1,
+  "home_pick": {
+   "today": "2026-11-16",
+   "empty": null,
+   "minutes": 15,
+   "title": "Your 15 minutes",
+   "timer": null,
+   "job": {
+    "pairs": [
+     [
+      7,
+      2
+     ]
+    ],
+    "title": "Fresh towels",
+    "zone": "Bathroom",
+    "age": null,
+    "age_text": "not logged yet",
+    "minutes": 5,
+    "steps": [],
+    "howto": null,
+    "over": false,
+    "session": false
+   },
+   "n": 0,
+   "count": 5,
+   "also": [
+    {
+     "n": 1,
+     "title": "Vacuum the bathroom"
+    },
+    {
+     "n": 2,
+     "title": "Dust the kitchen"
+    }
+   ],
+   "earlier": [
+    {
+     "when": 1,
+     "label": "Yesterday"
+    },
+    {
+     "when": 2,
+     "label": "2 days ago"
+    }
+   ],
+   "next_from_s": 180,
+   "earlier_days": 365
+  },
+  "undo": null
+ },
+ "pick_hour": {
+  "v": 1,
+  "home_pick": {
+   "today": "2026-11-16",
+   "empty": null,
+   "minutes": 60,
+   "title": "Your hour",
+   "timer": null,
+   "job": {
+    "pairs": [
+     [
+      1,
+      2
+     ],
+     [
+      7,
+      2
+     ],
+     [
+      2,
+      2
+     ]
+    ],
+    "title": "Bathroom: 3 jobs",
+    "zone": "Bathroom",
+    "age": null,
+    "age_text": "not logged yet",
+    "minutes": 25,
+    "steps": [
+     "Dust (15 min)",
+     "Fresh towels (5 min)",
+     "Vacuum (5 min)"
+    ],
+    "howto": null,
+    "over": false,
+    "session": true
+   },
+   "n": 0,
+   "count": 9,
+   "also": [
+    {
+     "n": 1,
+     "title": "Fresh towels"
+    },
+    {
+     "n": 2,
+     "title": "Dust the whole flat"
+    }
+   ],
+   "earlier": [
+    {
+     "when": 1,
+     "label": "Yesterday"
+    },
+    {
+     "when": 2,
+     "label": "2 days ago"
+    }
+   ],
+   "next_from_s": 180,
+   "earlier_days": 365
+  },
+  "undo": null
+ },
+ "zones": {
+  "v": 1,
+  "home_zones": {
+   "today": "2026-11-16",
+   "empty": false,
+   "start": {
+    "jobs": [
+     {
+      "chore_id": 7,
+      "name": "Fresh towels",
+      "pairs": [
+       [
+        7,
+        2
+       ]
+      ],
+      "zone": "Bathroom",
+      "zones": 1,
+      "where": "Bathroom",
+      "interval": 5,
+      "interval_text": "every 5 days"
+     },
+     {
+      "chore_id": 2,
+      "name": "Vacuum",
+      "pairs": [
+       [
+        2,
+        2
+       ],
+       [
+        2,
+        3
+       ]
+      ],
+      "zone": null,
+      "zones": 2,
+      "where": "2 zones",
+      "interval": 7,
+      "interval_text": "weekly"
+     },
+     {
+      "chore_id": 1,
+      "name": "Dust",
+      "pairs": [
+       [
+        1,
+        1
+       ]
+      ],
+      "zone": "Kitchen",
+      "zones": 1,
+      "where": "Kitchen",
+      "interval": 14,
+      "interval_text": "every 2 weeks"
+     }
+    ],
+    "more": 0,
+    "answers": [
+     {
+      "ago": "week",
+      "label": "This week"
+     },
+     {
+      "ago": "month",
+      "label": "This month"
+     },
+     {
+      "ago": "longer",
+      "label": "Longer ago"
+     },
+     {
+      "ago": "unknown",
+      "label": "Don’t know"
+     }
+    ]
+   },
+   "flat": [
+    {
+     "chore_id": 1,
+     "name": "Dust",
+     "interval": 14,
+     "interval_text": "every 2 weeks",
+     "minutes": 15,
+     "all_done_today": false,
+     "per_zone": {
+      "text": "every 2 weeks; not in Hall",
+      "groups": [],
+      "off": [
+       {
+        "zone_id": 3,
+        "short": "Hall"
+       }
+      ]
+     },
+     "tiles": [
+      {
+       "chore_id": 1,
+       "zone_id": 1,
+       "name": "Dust",
+       "zone": "Kitchen",
+       "short": "Kit",
+       "label": "Dust · Kitchen",
+       "flat": true,
+       "age": null,
+       "age_text": "not logged yet",
+       "interval": 14,
+       "interval_text": "every 2 weeks",
+       "minutes": 15,
+       "done_today": false,
+       "done_at": null,
+       "age_short": "not yet",
+       "tinted": false
+      },
+      {
+       "chore_id": 1,
+       "zone_id": 2,
+       "name": "Dust",
+       "zone": "Bathroom",
+       "short": "Bath",
+       "label": "Dust · Bathroom",
+       "flat": true,
+       "age": 20,
+       "age_text": "2 weeks ago",
+       "interval": 14,
+       "interval_text": "every 2 weeks",
+       "minutes": 15,
+       "done_today": false,
+       "done_at": "2026-10-27T21:04:10.786323+01:00",
+       "age_short": "2 wk",
+       "tinted": false
+      }
+     ]
+    },
+    {
+     "chore_id": 2,
+     "name": "Vacuum",
+     "interval": 7,
+     "interval_text": "weekly",
+     "minutes": 10,
+     "all_done_today": false,
+     "per_zone": {
+      "text": "weekly; Kit every 3 days",
+      "groups": [
+       {
+        "interval": 3,
+        "interval_text": "every 3 days",
+        "zones": [
+         {
+          "zone_id": 1,
+          "short": "Kit"
+         }
+        ]
+       }
+      ],
+      "off": []
+     },
+     "tiles": [
+      {
+       "chore_id": 2,
+       "zone_id": 1,
+       "name": "Vacuum",
+       "zone": "Kitchen",
+       "short": "Kit",
+       "label": "Vacuum · Kitchen",
+       "flat": true,
+       "age": 2,
+       "age_text": "2 days ago",
+       "interval": 3,
+       "interval_text": "every 3 days",
+       "minutes": 10,
+       "done_today": false,
+       "done_at": "2026-11-14T21:04:10.780966+01:00",
+       "age_short": "2 days",
+       "tinted": false
+      },
+      {
+       "chore_id": 2,
+       "zone_id": 2,
+       "name": "Vacuum",
+       "zone": "Bathroom",
+       "short": "Bath",
+       "label": "Vacuum · Bathroom",
+       "flat": true,
+       "age": null,
+       "age_text": "not logged yet",
+       "interval": 7,
+       "interval_text": "weekly",
+       "minutes": 5,
+       "done_today": false,
+       "done_at": null,
+       "age_short": "not yet",
+       "tinted": false
+      },
+      {
+       "chore_id": 2,
+       "zone_id": 3,
+       "name": "Vacuum",
+       "zone": "Hallway",
+       "short": "Hall",
+       "label": "Vacuum · Hallway",
+       "flat": true,
+       "age": null,
+       "age_text": "not logged yet",
+       "interval": 7,
+       "interval_text": "weekly",
+       "minutes": 10,
+       "done_today": false,
+       "done_at": null,
+       "age_short": "not yet",
+       "tinted": false
+      }
+     ]
+    }
+   ],
+   "zones": [
+    {
+     "zone_id": 1,
+     "name": "Kitchen",
+     "short": "Kit",
+     "count": 4,
+     "own": 2,
+     "chores": [
+      {
+       "chore_id": 1,
+       "zone_id": 1,
+       "name": "Dust",
+       "zone": "Kitchen",
+       "short": "Kit",
+       "label": "Dust · Kitchen",
+       "flat": true,
+       "age": null,
+       "age_text": "not logged yet",
+       "interval": 14,
+       "interval_text": "every 2 weeks",
+       "minutes": 15,
+       "done_today": false,
+       "done_at": null
+      },
+      {
+       "chore_id": 3,
+       "zone_id": 1,
+       "name": "Wipe the stove",
+       "zone": "Kitchen",
+       "short": "Kit",
+       "label": "Wipe the stove · Kitchen",
+       "flat": false,
+       "age": 9,
+       "age_text": "9 days ago",
+       "interval": 7,
+       "interval_text": "weekly",
+       "minutes": 15,
+       "done_today": false,
+       "done_at": "2026-11-07T21:04:10.795440+01:00"
+      },
+      {
+       "chore_id": 4,
+       "zone_id": 1,
+       "name": "Clean the fridge",
+       "zone": "Kitchen",
+       "short": "Kit",
+       "label": "Clean the fridge · Kitchen",
+       "flat": false,
+       "age": 40,
+       "age_text": "5 weeks ago",
+       "interval": 30,
+       "interval_text": "monthly",
+       "minutes": 20,
+       "done_today": false,
+       "done_at": "2026-10-07T22:04:10.798186+02:00"
+      },
+      {
+       "chore_id": 2,
+       "zone_id": 1,
+       "name": "Vacuum",
+       "zone": "Kitchen",
+       "short": "Kit",
+       "label": "Vacuum · Kitchen",
+       "flat": true,
+       "age": 2,
+       "age_text": "2 days ago",
+       "interval": 3,
+       "interval_text": "every 3 days",
+       "minutes": 10,
+       "done_today": false,
+       "done_at": "2026-11-14T21:04:10.780966+01:00"
+      }
+     ],
+     "open": true,
+     "todoist": false,
+     "oldest_age": null,
+     "oldest_text": "not yet"
+    },
+    {
+     "zone_id": 2,
+     "name": "Bathroom",
+     "short": "Bath",
+     "count": 4,
+     "own": 2,
+     "chores": [
+      {
+       "chore_id": 1,
+       "zone_id": 2,
+       "name": "Dust",
+       "zone": "Bathroom",
+       "short": "Bath",
+       "label": "Dust · Bathroom",
+       "flat": true,
+       "age": 20,
+       "age_text": "2 weeks ago",
+       "interval": 14,
+       "interval_text": "every 2 weeks",
+       "minutes": 15,
+       "done_today": false,
+       "done_at": "2026-10-27T21:04:10.786323+01:00"
+      },
+      {
+       "chore_id": 5,
+       "zone_id": 2,
+       "name": "Scrub the sink",
+       "zone": "Bathroom",
+       "short": "Bath",
+       "label": "Scrub the sink · Bathroom",
+       "flat": false,
+       "age": 0,
+       "age_text": "today",
+       "interval": 7,
+       "interval_text": "weekly",
+       "minutes": 10,
+       "done_today": true,
+       "done_at": "2026-11-16T21:04:10.800278+01:00"
+      },
+      {
+       "chore_id": 7,
+       "zone_id": 2,
+       "name": "Fresh towels",
+       "zone": "Bathroom",
+       "short": "Bath",
+       "label": "Fresh towels · Bathroom",
+       "flat": false,
+       "age": null,
+       "age_text": "not logged yet",
+       "interval": 5,
+       "interval_text": "every 5 days",
+       "minutes": 5,
+       "done_today": false,
+       "done_at": null
+      },
+      {
+       "chore_id": 2,
+       "zone_id": 2,
+       "name": "Vacuum",
+       "zone": "Bathroom",
+       "short": "Bath",
+       "label": "Vacuum · Bathroom",
+       "flat": true,
+       "age": null,
+       "age_text": "not logged yet",
+       "interval": 7,
+       "interval_text": "weekly",
+       "minutes": 5,
+       "done_today": false,
+       "done_at": null
+      }
+     ],
+     "open": true,
+     "todoist": false,
+     "oldest_age": null,
+     "oldest_text": "not yet"
+    },
+    {
+     "zone_id": 3,
+     "name": "Hallway",
+     "short": "Hall",
+     "count": 2,
+     "own": 1,
+     "chores": [
+      {
+       "chore_id": 6,
+       "zone_id": 3,
+       "name": "Tidy the shoes",
+       "zone": "Hallway",
+       "short": "Hall",
+       "label": "Tidy the shoes · Hallway",
+       "flat": false,
+       "age": 3,
+       "age_text": "3 days ago",
+       "interval": 30,
+       "interval_text": "monthly",
+       "minutes": 5,
+       "done_today": false,
+       "done_at": "2026-11-13T21:04:10.802489+01:00"
+      },
+      {
+       "chore_id": 2,
+       "zone_id": 3,
+       "name": "Vacuum",
+       "zone": "Hallway",
+       "short": "Hall",
+       "label": "Vacuum · Hallway",
+       "flat": true,
+       "age": null,
+       "age_text": "not logged yet",
+       "interval": 7,
+       "interval_text": "weekly",
+       "minutes": 10,
+       "done_today": false,
+       "done_at": null
+      }
+     ],
+     "open": true,
+     "todoist": false,
+     "oldest_age": null,
+     "oldest_text": "not yet"
+    }
+   ]
+  },
+  "undo": null
+ },
+ "history": {
+  "v": 1,
+  "home_history": {
+   "today": "2026-11-16",
+   "limit": 60,
+   "step": 60,
+   "max": 600,
+   "more": false,
+   "count": 8,
+   "days": [
+    {
+     "day": "2026-11-16",
+     "label": "Monday 16.11.",
+     "rows": [
+      {
+       "ids": [
+        7
+       ],
+       "chore_id": 5,
+       "chore": "Scrub the sink",
+       "zones": [
+        "Bathroom"
+       ],
+       "flat": false,
+       "label": "Scrub the sink · Bathroom",
+       "at": "2026-11-16T21:04:10.800278+01:00",
+       "day": "2026-11-16",
+       "dated": false,
+       "source": "web",
+       "how": "ticked",
+       "time": "21:04",
+       "when": "16.11. 21:04"
+      }
+     ]
+    },
+    {
+     "day": "2026-11-14",
+     "label": "Saturday 14.11.",
+     "rows": [
+      {
+       "ids": [
+        1
+       ],
+       "chore_id": 2,
+       "chore": "Vacuum",
+       "zones": [
+        "Kitchen"
+       ],
+       "flat": true,
+       "label": "Vacuum · Kitchen",
+       "at": "2026-11-14T21:04:10.780966+01:00",
+       "day": "2026-11-14",
+       "dated": false,
+       "source": "web",
+       "how": "ticked",
+       "time": "21:04",
+       "when": "14.11. 21:04"
+      }
+     ]
+    },
+    {
+     "day": "2026-11-13",
+     "label": "Friday 13.11.",
+     "rows": [
+      {
+       "ids": [
+        8
+       ],
+       "chore_id": 6,
+       "chore": "Tidy the shoes",
+       "zones": [
+        "Hallway"
+       ],
+       "flat": false,
+       "label": "Tidy the shoes · Hallway",
+       "at": "2026-11-13T21:04:10.802489+01:00",
+       "day": "2026-11-13",
+       "dated": true,
+       "source": "start",
+       "how": "starting point",
+       "time": null,
+       "when": "13.11."
+      }
+     ]
+    },
+    {
+     "day": "2026-11-07",
+     "label": "Saturday 07.11.",
+     "rows": [
+      {
+       "ids": [
+        5
+       ],
+       "chore_id": 3,
+       "chore": "Wipe the stove",
+       "zones": [
+        "Kitchen"
+       ],
+       "flat": false,
+       "label": "Wipe the stove · Kitchen",
+       "at": "2026-11-07T21:04:10.795440+01:00",
+       "day": "2026-11-07",
+       "dated": false,
+       "source": "pick",
+       "how": "timer",
+       "time": "21:04",
+       "when": "07.11. 21:04"
+      }
+     ]
+    },
+    {
+     "day": "2026-10-27",
+     "label": "Tuesday 27.10.",
+     "rows": [
+      {
+       "ids": [
+        2
+       ],
+       "chore_id": 1,
+       "chore": "Dust",
+       "zones": [
+        "Bathroom"
+       ],
+       "flat": true,
+       "label": "Dust · Bathroom",
+       "at": "2026-10-27T21:04:10.786323+01:00",
+       "day": "2026-10-27",
+       "dated": false,
+       "source": "chat",
+       "how": "chat",
+       "time": "21:04",
+       "when": "27.10. 21:04"
+      }
+     ]
+    },
+    {
+     "day": "2026-10-26",
+     "label": "Monday 26.10.",
+     "rows": [
+      {
+       "ids": [
+        4
+       ],
+       "chore_id": 3,
+       "chore": "Wipe the stove",
+       "zones": [
+        "Kitchen"
+       ],
+       "flat": false,
+       "label": "Wipe the stove · Kitchen",
+       "at": "2026-10-26T21:04:10.793059+01:00",
+       "day": "2026-10-26",
+       "dated": false,
+       "source": "web",
+       "how": "ticked",
+       "time": "21:04",
+       "when": "26.10. 21:04"
+      }
+     ]
+    },
+    {
+     "day": "2026-10-17",
+     "label": "Saturday 17.10.",
+     "rows": [
+      {
+       "ids": [
+        3
+       ],
+       "chore_id": 3,
+       "chore": "Wipe the stove",
+       "zones": [
+        "Kitchen"
+       ],
+       "flat": false,
+       "label": "Wipe the stove · Kitchen",
+       "at": "2026-10-17T22:04:10.790408+02:00",
+       "day": "2026-10-17",
+       "dated": false,
+       "source": "web",
+       "how": "ticked",
+       "time": "22:04",
+       "when": "17.10. 22:04"
+      }
+     ]
+    },
+    {
+     "day": "2026-10-07",
+     "label": "Wednesday 07.10.",
+     "rows": [
+      {
+       "ids": [
+        6
+       ],
+       "chore_id": 4,
+       "chore": "Clean the fridge",
+       "zones": [
+        "Kitchen"
+       ],
+       "flat": false,
+       "label": "Clean the fridge · Kitchen",
+       "at": "2026-10-07T22:04:10.798186+02:00",
+       "day": "2026-10-07",
+       "dated": true,
+       "source": "web",
+       "how": "earlier",
+       "time": null,
+       "when": "07.10."
+      }
+     ]
+    }
+   ],
+   "jobs": [
+    {
+     "pairs": [
+      [
+       4,
+       1
+      ]
+     ],
+     "label": "Clean the fridge · Kitchen"
+    },
+    {
+     "pairs": [
+      [
+       1,
+       1
+      ]
+     ],
+     "label": "Dust · Kitchen"
+    },
+    {
+     "pairs": [
+      [
+       1,
+       2
+      ]
+     ],
+     "label": "Dust · Bathroom"
+    },
+    {
+     "pairs": [
+      [
+       7,
+       2
+      ]
+     ],
+     "label": "Fresh towels · Bathroom"
+    },
+    {
+     "pairs": [
+      [
+       5,
+       2
+      ]
+     ],
+     "label": "Scrub the sink · Bathroom"
+    },
+    {
+     "pairs": [
+      [
+       6,
+       3
+      ]
+     ],
+     "label": "Tidy the shoes · Hallway"
+    },
+    {
+     "pairs": [
+      [
+       2,
+       1
+      ]
+     ],
+     "label": "Vacuum · Kitchen"
+    },
+    {
+     "pairs": [
+      [
+       2,
+       2
+      ]
+     ],
+     "label": "Vacuum · Bathroom"
+    },
+    {
+     "pairs": [
+      [
+       2,
+       3
+      ]
+     ],
+     "label": "Vacuum · Hallway"
+    },
+    {
+     "pairs": [
+      [
+       3,
+       1
+      ]
+     ],
+     "label": "Wipe the stove · Kitchen"
+    }
+   ],
+   "earlier_days": 365
+  },
+  "undo": null
+ },
+ "chore": {
+  "v": 1,
+  "home_chore": {
+   "chore_id": 3,
+   "name": "Wipe the stove",
+   "zone_id": 1,
+   "zone": "Kitchen",
+   "flat": false,
+   "active": true,
+   "interval": 7,
+   "interval_text": "weekly",
+   "minutes": 15,
+   "meta": "weekly · 15 min · Kitchen",
+   "steps": [
+    "Knobs",
+    "Top",
+    "Wall behind"
+   ],
+   "howto": null,
+   "words": [],
+   "zones": null,
+   "last": [
+    {
+     "day": "2026-11-07",
+     "start": false
+    },
+    {
+     "day": "2026-10-26",
+     "start": false
+    },
+    {
+     "day": "2026-10-17",
+     "start": false
+    }
+   ],
+   "last_text": "07.11. · 26.10. · 17.10.",
+   "usually_days": 12,
+   "usually": "usually every 12 days"
+  },
+  "undo": null
+ },
+ "chore_flat": {
+  "v": 1,
+  "home_chore": {
+   "chore_id": 2,
+   "name": "Vacuum",
+   "zone_id": null,
+   "zone": "whole flat",
+   "flat": true,
+   "active": true,
+   "interval": 7,
+   "interval_text": "weekly",
+   "minutes": 10,
+   "meta": "weekly · 10 min · whole flat",
+   "steps": [],
+   "howto": null,
+   "words": [],
+   "zones": [
+    {
+     "zone_id": 1,
+     "zone": "Kitchen",
+     "on": true,
+     "interval": 3,
+     "interval_text": "every 3 days",
+     "minutes": 10,
+     "text": "every 3 days · 10 min",
+     "usually_days": null,
+     "usually": null,
+     "last": [
+      {
+       "day": "2026-11-14",
+       "start": false
+      }
+     ],
+     "last_text": "14.11."
+    },
+    {
+     "zone_id": 2,
+     "zone": "Bathroom",
+     "on": true,
+     "interval": 7,
+     "interval_text": "weekly",
+     "minutes": 5,
+     "text": "weekly · 5 min",
+     "usually_days": null,
+     "usually": null,
+     "last": [],
+     "last_text": "not logged yet"
+    },
+    {
+     "zone_id": 3,
+     "zone": "Hallway",
+     "on": true,
+     "interval": 7,
+     "interval_text": "weekly",
+     "minutes": 10,
+     "text": "weekly · 10 min",
+     "usually_days": null,
+     "usually": null,
+     "last": [],
+     "last_text": "not logged yet"
+    }
+   ],
+   "last": [],
+   "last_text": null,
+   "usually_days": null,
+   "usually": null
+  },
+  "undo": null
+ },
+ "edit": {
+  "v": 1,
+  "home_edit": {
+   "goal": 3,
+   "flat": [
+    {
+     "chore_id": 1,
+     "name": "Dust",
+     "zone_id": null,
+     "flat": true,
+     "active": true,
+     "interval": 14,
+     "interval_text": "every 2 weeks",
+     "minutes": 15,
+     "meta": "every 2 weeks · 15 min",
+     "steps": [],
+     "howto": "Top to bottom.",
+     "words": [
+      "dust",
+      "dusting"
+     ],
+     "per_zone": [
+      {
+       "zone_id": 1,
+       "zone": "Kitchen",
+       "on": true,
+       "days": null,
+       "minutes": null
+      },
+      {
+       "zone_id": 2,
+       "zone": "Bathroom",
+       "on": true,
+       "days": null,
+       "minutes": null
+      },
+      {
+       "zone_id": 3,
+       "zone": "Hallway",
+       "on": false,
+       "days": null,
+       "minutes": null
+      }
+     ]
+    },
+    {
+     "chore_id": 2,
+     "name": "Vacuum",
+     "zone_id": null,
+     "flat": true,
+     "active": true,
+     "interval": 7,
+     "interval_text": "weekly",
+     "minutes": 10,
+     "meta": "weekly · 10 min",
+     "steps": [],
+     "howto": null,
+     "words": [],
+     "per_zone": [
+      {
+       "zone_id": 1,
+       "zone": "Kitchen",
+       "on": true,
+       "days": 3,
+       "minutes": null
+      },
+      {
+       "zone_id": 2,
+       "zone": "Bathroom",
+       "on": true,
+       "days": null,
+       "minutes": 5
+      },
+      {
+       "zone_id": 3,
+       "zone": "Hallway",
+       "on": true,
+       "days": null,
+       "minutes": null
+      }
+     ]
+    }
+   ],
+   "zones": [
+    {
+     "zone_id": 1,
+     "name": "Kitchen",
+     "short": "Kit",
+     "spots": [
+      "Counter",
+      "Stove top"
+     ],
+     "words": [
+      "galley"
+     ],
+     "active": true,
+     "count": 2,
+     "chores": [
+      {
+       "chore_id": 3,
+       "name": "Wipe the stove",
+       "zone_id": 1,
+       "flat": false,
+       "active": true,
+       "interval": 7,
+       "interval_text": "weekly",
+       "minutes": 15,
+       "meta": "weekly · 15 min",
+       "steps": [
+        "Knobs",
+        "Top",
+        "Wall behind"
+       ],
+       "howto": null,
+       "words": [],
+       "per_zone": null
+      },
+      {
+       "chore_id": 4,
+       "name": "Clean the fridge",
+       "zone_id": 1,
+       "flat": false,
+       "active": true,
+       "interval": 30,
+       "interval_text": "monthly",
+       "minutes": 20,
+       "meta": "monthly · 20 min",
+       "steps": [
+        "Empty a shelf",
+        "Wipe"
+       ],
+       "howto": "One shelf at a time.",
+       "words": [],
+       "per_zone": null
+      },
+      {
+       "chore_id": 8,
+       "name": "Clean the oven",
+       "zone_id": 1,
+       "flat": false,
+       "active": false,
+       "interval": 90,
+       "interval_text": "every 3 months",
+       "minutes": 30,
+       "meta": "every 3 months · 30 min · retired",
+       "steps": [],
+       "howto": null,
+       "words": [],
+       "per_zone": null
+      }
+     ]
+    },
+    {
+     "zone_id": 2,
+     "name": "Bathroom",
+     "short": "Bath",
+     "spots": [
+      "Mirror",
+      "Sink"
+     ],
+     "words": [],
+     "active": true,
+     "count": 2,
+     "chores": [
+      {
+       "chore_id": 5,
+       "name": "Scrub the sink",
+       "zone_id": 2,
+       "flat": false,
+       "active": true,
+       "interval": 7,
+       "interval_text": "weekly",
+       "minutes": 10,
+       "meta": "weekly · 10 min",
+       "steps": [],
+       "howto": null,
+       "words": [],
+       "per_zone": null
+      },
+      {
+       "chore_id": 7,
+       "name": "Fresh towels",
+       "zone_id": 2,
+       "flat": false,
+       "active": true,
+       "interval": 5,
+       "interval_text": "every 5 days",
+       "minutes": 5,
+       "meta": "every 5 days · 5 min",
+       "steps": [],
+       "howto": null,
+       "words": [],
+       "per_zone": null
+      }
+     ]
+    },
+    {
+     "zone_id": 3,
+     "name": "Hallway",
+     "short": "Hall",
+     "spots": [],
+     "words": [],
+     "active": true,
+     "count": 1,
+     "chores": [
+      {
+       "chore_id": 6,
+       "name": "Tidy the shoes",
+       "zone_id": 3,
+       "flat": false,
+       "active": true,
+       "interval": 30,
+       "interval_text": "monthly",
+       "minutes": 5,
+       "meta": "monthly · 5 min",
+       "steps": [],
+       "howto": null,
+       "words": [],
+       "per_zone": null
+      }
+     ]
+    },
+    {
+     "zone_id": 4,
+     "name": "Attic",
+     "short": "Attic",
+     "spots": [],
+     "words": [],
+     "active": false,
+     "count": 0,
+     "chores": []
+    }
+   ],
+   "zone_options": [
+    {
+     "zone_id": null,
+     "label": "Whole flat (each zone on its own)",
+     "active": true
+    },
+    {
+     "zone_id": 1,
+     "label": "Kitchen",
+     "active": true
+    },
+    {
+     "zone_id": 2,
+     "label": "Bathroom",
+     "active": true
+    },
+    {
+     "zone_id": 3,
+     "label": "Hallway",
+     "active": true
+    },
+    {
+     "zone_id": 4,
+     "label": "Attic (retired)",
+     "active": false
+    }
+   ],
+   "limits": {
+    "zone_name_max": 40,
+    "short_max": 12,
+    "spots_max": 12,
+    "spot_max": 40,
+    "chore_name_max": 60,
+    "steps_max": 8,
+    "step_max": 80,
+    "howto_max": 300,
+    "words_max": 12,
+    "word_max": 40,
+    "days_min": 1,
+    "days_max": 730,
+    "minutes_min": 1,
+    "minutes_max": 240,
+    "minutes_default": 15,
+    "goal_min": 1,
+    "goal_max": 7
+   }
+  },
+  "undo": null
+ },
+ "home_timer": {
+  "v": 1,
+  "home": {
+   "today": "2026-11-16",
+   "empty": false,
+   "minutes": 15,
+   "minutes_options": [
+    {
+     "minutes": 5,
+     "label": "5 min"
+    },
+    {
+     "minutes": 15,
+     "label": "15 min"
+    },
+    {
+     "minutes": 30,
+     "label": "30 min"
+    },
+    {
+     "minutes": 60,
+     "label": "1 hour"
+    }
+   ],
+   "timer": {
+    "id": 1,
+    "state": "running",
+    "left": 900,
+    "ends_at": "2026-11-16T21:19:11.028818+01:00",
+    "minutes": 15,
+    "title": "Wipe the stove",
+    "pairs": [
+     [
+      3,
+      1
+     ]
+    ]
+   },
+   "week": {
+    "goal": 3,
+    "this": 1,
+    "weeks": [
+     2,
+     1,
+     2,
+     0
+    ]
+   },
+   "rows": [
+    {
+     "chore_id": 2,
+     "zone_id": 2,
+     "name": "Vacuum",
+     "zone": "Bathroom",
+     "short": "Bath",
+     "label": "Vacuum · Bathroom",
+     "flat": true,
+     "age": null,
+     "age_text": "not logged yet",
+     "interval": 7,
+     "interval_text": "weekly",
+     "minutes": 5,
+     "done_today": false,
+     "done_at": null
+    },
+    {
+     "chore_id": 3,
+     "zone_id": 1,
+     "name": "Wipe the stove",
+     "zone": "Kitchen",
+     "short": "Kit",
+     "label": "Wipe the stove · Kitchen",
+     "flat": false,
+     "age": 9,
+     "age_text": "9 days ago",
+     "interval": 7,
+     "interval_text": "weekly",
+     "minutes": 15,
+     "done_today": false,
+     "done_at": "2026-11-07T21:04:10.795440+01:00"
+    },
+    {
+     "chore_id": 7,
+     "zone_id": 2,
+     "name": "Fresh towels",
+     "zone": "Bathroom",
+     "short": "Bath",
+     "label": "Fresh towels · Bathroom",
+     "flat": false,
+     "age": 3,
+     "age_text": "3 days ago",
+     "interval": 5,
+     "interval_text": "every 5 days",
+     "minutes": 5,
+     "done_today": false,
+     "done_at": "2026-11-13T12:00:00+01:00"
+    },
+    {
+     "chore_id": 5,
+     "zone_id": 2,
+     "name": "Scrub the sink",
+     "zone": "Bathroom",
+     "short": "Bath",
+     "label": "Scrub the sink · Bathroom",
+     "flat": false,
+     "age": 1,
+     "age_text": "yesterday",
+     "interval": 7,
+     "interval_text": "weekly",
+     "minutes": 10,
+     "done_today": false,
+     "done_at": "2026-11-15T12:00:00+01:00"
+    },
+    {
+     "chore_id": 1,
+     "zone_id": 1,
+     "name": "Dust",
+     "zone": "Kitchen",
+     "short": "Kit",
+     "label": "Dust · Kitchen",
+     "flat": true,
+     "age": 0,
+     "age_text": "today",
+     "interval": 14,
+     "interval_text": "every 2 weeks",
+     "minutes": 15,
+     "done_today": true,
+     "done_at": "2026-11-16T21:04:10.941595+01:00"
+    },
+    {
+     "chore_id": 4,
+     "zone_id": 1,
+     "name": "Clean the fridge",
+     "zone": "Kitchen",
+     "short": "Kit",
+     "label": "Clean the fridge · Kitchen",
+     "flat": false,
+     "age": 0,
+     "age_text": "today",
+     "interval": 30,
+     "interval_text": "monthly",
+     "minutes": 20,
+     "done_today": true,
+     "done_at": "2026-11-16T21:04:10.923426+01:00"
+    }
+   ],
+   "count": 6,
+   "shown": 6,
+   "hidden": 1,
+   "recent": [
+    {
+     "ids": [
+      11,
+      10
+     ],
+     "chore_id": 1,
+     "chore": "Dust",
+     "zones": [
+      "Bathroom",
+      "Kitchen"
+     ],
+     "flat": true,
+     "label": "Dust · whole flat",
+     "at": "2026-11-16T21:04:10.941595+01:00",
+     "day": "2026-11-16",
+     "dated": false,
+     "source": "web",
+     "how": "ticked",
+     "time": "21:04",
+     "when": "16.11. 21:04"
+    },
+    {
+     "ids": [
+      9
+     ],
+     "chore_id": 4,
+     "chore": "Clean the fridge",
+     "zones": [
+      "Kitchen"
+     ],
+     "flat": false,
+     "label": "Clean the fridge · Kitchen",
+     "at": "2026-11-16T21:04:10.923426+01:00",
+     "day": "2026-11-16",
+     "dated": false,
+     "source": "web",
+     "how": "ticked",
+     "time": "21:04",
+     "when": "16.11. 21:04"
+    },
+    {
+     "ids": [
+      13
+     ],
+     "chore_id": 5,
+     "chore": "Scrub the sink",
+     "zones": [
+      "Bathroom"
+     ],
+     "flat": false,
+     "label": "Scrub the sink · Bathroom",
+     "at": "2026-11-15T12:00:00+01:00",
+     "day": "2026-11-15",
+     "dated": true,
+     "source": "web",
+     "how": "earlier",
+     "time": null,
+     "when": "15.11."
+    },
+    {
+     "ids": [
+      1
+     ],
+     "chore_id": 2,
+     "chore": "Vacuum",
+     "zones": [
+      "Kitchen"
+     ],
+     "flat": true,
+     "label": "Vacuum · Kitchen",
+     "at": "2026-11-14T21:04:10.780966+01:00",
+     "day": "2026-11-14",
+     "dated": false,
+     "source": "web",
+     "how": "ticked",
+     "time": "21:04",
+     "when": "14.11. 21:04"
+    },
+    {
+     "ids": [
+      5
+     ],
+     "chore_id": 3,
+     "chore": "Wipe the stove",
+     "zones": [
+      "Kitchen"
+     ],
+     "flat": false,
+     "label": "Wipe the stove · Kitchen",
+     "at": "2026-11-07T21:04:10.795440+01:00",
+     "day": "2026-11-07",
+     "dated": false,
+     "source": "pick",
+     "how": "timer",
+     "time": "21:04",
+     "when": "07.11. 21:04"
+    }
+   ]
+  },
+  "undo": null
+ },
+ "pick_timer": {
+  "v": 1,
+  "home_pick": {
+   "today": "2026-11-16",
+   "empty": null,
+   "minutes": 15,
+   "title": "Your 15 minutes",
+   "timer": {
+    "id": 1,
+    "state": "running",
+    "left": 900,
+    "ends_at": "2026-11-16T21:19:11.028818+01:00",
+    "minutes": 15,
+    "title": "Wipe the stove",
+    "pairs": [
+     [
+      3,
+      1
+     ]
+    ]
+   },
+   "job": {
+    "pairs": [
+     [
+      3,
+      1
+     ]
+    ],
+    "title": "Wipe the stove",
+    "zone": "Kitchen",
+    "age": 9,
+    "age_text": "9 days ago",
+    "minutes": 15,
+    "steps": [
+     "Knobs",
+     "Top",
+     "Wall behind"
+    ],
+    "howto": null,
+    "over": false,
+    "session": false
+   },
+   "n": null,
+   "count": 1,
+   "also": [],
+   "earlier": [
+    {
+     "when": 1,
+     "label": "Yesterday"
+    },
+    {
+     "when": 2,
+     "label": "2 days ago"
+    }
+   ],
+   "next_from_s": 180,
+   "earlier_days": 365
+  },
+  "undo": null
+ },
+ "saves": {
+  "tick": {
+   "v": 1,
+   "outcome": "saved",
+   "tone": "ok",
+   "head": "Saved: Clean the fridge · Kitchen",
+   "receipt": [],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": {
+    "token": "xxr8bM8hNQ71ey7c",
+    "head": "Saved: Clean the fridge · Kitchen",
+    "expires_at": "2026-11-16T20:19:10.928357+00:00"
+   }
+  },
+  "alldone": {
+   "v": 1,
+   "outcome": "saved",
+   "tone": "ok",
+   "head": "Saved: Dust · whole flat",
+   "receipt": [],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": {
+    "token": "A8aiD5dv-kkDXSoL",
+    "head": "Saved: Dust · whole flat",
+    "expires_at": "2026-11-16T20:19:10.946686+00:00"
+   }
+  },
+  "remove": {
+   "v": 1,
+   "outcome": "changed",
+   "tone": "ok",
+   "head": "Removed: Scrub the sink · Bathroom",
+   "receipt": [],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": {
+    "token": "0IrexOe2QRXcQKj2",
+    "head": "Removed: Scrub the sink · Bathroom",
+    "expires_at": "2026-11-16T20:19:10.959035+00:00"
+   }
+  },
+  "skip": {
+   "v": 1,
+   "outcome": "changed",
+   "tone": "ok",
+   "head": "Not today: Tidy the shoes · Hallway",
+   "receipt": [],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": {
+    "token": "_DASx2je-zL_UvYK",
+    "head": "Not today: Tidy the shoes · Hallway",
+    "expires_at": "2026-11-16T20:19:10.974717+00:00"
+   }
+  },
+  "startpoint": {
+   "v": 1,
+   "outcome": "changed",
+   "tone": "ok",
+   "head": "Starting point: Fresh towels · Bathroom",
+   "receipt": [],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": {
+    "token": "hUEyQoyWbLW5kXyZ",
+    "head": "Starting point: Fresh towels · Bathroom",
+    "expires_at": "2026-11-16T20:19:10.993312+00:00"
+   }
+  },
+  "earlier": {
+   "v": 1,
+   "outcome": "saved",
+   "tone": "ok",
+   "head": "Saved: Scrub the sink · Bathroom on 15.11.",
+   "receipt": [],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": {
+    "token": "pBOqzx8fCD1XQCVC",
+    "head": "Saved: Scrub the sink · Bathroom on 15.11.",
+    "expires_at": "2026-11-16T20:19:11.012434+00:00"
+   }
+  },
+  "start": {
+   "v": 1,
+   "outcome": "changed",
+   "tone": "ok",
+   "head": "Timer started: 15 minutes.",
+   "receipt": [],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": null
+  },
+  "pause": {
+   "v": 1,
+   "outcome": "changed",
+   "tone": "ok",
+   "head": "Timer paused.",
+   "receipt": [],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": null
+  },
+  "pickdone": {
+   "v": 1,
+   "outcome": "saved",
+   "tone": "ok",
+   "head": "Saved: Wipe the stove · Kitchen",
+   "receipt": [],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": {
+    "token": "HopuxE0DUtPCHhIT",
+    "head": "Saved: Wipe the stove · Kitchen",
+    "expires_at": "2026-11-16T20:19:11.104342+00:00"
+   }
+  },
+  "undo": {
+   "v": 1,
+   "outcome": "changed",
+   "tone": "ok",
+   "head": "Undone: the tick is gone.",
+   "receipt": [],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": null
+  },
+  "chorezones": {
+   "v": 1,
+   "outcome": "changed",
+   "tone": "ok",
+   "head": "Saved Vacuum per zone.",
+   "receipt": [],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": null
+  },
+  "refused": {
+   "v": 1,
+   "outcome": "rejected",
+   "tone": "warning",
+   "head": "Nothing saved.",
+   "receipt": [],
+   "notes": [],
+   "reason": "The weekly goal is 1 to 7 sessions.",
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": null
+  }
+ }
+}

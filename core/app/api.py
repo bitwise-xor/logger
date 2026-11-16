@@ -8,7 +8,7 @@ app. site passes / and /web/* only) and the tunnel's calls carry Cloudflare's he
 then, for every route but the sign-in, the owner's session as "Authorization: Bearer <token>" (a web_sessions row of this
 front end, migration 031; a session of app. never works here and the reverse). A session renews like a page view (30 days
 from its last use); the end comes back in the X-Session-Expires header. Every answer is JSON with "v": 1, never cached.
-The reads are reads.py; the saves call the same functions as the live forms (webactions, webfood, logbook, webundo, webheld, gym)."""
+The reads are reads.py; the saves call the same functions as the live forms (webactions, webfood, logbook, webundo, webheld, gym, home)."""
 import hashlib
 import hmac
 import json
@@ -21,7 +21,7 @@ from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-from . import body as tape, gym, gympage, habitspage, healthpage, hubtools, labelread, logbook, privateline, reads, web, webactions, webentry, webfood, webhabits, webheld, webundo
+from . import body as tape, gym, gympage, habitspage, healthpage, home as homelib, hubtools, labelread, logbook, privateline, reads, web, webactions, webentry, webfood, webhabits, webheld, webundo
 from .ai.provider import ProviderError
 from .config import FRONT_TOKEN
 from .db import connect
@@ -411,6 +411,8 @@ def saved(session, out: dict, body: dict, view: str = "day", private: bool = Fal
         res["habits"] = reads.habits(body.get("show") if isinstance(body.get("show"), str) else "tracked")
     elif shown in GYM_VIEWS:  # the Gym's Workout, Plan or Exercises tab (deploy 95), as its GET
         res[shown] = GYM_VIEWS[shown]()
+    elif shown in HOME_VIEWS:  # a Home page (deploy 98), as its GET with the body's view_min, view_n, view_limit, view_id
+        res[shown] = HOME_VIEWS[shown](body)
     else:
         res["day"] = reads.day(asked)
     return res
@@ -1064,3 +1066,219 @@ def _gym_route(action: str):
 
 for _action in GYM_FORMS:
     route(f"/gym/{_action}", "POST")(_gym_route(_action))
+
+
+# ---- Home (deploy 98) --------------------------------------------------------------------------------------------------------------
+# app.'s Home section (homepage's data functions), through the same functions: the six pages as data (Now, Pick, Zones, History, a
+# chore's page, Edit zones) and every form of home.ACTIONS, with typed fields. Undo where app. has one (home.undo through webundo: tick,
+# alldone, remove, pickdone, picknext when it ticked, earlier, startpoint, skip). The answer brings back the page the save belongs to
+# (view "home", "home_pick", "home_zones", "home_history", "home_chore", "home_edit"; their parameters as view_min, view_n,
+# view_limit, view_id, like view_day).
+
+def _q(**params) -> dict:
+    """A page's parameters as app.'s query string gives them (left out when not sent; app.'s own rules read them)."""
+    return {k: v for k, v in params.items() if v is not None and not isinstance(v, (dict, list, bool))}
+
+
+def _chore_view(body: dict):
+    return reads.home_chore(_q(id=body.get("view_id")))
+
+
+HOME_VIEWS = {"home": lambda b: reads.home(_q(min=b.get("view_min"))),
+              "home_pick": lambda b: reads.home_pick(_q(min=b.get("view_min"), n=b.get("view_n"))),
+              "home_zones": lambda b: reads.home_zones(),
+              "home_history": lambda b: reads.home_history(_q(n=b.get("view_limit"))),
+              "home_chore": _chore_view,  # null when the chore is not there (view_id missing or unknown)
+              "home_edit": lambda b: reads.home_edit()}
+
+
+@route("/home", "GET")
+def home_read(request, _body, session):
+    """The Now tab: ?min=5|15|30|60 (15; anything else is 15, as app.); and the session's Undo."""
+    return {"home": reads.home(request.query_params), "undo": _undo_out(session.get("undo"))}
+
+
+@route("/home/pick", "GET")
+def home_pick_read(request, _body, session):
+    """The Pick page: ?min= and ?n= (the n-th job; as app.); with a timer open its job and minutes."""
+    return {"home_pick": reads.home_pick(request.query_params), "undo": _undo_out(session.get("undo"))}
+
+
+@route("/home/zones", "GET")
+def home_zones_read(_request, _body, session):
+    return {"home_zones": reads.home_zones(), "undo": _undo_out(session.get("undo"))}
+
+
+@route("/home/history", "GET")
+def home_history_read(request, _body, session):
+    """History: ?n= rows (60 to 600; 60 when not given or not a number, as app.)."""
+    return {"home_history": reads.home_history(request.query_params), "undo": _undo_out(session.get("undo"))}
+
+
+@route("/home/chore", "GET")
+def home_chore_read(request, _body, session):
+    """A chore's page: ?id=<chore id> (retired chores too); not digits is 400, an unknown chore 404 no_entry."""
+    cid = request.query_params.get("id", "")
+    if not re.fullmatch(r"\d{1,12}", cid):
+        raise Refused(400, "bad_request", "id must be a chore's id.")
+    out = reads.home_chore({"id": cid})
+    if out is None:
+        raise Refused(404, "no_entry", "That chore is not in the list.")
+    return {"home_chore": out, "undo": _undo_out(session.get("undo"))}
+
+
+@route("/home/edit", "GET")
+def home_edit_read(_request, _body, session):
+    return {"home_edit": reads.home_edit(), "undo": _undo_out(session.get("undo"))}
+
+
+def _pairs(body: dict) -> str:
+    """pairs: a list of [chore_id, zone_id] (1 to 12), as the form's "3-5,4-5"."""
+    v = body.get("pairs")
+    if (not isinstance(v, list) or not 1 <= len(v) <= 12
+            or not all(isinstance(x, list) and len(x) == 2 and all(isinstance(i, int) and not isinstance(i, bool) and 0 < i < 10**9 for i in x) for x in v)):
+        raise Refused(400, "bad_request", "pairs must be a list of 1 to 12 [chore_id, zone_id].")
+    return homelib.pairs_value(v)
+
+
+def _id_of(body: dict, name: str) -> str:
+    return str(_int(body, name))
+
+
+def _whole_n(body: dict, name: str) -> str:
+    """A whole number of a form as its text; its range is app.'s function's to check (a refusal with app.'s words)."""
+    v = body.get(name)
+    if not isinstance(v, int) or isinstance(v, bool) or abs(v) >= 10**9:
+        raise Refused(400, "bad_request", f"{name} must be a whole number.")
+    return str(v)
+
+
+def _hname(body: dict, most: int, name: str = "name") -> str:
+    v = body.get(name)
+    if v is not None and not isinstance(v, str):
+        raise Refused(400, "bad_request", f"{name} must be text.")
+    out = " ".join((v or "").split())
+    if len(out) > most:
+        raise Refused(400, "bad_request", f"{name} must be {most} characters or fewer.")
+    return out
+
+
+def _hlist(body: dict, name: str, most: int, width: int, sep: str) -> str:
+    """A list of short texts (steps, spots, words) as the form's text: lines for steps and spots, commas for words."""
+    v = body.get(name)
+    if v is None:
+        return ""
+    if (not isinstance(v, list) or len(v) > most
+            or not all(isinstance(x, str) and "\n" not in x and "\r" not in x and (sep != "," or "," not in x) and len(" ".join(x.split())) <= width for x in v)):
+        extra = ", without commas" if sep == "," else ", one line each"
+        raise Refused(400, "bad_request", f"{name} must be a list of up to {most} texts of up to {width} characters{extra}.")
+    return (", " if sep == "," else "\n").join(v)
+
+
+L = reads.HOME_LIMITS
+
+
+def _zone_fields(b: dict) -> dict:
+    return {"name": _hname(b, L["zone_name_max"]), "short": _hname(b, L["short_max"], "short"),
+            "spots": _hlist(b, "spots", L["spots_max"], L["spot_max"], "\n"), "words": _hlist(b, "words", L["words_max"], L["word_max"], ",")}
+
+
+def _chore_fields(b: dict) -> dict:
+    if "zone_id" not in b:
+        raise Refused(400, "bad_request", "zone_id is missing (null = the whole flat).")
+    howto = b.get("howto")
+    if howto is not None and not isinstance(howto, str):
+        raise Refused(400, "bad_request", "howto must be text or null.")
+    if howto and len(" ".join(howto.split())) > L["howto_max"]:
+        raise Refused(400, "bad_request", f'howto must be {L["howto_max"]} characters or fewer.')
+    return {"name": _hname(b, L["chore_name_max"]), "zone": "flat" if b["zone_id"] is None else _id_of(b, "zone_id"),
+            "days": _whole_n(b, "days"), "minutes": "" if b.get("minutes") is None else _whole_n(b, "minutes"),
+            "steps": _hlist(b, "steps", L["steps_max"], L["step_max"], "\n"), "howto": howto or "",
+            "words": _hlist(b, "words", L["words_max"], L["word_max"], ",")}
+
+
+def _chore_zones(b: dict) -> dict:
+    """zones: [{zone_id, on, days, minutes}] as the Per zone table (a zone left out is off, as an unticked box; days and minutes
+    null = blank = the chore's own)."""
+    zs = b.get("zones")
+    if not isinstance(zs, list) or not all(isinstance(z, dict) for z in zs) or len(zs) > 100:
+        raise Refused(400, "bad_request", "zones must be a list of {zone_id, on, days, minutes}.")
+    f = {"chore": _id_of(b, "chore_id")}
+    for z in zs:
+        zid = _int(z, "zone_id")
+        f[f"on_{zid}"] = _on(z)
+        for field, key_ in (("days", "days"), ("min", "minutes")):
+            v = z.get(key_)
+            if v is not None:
+                f[f"{field}_{zid}"] = _whole_n(z, key_)
+    return f
+
+
+def _when(b: dict) -> str:
+    """when: 1 to 7 (days ago: 1 = yesterday) or a date yyyy-mm-dd."""
+    v = b.get("when")
+    if isinstance(v, int) and not isinstance(v, bool):
+        return str(v)
+    if isinstance(v, str) and re.fullmatch(r"\d{4}-\d{2}-\d{2}", v):
+        return v
+    raise Refused(400, "bad_request", "when must be 1 to 7 (days ago) or a date yyyy-mm-dd.")
+
+
+def _ago(b: dict) -> str:
+    if b.get("ago") not in ("week", "month", "longer", "unknown"):
+        raise Refused(400, "bad_request", "ago must be week, month, longer or unknown.")
+    return b["ago"]
+
+
+def _ids(b: dict) -> str:
+    v = b.get("ids")
+    if not isinstance(v, list) or not 1 <= len(v) <= 20 or not all(isinstance(i, int) and not isinstance(i, bool) and 0 < i < 10**12 for i in v):
+        raise Refused(400, "bad_request", "ids must be a list of 1 to 20 ids (a history entry's ids).")
+    return ",".join(str(i) for i in v)
+
+
+def _timer_id(b: dict) -> dict:
+    return {"timer": _id_of(b, "timer_id")}
+
+
+HOME_FORMS = {  # action -> (the form's fields from the body, the page the answer brings back)
+    "tick": (lambda b: {"chore": _id_of(b, "chore_id"), "zone": _id_of(b, "zone_id")}, "home"),
+    "alldone": (lambda b: {"chore": _id_of(b, "chore_id")}, "home_zones"),
+    "remove": (lambda b: {"ids": _ids(b)}, "home_history"),
+    "zonenew": (_zone_fields, "home_edit"),
+    "zoneedit": (lambda b: {"zone": _id_of(b, "zone_id"), **_zone_fields(b)}, "home_edit"),
+    "zoneactive": (lambda b: {"zone": _id_of(b, "zone_id"), "on": _on(b)}, "home_edit"),
+    "chorenew": (_chore_fields, "home_edit"),
+    "choreedit": (lambda b: {"chore": _id_of(b, "chore_id"), **_chore_fields(b)}, "home_edit"),
+    "choreactive": (lambda b: {"chore": _id_of(b, "chore_id"), "on": _on(b)}, "home_edit"),
+    "start": (lambda b: {"pairs": _pairs(b), "minutes": _whole_n(b, "minutes")}, "home_pick"),
+    "pause": (_timer_id, "home_pick"),
+    "resume": (_timer_id, "home_pick"),
+    "stop": (_timer_id, "home_pick"),
+    "pickdone": (lambda b: {"pairs": _pairs(b)}, "home"),
+    "skip": (lambda b: {"pairs": _pairs(b)}, "home_pick"),
+    "goalset": (lambda b: {"goal": _whole_n(b, "goal")}, "home_edit"),
+    "chorezones": (_chore_zones, "home_edit"),
+    "startpoint": (lambda b: {"pairs": _pairs(b), "ago": _ago(b)}, "home_zones"),
+    "earlier": (lambda b: {"pairs": _pairs(b), "when": _when(b)}, "home_pick"),
+    "picknext": (lambda b: {"pairs": _pairs(b), **_timer_id(b)}, "home_pick"),
+}
+assert set(HOME_FORMS) == set(homelib.ACTIONS)
+HOME_KEYED = ("tick", "alldone", "pickdone", "picknext", "earlier", "startpoint")  # the six that save once per key (home._once)
+
+
+def _home_route(action: str):
+    fields, view = HOME_FORMS[action]
+    fn = homelib.ACTIONS[action]
+
+    def handler(_request, body, session):
+        f = Form({k: v for k, v in fields(body).items() if v != ""})
+        key = _key(body) if action in HOME_KEYED else None
+        return saved(session, _work(lambda: fn(f, key, session)), body, view=view)
+    handler.__name__ = f"home_{action}"
+    handler.__doc__ = f"app.'s /web/home/{action} (home.ACTIONS[{action!r}]); see docs/API.md."
+    return handler
+
+
+for _action in HOME_FORMS:
+    route(f"/home/{_action}", "POST")(_home_route(_action))

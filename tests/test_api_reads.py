@@ -16,7 +16,7 @@ from test_webtoday import day, eat, food, no_targets, raw  # noqa: F401 - no_tar
 
 OFFSET = re.compile(r"T\d\d:\d\d:\d\d(\.\d+)?\+0[12]:00$")  # Berlin time, with the offset
 TARGETS = "INSERT INTO food_targets (valid_from, kcal, protein, fat, carbs, water_ml) VALUES ('2020-01-01', 2000, 100, 70, 200, 2000)"
-DAY_KEYS = {"day", "today", "past", "header", "needs", "energy", "water", "chips", "rows", "health", "habits", "gratitude", "gym"}  # gym: Today's Gym card (deploy 95)
+DAY_KEYS = {"day", "today", "past", "header", "needs", "energy", "water", "chips", "rows", "health", "habits", "gratitude", "gym", "home"}  # gym: Today's Gym card (deploy 95); home: Today's Home card (deploy 98)
 
 
 @pytest.fixture

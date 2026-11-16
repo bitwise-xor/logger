@@ -700,6 +700,28 @@
    "last_week": 3,
    "this_week": 1,
    "text": "Last week 3 workouts · this week 1 workout"
+  },
+  "home": {
+   "this_week": 1,
+   "goal": 3,
+   "text": "this week 1 of 3",
+   "waiting": {
+    "chore_id": 7,
+    "zone_id": 2,
+    "name": "Fresh towels",
+    "zone": "Bathroom",
+    "short": "Bath",
+    "label": "Fresh towels · Bathroom",
+    "flat": false,
+    "age": null,
+    "age_text": "not logged yet",
+    "interval": 5,
+    "interval_text": "every 5 days",
+    "minutes": 5,
+    "done_today": false,
+    "done_at": null
+   },
+   "hidden": 0
   }
  },
  "undo": null

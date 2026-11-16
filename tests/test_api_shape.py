@@ -2,7 +2,7 @@
 the private guard on questions and on lines the AI files as private, one name per field (the old names gone since deploy 78), Undo on a
 reload, a mixed line's look-up in result, answer styles and refill buttons, the outcome's tone, no chat lines in read-backs, and
 Try again / Delete on a message not read yet; the usual-meal editor's shapes (deploy 86); the scanner's, label photo's and look-up's
-shapes (deploy 89); the Health page's and body measurements' shapes (deploy 91); the Habits page's shapes (deploy 93); the Gym's shapes (deploy 95). Every name, food, number and sentence is invented."""
+shapes (deploy 89); the Health page's and body measurements' shapes (deploy 91); the Habits page's shapes (deploy 93); the Gym's shapes (deploy 95); Home's shapes (deploy 98). Every name, food, number and sentence is invented."""
 from datetime import datetime
 
 import pytest
@@ -445,3 +445,55 @@ def test_the_gym_shapes(sv, fake, monkeypatch):
     assert set(j) == KEYS | {"gym"} and set(j["gym"]) == set(g)
     assert set(sv.post("/gym/itemremove", item_id=p["days"][0]["items"][0]["item_id"])) == KEYS | {"gym_plan"}
     assert set(sv.post("/gym/active", exercise_id=x["row"], on=False)) == KEYS | {"gym_exercises"}
+
+
+# ---- 13. Home (deploy 98) ----------------------------------------------------------------------------------------------------------
+
+HROW = {"chore_id", "zone_id", "name", "zone", "short", "label", "flat", "age", "age_text", "interval", "interval_text", "minutes", "done_today", "done_at"}
+HDONE = {"ids", "chore_id", "chore", "zones", "flat", "label", "at", "day", "dated", "source", "how", "time", "when"}
+
+
+def test_the_home_shapes(sv, fake):
+    from test_api_home import invented
+
+    x = invented()
+    sv.post("/home/start", pairs=[[x["stove"], x["kitchen"]]], minutes=15)
+    h = get(sv, "/home")["home"]
+    assert set(h) == {"today", "empty", "minutes", "minutes_options", "timer", "week", "rows", "count", "shown", "hidden", "recent"}
+    assert set(h["timer"]) == {"id", "state", "left", "ends_at", "minutes", "title", "pairs"} and OFFSET.search(h["timer"]["ends_at"])
+    assert set(h["week"]) == {"goal", "this", "weeks"} and all(set(r) == HROW for r in h["rows"]) and all(set(e) == HDONE for e in h["recent"])
+    assert all(OFFSET.search(e["at"]) for e in h["recent"]) and all(set(m) == {"minutes", "label"} for m in h["minutes_options"])
+    p = get(sv, "/home/pick")["home_pick"]
+    assert set(p) == {"today", "empty", "minutes", "title", "timer", "job", "n", "count", "also", "earlier", "next_from_s", "earlier_days"}
+    assert set(p["job"]) == {"pairs", "title", "zone", "age", "age_text", "minutes", "steps", "howto", "over", "session"}
+    z = get(sv, "/home/zones")["home_zones"]
+    assert set(z) == {"today", "empty", "start", "flat", "zones"} and set(z["start"]) == {"jobs", "more", "answers"}
+    assert all(set(j) == {"chore_id", "name", "pairs", "zone", "zones", "where", "interval", "interval_text"} for j in z["start"]["jobs"])
+    for f in z["flat"]:
+        assert set(f) == {"chore_id", "name", "interval", "interval_text", "minutes", "all_done_today", "per_zone", "tiles"}
+        assert set(f["per_zone"]) == {"text", "groups", "off"} and all(set(t) == HROW | {"age_short", "tinted"} for t in f["tiles"])
+    assert all(set(c) == {"zone_id", "name", "short", "count", "own", "chores", "open", "todoist", "oldest_age", "oldest_text"} for c in z["zones"])
+    hi = get(sv, "/home/history")["home_history"]
+    assert set(hi) == {"today", "limit", "step", "max", "more", "count", "days", "jobs", "earlier_days"}
+    assert all(set(d) == {"day", "label", "rows"} and all(set(e) == HDONE for e in d["rows"]) for d in hi["days"])
+    assert all(set(j) == {"pairs", "label"} for j in hi["jobs"])
+    keys = {"chore_id", "name", "zone_id", "zone", "flat", "active", "interval", "interval_text", "minutes", "meta", "steps", "howto", "words", "zones",
+            "last", "last_text", "usually_days", "usually"}
+    c = get(sv, f'/home/chore?id={x["stove"]}')["home_chore"]
+    f = get(sv, f'/home/chore?id={x["dust"]}')["home_chore"]
+    assert set(c) == keys == set(f) and all(set(d) == {"day", "start"} for d in c["last"])
+    assert all(set(zz) == {"zone_id", "zone", "on", "interval", "interval_text", "minutes", "text", "usually_days", "usually", "last", "last_text"}
+               for zz in f["zones"])
+    e = get(sv, "/home/edit")["home_edit"]
+    assert set(e) == {"goal", "flat", "zones", "zone_options", "limits"}
+    chore_keys = {"chore_id", "name", "zone_id", "flat", "active", "interval", "interval_text", "minutes", "meta", "steps", "howto", "words", "per_zone"}
+    assert all(set(ch) == chore_keys for ch in e["flat"] + [ch for zz in e["zones"] for ch in zz["chores"]])
+    assert all(set(zz) == {"zone_id", "name", "short", "spots", "words", "active", "count", "chores"} for zz in e["zones"])
+    assert all(set(pz) == {"zone_id", "zone", "on", "days", "minutes"} for ch in e["flat"] for pz in ch["per_zone"])
+    card = get(sv, "/day")["day"]["home"]
+    assert set(card) == {"this_week", "goal", "text", "waiting", "hidden"} and set(card["waiting"]) == HROW
+    j = sv.post("/home/tick", chore_id=x["fridge"], zone_id=x["kitchen"], key="shape-home-1")
+    assert set(j) == KEYS | {"home"} and set(j["home"]) == set(h)
+    for action, body, view in (("alldone", {"chore_id": x["vacuum"], "key": "shape-home-2"}, "home_zones"), ("remove", {"ids": [1]}, "home_history"),
+                               ("goalset", {"goal": 4}, "home_edit"), ("skip", {"pairs": [[x["towels"], x["bath"]]]}, "home_pick")):
+        assert set(sv.post(f"/home/{action}", **body)) == KEYS | {view}, action

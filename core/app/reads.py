@@ -8,7 +8,7 @@ import re
 from datetime import date, datetime, timedelta
 from typing import Optional
 
-from . import activitypage, body as tape, bodypage, foodpage, gratitude, gym as gymlib, gympage, habitspage, healthpage, held, privateline, todaypage, uiprefs, webquestions
+from . import activitypage, body as tape, bodypage, foodpage, gratitude, gym as gymlib, gympage, habitspage, healthpage, held, home as homelib, homepage, privateline, todaypage, uiprefs, webquestions
 from .db import connect
 from .rules import BERLIN
 from .webentry import readable
@@ -323,6 +323,8 @@ def day(asked: Optional[date] = None) -> dict:
                    for h in habits_shown(d)],
         "gratitude": grat,
         "gym": None if d["past"] else gym_card(),
+        # Today's Home card (deploy 98): as app.'s todaypage._home_card, none for a past day or when Settings > Today page hides it
+        "home": None if d["past"] or not uiprefs.shown("card", "home", d["prefs"]) else home_card(),
     }
 
 
@@ -678,3 +680,195 @@ def gym_activity(asked: Optional[date] = None) -> dict:
                       "matches": x["matches"]} for x in a["workouts"]],
         "charts": [{"id": k, "title": title, "chart": a["charts"][k]} for k, _cid, title in activitypage.CHARTS],
     }
+
+
+# ---- Home (deploy 98, step 3 of the move to logger.) ----------------------------------------------------------------------------------
+# app.'s Home pages (homepage's data functions, home.py's rules) as data. A chore in a zone is a "pair" (chore_id, zone_id): a whole-flat
+# chore (Dust, Vacuum, Mop) is one pair per zone it is done in. Ages and intervals are whole days (logging days, home.today); with each
+# the words app. writes (age_text "3 weeks ago", age_short "3 wk", interval_text "every 2 weeks"), so both apps say the same.
+
+def _pair(p: dict) -> list:
+    return [p["chore"]["id"], p["zone"]["id"]]
+
+
+def _hrow(p: dict) -> dict:
+    """A pair as a row: the chore, the zone, how long ago it was done (days; None = never logged), its interval and minutes in this zone."""
+    c, z = p["chore"], p["zone"]
+    return {"chore_id": c["id"], "zone_id": z["id"], "name": c["name"], "zone": z["name"], "short": z["short"], "label": homelib.label(c, z),
+            "flat": c["zone_id"] is None, "age": p["age"], "age_text": homelib.age_text(p["age"]), "interval": p["interval"],
+            "interval_text": homelib.interval_text(p["interval"]), "minutes": p["minutes"], "done_today": p["age"] == 0,
+            "done_at": iso(p["done_at"])}
+
+
+def _timer(t: Optional[dict], job: Optional[dict]) -> Optional[dict]:
+    """The open timer (home.timer_open) with its job; None when there is none or its job is gone (app. then shows no timer)."""
+    if not t or not job:
+        return None
+    ends = t["ends_at"] if t["state"] != "paused" else None
+    return {"id": t["id"], "state": t["state"], "left": int(t["left"]), "ends_at": iso(ends), "minutes": t["minutes"],
+            "title": job["title"], "pairs": [list(x) for x in job["pairs"]]}
+
+
+def _job(j: dict) -> dict:
+    """A job of the Pick page (home.candidates, job_of): one pair, a zone session or "<chore> the whole flat"."""
+    return {"pairs": [list(x) for x in j["pairs"]], "title": j["title"], "zone": j["zone"], "age": j["age"], "age_text": homelib.age_text(j["age"]),
+            "minutes": j["minutes"], "steps": list(j["steps"]), "howto": j["howto"], "over": j["over"], "session": j["session"]}
+
+
+def _done(e: dict) -> dict:
+    """A done entry (home.recent): rows stamped together (All done) are one entry with all their ids; dated = a job done earlier or a
+    starting point (12:00 of its day, only the date is shown)."""
+    return {"ids": list(e["ids"]), "chore_id": e["chore_id"], "chore": e["chore"], "zones": list(e["zones"]), "flat": e["flat"], "label": e["label"],
+            "at": iso(e["at"]), "day": iso(e["day"]), "dated": e["dated"], "source": e["source"], "how": homepage.how(e),
+            "time": None if e["dated"] else e["at"].astimezone(BERLIN).strftime("%H:%M"), "when": homepage._at(e)}
+
+
+def _week(w: dict) -> dict:
+    return {"goal": w["goal"], "this": w["this"], "weeks": list(w["weeks"])}
+
+
+HOME_MINUTES = [{"minutes": m, "label": homepage.LABEL[m]} for m in homelib.HOURS]
+
+
+def home_card() -> Optional[dict]:
+    """Today's Home card (homepage.card_data): None before there is an active chore in an active zone (app. shows no card)."""
+    x = homepage.card_data()
+    if x["empty"]:
+        return None
+    w = x["week"]
+    return {"this_week": w["this"], "goal": w["goal"], "text": f'this week {w["this"]} of {w["goal"]}',
+            "waiting": _hrow(x["rows"][0]) if x["rows"] else None, "hidden": x["hidden"]}
+
+
+def home(q=None) -> dict:
+    """The Now tab (homepage.now_data); q: {"min": ...} as app.'s ?min= (5, 15, 30, 60; anything else is 15)."""
+    x = homepage.now_data(q)
+    d = x["d"]
+    return {"today": iso(d["today"]), "empty": x["empty"], "minutes": x["minutes"], "minutes_options": HOME_MINUTES,
+            "timer": _timer(x["timer"], x["job"]), "week": _week(x["week"]),
+            "rows": [_hrow(p) for p in x["rows"]], "count": len(x["rows"]), "shown": homepage.SHOWN, "hidden": x["hidden"],
+            "recent": [_done(e) for e in x["recent"]]}
+
+
+def home_pick(q=None) -> dict:
+    """The Pick page (homepage.pick_data); q: {"min", "n"} as app.'s ?min=&n=, not looked at while a timer is open."""
+    x = homepage.pick_data(q)
+    t, jobs = x["timer"], x["jobs"]
+    return {"today": iso(x["d"]["today"]), "empty": x["empty"], "minutes": x["minutes"], "title": homepage.pick_title(x["minutes"]),
+            "timer": _timer(t, x["job"]), "job": _job(x["job"]) if x["job"] else None,
+            "n": None if t or not jobs else x["n"], "count": len(jobs) if jobs else (1 if t else 0),
+            "also": [{"n": i, "title": j["title"]} for i, j in x["more"]],
+            "earlier": [{"when": int(w), "label": label} for w, label in (("1", "Yesterday"), ("2", "2 days ago"))],
+            "next_from_s": homelib.NEXT_FROM * 60, "earlier_days": homelib.EARLIER_DAYS}
+
+
+def home_zones() -> dict:
+    """The Zones tab (homepage.zones_data, start_data, flat_data, zone_data, per_zone_data)."""
+    x = homepage.zones_data()
+    d = x["d"]
+    st = homepage.start_data(x["never"])
+    start = [{"chore_id": ps[0]["chore"]["id"], "name": ps[0]["chore"]["name"], "pairs": [_pair(p) for p in ps],
+              "zone": ps[0]["zone"]["name"] if len(ps) == 1 else None, "zones": len(ps),
+              "where": ps[0]["zone"]["name"] if len(ps) == 1 else homepage._n(len(ps), "zone"),
+              "interval": ps[0]["interval"], "interval_text": homelib.interval_text(ps[0]["interval"])} for ps in st["jobs"]]
+    flat = []
+    for f in homepage.flat_data(d):
+        c, pz = f["chore"], homepage.per_zone_data(f["chore"], d["zones"])
+        flat.append({"chore_id": c["id"], "name": c["name"], "interval": c["interval_days"], "interval_text": homelib.interval_text(c["interval_days"]),
+                     "minutes": c["minutes"], "all_done_today": f["all_today"],
+                     "per_zone": {"text": homepage._per_zone(c, d["zones"]),
+                                  "groups": [{"interval": days, "interval_text": homelib.interval_text(days),
+                                              "zones": [{"zone_id": z["id"], "short": z["short"]} for z in zs]} for days, zs in pz["groups"]],
+                                  "off": [{"zone_id": z["id"], "short": z["short"]} for z in pz["off"]]},
+                     "tiles": [{**_hrow(p), "age_short": homelib.age_short(p["age"]), "tinted": homepage.tinted(p)} for p in f["pairs"]]})
+    zones = []
+    for z in d["zones"]:
+        zx = homepage.zone_data(z, d)
+        o = zx["oldest"]
+        zones.append({"zone_id": z["id"], "name": z["name"], "short": z["short"], "count": len(zx["pairs"]), "own": zx["own"],
+                      "chores": [_hrow(p) for p in zx["pairs"]], "open": zx["open"], "todoist": zx["todoist"],
+                      "oldest_age": o["age"] if o else None, "oldest_text": None if not o else "not yet" if o["age"] is None else homelib.age_text(o["age"])})
+    return {"today": iso(d["today"]), "empty": x["empty"],
+            "start": {"jobs": start, "more": st["more"], "answers": [{"ago": a, "label": label} for a, label in homepage.START_CHIPS]},
+            "flat": flat, "zones": zones}
+
+
+def home_history(q=None) -> dict:
+    """History (homepage.history_data); q: {"n"} as app.'s ?n= (60 to 600, else 60)."""
+    x = homepage.history_data(q)
+    d = x["d"]
+    return {"today": iso(d["today"]), "limit": x["limit"], "step": homepage.HISTORY, "max": homepage.HISTORY_MAX, "more": x["more"],
+            "count": len(x["rows"]),
+            "days": [{"day": iso(day), "label": homepage._day_head(day), "rows": [_done(e) for e in es]} for day, es in x["days"]],
+            "jobs": [{"pairs": [_pair(p)], "label": homelib.label(p["chore"], p["zone"])} for p in homepage.earlier_jobs(d)],
+            "earlier_days": homelib.EARLIER_DAYS}
+
+
+def _dates(rows: list, year: int) -> dict:
+    """The last 10 done days (newest first) of a chore or of one zone of it, and app.'s line of them."""
+    last = rows[:homepage.LAST]
+    return {"last": [{"day": iso(r["day"]), "start": r["source"] == "start"} for r in last],
+            "last_text": " · ".join(homepage._date(r["day"], year) + (" (starting point)" if r["source"] == "start" else "") for r in last)
+            or "not logged yet"}
+
+
+def _usually(rows: list) -> dict:
+    gap = homepage.usual_gap([r["day"] for r in rows if r["source"] != "start"])
+    return {"usually_days": gap, "usually": None if gap is None else f"usually every {homepage._n(gap, 'day')}"}
+
+
+def home_chore(q=None) -> Optional[dict]:
+    """A chore's page (homepage.chore_data); q: {"id"}. None when there is no such chore ("That chore is not in the list.")."""
+    x = homepage.chore_data(q)
+    c = x["chore"]
+    if not c:
+        return None
+    year = x["d"]["today"].year
+    out = {"chore_id": c["id"], "name": c["name"], "zone_id": c["zone_id"], "zone": x["where"], "flat": x["flat"], "active": c["active"],
+           "interval": c["interval_days"], "interval_text": homelib.interval_text(c["interval_days"]), "minutes": c["minutes"], "meta": x["meta"],
+           "steps": list(c["steps"] or []), "howto": c["howto"], "words": list(c["words"] or []), "zones": None}
+    if x["flat"]:
+        out.update({"last": [], "last_text": None, "usually_days": None, "usually": None})
+        out["zones"] = [{"zone_id": zx["zone"]["id"], "zone": zx["zone"]["name"], "on": zx["pair"] is not None,
+                         "interval": zx["pair"]["interval"] if zx["pair"] else None,
+                         "interval_text": homelib.interval_text(zx["pair"]["interval"]) if zx["pair"] else None,
+                         "minutes": zx["pair"]["minutes"] if zx["pair"] else None,
+                         "text": f'{homelib.interval_text(zx["pair"]["interval"])} · {zx["pair"]["minutes"]} min' if zx["pair"] else "not done here",
+                         **_usually(zx["rows"]), **_dates(zx["rows"], year)} for zx in x["zones"]]
+    else:
+        out.update(**_dates(x["rows"], year), **_usually(x["rows"]))
+    return out
+
+
+HOME_LIMITS = {"zone_name_max": 40, "short_max": 12, "spots_max": 12, "spot_max": 40, "chore_name_max": 60, "steps_max": 8, "step_max": 80,
+               "howto_max": 300, "words_max": 12, "word_max": 40, "days_min": 1, "days_max": 730, "minutes_min": 1, "minutes_max": 240,
+               "minutes_default": homelib.DEFAULT_MINUTES, "goal_min": 1, "goal_max": 7}
+
+
+def _edit_chore(c: dict, zones: list) -> dict:
+    """A chore of Edit zones with every field of its form; per_zone (a whole-flat chore that is not retired, as app.'s "Per zone"
+    table): each active zone, on or off, its own days and minutes (None = blank = the chore's own)."""
+    off = {int(x) for x in c["zone_off"]}
+    per = None
+    if c["zone_id"] is None and c["active"]:
+        per = [{"zone_id": z["id"], "zone": z["name"], "on": z["id"] not in off, "days": c["zone_days"].get(str(z["id"])),
+                "minutes": c["zone_minutes"].get(str(z["id"]))} for z in zones if z["active"]]
+    return {"chore_id": c["id"], "name": c["name"], "zone_id": c["zone_id"], "flat": c["zone_id"] is None, "active": c["active"],
+            "interval": c["interval_days"], "interval_text": homelib.interval_text(c["interval_days"]), "minutes": c["minutes"],
+            "meta": f'{homelib.interval_text(c["interval_days"])} · {c["minutes"]} min' + ("" if c["active"] else " · retired"),
+            "steps": list(c["steps"] or []), "howto": c["howto"], "words": list(c["words"] or []), "per_zone": per}
+
+
+def home_edit() -> dict:
+    """Edit zones (homepage.edit_data): the weekly goal, the whole-flat chores, every zone (retired ones too) with its chores."""
+    x = homepage.edit_data()
+    d = x["d"]
+    zones = d["all_zones"]
+    return {"goal": x["goal"],
+            "flat": [_edit_chore(c, zones) for c in x["flat"]],
+            "zones": [{"zone_id": z["id"], "name": z["name"], "short": z["short"], "spots": list(z["spots"] or []), "words": list(z["words"] or []),
+                       "active": z["active"], "count": sum(1 for c in d["all_chores"] if c["zone_id"] == z["id"] and c["active"]),
+                       "chores": [_edit_chore(c, zones) for c in d["all_chores"] if c["zone_id"] == z["id"]]} for z in zones],
+            "zone_options": [{"zone_id": None, "label": "Whole flat (each zone on its own)", "active": True}]
+                            + [{"zone_id": z["id"], "label": z["name"] + ("" if z["active"] else " (retired)"), "active": z["active"]} for z in zones],
+            "limits": HOME_LIMITS}

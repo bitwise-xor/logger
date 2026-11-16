@@ -1,10 +1,11 @@
 # The JSON door `/api/v1` (for the new front end)
 
 Since deploys 75 and 76 (16.11.2026); deploy 77 (16.11.2026) made the changes of the door's review (marked "since 77");
-deploy 78 removed the old field names that 77 kept for one deploy; deploy 86 added the usual-meal editor; deploy 89 the scanner, the label photo and the look-up; deploy 91 the Health page and body measurements; deploy 93 the Habits page. The front end that calls it: `front/` (`front/README.md`).
+deploy 78 removed the old field names that 77 kept for one deploy; deploy 86 added the usual-meal editor; deploy 89 the scanner, the label photo and the look-up; deploy 91 the Health page and body measurements; deploy 93 the Habits page; deploy 95 the Gym; deploy 98 Home. The front end that calls it: `front/` (`front/README.md`).
 Code: `core/app/api.py` (the door, the saves), `core/app/reads.py` (the reads).
 Tests: `tests/test_api_door.py`, `tests/test_api_reads.py`, `tests/test_api_saves.py`, `tests/test_api_shape.py` (77),
-`tests/test_api_usual.py` (86), `tests/test_api_scan.py` (89), `tests/test_api_health.py` (91), `tests/test_api_habits.py` (93).
+`tests/test_api_usual.py` (86), `tests/test_api_scan.py` (89), `tests/test_api_health.py` (91), `tests/test_api_habits.py` (93),
+`tests/test_api_gym.py` (95), `tests/test_api_home.py` (98).
 
 The door is for one caller only: the new front end's own server, from inside Docker. The browser never calls it.
 The live web app at `app.` does not use it and did not change.
@@ -54,7 +55,7 @@ signed in before counts its own failures; all others share one pool, together wi
 ### `GET /api/v1/day?day=yyyy-mm-dd` → `{"day": Day, "undo": Undo}`
 
 Today without `day`; an earlier day as asked; a later day is today. Built on `todaypage.load`, `webquestions.load`, `held.rows` and the
-gratitude count. No Home or Coach cards; the Gym card since 95 (`gym`).
+gratitude count. No Coach card; the Gym card since 95 (`gym`), the Home card since 98 (`home`).
 
 ```
 Day = {
@@ -81,6 +82,13 @@ Day = {
                                                         // workout", or null without a split), the last 14 days oldest first, n14
                                                         // of them with a workout, the weeks' counts and app.'s line
                                                         // ("Last week 3 workouts · this week none yet")
+  home: null | {this_week, goal, text, waiting: null | HomeRow, hidden}
+                                                        // (98) Today's Home card (homepage.card_data): this week's sessions of the
+                                                        // weekly goal and app.'s words ("this week 1 of 3"), the chore waiting
+                                                        // longest (not one hidden for today; null: "Nothing else is waiting
+                                                        // today."), how many jobs are hidden for today. null as at app.: a past
+                                                        // day, no active chore in an active zone, or the card hidden in Settings >
+                                                        // Today page. Its buttons: "15 minutes" = GET /home/pick?min=15, Open Home
 }
 Row (food)   = {ref: "f<id>", kind: "food", meal, at, time_known, food, food_id, amount, unit, portion_text,
                 nutrients: {kcal, protein, fat, carbs}, usual_meal: null | {id, name}}
@@ -385,6 +393,150 @@ Activity = {
 }
 ```
 
+### Home (98): the six pages of app.'s Home as data
+
+app.'s Home section (`homepage.now_data`, `pick_data`, `zones_data`, `history_data`, `chore_data`, `edit_data`, `card_data`: app.'s
+pages draw from the same data). A chore is done per zone: a **pair** is `[chore_id, zone_id]`; a whole-flat chore (Dust, Vacuum, Mop)
+is one pair per zone it is done in. Ages and intervals are whole logging days. Where app. writes words, both come: the facts (`age`,
+`interval`, …) and app.'s words (`age_text` "3 weeks ago" / "not logged yet" / "today", `age_short` "3 wk" / "not yet",
+`interval_text` "weekly" / "every 2 weeks", `label` "Dust · Kitchen", app.'s whole lines as `text` or `meta`), so both apps say the same.
+
+```
+HomeRow = {chore_id, zone_id, name, zone, short, label, flat,   // flat: a whole-flat chore; short: the zone's tile label
+           age, age_text, interval, interval_text,              // age: days since last done (null = never logged; 0 = today)
+           minutes, done_today, done_at}                        // minutes in this zone; done_at: the last done row's time (ISO)
+Timer   = {id, state, left, ends_at, minutes, title, pairs}     // state "running" | "paused" | "over"; left: seconds (count down
+                                                                // from it); ends_at null while paused; the job's title and pairs
+Done    = {ids, chore_id, chore, zones, flat, label,           // rows stamped together (All done) are one entry with all their
+           at, day, dated, source, how, time, when}             // ids; dated: a job done earlier or a starting point (12:00 of
+                                                                // day: time null, only the date shown); source "web" | "chat" |
+                                                                // "pick" | "start"; how "ticked" | "chat" | "timer" | "starting
+                                                                // point" | "earlier"; when: app.'s "16.11. 08:05" or "14.11."
+```
+
+The open timer (`home.timer_open`: the last one of the past 6 hours not closed) is the same object everywhere; `timer` is null when
+there is none **or its job is gone** (its chores retired meanwhile: app. shows no timer then and the Pick page picks afresh).
+
+#### `GET /api/v1/home?min=5|15|30|60` → `{"home": Now, "undo": Undo}`
+
+```
+Now = {
+  today, empty,                       // empty: no active chore at all ("No zones or chores yet. Add them on Edit zones.")
+  minutes, minutes_options: [{minutes, label}],   // the time chips: 5 "5 min", 15, 30, 60 "1 hour"; min not one of them = 15
+  timer: null | Timer,                // the Timer card ("Open the timer" = the Pick page)
+  week: {goal, this, weeks: [4]},     // "This week N of goal sessions", "Last 4 weeks: 2 · 3 · 1 · 0" (the latest first); a
+                                      // session = a day with a job done or a timer run out
+  rows: [HomeRow], count, shown: 6,   // "Longest since last done": one row per chore (a whole-flat chore: its zone waiting longest),
+                                      // waiting longest first, without the jobs hidden for today; app. shows the first 6 and "Show
+                                      // all N chores" (a link to Zones) when there are more; the tick circle = POST /home/tick
+  hidden,                             // "N hidden for today" (jobs marked Not today)
+  recent: [Done]                      // "Recently done": the last 5, starting points left out
+}
+```
+
+#### `GET /api/v1/home/pick?min=&n=` → `{"home_pick": Pick, "undo": Undo}`
+
+```
+Pick = {
+  today, empty,                       // null, "no_chores" ("No zones or chores yet.") or "nothing_waiting" ("Nothing is waiting for
+                                      // you right now. Everything is done today, hidden for today, or retired.")
+  minutes, title,                     // "Your 15 minutes", "Your hour"
+  timer: null | Timer,                // with a timer open its job and minutes; min and n are not looked at (as app.)
+  job: null | {pairs, title, zone, age, age_text, minutes, steps, howto, over, session},
+                                      // one pair ("Wipe the stove", "Dust the kitchen"), a zone session at 60 minutes ("Kitchen:
+                                      // 3 jobs", steps "Dust (15 min)") or "Vacuum the whole flat" (steps per zone); over: nothing
+                                      // fits, the shortest job ("This job takes about N minutes: do what fits, stopping counts.")
+  n, count,                           // the n-th of count jobs that fit ("Job 2 of 5" when count > 1; ?n= modulo count, as app.;
+                                      // "Another job" = n + 1); with a timer n null and count 1
+  also: [{n, title}],                 // "Also fits in N minutes": the next two (open with ?n=), [] with a timer
+  earlier: [{when, label}],           // "Done it earlier?": when 1 "Yesterday", 2 "2 days ago" (or a date: POST /home/earlier)
+  next_from_s: 180,                   // "Done, next job" only while running with at least this many seconds left
+  earlier_days: 365
+}
+```
+
+Without a timer: "Start timer" (POST /home/start with the job's pairs and `minutes`), "Done" (/home/pickdone), "Another job", "Not
+today" (/home/skip). With one: Pause or Resume, "Done" (/home/pickdone), "Done, next job" (/home/picknext, running only), "Stop
+timer" ("Finished" once over: /home/stop). At zero app. hides Pause and "Done, next job" and shows "Time is up · well done".
+
+#### `GET /api/v1/home/zones` → `{"home_zones": Zones, "undo": Undo}`
+
+```
+Zones = {
+  today, empty,
+  start: {jobs: [{chore_id, name, pairs, zone, zones, where, interval, interval_text}], more, answers: [{ago, label}]},
+                                      // "When did you last do these?": never-logged jobs (not answered "Don't know"), one per chore
+                                      // (a whole-flat chore with all its never-logged zones: zone null, where "3 zones"), the first
+                                      // 5 in the Now order, more: "N more jobs after these"; answers: week "This week", month "This
+                                      // month", longer "Longer ago", unknown "Don’t know" (POST /home/startpoint)
+  flat: [{chore_id, name, interval, interval_text, minutes, all_done_today,
+          per_zone: {text, groups: [{interval, interval_text, zones: [{zone_id, short}]}], off: [{zone_id, short}]},
+          tiles: [HomeRow + {age_short, tinted}]}],
+                                      // "Whole flat": per_zone.text is app.'s line ("every 2 weeks; Bath, Kitchen weekly; not in
+                                      // Hall"), groups the zones whose interval differs, off where it is not done; a tile per zone
+                                      // (tap = POST /home/tick; tinted: done today or less than half its interval ago);
+                                      // all_done_today: "All done ✓" (POST /home/alldone; again takes today's ticks back)
+  zones: [{zone_id, name, short, count, own, chores: [HomeRow], open, todoist, oldest_age, oldest_text}]
+                                      // a card per active zone: its chores and its share of the whole-flat ones (Dust first,
+                                      // Vacuum and Mop last); count 0: "no recurring chores"; open: one of its own chores done within
+                                      // 14 days (app. opens the card); oldest_text "oldest 3 weeks ago" / "not yet"; todoist: the
+                                      // Storage zone with no chore of its own (app. links "sorting jobs in Todoist ›")
+}
+```
+
+#### `GET /api/v1/home/history?n=` → `{"home_history": History, "undo": Undo}`
+
+```
+History = {
+  today, limit, step: 60, max: 600, more, count,   // ?n= rows, 60 to 600 (60 when not given or not a number); more: "Show more"
+                                                   // (?n=limit + step) when count == limit < max
+  days: [{day, label, rows: [Done]}],              // grouped by logging day, newest first; label "Tuesday 03.11."; × on a row =
+                                                   // POST /home/remove with its ids
+  jobs: [{pairs: [[chore_id, zone_id]], label}],   // "+ Add one done earlier": every active pair by chore name (POST /home/earlier)
+  earlier_days: 365
+}
+```
+
+#### `GET /api/v1/home/chore?id=<chore id>` → `{"home_chore": Chore, "undo": Undo}`
+
+Any chore, a retired one too. `id` not digits (or missing) is 400 `bad_request` ("id must be a chore's id."); a chore that is not
+there 404 `no_entry` ("That chore is not in the list.", app.'s words).
+
+```
+Chore = {
+  chore_id, name, zone_id, zone, flat, active,     // zone: the zone's name or "whole flat"
+  interval, interval_text, minutes, meta,          // meta: app.'s line "weekly · 15 min · Kitchen" (" · retired")
+  steps, howto, words,
+  last: [{day, start}], last_text,                 // the last 10 done days, newest first; start: a starting point; last_text app.'s
+                                                   // "14.11. · 02.11. (starting point)" or "not logged yet" (a whole-flat chore: [] / null)
+  usually_days, usually,                           // the median gap of 3 or more done days (no starting points): 9, "usually every 9 days"
+  zones: null | [{zone_id, zone, on, interval, interval_text, minutes, text, usually_days, usually, last, last_text}]
+                                                   // a whole-flat chore: each active zone it is done in or was done in; on false =
+                                                   // "not done here" (text); text "weekly · 10 min"
+}
+```
+
+#### `GET /api/v1/home/edit` → `{"home_edit": Edit, "undo": Undo}`
+
+```
+Edit = {
+  goal,                                            // the weekly goal (1 to 7; POST /home/goalset)
+  flat: [EditChore],                               // "Whole flat": the whole-flat chores, retired ones too
+  zones: [{zone_id, name, short, spots, words, active, count, chores: [EditChore]}],
+                                                   // every zone, retired ones too (active false: "Bring back"), each with its
+                                                   // chores (retired ones too); count: its active chores
+  zone_options: [{zone_id, label, active}],        // the chore form's "Where": zone_id null = "Whole flat (each zone on its own)",
+                                                   // then every zone ("… (retired)": offer it only for the chore already in it)
+  limits: {zone_name_max: 40, short_max: 12, spots_max: 12, spot_max: 40, chore_name_max: 60, steps_max: 8, step_max: 80,
+           howto_max: 300, words_max: 12, word_max: 40, days_min: 1, days_max: 730, minutes_min: 1, minutes_max: 240,
+           minutes_default: 15, goal_min: 1, goal_max: 7}
+}
+EditChore = {chore_id, name, zone_id, flat, active, interval, interval_text, minutes, meta, steps, howto, words,
+             per_zone: null | [{zone_id, zone, on, days, minutes}]}
+                                                   // per_zone: a whole-flat chore that is not retired ("Per zone"): each active
+                                                   // zone, on or off, its own days and minutes (null = blank = the chore's own)
+```
+
 ## The label photo: `POST /api/v1/food/label` (89)
 
 One to three photos of ONE package (the name and the nutrition table often need two), read together in one AI call
@@ -439,6 +591,7 @@ function takes one, so a re-sent request saves once (`replayed: true`).
 | `/api/v1/habit/day` (93) | `name`, `day` (yyyy-mm-dd), `key`; `show` for the fresh read | `webactions.habit_day` (a square of the calendar) |
 | `/api/v1/habits/manage` (93) | `action`: `track`, `retire`, `restore`, `edit`, `delete` or `new`, and its fields (below), `key`; `show` for the fresh read | `webhabits.ACTIONS[action]` |
 | `/api/v1/gym/<action>` (95) | `action` in the path: `tick`, `remove`, `pick`, `new`, `rename`, `active`, `daynew`, `dayedit`, `dayactive`, `itemadd`, `itemset`, `itemmove`, `itemremove`; its fields (below), `key`; `view` for another fresh read | `gym.ACTIONS[action]` (app.'s `/web/gym/<action>`) |
+| `/api/v1/home/<action>` (98) | `action` in the path: one of the 20 of `home.ACTIONS` (below); its fields, `key` on six; `view` (+ `view_min`, `view_n`, `view_limit`, `view_id`) for another fresh read | `home.ACTIONS[action]` (app.'s `/web/home/<action>`) |
 | `/api/v1/lookup` (89) | `text` (a name, or a barcode of 8 to 14 digits), optional `question_id` (an open food question it answers; without `text` the question's word is looked up) | `webfood.look_up` → `logbook.food_lookup` (no key: it saves nothing) |
 
 The usual-meal saves (86): the front end sends `confirmed: true` and the change is made at once, with Undo (without it a change or
@@ -558,6 +711,58 @@ The Gym's saves (95), each like app.'s form of the same name:
 - Not here (as at app.): the starter split (`python -m app.gymseed`), a finish button (the last tick ends a workout), the watch's data
   (it comes from the phone).
 
+Home's saves (98), each like app.'s form of the same name (`home.ACTIONS`):
+
+- Fields (ids and numbers as JSON numbers, `pairs` as `[[chore_id, zone_id], …]` (1 to 12), lists of texts as lists; a wrong kind of
+  field is 400 `bad_request`, nothing saved):
+  `tick`: `chore_id`, `zone_id`, `key` (a done pair today: its tick taken off); `alldone`: `chore_id` (a whole-flat chore), `key`;
+  `remove`: `ids` (a `Done` entry's ids, 1 to 20);
+  `zonenew`: `name` (up to 40), `short` (tile label, up to 12; empty: the name's first word), `spots` (up to 12 of up to 40, one line
+  each), `words` (up to 12 of up to 40, no commas); `zoneedit`: `zone_id` and the same; `zoneactive`: `zone_id`, `on` (false = Retire);
+  `chorenew`: `name` (up to 60), `zone_id` (a zone, or null = the whole flat; required), `days` (whole), `minutes` (whole; left out
+  or null = 15), `steps` (up to 8 of up to 80, one line each), `howto` (text up to 300, or null), `words`; `choreedit`: `chore_id` and the
+  same; `choreactive`: `chore_id`, `on`;
+  `start`: `pairs`, `minutes` (the Pick page's); `pause`, `resume`, `stop`: `timer_id`; `pickdone`: `pairs` (`timer_id` may come
+  along, not needed), `key`; `picknext`: `pairs`, `timer_id`, `key`; `skip`: `pairs`;
+  `goalset`: `goal`; `chorezones`: `chore_id`, `zones: [{zone_id, on, days, minutes}]` (the whole Per zone table: **a zone left out
+  is off**, as an unticked box; `days`, `minutes` null or left out = blank = the chore's own);
+  `startpoint`: `pairs`, `ago` (`week` = 3 days ago, `month` = 14 days ago, `longer` = twice the interval ago, `unknown` = "Don't
+  know": left as not logged yet, off the card), `key`; `earlier`: `pairs`, `when` (1 to 7 = days ago, or `yyyy-mm-dd`: a day before
+  today in the last year; done at 12:00 that day), `key`.
+- Refusals are `rejected` with app.'s plain `reason` and change nothing, e.g. "That chore is not in the list.", "That is not a
+  whole-flat chore.", "That is not in the history any more.", "Type the zone's name.", "… is already in your list.", "Another zone has
+  that name.", "That zone is not in the list.", "Type the chore's name.", "Give the interval in whole days and the minutes as a whole
+  number.", "The interval is 1 to 730 days and the time 1 to 240 minutes.", "Pick a zone from the list, or the whole flat.", "That job
+  is not in the list any more." (also `start` outside 1 to 240 minutes), "That timer is not running." / "… not paused." / "… already
+  closed.", "The weekly goal is 1 to 7 sessions.", "Give the days (1 to 730) and minutes (1 to 240) as whole numbers, or leave them
+  blank.", "… needs at least one zone. Retire it instead.", "Pick a job from the list.", "Pick a day before today, in the last year.".
+  A name, label or text too long is 400 `bad_request`; ranges are app.'s (the refusal above).
+- Not refusals (as app.): `zonenew` of a retired zone's name brings it back with its history ("… is back in your list."); `pickdone`
+  of a job ticked today already: "Already ticked today." (no Undo); `skip` of a job hidden already: "Hidden already."; `startpoint` of
+  a pair logged meanwhile: "Logged already."; `picknext` with nothing else that fits or under 3 minutes left: "… Nothing else fits in
+  the time left; the timer is closed."
+- `key`: only `tick`, `alldone`, `pickdone`, `picknext`, `earlier` and `startpoint` take one (app.'s rule, `home._once`): a re-sent key
+  answers the first answer (`replayed: true`) and saves nothing twice; the same key with another body is refused ("This form was already
+  used."). The others take none (a `key` sent is not used): `chorenew` sent twice adds a second chore of that name, `zonenew` is
+  refused the second time (the name is there), `remove` finds nothing the second time, `start` starts the timer again; the rest are the
+  same twice. The page sends each of them once.
+- The timer is kept on the server: `start` closes any open timer and starts one (ends_at = now + minutes); `pause` keeps the seconds
+  left, `resume` runs them; `stop` closes it ("Finished" once over: a timer that ran out counts as a session); `pickdone` ticks the job's
+  pairs not done today (source "pick") and closes the timer; `picknext` ticks them and moves the running timer to the next job that fits
+  in the time left (its title in `head`: "Saved: … Next: …").
+- **Undo** (`POST /undo`), where app. has it (`home.undo`): `tick` (the tick deleted; a tick taken off: put back), `alldone` (the same),
+  `remove` (the rows back with the same ids), `pickdone`, `picknext` when it ticked something, `earlier`, `startpoint` (the rows
+  deleted; "Don't know": back on the card), `skip` (the job back in the list). The other twelve have no Undo (as on app.): the answer's
+  `undo` is null and the session's earlier Undo goes; a refusal or a replay leaves it. Send `"view": "home"` (or another Home view, with
+  its parameters) with the undo for the page's fresh read.
+- The answer carries the page's fresh read: `tick`, `pickdone` → `home`; `start`, `pause`, `resume`, `stop`, `skip`, `picknext`,
+  `earlier` → `home_pick`; `alldone`, `startpoint` → `home_zones`; `remove` → `home_history`; `zonenew`, `zoneedit`, `zoneactive`,
+  `chorenew`, `choreedit`, `choreactive`, `chorezones`, `goalset` → `home_edit`. The body's `view` chooses another (also `day`), with
+  the page's parameters as `view_min` (`home`, `home_pick`), `view_n` (`home_pick`), `view_limit` (`home_history`'s `n`) and `view_id`
+  (`home_chore`; without it, or a chore not there, `home_chore` is null: the save is made all the same).
+- Not here (as at app.): the starter list (`python -m app.homeseed`); chores typed in a line go through `POST /log` (and `/answer`) as
+  before (`homechat`).
+
 Field names since 77: `action` (was `act` on `/review` and `/food/entry`), `time` (was `t` on `/health`), `items[].item_id` (was
 `items[].id` on `/usual`). Since deploy 78 only the new names work: a field sent under its old name counts as missing.
 
@@ -578,10 +783,14 @@ Every save answers (HTTP 200, also when nothing was saved):
   undo: Undo,            // one per session, 15 minutes; POST /api/v1/undo {token}
   day: Day  |  food_day: FoodDay  |  usual: [Usual]  |  health: Health  |  body: Body  |  habits: Habits
        |  gym: Workout  |  gym_plan: Plan  |  gym_exercises: Exercises
+       |  home: Now  |  home_pick: Pick  |  home_zones: Zones  |  home_history: History  |  home_chore: Chore  |  home_edit: Edit
                                                        // the fresh read; body "view": "day" | "food" | "usual" (86) | "health" |
                                                        // "body" (91) | "habits" (93, with "show") | "gym" | "gym_plan" |
-                                                       // "gym_exercises" (95) and "view_day": "yyyy-mm-dd" choose it;
+                                                       // "gym_exercises" (95) | "home" | "home_pick" | "home_zones" |
+                                                       // "home_history" | "home_chore" | "home_edit" (98, with view_min,
+                                                       // view_n, view_limit, view_id) and "view_day": "yyyy-mm-dd" choose it;
                                                        // /gym/<action> defaults to its tab (see the Gym's saves);
+                                                       // /home/<action> to its page (see Home's saves);
                                                        // /habit/day and /habits/manage default to "habits"; /usual/meal and
                                                        // /usual/new default to "usual", /usual/from_meal and /food/* to "food",
                                                        // /health/day to "health" (with "range", "all"), /body to "body" (its day),
@@ -620,5 +829,5 @@ Texts in `read_back`, `result` and questions never carry the lines meant for the
 - Errors inside a save (the AI or the database not answering) are `outcome: "rejected"` with a reason that nothing was saved; a typed
   line's words stay kept (`held`) and appear in `day.needs.not_read`.
 
-Not in the door (on purpose, for now): Home and Coach, the body settings (interval, hidden measures, height: read in
+Not in the door (on purpose, for now): Coach, the body settings (interval, hidden measures, height: read in
 `GET /body`, changed at app.), the Food catalogue editor, the gratitude list itself (only its count), Ideas and Private.
