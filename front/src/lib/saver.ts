@@ -48,7 +48,16 @@ export const KEYED = new Set([
   'labeladd',
   // the Health page's day row and body session (deploy 92)
   'health_day', 'body',
+  // the Habits page's day tap and list forms (deploy 94): each gets a new key
+  'habit_day', 'habits_manage',
 ]);
+/**
+ * A keyed action that is never sent again by the page (deploy 94): a day tick of the Habits page. Its message carries the time
+ * of the click, so the door does not replay a re-sent key: sent again while the day still needs a tick it is refused, sent after
+ * the day is done it unticks. A tap that met a gone session is not kept; the page says to tap again after the sign-in.
+ */
+export const NEVER_RESENT = new Set(['habit_day']);
+export const mayResend = (action: string) => KEYED.has(action) && !NEVER_RESENT.has(action);
 /** The actions the AI reads (up to about 40 s; the look-up since deploy 90): their answer is never dropped for a tap made while they were read. */
 export const SLOW = new Set(['log', 'held_retry', 'lookup']);
 export const RESEND_ITEM = 'logger-resend';
@@ -104,7 +113,7 @@ export class Saver {
     if (result.type === 'success') return this.#take(seq, action, { kind: 'answer', answer: result.data?.answer as A });
     if (result.type === 'failure' && result.data?.signedOut) {
       // Kept whatever its age in the race: a sign-in is needed either way.
-      if (KEYED.has(action)) this.#keep({ action, fields: all, at: this.#d.now(), page: this.#d.page });
+      if (mayResend(action)) this.#keep({ action, fields: all, at: this.#d.now(), page: this.#d.page });
       return { kind: 'signed_out' };
     }
     if (result.type === 'redirect') return { kind: 'signed_out' };
@@ -136,7 +145,7 @@ export class Saver {
     } catch {
       /* storage blocked: nothing was kept anyway */
     }
-    return { ...kept, fresh: this.#d.now() - kept.at <= RESEND_MS && KEYED.has(kept.action) };
+    return { ...kept, fresh: this.#d.now() - kept.at <= RESEND_MS && mayResend(kept.action) };
   }
 
   /** Only the newest save's answer counts: an older one that arrives after it is dropped (but never a typed line's, SLOW). */

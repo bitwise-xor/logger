@@ -2,7 +2,7 @@
 // day asked for, and a gone session told apart from other problems.
 import { describe, expect, it } from 'vitest';
 import { makeDoor, type Fetch } from './door.js';
-import { bodyFor, FOOD_SAVES, HEALTH_SAVES, runSave, SAVE_NAMES, SAVES, TODAY_SAVES, USUAL_SAVES } from './saves.js';
+import { bodyFor, FOOD_SAVES, HABITS_SAVES, HEALTH_SAVES, runSave, SAVE_NAMES, SAVES, TODAY_SAVES, USUAL_SAVES } from './saves.js';
 
 const TOKEN = 'f'.repeat(40);
 const SESSION = 's'.repeat(43);
@@ -191,7 +191,7 @@ describe('the Food day saves (step E)', () => {
     expect(TODAY_SAVES).not.toContain('usual_meal');
     expect(TODAY_SAVES).toContain('usual');
     expect(TODAY_SAVES).toContain('undo');
-    expect(new Set([...TODAY_SAVES, ...FOOD_SAVES, ...USUAL_SAVES, ...HEALTH_SAVES])).toEqual(new Set(SAVE_NAMES));
+    expect(new Set([...TODAY_SAVES, ...FOOD_SAVES, ...USUAL_SAVES, ...HEALTH_SAVES, ...HABITS_SAVES])).toEqual(new Set(SAVE_NAMES));
   });
 });
 
@@ -386,5 +386,82 @@ describe('the Health page (deploy 92)', () => {
       ['/api/v1/body', 'body'],
       ['/api/v1/body/skip', 'day'],
     ]);
+  });
+});
+
+describe('the Habits page (deploy 94)', () => {
+  it('offers the Habits page its saves, Today the tick, and keeps the page-only ones off Today', () => {
+    expect(HABITS_SAVES).toEqual(['habit', 'habit_day', 'habits_manage', 'undo']);
+    expect(TODAY_SAVES).toContain('habit');
+    expect(TODAY_SAVES).not.toContain('habit_day');
+    expect(TODAY_SAVES).not.toContain('habits_manage');
+  });
+
+  it("a day tick: the habit and the day, keyed, and the habits read of the filter shown", () => {
+    expect(bodyFor('habit_day', form({ name: 'sample_reading', day: '2026-11-13', show: 'all', key: KEY }), undefined, undefined, 'habits')).toEqual({
+      name: 'sample_reading',
+      day: '2026-11-13',
+      view: 'habits',
+      show: 'all',
+      key: KEY,
+    });
+    // the tick of Today's button, asked for the habits read
+    expect(bodyFor('habit', form({ name: 'meds', action: 'tick', show: 'retired', key: KEY }), undefined, undefined, 'habits')).toEqual({
+      name: 'meds',
+      action: 'tick',
+      view: 'habits',
+      show: 'retired',
+      key: KEY,
+    });
+    // an unknown filter is left out (the door then shows the tracked ones)
+    expect(bodyFor('habit_day', form({ name: 'a', day: '2026-11-13', show: 'everything', key: KEY }), undefined, undefined, 'habits')).not.toHaveProperty('show');
+  });
+
+  it('makes a new key for a day tick sent without one', () => {
+    expect(bodyFor('habit_day', form({ name: 'a', day: '2026-11-13' }), undefined, () => 'server-made-key-0123', 'habits').key).toBe('server-made-key-0123');
+  });
+
+  it('each list form sends only the fields of its action, with numbers and true or false where the door wants them', () => {
+    const body = (f: Record<string, string>) => bodyFor('habits_manage', form({ ...f, key: KEY }), undefined, undefined, 'habits');
+    expect(body({ action: 'track', name: 'meds', on: '1' })).toEqual({ action: 'track', name: 'meds', on: true, view: 'habits', key: KEY });
+    expect(body({ action: 'track', name: 'meds', on: '0' })).toMatchObject({ on: false });
+    expect(body({ action: 'retire', name: 'meds', on: '1', label: 'x' })).toEqual({ action: 'retire', name: 'meds', view: 'habits', key: KEY });
+    expect(body({ action: 'restore', name: 'meds' })).toEqual({ action: 'restore', name: 'meds', view: 'habits', key: KEY });
+    expect(body({ action: 'edit', name: 'meds', label: '  Evening   walk ', target: '2', order: '30', aim: 'avoid' })).toEqual({
+      action: 'edit',
+      name: 'meds',
+      label: 'Evening walk',
+      target: 2,
+      order: 30,
+      aim: 'avoid',
+      view: 'habits',
+      key: KEY,
+    });
+    // an order left out is kept by the door; an odd aim is not sent
+    expect(body({ action: 'edit', name: 'meds', label: 'A', target: '1', aim: 'maybe' })).toEqual({ action: 'edit', name: 'meds', label: 'A', target: 1, view: 'habits', key: KEY });
+    expect(body({ action: 'new', label: 'Evening walk', group: 'practice', target: '2', track: '1' })).toEqual({
+      action: 'new',
+      label: 'Evening walk',
+      group: 'practice',
+      target: 2,
+      track: true,
+      view: 'habits',
+      key: KEY,
+    });
+    expect(body({ action: 'new', label: 'Evening walk', group: 'daily', target: '1', track: '0' })).toMatchObject({ track: false });
+  });
+
+  it('Delete sends confirmed only with its yes', () => {
+    const body = (f: Record<string, string>) => bodyFor('habits_manage', form({ ...f, key: KEY }), undefined, undefined, 'habits');
+    expect(body({ action: 'delete', name: 'x', confirmed: '1' })).toEqual({ action: 'delete', name: 'x', confirmed: true, view: 'habits', key: KEY });
+    expect(body({ action: 'delete', name: 'x' })).not.toHaveProperty('confirmed');
+  });
+
+  it('a day tick goes to /habit/day and a list form to /habits/manage, and a refusal is the door\'s answer', async () => {
+    const { door, seen } = net(200, { v: 1, outcome: 'rejected', head: 'Nothing saved.', reason: 'Only the last 30 days can be changed here.' });
+    const r = await runSave<{ reason: string }>(door, SESSION, 'habit_day', form({ name: 'a', day: '2026-01-01', key: KEY }), undefined, 'habits');
+    expect(r).toMatchObject({ ok: true, answer: { reason: 'Only the last 30 days can be changed here.' } });
+    await runSave(door, SESSION, 'habits_manage', form({ action: 'retire', name: 'a', key: KEY }), undefined, 'habits');
+    expect(seen.map((x) => x.path)).toEqual(['/api/v1/habit/day', '/api/v1/habits/manage']);
   });
 });

@@ -28,6 +28,11 @@
 // a day changed and saved in place, Undo, an odd weight read back and confirmed, a value cleared with its yes, "Show all"; the
 // body card: the form saved, a jump read back and confirmed, Now opening an older session, a measure's chart by its chip; and
 // on Today "Body measurements due" with Measure (the form open) and "Not today".
+// Deploy 94: the Habits page (/habits) from Today's Habits card and from the Health page: today's ticks with "n of N done" (a tick
+// and its Undo), the strip of 30 squares against the sample's states (squares that are not buttons), a habit's calendar in weeks
+// (Monday first, cells of 44 px, "1/2" for a twice-a-day habit, a day ticked and unticked with Undo, a tap blocked while its save
+// is on the way, a read-only one with its line), the filter with counts, an edit kept after a refusal, a new habit, a delete with
+// its question, Track, Retire and Bring back, and the settings line; one column on phones and tablets, two from 1100 px.
 // Every check throws on a failure, so the script ends with an error.
 // Usage: node tests/screens/shoot.mjs <base url> <out dir> <stand-in url>
 import assert from 'node:assert/strict';
@@ -43,6 +48,7 @@ const foodBefore = FOOD.before.food_day;
 const USUAL = JSON.parse(readFileSync(new URL('../samples/usual.json', import.meta.url), 'utf8')).usual.usual;
 const SCAN = JSON.parse(readFileSync(new URL('../samples/scan.json', import.meta.url), 'utf8'));
 const HEALTH = JSON.parse(readFileSync(new URL('../samples/health.json', import.meta.url), 'utf8'));
+const HABITS = JSON.parse(readFileSync(new URL('../samples/habits.json', import.meta.url), 'utf8'));
 
 // What the page must show, worked out here from the sample on its own (not with the page's code).
 const even = (x) => {
@@ -1117,6 +1123,334 @@ async function checkHealth(page, name, theme) {
   await checkWidth(page, 'health, after the saves');
 }
 
+async function checkHabits(page, name, theme) {
+  await standinPost('/standin/reset');
+  const hb = HABITS.habits.habits;
+  const all = HABITS.habits_all.habits;
+  const pc = name === 'pc';
+  const bar = page.locator('[data-bar]');
+  const headIs = async (want) => {
+    await page.locator('[data-bar-head]', { hasText: want }).waitFor();
+    assert.equal(await text(page.locator('[data-bar-head]')), want, 'the answer bar');
+  };
+  const rows = async () => page.locator('[data-habit-row]').evaluateAll((els) => els.map((e) => e.getAttribute('data-habit-row')));
+  const sample = (list, key) => list.list.flatMap((g) => g.habits).filter((h) => h.state === key).map((h) => h.name);
+  const doneLine = page.locator('[data-ticks-done]');
+  const full = (n) => text(page.locator(`[data-cal="${n}"] [data-full]`));
+  const sq = (n) => page.locator(`[data-cal="${n}"] [data-sq]`).evaluateAll((els) => els.map((e) => e.getAttribute('data-sq')));
+
+  // from Today's Habits card: its "Habits" link
+  await page.goto(`${base}/`);
+  await page.locator('[data-habits-link]').click();
+  await page.waitForURL(/\/habits$/);
+  await page.locator('[data-card="ticks"]').waitFor();
+  await page.evaluate(() => (window.__noReload = true));
+  assert.equal(await text(page.locator('h1')), 'Habits');
+
+  // today's ticks: the same buttons as Today's card (two per row), "n of N done"
+  assert.equal(await text(doneLine), '2 of 4 done', 'n of N done from the sample');
+  assert.deepEqual(
+    await page.locator('[data-card="ticks"] [data-habit]').evaluateAll((els) => els.map((e) => e.getAttribute('data-habit'))),
+    hb.checklist.habits.map((h) => h.name),
+    "today's ticks",
+  );
+  const spots = await page.locator('[data-card="ticks"] [data-habit]').evaluateAll((els) => els.map((e) => e.getBoundingClientRect()).map((r) => ({ x: r.x, y: r.y })));
+  assert.ok(Math.abs(spots[0].y - spots[1].y) < 2 && spots[1].x > spots[0].x + 40, 'two ticks per row');
+  assert.equal(await page.locator('[data-card="ticks"] [data-habit="sample_reading"]').getAttribute('aria-pressed'), 'true');
+  assert.match(await text(page.locator('[data-card="ticks"] [data-habit="sample_reading"]')), /2\/2/, 'a twice-a-day habit shows 2/2');
+  assert.match(await text(page.locator('[data-card="ticks"] [data-habit="sample_soft_drink"]')), /avoid/, 'an avoid mark');
+
+  // the strip: the sample's states, squares that are not buttons, "full/30" (or "n/30 without")
+  for (const c of hb.calendar) {
+    assert.deepEqual(await sq(c.name), c.days.map((d) => d.state), `${c.name}: the strip's squares`);
+    assert.equal(await full(c.name), `${c.full}/30${c.avoid ? ' without' : ''}`, `${c.name}: full/30`);
+    assert.equal(await text(page.locator(`[data-cal-row="${c.name}"] > span`).first()), `${c.label}${c.avoid ? ' avoid' : ''} ${c.full}/30${c.avoid ? ' without' : ''} ›`.replace(/\s+/g, ' '), `${c.name}: the row's words`);
+  }
+  const squares = await page.locator('[data-sq]').evaluateAll((els) => els.map((e) => ({ tag: e.tagName, button: !!e.closest('a, form') || e.getAttribute('role') === 'button', h: e.getBoundingClientRect().height })));
+  assert.ok(squares.length === 30 * hb.calendar.length && squares.every((x) => x.tag === 'SPAN' && !x.button && x.h < 20), 'the squares are small spans, not buttons');
+  assert.equal(await page.locator('[data-strip]').first().getAttribute('aria-hidden'), 'true');
+  assert.equal(await text(page.locator('[data-legend]')), 'done partly a habit to avoid, logged nothing', 'the legend');
+
+  // the page: one column on phones and tablets, the ticks and the 30 days left and "Your habits" right from 1100 px
+  const [tk, th, li] = await Promise.all(['ticks', 'thirty', 'list'].map((c) => page.locator(`[data-card="${c}"]`).boundingBox()));
+  if (pc) assert.ok(li.x > th.x + th.width - 1 && Math.abs(li.y - tk.y) < 2 && th.y > tk.y + tk.height - 1, 'pc: the ticks and the 30 days left, Your habits right');
+  else assert.ok(th.y > tk.y + tk.height - 1 && li.y > th.y + th.height - 1 && Math.abs(li.x - th.x) < 2, `${name}: one column`);
+  await page.screenshot({ path: `${out}/habits-${name}-${theme}.png`, fullPage: true });
+  await checkWidth(page, 'habits');
+
+  // a tick: Today's button with the habits read; the strip's last square follows; Undo takes it back
+  await page.locator('[data-card="ticks"] [data-habit="meds"]').click();
+  await page.locator('[data-card="ticks"] [data-habit="meds"][aria-pressed="true"]').waitFor();
+  assert.equal(await text(doneLine), '3 of 4 done');
+  await headIs('Medication ticked.');
+  assert.equal((await sq('meds')).at(-1), 'done', "the strip's last square");
+  await bar.getByRole('button', { name: 'Undo' }).click();
+  await page.locator('[data-card="ticks"] [data-habit="meds"][aria-pressed="false"]').waitFor();
+  await headIs('Undone.');
+  assert.equal(await text(doneLine), '2 of 4 done');
+  // a done habit is unticked by a tap
+  await page.locator('[data-card="ticks"] [data-habit="sample_stretching"]').click();
+  await page.locator('[data-card="ticks"] [data-habit="sample_stretching"][aria-pressed="false"]').waitFor();
+  assert.equal(await text(doneLine), '1 of 4 done');
+  await bar.getByRole('button', { name: 'Undo' }).click();
+  await page.locator('[data-card="ticks"] [data-habit="sample_stretching"][aria-pressed="true"]').waitFor();
+
+  // the calendar of a twice-a-day habit: weeks, Monday first, cells of 44 px
+  const reading = hb.calendar.find((c) => c.name === 'sample_reading');
+  const cal = page.locator('[data-calendar="sample_reading"]');
+  await page.locator('[data-cal-row="sample_reading"]').click();
+  await cal.waitFor();
+  assert.equal(await page.locator('[data-cal-row="sample_reading"]').getAttribute('aria-expanded'), 'true');
+  assert.deepEqual(await cal.locator('[data-day]').evaluateAll((els) => els.map((e) => e.getAttribute('data-day'))), reading.days.map((d) => d.day), 'the calendar has the 30 days');
+  assert.deepEqual(await cal.locator('[data-day]').evaluateAll((els) => els.map((e) => e.getAttribute('data-state'))), reading.days.map((d) => d.state), 'their states');
+  const box = async (d) => cal.locator(`[data-day="${d}"]`).boundingBox();
+  const [mon9, mon16, sun15, sun18] = [await box('2026-11-09'), await box('2026-11-16'), await box('2026-11-15'), await box('2026-10-18')];
+  assert.ok(Math.abs(mon9.x - mon16.x) < 1 && mon16.y > mon9.y + mon9.height - 1, 'Monday first: two Mondays in one column, a week apart');
+  assert.ok(sun15.x > mon16.x + 4 * mon16.width && sun15.y < mon16.y && Math.abs(sun18.x - sun15.x) < 1, 'a Sunday is the last column');
+  assert.deepEqual(await cal.locator('div[aria-hidden="true"] span').allTextContents(), ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], 'the weekdays');
+  const cells = await cal.locator('[data-day]').evaluateAll((els) => els.map((e) => e.getBoundingClientRect()).map((r) => ({ w: r.width, h: r.height })));
+  assert.ok(cells.every((c) => c.w >= 44 && c.h >= 44), `cells of at least 44 px (smallest ${Math.min(...cells.map((c) => Math.min(c.w, c.h)))})`);
+  assert.equal(await text(cal.locator('[data-day="2026-11-15"] [data-mark]')), '1/2', 'a twice-a-day cell shows 1/2');
+  assert.equal(await text(cal.locator('[data-day="2026-11-16"] [data-mark]')), '2/2');
+  assert.equal(await text(cal.locator('[data-day="2026-11-16"] span').first()), '16');
+  assert.equal(await text(cal.locator('[data-day="2026-10-18"] span').first()), '18 Oct', 'the first cell has its month');
+  assert.equal(await text(cal.locator('[data-day="2026-11-01"] span').first()), '1 Nov', 'the 1st has its month');
+  assert.equal(await page.locator('[data-calendar]').count(), 1, 'one calendar open');
+  await checkWidth(page, 'habits, a calendar');
+
+  // a day ticked: none -> 1/2 -> 2/2 (done), and a done day is taken off; Undo in the bar
+  const none = reading.days.find((d) => d.state === 'none' && d.day !== '2026-11-16').day;
+  const dm = `${none.slice(8, 10)}.${none.slice(5, 7)}.${none.slice(0, 4)}`;
+  const cell = cal.locator(`[data-day="${none}"]`);
+  await cell.click();
+  await cell.locator('[data-mark]', { hasText: '1/2' }).waitFor();
+  assert.equal(await cell.getAttribute('data-state'), 'partly');
+  await headIs('Saved.');
+  await bar.getByRole('button', { name: 'Undo' }).waitFor();
+  assert.equal(await full('sample_reading'), `${reading.full}/30`, 'a partly day is not full yet');
+  assert.equal((await sq('sample_reading'))[reading.days.findIndex((d) => d.day === none)], 'partly', "the strip's square");
+  if (name === 'phone') await page.locator('[data-cal="sample_reading"]').screenshot({ path: `${out}/habits-calendar-${name}-${theme}.png` });
+  await cell.click();
+  await cell.locator('[data-mark]', { hasText: '2/2' }).waitFor();
+  assert.equal(await cell.getAttribute('data-state'), 'done');
+  assert.equal(await full('sample_reading'), `${reading.full + 1}/30`);
+  await cell.click();
+  await page.locator(`[data-calendar="sample_reading"] [data-day="${none}"][data-state="none"]`).waitFor();
+  await headIs(`Removed 2 ticks of Reading on ${dm}.`);
+  await bar.getByRole('button', { name: 'Undo' }).click();
+  await headIs('Undone.');
+  await page.locator(`[data-calendar="sample_reading"] [data-day="${none}"][data-state="done"]`).waitFor();
+  await cell.click(); // none again
+  await page.locator(`[data-calendar="sample_reading"] [data-day="${none}"][data-state="none"]`).waitFor();
+
+  // a button is blocked while its save is on the way: a double tap sends one tick, it never ticks and unticks
+  await standinPost('/standin/slow');
+  const stretching = hb.calendar.find((c) => c.name === 'sample_stretching');
+  const open2 = stretching.days.find((d) => d.state === 'none').day;
+  await page.locator('[data-cal-row="sample_stretching"]').click();
+  const c2 = page.locator(`[data-calendar="sample_stretching"] [data-day="${open2}"]`);
+  await c2.dblclick();
+  await c2.locator('[data-mark]', { hasText: '✓' }).waitFor();
+  await page.waitForTimeout(1200);
+  assert.equal(await c2.getAttribute('data-state'), 'done', 'two taps made one tick');
+  assert.equal(await full('sample_stretching'), `${stretching.full + 1}/30`);
+  await headIs('Saved.');
+  // and taking it off
+  await standinPost('/standin/reset');
+  await page.reload();
+  await page.locator('[data-cal-row="sample_stretching"]').click();
+  const done = stretching.days.find((d) => d.state === 'done' && d.day !== '2026-11-16').day;
+  await page.locator(`[data-calendar="sample_stretching"] [data-day="${done}"]`).click();
+  await page.locator(`[data-calendar="sample_stretching"] [data-day="${done}"][data-state="none"]`).waitFor();
+  await headIs(`Removed 1 tick of Stretching on ${done.slice(8, 10)}.${done.slice(5, 7)}.${done.slice(0, 4)}.`);
+  assert.equal(await full('sample_stretching'), `${stretching.full - 1}/30`);
+  // a habit to avoid: a cross on a day it happened
+  await page.locator('[data-cal-row="sample_soft_drink"]').click();
+  const drink = hb.calendar.find((c) => c.name === 'sample_soft_drink');
+  const logged = drink.days.find((d) => d.state === 'logged').day;
+  assert.equal(await text(page.locator(`[data-calendar="sample_soft_drink"] [data-day="${logged}"] [data-mark]`)), '✕');
+  assert.equal(await page.locator('[data-calendar]').count(), 1, 'opening another closes the first');
+  await page.screenshot({ path: `${out}/habits-calendar-open-${name}-${theme}.png`, fullPage: true });
+  await checkWidth(page, 'habits, after day taps');
+
+  // a habit the read marks as not editable opens read-only, with one line why
+  await standinPost('/standin/reset');
+  await standinPost('/standin/locked');
+  await page.reload();
+  await page.locator('[data-cal-row="meds"]').click();
+  assert.equal(await text(page.locator('[data-readonly]')), 'Its days cannot be changed here: this is a time, not a habit to tick.');
+  assert.equal(await page.locator('[data-calendar="meds"] button').count(), 0, 'read-only: no buttons');
+  assert.equal(await page.locator('[data-calendar="meds"] [data-day]').count(), 30);
+  await standinPost('/standin/reset');
+  await page.reload();
+  await page.locator('[data-card="list"]').waitFor();
+  await page.evaluate(() => (window.__noReload = true));
+
+  // Your habits: the filter with its counts, the habits by group, the stats line, the actions as the read allows
+  assert.deepEqual(await page.locator('[data-chips] a').allTextContents(), ['Tracked · 5', 'Not tracked · 27', 'Retired · 2', 'All · 34'], 'the filter with counts');
+  assert.deepEqual(await rows(), sample(hb, 'tracked'), 'tracked habits');
+  assert.deepEqual(await page.locator('[data-group] h3').allTextContents(), hb.list.map((g) => `${g.label} · ${g.habits.length}`), 'groups');
+  const reads = page.locator('[data-habit-row="sample_reading"]');
+  assert.equal(await text(reads.locator('[data-row-line]')), 'Learning · 2 times a day');
+  assert.equal(await text(reads.locator('[data-row-stats]')), '20 of the last 30 days · last 16.11.');
+  assert.deepEqual(await reads.locator('[data-act]').evaluateAll((els) => els.map((e) => e.getAttribute('data-act'))), ['untrack', 'edit', 'retire'], 'a habit with history: no Delete');
+  assert.deepEqual(await page.locator('[data-habit-row="meds"] [data-act]').evaluateAll((els) => els.map((e) => e.getAttribute('data-act'))), ['untrack', 'edit', 'retire', 'delete']);
+  assert.equal(await text(page.locator('[data-habit-row="sample_soft_drink"] [data-avoid]')), 'avoid');
+  assert.equal(await text(page.locator('[data-help]')), hb.help);
+  await page.locator('[data-show="untracked"]').click();
+  await page.waitForURL(/\/habits\?show=untracked$/);
+  await page.locator('[data-habit-row="surya_kriya"]').waitFor();
+  assert.deepEqual(await rows(), sample(all, 'untracked'), 'not tracked habits');
+  assert.equal(await page.evaluate(() => window.__noReload), true, 'the filter switched without a reload');
+  assert.deepEqual(await page.locator('[data-habit-row="surya_kriya"] [data-act]').evaluateAll((els) => els.map((e) => e.getAttribute('data-act'))), ['track', 'edit', 'retire', 'delete']);
+  await page.locator('[data-show="retired"]').click();
+  await page.waitForURL(/show=retired$/);
+  await page.locator('[data-habit-row="sample_piano"]').waitFor();
+  assert.deepEqual(await rows(), sample(all, 'retired'));
+  assert.deepEqual(await page.locator('[data-habit-row="sample_piano"] [data-act]').evaluateAll((els) => els.map((e) => e.getAttribute('data-act'))), ['edit', 'restore'], 'a retired habit: Bring back, no Track');
+  await page.locator('[data-show="all"]').click();
+  await page.waitForURL(/show=all$/);
+  await page.locator('[data-habit-row="ayurveda"]').waitFor();
+  assert.equal((await rows()).length, 34, 'all habits');
+  assert.equal((await page.locator('[data-chips] a[aria-current="page"]').allTextContents()).join(), 'All · 34');
+  if (name === 'phone') await page.locator('[data-card="list"]').screenshot({ path: `${out}/habits-list-all-${name}-${theme}.png` });
+  await checkWidth(page, 'habits, all');
+  await page.locator('[data-show="tracked"]').click();
+  await page.waitForURL(/\/habits$/);
+  await page.locator('[data-habit-row="meds"]').waitFor();
+
+  // Edit: the form opens with the habit's own values; a duplicate label is refused next to the form and keeps the words
+  await reads.getByRole('button', { name: 'Edit' }).click();
+  const edit = page.locator('[data-edit-form="sample_reading"]');
+  assert.equal(await edit.locator('input[name=label]').inputValue(), 'Reading');
+  assert.equal(await edit.locator('input[name=target]').inputValue(), '2');
+  assert.equal(await edit.locator('input[name=order]').inputValue(), '802');
+  assert.equal(await edit.locator('select[name=aim]').inputValue(), 'do');
+  await edit.locator('input[name=label]').fill('Stretching');
+  await edit.locator('input[name=target]').fill('3');
+  await edit.getByRole('button', { name: 'Save' }).click();
+  await edit.locator('[data-refusal]').waitFor();
+  assert.equal(await text(edit.locator('[data-refusal]')), 'There is already a log type called Stretching.');
+  assert.equal(await edit.locator('input[name=label]').inputValue(), 'Stretching', 'the words stay');
+  assert.equal(await edit.locator('input[name=target]').inputValue(), '3');
+  assert.equal(await bar.count(), 0, 'a refusal is next to the form, not in the bar');
+  if (name === 'phone') await reads.screenshot({ path: `${out}/habits-edit-refused-${name}-${theme}.png` });
+  // a check before sending: times a day out of range
+  await edit.locator('input[name=label]').fill('Reading time');
+  await edit.locator('input[name=target]').fill('11');
+  await edit.getByRole('button', { name: 'Save' }).click();
+  assert.equal(await text(edit.locator('[data-refusal]')), 'Times a day: a whole number from 1 to 10.');
+  // saved: the label and the times a day change everywhere, the row has a blue edge, and no Undo is offered
+  await edit.locator('input[name=target]').fill('3');
+  await edit.locator('select[name=aim]').selectOption('avoid');
+  if (name === 'phone') await reads.screenshot({ path: `${out}/habits-edit-${name}-${theme}.png` });
+  await edit.getByRole('button', { name: 'Save' }).click();
+  await headIs('Saved the habit Reading time.');
+  await edit.waitFor({ state: 'detached' });
+  assert.equal(await bar.getByRole('button', { name: 'Undo' }).count(), 0, 'the list has no Undo');
+  assert.equal(await text(reads.locator('[data-row-label]')), 'Reading time');
+  assert.equal(await text(reads.locator('[data-row-line]')), 'Learning · 3 times a day');
+  assert.equal(await reads.locator('[data-avoid]').count(), 1, 'the avoid mark');
+  assert.equal(await reads.getAttribute('data-changed'), '', 'a blue edge on the changed row');
+  assert.equal(await page.locator('[data-card="ticks"] [data-habit="sample_reading"]').count(), 1);
+  assert.match(await text(page.locator('[data-card="ticks"] [data-habit="sample_reading"]')), /^Reading time 2\/3 avoid$/, "the ticks follow the edit");
+  assert.equal(await text(doneLine), '1 of 3 done', 'a habit to avoid is not counted');
+  await reads.getByRole('button', { name: 'Edit' }).click();
+  await edit.locator('input[name=label]').fill('Reading');
+  await edit.locator('input[name=target]').fill('2');
+  await edit.locator('select[name=aim]').selectOption('do');
+  await edit.getByRole('button', { name: 'Save' }).click();
+  await headIs('Saved the habit Reading.');
+  assert.equal(await text(doneLine), '2 of 4 done');
+
+  // a new habit: the form with the read's group list and limits; a used name is refused and keeps the words; then it is added
+  await page.locator('[data-new-habit]').click();
+  const form = page.locator('[data-new-form]');
+  assert.equal(await form.locator('select[name=group]').inputValue(), 'practice', 'the read\'s default group');
+  assert.deepEqual(await form.locator('select[name=group] option').allTextContents(), hb.groups.map((g) => g.label));
+  assert.equal(await form.locator('input[name=label]').getAttribute('maxlength'), '40');
+  assert.equal(await form.locator('[data-track-now]').getAttribute('aria-checked'), 'true');
+  await form.locator('input[name=label]').fill('stretching');
+  await form.getByRole('button', { name: 'Add' }).click();
+  await form.locator('[data-refusal]').waitFor();
+  assert.equal(await text(form.locator('[data-refusal]')), 'There is already a log type called stretching.');
+  assert.equal(await form.locator('input[name=label]').inputValue(), 'stretching', 'the words stay');
+  if (name === 'phone') await page.screenshot({ path: `${out}/habits-new-refused-${name}-${theme}.png` });
+  await form.locator('input[name=label]').fill('Evening walk');
+  await form.locator('select[name=group]').selectOption('daily');
+  await form.locator('input[name=target]').fill('2');
+  if (name === 'phone') await page.locator('[data-card="list"]').screenshot({ path: `${out}/habits-new-${name}-${theme}.png` });
+  await form.getByRole('button', { name: 'Add' }).click();
+  await headIs('Added the habit Evening walk. It is tracked: tick it above or log it by its name.');
+  await form.waitFor({ state: 'detached' });
+  assert.equal(await bar.getByRole('button', { name: 'Undo' }).count(), 0, 'a new habit has no Undo');
+  const walk = page.locator('[data-habit-row="evening_walk"]');
+  assert.equal(await text(walk.locator('[data-row-line]')), 'Daily routine · 2 times a day');
+  assert.equal(await walk.getAttribute('data-changed'), '');
+  assert.equal(await text(walk.locator('[data-row-stats]')), 'Never ticked');
+  assert.equal(await page.locator('[data-card="ticks"] [data-habit="evening_walk"]').count(), 1, 'it is on the ticks');
+  assert.equal(await page.locator('[data-cal="evening_walk"]').count(), 1, 'and in the 30 days');
+  assert.equal(await text(doneLine), '2 of 5 done');
+  assert.deepEqual(await page.locator('[data-chips] a').allTextContents(), ['Tracked · 6', 'Not tracked · 27', 'Retired · 2', 'All · 35']);
+
+  // Delete asks once, then sends confirmed
+  await walk.getByRole('button', { name: 'Delete' }).click();
+  const ask = page.locator('[data-delete-ask="evening_walk"]');
+  assert.equal(await text(ask), 'Delete Evening walk? It was never ticked, so nothing is lost. This cannot be undone. Yes, delete Keep it');
+  if (name === 'phone') await walk.screenshot({ path: `${out}/habits-delete-${name}-${theme}.png` });
+  await ask.getByRole('button', { name: 'Keep it' }).click();
+  await ask.waitFor({ state: 'detached' });
+  assert.equal(await walk.count(), 1, 'Keep it keeps it');
+  await walk.getByRole('button', { name: 'Delete' }).click();
+  await ask.getByRole('button', { name: 'Yes, delete' }).click();
+  await headIs('Deleted the habit Evening walk.');
+  await walk.waitFor({ state: 'detached' });
+  assert.equal(await page.locator('[data-card="ticks"] [data-habit="evening_walk"]').count(), 0);
+  assert.equal(await text(doneLine), '2 of 4 done');
+
+  // Track, Retire, Bring back
+  await page.locator('[data-show="untracked"]').click();
+  await page.waitForURL(/show=untracked$/);
+  const cold = page.locator('[data-habit-row="sample_cold_shower"]');
+  await cold.getByRole('button', { name: 'Track', exact: true }).click();
+  await headIs('Now tracking Cold shower. It shows on Today and in the calendar.');
+  await cold.waitFor({ state: 'detached' });
+  assert.deepEqual(await page.locator('[data-chips] a').allTextContents(), ['Tracked · 6', 'Not tracked · 26', 'Retired · 2', 'All · 34']);
+  assert.equal(await page.locator('[data-card="ticks"] [data-habit="sample_cold_shower"]').count(), 1);
+  assert.equal(await page.locator('[data-cal="sample_cold_shower"]').count(), 1);
+  await page.locator('[data-show="tracked"]').click();
+  await page.waitForURL(/\/habits$/);
+  const cold2 = page.locator('[data-habit-row="sample_cold_shower"]');
+  await cold2.getByRole('button', { name: 'Retire' }).click();
+  await headIs('Retired Cold shower. Its history stays; it is hidden everywhere. Find it under Retired to bring it back.');
+  await cold2.waitFor({ state: 'detached' });
+  await page.locator('[data-show="retired"]').click();
+  await page.waitForURL(/show=retired$/);
+  const cold3 = page.locator('[data-habit-row="sample_cold_shower"]');
+  await cold3.getByRole('button', { name: 'Bring back' }).click();
+  await headIs('Brought back Cold shower (tracked again).');
+  await cold3.waitFor({ state: 'detached' });
+  await page.locator('[data-show="tracked"]').click();
+  await page.waitForURL(/\/habits$/);
+  await page.locator('[data-habit-row="meds"]').getByRole('button', { name: 'Untrack' }).click();
+  await headIs('Stopped tracking Medication. Its history stays and you can still log it in the chat.');
+  await page.locator('[data-habit-row="meds"]').waitFor({ state: 'detached' });
+  assert.equal(await page.evaluate(() => window.__noReload), true, 'the saves changed the page in place');
+  await checkWidth(page, 'habits, after the list saves');
+
+  // the settings line, and the links back: Today and the Health page's last line
+  assert.equal(await text(page.locator('[data-settings-line]')), "Hiding habits on Today, their order and the reminders stay in app.'s Settings.");
+  assert.match(await page.locator('[data-settings-line] a').getAttribute('href'), /\/web\/settings\?tab=today$/);
+  await page.goto(`${base}/health`);
+  await page.locator('[data-charts]').waitFor();
+  await page.locator('[data-habits-link]').click();
+  await page.waitForURL(/\/habits$/);
+  await page.locator('[data-card="ticks"]').waitFor();
+  await page.getByRole('link', { name: '‹ Today' }).click();
+  await page.waitForURL(`${base}/`);
+  await standinPost('/standin/reset');
+}
+
 async function checkWidth(page, what) {
   const sideways = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   assert.ok(sideways <= 0, `${what}: no sideways scroll (${sideways} px too wide)`);
@@ -1136,6 +1470,8 @@ async function checkWidth(page, what) {
 }
 // Collected over the whole run and checked at the end, so one run lists them all.
 const smallTargets = new Set();
+// SHOOT_ONLY=habits runs only that page's checks (a shortcut while building; the full run has no filter).
+const only = (k) => !process.env.SHOOT_ONLY || process.env.SHOOT_ONLY === k;
 
 const browser = await chromium.launch();
 const sizes = { phone: { width: 390, height: 844 }, tablet: { width: 800, height: 1100 }, pc: { width: 1280, height: 800 } };
@@ -1177,22 +1513,40 @@ for (const theme of ['dark', 'light']) {
     if (name === 'phone') await page.screenshot({ path: `${out}/signin-wrong-${name}-${theme}.png` });
     await signIn(page);
     await page.screenshot({ path: `${out}/today-${name}-${theme}.png`, fullPage: true });
-    await checkToday(page, name);
+    if (only('today')) await checkToday(page, name);
     await checkWidth(page, 'today');
-    await checkSaves(page, name, theme);
-    console.log(`saves ${name} ${theme}: checks passed`);
-    await checkLogBox(page, name, theme);
-    console.log(`logging box ${name} ${theme}: checks passed`);
-    await checkFood(page, name, theme);
-    console.log(`food day ${name} ${theme}: checks passed`);
-    await checkUsual(page, name, theme);
-    console.log(`usual meals ${name} ${theme}: checks passed`);
-    await checkScan(page, name, theme);
-    console.log(`scan sheet, look it up, microphone ${name} ${theme}: checks passed`);
-    await checkHealth(page, name, theme);
-    console.log(`health page, body measurements ${name} ${theme}: checks passed`);
-    await checkProblems(page, name, theme);
-    console.log(`core down, door off, next ${name} ${theme}: checks passed`);
+    if (only('saves')) {
+      await checkSaves(page, name, theme);
+      console.log(`saves ${name} ${theme}: checks passed`);
+    }
+    if (only('logbox')) {
+      await checkLogBox(page, name, theme);
+      console.log(`logging box ${name} ${theme}: checks passed`);
+    }
+    if (only('food')) {
+      await checkFood(page, name, theme);
+      console.log(`food day ${name} ${theme}: checks passed`);
+    }
+    if (only('usual')) {
+      await checkUsual(page, name, theme);
+      console.log(`usual meals ${name} ${theme}: checks passed`);
+    }
+    if (only('scan')) {
+      await checkScan(page, name, theme);
+      console.log(`scan sheet, look it up, microphone ${name} ${theme}: checks passed`);
+    }
+    if (only('health')) {
+      await checkHealth(page, name, theme);
+      console.log(`health page, body measurements ${name} ${theme}: checks passed`);
+    }
+    if (only('habits')) {
+      await checkHabits(page, name, theme);
+      console.log(`habits page ${name} ${theme}: checks passed`);
+    }
+    if (only('problems')) {
+      await checkProblems(page, name, theme);
+      console.log(`core down, door off, next ${name} ${theme}: checks passed`);
+    }
     if (name === 'phone' && theme === 'dark') {
       await page.getByRole('button', { name: 'Sign out' }).click();
       await page.getByRole('button', { name: 'Sign in' }).waitFor();

@@ -65,7 +65,7 @@
     <HealthCharts health={h} />
     <BodyCard body={b} range={h.range} appUrl={data.appUrl} />
     <HealthDays health={h} />
-    <p class="m-0 text-[13px] text-muted">The habits calendar is on <a href="{data.appUrl}/web/habits">app.'s Habits page</a>.</p>
+    <p class="m-0 text-[13px] text-muted">The habits calendar is on <a href="/habits" data-habits-link>the Habits page</a>.</p>
   </main>
 {/if}
 

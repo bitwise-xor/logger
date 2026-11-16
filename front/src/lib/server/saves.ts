@@ -16,6 +16,7 @@ import { DoorError } from './door.js';
 import { problemOf, problemText, type ProblemKind } from '../problems.js';
 import { labeladdBody } from '../scan.js';
 import { bodyValues, healthValues } from '../health.js';
+import { SHOWS } from '../habits.js';
 
 /** The form's fields: what `FormData` offers (and a plain test double). */
 export interface Fields {
@@ -167,9 +168,41 @@ export const SAVES = {
     body: (f) => ({ day: str(f, 'day', 10), values: healthValues(f), ...yes(f) }),
   },
   body: { path: '/body', keyed: true, body: (f) => ({ day: str(f, 'day', 10), values: bodyValues(f), ...yes(f) }) },
+  // The Habits page (deploy 94): a square of the calendar (a day with fewer ticks than the habit's times a day gets one, a done day
+  // has its ticks taken off) and the list's forms. The key is new per tap but the day tap is never sent again by the page: the
+  // door does not replay it (a re-sent key would untick, docs/API.md). The list's forms have no Undo.
+  habit_day: { path: '/habit/day', keyed: true, body: (f) => ({ name: str(f, 'name', 64), day: str(f, 'day', 10) }) },
+  habits_manage: { path: '/habits/manage', keyed: true, body: (f) => manageBody(f) },
   // Today's "Not today" on "Body measurements due": hidden until the next health day (no key, no Undo).
   body_skip: { path: '/body/skip', keyed: false, body: () => ({}) },
 } satisfies Record<string, Save>;
+
+/**
+ * One of the Habits page's list forms (docs/API.md, /habits/manage): only the fields its action takes, as numbers and true or
+ * false where the door wants them (it refuses `on` or `track` that are not true or false, so they go only where they belong).
+ */
+function manageBody(f: Fields): Body {
+  const action = str(f, 'action', 10);
+  const name = str(f, 'name', 64);
+  const label = (): string | undefined => {
+    const v = str(f, 'label', 200);
+    return v === undefined ? undefined : v.split(/\s+/).join(' ');
+  };
+  switch (action) {
+    case 'track':
+      return { action, name, on: f.get('on') === '1' };
+    case 'edit': {
+      const aim = str(f, 'aim', 10);
+      return { action, name, label: label(), target: int(f, 'target'), order: int(f, 'order'), aim: aim === 'do' || aim === 'avoid' ? aim : undefined };
+    }
+    case 'delete':
+      return { action, name, confirmed: f.get('confirmed') === '1' ? true : undefined };
+    case 'new':
+      return { action, label: label(), group: str(f, 'group', 20), target: int(f, 'target'), track: f.get('track') === '1' };
+    default: // retire, restore (an unknown action is the door's 400)
+      return { action, name };
+  }
+}
 
 /** The two yeses of a read-back (deploy 92): confirmed (an odd value) and confirm_delete (a value cleared). */
 function yes(f: Fields): Body {
@@ -183,10 +216,13 @@ export const FOOD_SAVES: SaveName[] = ['food_entry', 'food_note', 'usual_from_me
 export const USUAL_SAVES: SaveName[] = ['usual_meal', 'usual_new', 'undo'];
 /** The Health page's (deploy 92, src/routes/(app)/health): a day's row, a body session, Undo. */
 export const HEALTH_SAVES: SaveName[] = ['health_day', 'body', 'undo'];
+/** The Habits page's (deploy 94, src/routes/(app)/habits): Today's tick (the same save, asked for the habits read), a calendar day, the list's forms, Undo. */
+export const HABITS_SAVES: SaveName[] = ['habit', 'habit_day', 'habits_manage', 'undo'];
+const HABITS_ONLY: SaveName[] = ['habit_day', 'habits_manage'];
 export const TODAY_SAVES: SaveName[] = SAVE_NAMES.filter(
-  (n) => n === 'undo' || (!FOOD_SAVES.includes(n) && !USUAL_SAVES.includes(n) && !HEALTH_SAVES.includes(n)),
+  (n) => n === 'undo' || (!FOOD_SAVES.includes(n) && !USUAL_SAVES.includes(n) && !HEALTH_SAVES.includes(n) && !HABITS_ONLY.includes(n)),
 );
-export type View = 'day' | 'food' | 'usual' | 'health' | 'body';
+export type View = 'day' | 'food' | 'usual' | 'health' | 'body' | 'habits';
 
 /** A key as the browser makes them (src/lib/saver.ts): a random UUID or base64url; anything else is replaced. */
 const KEY = /^[A-Za-z0-9_-]{16,64}$/;
@@ -207,6 +243,11 @@ export function bodyFor(
     const range = str(f, 'range', 3);
     if (range && ['7', '30', '90'].includes(range)) body.range = Number(range);
     if (view === 'health' && f.get('all') === '1') body.all = true;
+  }
+  // The Habits page's fresh read (deploy 94): the filter of "Your habits".
+  if (view === 'habits') {
+    const show = str(f, 'show', 10);
+    if (show && (SHOWS as readonly string[]).includes(show)) body.show = show;
   }
   if (save.keyed) {
     const key = str(f, 'key', 64);

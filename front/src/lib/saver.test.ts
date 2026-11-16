@@ -152,6 +152,41 @@ describe('the saver', () => {
     expect(n.calls).toHaveLength(2);
   });
 
+  // Deploy 94: the Habits page's day tap is never sent again (the door does not replay it), its other taps are
+  it('gives a day tap of the Habits page a new key each time but never keeps it for a re-send after a sign-in', async () => {
+    const n = fakeNet();
+    const store = memory();
+    let k = 0;
+    const s = new Saver({ ...n, storage: store, newKey: () => `day-key-${++k}`, page: '/habits' });
+    const a = s.send('habit_day', { name: 'reading', day: '2026-11-13' });
+    await tick();
+    expect(n.calls[0]!.url).toBe('/habits?/habit_day');
+    expect(n.calls[0]!.fields.key).toEqual(['day-key-1']);
+    n.calls[0]!.answer({ type: 'failure', status: 401, data: { signedOut: true } });
+    expect(await a).toEqual({ kind: 'signed_out' });
+    expect(store.m.has(RESEND_ITEM)).toBe(false);
+    expect(await s.resend()).toBeNull();
+    expect(n.calls).toHaveLength(1);
+
+    const b = s.send('habit_day', { name: 'reading', day: '2026-11-13' });
+    await tick();
+    expect(n.calls[1]!.fields.key).toEqual(['day-key-2']);
+    n.calls[1]!.answer(ok('Saved.'));
+    await b;
+
+    // a list form is kept and sent again, with its key, by its own page
+    const c = s.send('habits_manage', { action: 'retire', name: 'reading' });
+    await tick();
+    n.calls[2]!.answer({ type: 'failure', status: 401, data: { signedOut: true } });
+    await c;
+    expect(store.m.has(RESEND_ITEM)).toBe(true);
+    const r = s.resend();
+    await tick();
+    expect(n.calls[3]!.fields).toEqual({ action: ['retire'], name: ['reading'], key: ['day-key-3'] });
+    n.calls[3]!.answer(ok('Retired.'));
+    await r;
+  });
+
   // Step D: the logging box's typed line
   it('never drops a typed line\'s answer for a tap made while the AI read it (its day is read after that tap\'s)', async () => {
     const n = fakeNet();

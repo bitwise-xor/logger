@@ -8,7 +8,7 @@ skeleton, the sign-in and an empty Today. Step B (deploy 79): Today read-only fr
 (deploy 80): the taps save in place (water, Again and usual chips, habits, check-in, review, Health card, question buttons,
 Try again / Delete for a message not read yet, Undo). Step D (deploy 81): the logging box. Step E (deploy 84): the Food day.
 Step F (deploy 85): polish (plain messages when the core is down or the door is off, back to your page after a sign-in, phone,
-tablet and PC width). Then the trial runs (below). Deploy 87: the Usual meals page. Deploy 88: Today shows each food's and meal's macros, a pie of the day's kcal from protein, carbs and fat in the Energy card (app.'s macro colours, `--macro-*` in `app.css`), a one-line logging box that grows, and two habits per row. Deploy 90: scan, label photo, look-up and voice in the logging box (step 1a of the move to `logger.`, below). Deploy 92: the Health page with body measurements (step 1b, below).
+tablet and PC width). Then the trial runs (below). Deploy 87: the Usual meals page. Deploy 88: Today shows each food's and meal's macros, a pie of the day's kcal from protein, carbs and fat in the Energy card (app.'s macro colours, `--macro-*` in `app.css`), a one-line logging box that grows, and two habits per row. Deploy 90: scan, label photo, look-up and voice in the logging box (step 1a of the move to `logger.`, below). Deploy 92: the Health page with body measurements (step 1b, below). Deploy 94: the Habits page (step 1c, below).
 
 ## How it fits
 
@@ -79,6 +79,21 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   says it waits under Needs you on Today. On Today: "Body measurements due" (`needs.body_due`) at the top of the review items,
   counted in Needs you as app. counts it with its To review items, with Measure and "Not today" (`body_skip`). The container's
   health check shares the path: `+server.ts` in the same folder answers the check's fetch, a browser gets the page.
+- The Habits page (deploy 94, the move's step 1c; the door's routes came with deploy 93): `src/routes/(app)/habits`, from the Habits
+  card's "Habits" link on Today and the Health page's last line. `?show=tracked|untracked|retired|all` (tracked without) is the filter of
+  "Your habits". Today's ticks with "n of N done" (`components/today/HabitGrid.svelte`, shared with Today's card, two per row; the
+  existing `habit` save asked for `view: "habits"`); the last 30 days: per tracked habit its label, "full/30" (or "n/30 without") and a
+  strip of 30 squares that are not buttons; the habit's row opens its calendar in weeks, Monday first, cells of at least 44 px
+  (`HabitCalendar.svelte`), where a day tap ticks or unticks it (`habit_day`; a twice-a-day habit shows "1/2"; a habit the read marks
+  not editable opens read-only with a line why), Undo in the answer bar. "Your habits": the filter with counts, the habits by group with
+  the stats line and the actions the read allows (Track or Untrack, Edit, Retire or Bring back, Delete asked once, then `confirmed`) and
+  "+ New habit" (`habits_manage`): no Undo there, and a refusal is said next to its form, which keeps the words. Every tap has a new key
+  and its button is blocked while it is on its way; `habit_day` is never sent again by the page, not even after a sign-in
+  (`NEVER_RESENT` in `saver.ts`: the door does not replay a re-sent day tick). `src/lib/habits.ts` has the plain rules (weeks, cells,
+  forms, counts), `habitspage.svelte.ts` the state. Hiding and ordering habits on Today and the reminders stay at app. (a line with a
+  link to Settings). From 1100 px the ticks and the 30 days are on the left and "Your habits" on the right. The stand-in answers
+  `/habits`, `/habit/day` and `/habits/manage` from `tests/samples/habits.json` and changes the data as the core would (POST
+  `/standin/slow` slows day taps, `/standin/locked` marks Medication not editable); `SHOOT_ONLY=habits` (passed to the Playwright container with `-e`) runs only that page's checks.
 - The chart part (deploy 92; for Trends and Gym too): `components/chart/Chart.svelte` draws a chart description of the door
   (`ChartData` in `src/lib/chart.ts`: `start`, `days`, `series` of `line`, `dot`, `ring`, `bar` with points `[day, value,
   text, base]`, and `lines`, `min`, `max`, `prefix`, `unit`, `decimals`, `band`, `pointLabels`, `xAtPoints`, `years`) as SVG,

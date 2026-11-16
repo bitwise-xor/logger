@@ -40,6 +40,12 @@
 // Step F: POST /standin/core-down makes every door call fail with no answer (the connection is dropped, as when the core is
 // stopped), POST /standin/door-off answers 404 not_found to every door call (FRONT_TOKEN unset at the core), and POST
 // /standin/up (or /standin/reset) brings it back. Sessions survive both, as at the core.
+// Deploy 94: the Habits page's routes, from tests/samples/habits.json (real answers of the door for invented habits): GET /habits?show=
+// (today's ticks, 30 days per tracked habit, Your habits with the filter and its counts), POST /habit/day (a day under its times a
+// day gets a tick, a done day has its ticks taken off; a re-sent key is refused while the day still needs a tick, as the core), POST
+// /habits/manage (track, retire, restore, edit, delete with confirmed, new: the core's checks and words, no Undo), and Today's POST
+// /habit with view "habits". The habits are the sample's list (names from the sample), kept as ticks per day; POST /standin/slow
+// makes the day taps take a moment (to try a button blocked while its save is on the way), POST /standin/locked marks Medication as not editable.
 import { createServer } from 'node:http';
 import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
@@ -56,6 +62,7 @@ const FOOD = read('food.json');
 const USUAL = read('usual.json');
 const SCAN = read('scan.json');
 const HEALTH = read('health.json');
+const HABITS = read('habits.json');
 const READ_MS = 1200; // the AI's moment: long enough to see the "being read" row
 
 let state; // { day, usual, undo: {token, head, expires_at} | null, before: {day, usual} before the last save (for Undo), keys: Map, lines: Map, aiDown }
@@ -64,7 +71,7 @@ let mode = 'up'; // 'up' | 'core-down' | 'door-off' (step F)
 function reset() {
   state = { day: read('day.json').day, usual: usualStart(), undo: null, before: null, keys: new Map(), lines: new Map(), aiDown: false,
     scanned: new Map([[SCAN.barcode.code, SCAN.barcode.food]]), labelFail: false,
-    hv: healthStart(), sessions: sessionsStart() };
+    hv: healthStart(), sessions: sessionsStart(), hab: habitsStart(), dayKeys: new Set(), slow: 0, locked: new Set() };
   state.day.needs.body_due = structuredClone(HEALTH.day_body_due);
   // the notes of the food sample's rows (the same invented day), kept on the rows so an Undo puts them back too
   const notes = new Map(FOOD.food_day.food_day.rows.map((r) => [r.ref, r.note]));
@@ -718,6 +725,194 @@ function lookUp(b) {
   return { ...sample, questions: [q] };
 }
 
+// ---- the Habits page (deploy 94) ------------------------------------------------------------------------------------------------
+
+const HB = HABITS.habits.habits;
+const HB_ALL = HABITS.habits_all.habits;
+const HB_HELP = {
+  tracked: HB.help,
+  untracked: 'Not tracked: in the database and still loggable in the chat, but not shown on Today. Switch Track on to start.',
+  retired: 'Retired: hidden everywhere; the history stays. Bring one back any time.',
+  all: HB_ALL.help,
+};
+const hbWhole = (x) => Number.isInteger(x);
+const dmy2 = (iso) => `${iso.slice(8, 10)}.${iso.slice(5, 7)}.${iso.slice(0, 4)}`;
+
+/** Every habit of the sample's list (the "all" read) as {…row, on, active, days: {day: n}, older, base30, lastOld}. */
+function habitsStart() {
+  const cal = new Map(HB.calendar.map((c) => [c.name, c]));
+  return HB_ALL.list.flatMap((g) => g.habits).map((h) => {
+    const c = cal.get(h.name);
+    const days = c ? Object.fromEntries(c.days.filter((d) => d.n).map((d) => [d.day, d.n])) : {};
+    const inWindow = Object.values(days).reduce((a, n) => a + n, 0);
+    return {
+      name: h.name, label: h.label, group: h.group, target: h.target, order: h.order, avoid: h.avoid,
+      on: h.state === 'tracked', active: h.state !== 'retired', days,
+      older: Math.max(0, h.ticks - inWindow), base30: c ? 0 : h.days30, lastOld: h.last_day,
+    };
+  });
+}
+
+const hbState = (h) => (!h.active ? 'retired' : h.on ? 'tracked' : 'untracked');
+const hbTicks = (h) => h.older + Object.values(h.days).reduce((a, n) => a + n, 0);
+const hbLast = (h) => Object.keys(h.days).sort().at(-1) ?? h.lastOld;
+
+/** app.'s stats line (habitspage.stats). */
+function hbStats(h, today) {
+  const ticks = hbTicks(h);
+  if (!ticks) return 'Never ticked';
+  const last = hbLast(h);
+  const when = last.slice(0, 4) === today.slice(0, 4) ? ddmm(last) : dmy2(last);
+  const days30 = h.base30 + Object.keys(h.days).length;
+  return days30 ? `${days30} of the last 30 days · last ${when}` : `Last ticked ${when}`;
+}
+
+/** GET /habits as the door answers: the sample's shape, worked out from the habits as they stand now. */
+function habitsOut(show = 'tracked') {
+  const today = HB.today;
+  const tracked = state.hab.filter((h) => hbState(h) === 'tracked').sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
+  const now = (h) => h.days[today] ?? 0;
+  const days = Array.from({ length: HB.days }, (_, i) => shiftIso(HB.start, i));
+  const rows = (h) => ({
+    name: h.name, label: h.label, group: h.group, target: h.target, order: h.order, avoid: h.avoid, state: hbState(h),
+    ticks: hbTicks(h), days30: h.base30 + Object.keys(h.days).length, last_day: hbLast(h) ?? null, stats: hbStats(h, today),
+    can_track: h.active, can_delete: hbTicks(h) === 0,
+  });
+  const todo = tracked.filter((h) => !h.avoid);
+  return {
+    today, start: HB.start, days: HB.days, edit_from: HB.edit_from,
+    checklist: {
+      done: todo.filter((h) => now(h) >= h.target).length, total: todo.length,
+      habits: tracked.map((h) => ({ name: h.name, label: h.label, done: now(h), target: h.target, complete: now(h) >= h.target, avoid: h.avoid, last_tick: now(h) ? `t_${h.name}` : null })),
+    },
+    calendar: tracked.map((h) => ({
+      name: h.name, label: h.label, target: h.target, avoid: h.avoid, editable: !state.locked.has(h.name),
+      full: days.filter((d) => (h.avoid ? !(h.days[d] ?? 0) : (h.days[d] ?? 0) >= h.target)).length,
+      days: days.map((d) => {
+        const n = h.days[d] ?? 0;
+        const [st, text] = h.avoid ? (n ? ['logged', `${n} logged`] : ['none', 'none']) : n >= h.target ? ['done', 'done'] : n ? ['partly', `${n} of ${h.target}`] : ['none', 'not logged'];
+        return { day: d, n, state: st, text };
+      }),
+    })),
+    show, help: HB_HELP[show],
+    shows: HB.shows.map((x) => ({ ...x, count: state.hab.filter((h) => x.key === 'all' || hbState(h) === x.key).length })),
+    list: HB.groups.map((g) => ({ group: g.key, label: g.label, habits: state.hab.filter((h) => h.group === g.key && (show === 'all' || hbState(h) === show)).sort((a, b) => a.order - b.order || a.name.localeCompare(b.name)).map(rows) })).filter((g) => g.habits.length),
+    groups: HB.groups, default_group: HB.default_group, limits: HB.limits,
+  };
+}
+
+const hbHabit = (name) => state.hab.find((h) => h.name === name);
+const hbSave = (before, answer) => {
+  // an Undo puts the habits back as they were
+  state.before = { day: state.day, usual: state.usual, hab: before };
+  if (answer.undo !== null) state.undo = { token: randomBytes(12).toString('base64url'), head: `Saved: ${answer.head}`, expires_at: new Date(Date.now() + 15 * 60_000).toISOString() };
+  return { ...answer, ...(answer.undo === null ? {} : { undo: state.undo }) };
+};
+
+/** POST /habit with view "habits": Today's button, on the Habits page. */
+function habitTick(b) {
+  const h = hbHabit(b.name);
+  if (!h || hbState(h) !== 'tracked') return rejected('Unknown habit.');
+  const before = structuredClone(state.hab);
+  const today = HB.today;
+  const n = h.days[today] ?? 0;
+  if (b.action === 'untick') {
+    if (!n) return { outcome: 'unchanged', head: 'Nothing to change.' };
+    if (n === 1) delete h.days[today];
+    else h.days[today] = n - 1;
+    return hbSave(before, { outcome: 'changed', head: `${h.label} unticked.` });
+  }
+  h.days[today] = n + 1;
+  return hbSave(before, { outcome: 'saved', head: `${h.label} ticked.` });
+}
+
+/** POST /habit/day, as webactions.habit_day answers. */
+async function habitDay(b) {
+  if (state.slow) await new Promise((r) => setTimeout(r, state.slow));
+  const h = hbHabit(b.name);
+  if (!h || hbState(h) !== 'tracked' || state.locked.has(h.name)) return rejected('That habit cannot be changed for a past day here.');
+  const day = String(b.day);
+  const d = /^\d{4}-\d\d-\d\d$/.test(day) ? new Date(`${day}T12:00:00Z`) : null;
+  if (!d || Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== day) return rejected('Unknown day.');
+  if (day > HB.today || day < HB.edit_from) return rejected('Only the last 30 days can be changed here.');
+  const n = h.days[day] ?? 0;
+  // the core's key rule for a square: the message carries the time of the click, so a re-sent key never replays; while the day
+  // still needs a tick it is refused, once done it is the next click
+  if (b.key && state.dayKeys.has(b.key) && n < h.target) return { ...rejected('This idempotency key was already used for a different message.') };
+  if (b.key) state.dayKeys.add(b.key);
+  const before = structuredClone(state.hab);
+  if (n < h.target) {
+    h.days[day] = n + 1;
+    return hbSave(before, { outcome: 'saved', head: 'Saved.', receipt: [`+ e${++ids} ${h.name} | day ${ddmm(day)} | ${dmy2(day)} (date only)`] });
+  }
+  delete h.days[day];
+  return hbSave(before, { outcome: 'changed', head: `Removed ${n} tick${n === 1 ? '' : 's'} of ${h.label} on ${dmy2(day)}.` });
+}
+
+const hbSlug = (label) => label.toLowerCase().replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss').replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40);
+const hbBad = (message) => ({ error: 'bad_request', message });
+
+/** POST /habits/manage: [status, answer]; the core's checks and words (webhabits), no Undo. */
+function habitsManage(b) {
+  const L = HB.limits;
+  const label = String(b.label ?? '').split(/\s+/).filter(Boolean).join(' ');
+  if (!['track', 'retire', 'restore', 'edit', 'delete', 'new'].includes(b.action)) return [400, hbBad('action must be track, retire, restore, edit, delete or new.')];
+  if (b.action !== 'new' && typeof b.name !== 'string') return [400, hbBad('name is missing.')];
+  if (label.length > L.label_max) return [400, hbBad(`label must be at most ${L.label_max} characters.`)];
+  if (b.target !== undefined && !(hbWhole(b.target) && b.target >= L.target_min && b.target <= L.target_max)) return [400, hbBad('target must be a whole number from 1 to 10.')];
+  if (b.order !== undefined && !(hbWhole(b.order) && b.order >= 0 && b.order <= L.order_max)) return [400, hbBad('order must be a whole number from 0 to 999.')];
+  if (b.aim !== undefined && !['do', 'avoid'].includes(b.aim)) return [400, hbBad('aim must be do or avoid.')];
+  if (b.action === 'edit' && b.target === undefined) return [400, hbBad('target is missing.')];
+  if (b.action === 'track' && typeof b.on !== 'boolean') return [400, hbBad('on must be true or false.')];
+  if (b.action === 'new' && b.track !== undefined && typeof b.track !== 'boolean') return [400, hbBad('track must be true or false.')];
+  const h = b.action === 'new' ? null : hbHabit(b.name);
+  if (b.action !== 'new' && !h) return [200, rejected('Unknown habit.')];
+  const before = structuredClone(state.hab);
+  let head;
+  if (b.action === 'track') {
+    if (!h.active) return [200, rejected(`${h.label} is retired: bring it back first.`)];
+    if (b.on) {
+      h.order = Math.min(Math.max(0, ...state.hab.filter((x) => x.on).map((x) => x.order)) + 10, L.order_max);
+      h.on = true;
+      head = `Now tracking ${h.label}. It shows on Today and in the calendar.`;
+    } else {
+      h.on = false;
+      head = `Stopped tracking ${h.label}. Its history stays and you can still log it in the chat.`;
+    }
+  } else if (b.action === 'retire') {
+    h.active = false;
+    head = `Retired ${h.label}. Its history stays; it is hidden everywhere. Find it under Retired to bring it back.`;
+  } else if (b.action === 'restore') {
+    h.active = true;
+    head = `Brought back ${h.label}` + (h.on ? ' (tracked again).' : ' (not tracked: switch Track on to start).');
+  } else if (b.action === 'edit') {
+    if (!label) return [200, rejected('A habit needs a name to show.')];
+    if (state.hab.some((x) => x.name !== h.name && x.label.toLowerCase() === label.toLowerCase())) return [200, rejected(`There is already a log type called ${label}.`)];
+    [h.label, h.target] = [label, b.target];
+    if (b.order !== undefined) h.order = b.order;
+    if (b.aim) h.avoid = b.aim === 'avoid';
+    head = `Saved the habit ${label}.`;
+  } else if (b.action === 'delete') {
+    if (b.confirmed !== true) return [200, rejected('Press Yes, delete to delete a habit.')];
+    if (hbTicks(h)) return [200, rejected(`${h.label} has history, so it cannot be deleted. Retire it instead.`)];
+    state.hab.splice(state.hab.indexOf(h), 1);
+    head = `Deleted the habit ${h.label}.`;
+  } else {
+    const name = hbSlug(label);
+    if (!label || !name) return [200, rejected('Give the habit a name with letters or digits.')];
+    const group = b.group ?? 'daily';
+    if (!HB.groups.some((g) => g.key === group)) return [200, rejected('Choose a group for the habit.')];
+    const old = state.hab.find((x) => x.name === name || x.label.toLowerCase() === label.toLowerCase());
+    if (old) return [200, rejected(`There is already a log type called ${label}` + (old.active ? '' : ' (retired: bring it back from the Retired list)') + '.')];
+    state.hab.push({ name, label, group, target: b.target ?? 1, order: Math.min(Math.max(0, ...state.hab.map((x) => x.order)) + 10, L.order_max), avoid: false, on: b.track === true, active: true, days: {}, older: 0, base30: 0, lastOld: null });
+    head = `Added the habit ${label}. ` + (b.track === true ? 'It is tracked: tick it above or log it by its name.' : 'It is in the list, not tracked yet: switch Track on to start.');
+  }
+  state.before = null;
+  state.undo = null; // the list's forms have no Undo, and the session's earlier one goes (as app.)
+  void before;
+  return [200, { outcome: 'changed', head, undo: null }];
+}
+
 const KEYED = ['/health/day', '/body', '/food/labeladd', '/log', '/water', '/again', '/usual', '/habit', '/checkin', '/health', '/held/retry', '/held/delete', '/usual/meal', '/usual/new', '/usual/from_meal'];
 
 reset();
@@ -734,6 +929,14 @@ createServer(async (req, res) => {
     reset();
     mode = 'up';
     return send(res, 200, { outcome: 'reset' });
+  }
+  if (req.url === '/standin/slow' && req.method === 'POST') {
+    state.slow = 700; // the next day taps of the Habits page take a moment
+    return send(res, 200, { outcome: 'slow' });
+  }
+  if (req.url === '/standin/locked' && req.method === 'POST') {
+    state.locked = new Set(['meds']); // the read marks Medication as not editable (a time, as Wake-up would be)
+    return send(res, 200, { outcome: 'locked' });
   }
   if (req.url === '/standin/label-unreadable' && req.method === 'POST') {
     state.labelFail = true; // the next label read fails, as when the table is cut off
@@ -788,6 +991,11 @@ createServer(async (req, res) => {
     if (url.pathname.endsWith('/body')) return send(res, 200, { body: bodyOut(url.searchParams.get('day')), undo: undo() }, signedIn);
     return send(res, 200, { health: healthOut(Number(r), url.searchParams.get('all') === '1'), undo: undo() }, signedIn);
   }
+  if (url.pathname === '/api/v1/habits' && req.method === 'GET') {
+    const show = url.searchParams.get('show') ?? 'tracked';
+    if (!['tracked', 'untracked', 'retired', 'all'].includes(show)) return send(res, 400, { error: 'bad_request', message: 'show must be tracked, untracked, retired or all.' }, signedIn);
+    return send(res, 200, { habits: habitsOut(show), undo: undo() }, signedIn);
+  }
   if ((url.pathname === '/api/v1/foods/barcode' || url.pathname === '/api/v1/foods/off') && req.method === 'GET') {
     const code = codeOf(url);
     if (!code) return send(res, 400, { error: 'bad_request', message: 'A barcode is 8 to 14 digits.' }, signedIn);
@@ -804,13 +1012,14 @@ createServer(async (req, res) => {
   if (url.pathname === '/api/v1/foods' && req.method === 'GET') return send(res, 200, { foods: foods(url.searchParams.get('q')) }, signedIn);
   // A save's fresh read: the Food day or the usual meals when the body asks for it (view "food" with view_day, "usual"), else
   // Today; as the core, /usual/meal and /usual/new default to the usual meals and /usual/from_meal to the Food day.
-  const view = body.view ?? ({ '/api/v1/usual/meal': 'usual', '/api/v1/usual/new': 'usual', '/api/v1/usual/from_meal': 'food', '/api/v1/health/day': 'health', '/api/v1/body': 'body' })[req.url];
+  const view = body.view ?? ({ '/api/v1/usual/meal': 'usual', '/api/v1/usual/new': 'usual', '/api/v1/usual/from_meal': 'food', '/api/v1/health/day': 'health', '/api/v1/body': 'body', '/api/v1/habit/day': 'habits', '/api/v1/habits/manage': 'habits' })[req.url];
   const range = [7, 30, 90].includes(body.range) ? body.range : 30;
   const fresh = () =>
     view === 'food' ? { food_day: foodDay(body.view_day) }
     : view === 'usual' ? { usual: state.usual }
     : view === 'health' ? { health: healthOut(range, body.all === true) }
     : view === 'body' ? { body: bodyOut(req.url === '/api/v1/body' ? body.day : body.view_day) }
+    : view === 'habits' ? { habits: habitsOut(['tracked', 'untracked', 'retired', 'all'].includes(body.show) ? body.show : 'tracked') }
     : { day: dayOut(state.day) };
   if (req.url === '/api/v1/session' && req.method === 'DELETE') {
     sessions.delete(bearer);
@@ -824,6 +1033,7 @@ createServer(async (req, res) => {
         return send(res, 200, { ...base, outcome: 'rejected', tone: 'warning', head: 'Nothing undone.', reason: 'There is nothing to undo any more.', ...fresh() }, signedIn);
       }
       if (state.before.hv) [state.hv, state.sessions] = [state.before.hv, state.before.sessions];
+      if (state.before.hab) state.hab = state.before.hab;
       [state.day, state.usual, state.before, state.undo] = [state.before.day, state.before.usual, null, null];
       return send(res, 200, { ...base, outcome: 'changed', head: 'Undone.', undo: null, ...fresh() }, signedIn);
     }
@@ -850,11 +1060,16 @@ createServer(async (req, res) => {
       if (body.key && !['rejected', 'needs_confirmation'].includes(answer.outcome)) state.keys.set(body.key, answer);
       return send(res, 200, { ...answer, ...fresh() }, signedIn);
     }
+    if (path === '/habits/manage') {
+      const [status, out] = habitsManage(body);
+      if (status !== 200) return send(res, status, out, signedIn);
+      return send(res, 200, { ...base, ...out, tone: out.outcome === 'changed' ? 'ok' : 'warning', ...(out.undo === null ? { undo: null } : {}), ...fresh() }, signedIn);
+    }
     if (path === '/body/skip') {
       state.day = { ...structuredClone(state.day), needs: { ...state.day.needs, body_due: null } };
       return send(res, 200, { ...HEALTH.saves.body_skip, undo: undo(), ...fresh() }, signedIn);
     }
-    const out = path.startsWith('/usual/') ? usualSave(path, body) : path === '/food/labeladd' ? labelAdd(body) : path === '/lookup' ? lookUp(body) : save(path, body);
+    const out = path === '/habit' && body.view === 'habits' ? habitTick(body) : path === '/habit/day' ? await habitDay(body) : path.startsWith('/usual/') ? usualSave(path, body) : path === '/food/labeladd' ? labelAdd(body) : path === '/lookup' ? lookUp(body) : save(path, body);
     if (!out) return send(res, 404, { error: 'not_found', message: 'Not found.' });
     const answer = { ...base, ...out, tone: out.tone ?? (['saved', 'changed', 'removed', 'unchanged', 'cancelled'].includes(out.outcome) ? 'ok' : 'warning') };
     if (KEYED.includes(path) && body.key && answer.outcome !== 'rejected' && answer.outcome !== 'needs_confirmation') state.keys.set(body.key, answer);
