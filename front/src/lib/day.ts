@@ -4,6 +4,7 @@
  */
 import { dayOf, hm, hours, n, plain } from './format.js';
 import type { FoodDay } from './food.js';
+import type { Body, BodyDue, Health } from './health.js';
 import type { Usual } from './usual.js';
 
 // ---- the door's shapes (docs/API.md; front/tests/samples/day.json is a real answer) ----------------------------------------
@@ -136,7 +137,14 @@ export interface Day {
     next_sleep: boolean;
     watch_wake_at: string | null;
   };
-  needs: { questions: Question[]; not_read: NotRead[]; review: Review[]; checkin: Checkin | null };
+  needs: {
+    questions: Question[];
+    not_read: NotRead[];
+    review: Review[];
+    checkin: Checkin | null;
+    /** "Body measurements due" (deploy 91/92): the last session and how many days ago; null when not due (or after "Not today"). */
+    body_due?: BodyDue | null;
+  };
   energy: { totals: Nutrients; targets: Targets; meals: { meal: number; label: string; nutrients: Nutrients }[] };
   water: { ml: number; target_ml: number | null; glass_ml: number };
   chips: {
@@ -379,10 +387,13 @@ export function healthLines(d: Day): HealthLine[] {
 
 // ---- what needs you -----------------------------------------------------------------------------------------------------------
 
-/** The amber card's count: every open question, message not read yet and item to review, and the check-in. */
+/**
+ * The amber card's count: every open question, message not read yet and item to review, the check-in, and "Body measurements due"
+ * (deploy 92: app. counts it with the items to review, todaypage._review_section).
+ */
 export function needsCount(d: Day): number {
   const x = d.needs;
-  return x.questions.length + x.not_read.length + x.review.length + (x.checkin ? 1 : 0);
+  return x.questions.length + x.not_read.length + x.review.length + (x.checkin ? 1 : 0) + (x.body_due ? 1 : 0);
 }
 
 /** An item to review in words: "Weight 182.4 kg", "Fruit bar 40 g", "A task (personal)": a thought by its type, never its words. */
@@ -430,6 +441,9 @@ export interface SaveAnswer {
   food_day?: FoodDay;
   /** A save of the Usual meals page (deploy 87): every usual meal, fresh ("view": "usual"). */
   usual?: Usual[];
+  /** A save of the Health page (deploy 92): its days and charts ("view": "health") or the body card ("view": "body"). */
+  health?: Health;
+  body?: Body;
 }
 
 /** The rows a save added (in the fresh day, not in the one shown before): they get a blue edge (the mockup). */

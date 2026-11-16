@@ -7,13 +7,16 @@ import { appUrl, door } from './config.js';
 import { runSave, type SaveName, type View } from './saves.js';
 import { endSession, renewSession } from './session.js';
 
-export function formAction(name: SaveName, view: View) {
+export function formAction(name: SaveName, view: View, views: View[] = []) {
   return async ({ request, locals, cookies }: RequestEvent) => {
     const session = locals.session;
     if (!session) return fail(401, { signedOut: true, message: 'Sign in again.' });
     const form = await request.formData();
     const viewDay = form.get('view_day');
-    const r = await runSave(door, session, name, form, typeof viewDay === 'string' ? viewDay : undefined, view);
+    // A page with two reads (the Health page: its days and charts, or the body card) says which one the answer brings.
+    const asked = form.get('view');
+    const shown = views.find((v) => v === asked) ?? view;
+    const r = await runSave(door, session, name, form, typeof viewDay === 'string' ? viewDay : undefined, shown);
     if (r.ok) {
       renewSession(cookies, session, r.expiresAt);
       return { answer: r.answer };
@@ -25,4 +28,5 @@ export function formAction(name: SaveName, view: View) {
 }
 
 /** The form actions of a page: one per save it offers. */
-export const formActions = (names: SaveName[], view: View) => Object.fromEntries(names.map((n) => [n, formAction(n, view)]));
+export const formActions = (names: SaveName[], view: View, views: View[] = []) =>
+  Object.fromEntries(names.map((n) => [n, formAction(n, view, views)]));

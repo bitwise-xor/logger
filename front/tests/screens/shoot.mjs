@@ -23,6 +23,11 @@
 // (a miss, then a hit) and added from the form; label photos added (up to three), removed, a failed read keeping them, two read
 // together and added with an amount; "Look it up" on a food question read back and answered Yes; the microphone absent without
 // speech support, and with a stand-in one its words in the box. The sheet covers the whole phone and nothing covers it.
+// Deploy 92: the Health page (/health) from Today's Health card: every chart drawn with the sample's number of points, the stat
+// lines, the sleep times, the range switch (7 days), the entries (rows that open on phones and tablets, the table on the PC),
+// a day changed and saved in place, Undo, an odd weight read back and confirmed, a value cleared with its yes, "Show all"; the
+// body card: the form saved, a jump read back and confirmed, Now opening an older session, a measure's chart by its chip; and
+// on Today "Body measurements due" with Measure (the form open) and "Not today".
 // Every check throws on a failure, so the script ends with an error.
 // Usage: node tests/screens/shoot.mjs <base url> <out dir> <stand-in url>
 import assert from 'node:assert/strict';
@@ -37,6 +42,7 @@ const foodDay = FOOD.food_day.food_day;
 const foodBefore = FOOD.before.food_day;
 const USUAL = JSON.parse(readFileSync(new URL('../samples/usual.json', import.meta.url), 'utf8')).usual.usual;
 const SCAN = JSON.parse(readFileSync(new URL('../samples/scan.json', import.meta.url), 'utf8'));
+const HEALTH = JSON.parse(readFileSync(new URL('../samples/health.json', import.meta.url), 'utf8'));
 
 // What the page must show, worked out here from the sample on its own (not with the page's code).
 const even = (x) => {
@@ -48,7 +54,8 @@ const grouped = (x) => even(x).toLocaleString('en-US');
 const left = day.energy.targets.kcal - day.energy.totals.kcal;
 const want = {
   kcalLeft: grouped(Math.abs(left)),
-  needs: String(day.needs.questions.length + day.needs.not_read.length + day.needs.review.length + (day.needs.checkin ? 1 : 0)),
+  // the stand-in's day has the health sample's "Body measurements due" (deploy 92), which counts as one
+  needs: String(day.needs.questions.length + day.needs.not_read.length + day.needs.review.length + (day.needs.checkin ? 1 : 0) + (HEALTH.day_body_due ? 1 : 0)),
   water: `${grouped(day.water.ml)} / ${grouped(day.water.target_ml)} ml`,
   mealLabels: day.energy.meals.map((m) => m.label.toUpperCase()),
   foodRefs: day.rows.filter((r) => r.kind === 'food').map((r) => r.ref),
@@ -932,6 +939,184 @@ async function checkScan(page, name, theme) {
 }
 
 /** No sideways scroll, and on phones and tablets every button, field and link that stands alone at least 44 px tall. */
+async function checkHealth(page, name, theme) {
+  await standinPost('/standin/reset');
+  const h = HEALTH.health.health;
+  const pc = name === 'pc';
+  const bar = page.locator('[data-bar]');
+  const headIs = async (want) => {
+    await page.locator('[data-bar-head]', { hasText: want }).waitFor();
+    assert.equal(await text(page.locator('[data-bar-head]')), want, 'the answer bar');
+  };
+
+  // Today: "Body measurements due" with the last session, in the Needs you count; Measure opens the body form on the Health page
+  await page.goto(`${base}/`);
+  const due = page.locator('[data-body-due]');
+  const d = HEALTH.day_body_due;
+  assert.equal(await text(due), `Body measurements due Last ${d.last.slice(8, 10)}.${d.last.slice(5, 7)}. · ${d.days} days ago · takes about 3 minutes Measure Not today`, 'the due line');
+  assert.equal(await text(page.locator('[data-count]')), want.needs, 'Needs you count with the due line');
+  if (name === 'phone') await due.screenshot({ path: `${out}/today-body-due-${name}-${theme}.png` });
+  await due.getByRole('link', { name: 'Measure' }).click();
+  await page.locator('[data-body-form]').waitFor();
+  assert.match(page.url(), /\/health\?measure=1#body$/, 'Measure: the Health page, the form open');
+  await page.goto(`${base}/`);
+  // "Not today": the line goes, the count is one less
+  await due.getByRole('button', { name: 'Not today' }).click();
+  await due.waitFor({ state: 'detached' });
+  assert.equal(await text(page.locator('[data-count]')), String(Number(want.needs) - 1), 'Needs you count after Not today');
+  await headIs(HEALTH.saves.body_skip.head);
+
+  // the "Health" link on Today's Health card
+  await page.locator('[data-health-link]').click();
+  await page.waitForURL(/\/health$/);
+  await page.locator('[data-charts]').waitFor();
+  await page.evaluate(() => (window.__noReload = true));
+
+  // every chart: as many marks as the sample has points, its stat line; the sleep times: a band per sleep, a tick per lone wake-up
+  const marks = async (id) => page.locator(`[data-chart="${id}"] [data-mark]`).evaluateAll((els) => els.map((e) => e.getAttribute('data-mark')));
+  const checkCharts = async (charts, times) => {
+    for (const c of charts) {
+      const got = await marks(c.id);
+      for (const m of ['dot', 'ring', 'bar']) {
+        assert.equal(got.filter((x) => x === m).length, c.chart.series.filter((s) => s.mark === m).reduce((a, s) => a + s.pts.length, 0), `${c.id}: ${m}s`);
+      }
+      assert.equal(got.filter((x) => x === 'line').length, c.chart.series.filter((s) => s.mark === 'line' && s.pts.length > 1).length, `${c.id}: lines`);
+    }
+    assert.equal(await page.locator('[data-clock="times"] [data-band]').count(), times.rows.reduce((a, r) => a + r.bands.length, 0), 'sleep times: bands');
+    assert.equal(await page.locator('[data-clock="times"] [data-tick]').count(), times.rows.reduce((a, r) => a + r.ticks.length, 0), 'sleep times: ticks');
+  };
+  await checkCharts(h.charts, h.times);
+  for (const c of h.charts) assert.equal(await text(page.locator(`[data-chart-card="${c.id}"] [data-stat]`)), c.stat.map((p) => p.text).join('').replace(/\s+/g, ' ').trim(), `${c.id}: stat`);
+  // one column on phones, two from the tablet width
+  const [w, bp] = [await page.locator('[data-chart-card="weight"]').boundingBox(), await page.locator('[data-chart-card="bp"]').boundingBox()];
+  if (name === 'phone') assert.ok(bp.y > w.y + w.height - 1 && Math.abs(bp.x - w.x) < 2, 'phone: one column of charts');
+  else assert.ok(Math.abs(bp.y - w.y) < 2 && bp.x > w.x + w.width - 1, `${name}: two columns of charts`);
+  // a tap on a point shows its text
+  const dot = page.locator('[data-chart="sugar"] [data-mark="dot"]').nth(1);
+  await dot.click({ force: true });
+  assert.equal(await text(page.locator('[data-chart="sugar"] [data-tip]')), h.charts.find((c) => c.id === 'sugar').chart.series[0].pts[1][2], 'a tap shows the point\'s text');
+  await page.screenshot({ path: `${out}/health-${name}-${theme}.png`, fullPage: true });
+  await checkWidth(page, 'health');
+
+  // the range switch: 7 days, the charts cut to the last week (the stand-in), then 30 again
+  await page.getByRole('link', { name: '7 days' }).click();
+  await page.locator('[data-range] [aria-current="page"]', { hasText: '7 days' }).waitFor();
+  const cut = (c) => ({ ...c, chart: { ...c.chart, series: c.chart.series.map((s) => ({ ...s, pts: s.pts.filter((p) => p[0] >= h.days_in_range - 7) })) } });
+  await checkCharts(h.charts.map(cut), { rows: h.times.rows.slice(-7) });
+  if (name === 'phone') await page.locator('[data-charts]').screenshot({ path: `${out}/health-7-days-${name}-${theme}.png` });
+  await page.getByRole('link', { name: '30 days' }).click();
+  await page.locator('[data-range] [aria-current="page"]', { hasText: '30 days' }).waitFor();
+  await page.evaluate(() => (window.__noReload = true));
+
+  // the entries: the last 14 days, newest first; the table on the PC, rows elsewhere
+  const rows = pc ? '[data-table-day]' : '[data-day]';
+  assert.deepEqual(await page.locator(rows).evaluateAll((els, a) => els.map((e) => e.getAttribute(a)), pc ? 'data-table-day' : 'data-day'), h.days.map((x) => x.day), 'the days, newest first');
+  const [d16, d15] = [h.days[0].day, h.days[1].day];
+  /** A day's fields to change: the open row on phones and tablets (opened here), the table's row on the PC. */
+  const fields = async (day) => {
+    if (pc) return page.locator(`[data-table-day="${day}"]`);
+    const ed = page.locator(`[data-day-editor="${day}"]`);
+    if (!(await ed.count())) await page.locator(`[data-day="${day}"] > button`).click();
+    await ed.waitFor();
+    return ed;
+  };
+  const shows = async (day, want, yes = true) => {
+    const has = async () => (pc ? (await page.locator(`[data-table-day="${day}"] input[name="weight"]`).inputValue()) === want.replace(/^Weight | kg$/g, '') : (await text(page.locator(`[data-day="${day}"] [data-day-values]`))).includes(want));
+    for (let i = 0; i < 50 && (await has()) !== yes; i++) await page.waitForTimeout(100);
+    assert.equal(await has(), yes, `${day}: ${yes ? '' : 'not '}${want}`);
+  };
+  // a day changed: a weight changed, a blood pressure added; saved in place with a blue edge; then undone
+  let f = await fields(d15);
+  await f.locator('input[name="weight"]').fill('81.2');
+  await f.locator('input[name="bp_morning_1"]').fill('121');
+  await f.locator('input[name="bp_morning_2"]').fill('79');
+  if (!pc) {
+    await page.locator(`[data-day="${d15}"]`).scrollIntoViewIfNeeded();
+    await page.screenshot({ path: `${out}/health-day-open-${name}-${theme}.png` });
+    await checkWidth(page, 'health, a day open');
+  }
+  await f.getByRole('button', { name: 'Save' }).click();
+  await headIs('Saved for Sun 15.11.: Weight 81.8 → 81.2, BP morning 121/79 added.');
+  await shows(d15, 'Weight 81.2 kg');
+  if (!pc) await shows(d15, 'BP morning 121/79');
+  await page.locator(`${pc ? '[data-table-day' : '[data-day'}="${d15}"][data-fresh]`).waitFor();
+  if (pc) await page.screenshot({ path: `${out}/health-saved-${name}-${theme}.png` });
+  await bar.getByRole('button', { name: 'Undo' }).click();
+  await headIs('Undone.');
+  await shows(d15, 'Weight 81.8 kg');
+
+  // an odd weight: read back first ("Yes, save it"), saved on the yes; Undo
+  f = await fields(d16);
+  await f.locator('input[name="weight"]').fill('400');
+  await f.getByRole('button', { name: 'Save' }).click();
+  await page.locator('[data-bar="warning"]').getByText(HEALTH.saves.health_day_read_back.read_back).waitFor();
+  if (name === 'phone') await page.screenshot({ path: `${out}/health-read-back-${name}-${theme}.png` });
+  if (!pc) await shows(d16, 'Weight 400 kg', false); // nothing saved yet (on the PC the field holds what was typed)
+  await page.locator('[data-bar="warning"]').getByRole('button', { name: 'Yes, save it' }).click();
+  await headIs('Saved for Mon 16.11.: Weight 81.6 → 400.');
+  await shows(d16, 'Weight 400 kg');
+  await bar.getByRole('button', { name: 'Undo' }).click();
+  await headIs('Undone.');
+  await shows(d16, 'Weight 81.6 kg');
+
+  // a value cleared: asked once ("Yes, delete"), then gone
+  f = await fields(d16);
+  await f.locator('input[name="sugar"]').fill('');
+  await f.getByRole('button', { name: 'Save' }).click();
+  await page.locator('[data-bar="warning"]').getByText('Delete on Mon 16.11.: Sugar 88?').waitFor();
+  await page.locator('[data-bar="warning"]').getByRole('button', { name: 'Yes, delete' }).click();
+  await headIs('Saved for Mon 16.11.: Sugar 88 deleted.');
+  if (pc) assert.equal(await page.locator(`[data-table-day="${d16}"] input[name="sugar"]`).inputValue(), '', 'the sugar cleared');
+  else await shows(d16, 'Sugar 88', false);
+  await page.locator('[data-bar] button[aria-label="Close"]').click();
+
+  // "Show all": every day of the range, and back
+  await page.locator('[data-show-all]').click();
+  await page.locator('[data-show-all]', { hasText: `Show the last ${h.shown_days} days` }).waitFor();
+  assert.equal(await page.locator(rows).count(), h.days_in_range, 'Show all: every day of the range');
+  await page.locator('[data-show-all]').click();
+  await page.locator('[data-show-all]', { hasText: `Show all ${h.days_in_range} days` }).waitFor();
+  await page.evaluate(() => (window.__noReload = true));
+
+  // the body card: Measure, two values (the last as the placeholder), saved; the table shows them
+  const body = page.locator('[data-card="body"]');
+  const B = HEALTH.body.body;
+  assert.equal(await text(body.locator('[data-body-sub]')), `Last measured ${B.last_measured.slice(8, 10)}.${B.last_measured.slice(5, 7)}.${B.last_measured.slice(0, 4)} · ${B.due_text}`, 'body: last measured and due');
+  await body.locator('[data-measure]').click();
+  const form = body.locator('[data-body-form]');
+  assert.equal(await form.locator('input[name="waist"]').getAttribute('placeholder'), B.form[0].last_cm.toFixed(1), 'the last value as the placeholder');
+  await form.locator('input[name="waist"]').fill('91.8');
+  await form.locator('input[name="hips"]').fill('101.5');
+  await body.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${out}/health-body-form-${name}-${theme}.png`, fullPage: name !== 'pc' ? false : true });
+  if (name === 'phone') await body.screenshot({ path: `${out}/health-body-card-${name}-${theme}.png` });
+  await checkWidth(page, 'health, the body form');
+  await form.getByRole('button', { name: 'Save' }).click();
+  await headIs(HEALTH.saves.body.head);
+  await form.waitFor({ state: 'detached' });
+  assert.equal(await text(body.locator('[data-now="waist"]')), '91.8', 'the table: the new waist');
+  // a jump of 4 cm or more is read back ("Yes, save"), saved on the yes
+  await body.locator('[data-measure]').click();
+  await form.locator('input[name="thigh"]').fill('52.5');
+  await form.getByRole('button', { name: 'Save' }).click();
+  await page.locator('[data-bar="warning"]').getByText(HEALTH.saves.body_read_back.read_back).waitFor();
+  await page.locator('[data-bar="warning"]').getByRole('button', { name: 'Yes, save' }).click();
+  await headIs('Saved for Mon 16.11.: Thigh 52.5 added.');
+  assert.equal(await text(body.locator('[data-now="thigh"]')), '52.5', 'the table: the new thigh');
+  // Now opens that session to change it (the chest of the sample's last session)
+  const chest = B.table.find((t) => t.key === 'chest');
+  await body.locator('[data-now="chest"]').click();
+  await body.locator(`[data-body-form="${chest.day}"]`).waitFor();
+  assert.equal(await form.locator('input[name="chest"]').inputValue(), chest.cm.toFixed(1), 'the session\'s value to change');
+  assert.match(await text(body.locator('[data-body-session]')), /^Changing the session of \d\d\.\d\d\.\d{4}\./, 'which session');
+  await body.getByRole('button', { name: 'Close' }).click();
+  await form.waitFor({ state: 'detached' });
+  // a measure's chart by its chip
+  await body.locator('[data-chip="hips"]').click();
+  await body.locator('[data-chart="body-hips"] [data-mark="dot"]').first().waitFor();
+  await checkWidth(page, 'health, after the saves');
+}
+
 async function checkWidth(page, what) {
   const sideways = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   assert.ok(sideways <= 0, `${what}: no sideways scroll (${sideways} px too wide)`);
@@ -1004,6 +1189,8 @@ for (const theme of ['dark', 'light']) {
     console.log(`usual meals ${name} ${theme}: checks passed`);
     await checkScan(page, name, theme);
     console.log(`scan sheet, look it up, microphone ${name} ${theme}: checks passed`);
+    await checkHealth(page, name, theme);
+    console.log(`health page, body measurements ${name} ${theme}: checks passed`);
     await checkProblems(page, name, theme);
     console.log(`core down, door off, next ${name} ${theme}: checks passed`);
     if (name === 'phone' && theme === 'dark') {

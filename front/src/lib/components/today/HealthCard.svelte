@@ -35,7 +35,10 @@
 <!-- The compact Health card under the timeline (the plan, question 1): tap a row to type its value or time. -->
 {#if lines.length}
   <section aria-labelledby="health-h" class="flex flex-col rounded-card border border-line bg-panel px-3 pt-3 pb-1.5 desktop:px-3.5" data-card="health">
-    <h2 id="health-h" class="m-0 pb-1 text-[15px] font-semibold">Health</h2>
+    <!-- The Health page (deploy 92): charts, every day's values and the body measurements. -->
+    <h2 id="health-h" class="m-0 pb-1 text-[15px] font-semibold">
+      <a href="/health" class="inline-flex min-h-11 items-center gap-1 text-text no-underline desktop:min-h-0" data-health-link>Health <span class="text-muted" aria-hidden="true">›</span></a>
+    </h2>
     {#each lines as l (l.row)}
       {@const h = items.get(l.row)!}
       <button

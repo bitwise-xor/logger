@@ -2,7 +2,7 @@
 // day asked for, and a gone session told apart from other problems.
 import { describe, expect, it } from 'vitest';
 import { makeDoor, type Fetch } from './door.js';
-import { bodyFor, FOOD_SAVES, runSave, SAVE_NAMES, SAVES, TODAY_SAVES, USUAL_SAVES } from './saves.js';
+import { bodyFor, FOOD_SAVES, HEALTH_SAVES, runSave, SAVE_NAMES, SAVES, TODAY_SAVES, USUAL_SAVES } from './saves.js';
 
 const TOKEN = 'f'.repeat(40);
 const SESSION = 's'.repeat(43);
@@ -191,7 +191,7 @@ describe('the Food day saves (step E)', () => {
     expect(TODAY_SAVES).not.toContain('usual_meal');
     expect(TODAY_SAVES).toContain('usual');
     expect(TODAY_SAVES).toContain('undo');
-    expect(new Set([...TODAY_SAVES, ...FOOD_SAVES, ...USUAL_SAVES])).toEqual(new Set(SAVE_NAMES));
+    expect(new Set([...TODAY_SAVES, ...FOOD_SAVES, ...USUAL_SAVES, ...HEALTH_SAVES])).toEqual(new Set(SAVE_NAMES));
   });
 });
 
@@ -317,3 +317,74 @@ describe('the scan sheet’s saves (deploy 90)', () => {
   });
 });
 
+
+describe('the Health page (deploy 92)', () => {
+  it('a day row: only the rows sent, numbers where the door wants numbers, blood pressure as [upper, lower], keyed', () => {
+    const body = bodyFor(
+      'health_day',
+      form({ day: '2026-11-15', weight: '81,2', bp_morning_1: '121', bp_morning_2: '79', bed: '22:40', key: KEY, range: '7' }),
+      undefined,
+      undefined,
+      'health',
+    );
+    expect(body).toEqual({
+      day: '2026-11-15',
+      values: { weight: 81.2, bp_morning: [121, 79], bed: '22:40' },
+      key: KEY,
+      view: 'health',
+      range: 7,
+    });
+  });
+
+  it('a cleared value is null (a delete); its yes is confirm_delete, an odd value’s confirmed; "Show all" asks for every day', () => {
+    const body = bodyFor(
+      'health_day',
+      form({ day: '2026-11-15', sugar: '', bp_evening_1: '', bp_evening_2: '', wake: '', confirmed: '1', confirm_delete: '1', all: '1', range: '30', key: KEY }),
+      undefined,
+      undefined,
+      'health',
+    );
+    expect(body).toMatchObject({
+      values: { sugar: null, bp_evening: null, wake: null },
+      confirmed: true,
+      confirm_delete: true,
+      all: true,
+      range: 30,
+    });
+  });
+
+  it('one number of a blood pressure goes as it is (the door says "give both numbers"); words go as typed', () => {
+    expect(bodyFor('health_day', form({ day: '2026-11-15', bp_morning_1: '121', bp_morning_2: '', weight: 'heavy' }), undefined, () => KEY, 'health'))
+      .toMatchObject({ values: { bp_morning: [121, null], weight: 'heavy' } });
+  });
+
+  it('a body session: the measures sent in cm, keyed, the card in the answer; a range other than 7, 30, 90 is left out', () => {
+    expect(bodyFor('body', form({ day: '2026-11-16', waist: '91.8', thigh: '', key: KEY, range: '45' }), undefined, undefined, 'body')).toEqual({
+      day: '2026-11-16',
+      values: { waist: 91.8, thigh: null },
+      key: KEY,
+      view: 'body',
+    });
+  });
+
+  it('"Not today" on Today: no body, no key', () => {
+    expect(bodyFor('body_skip', form({ key: KEY }), undefined)).toEqual({ view: 'day' });
+    expect(SAVES.body_skip).toMatchObject({ path: '/body/skip', keyed: false });
+  });
+
+  it('offers the Health page its saves and Undo; Not today stays Today’s', async () => {
+    expect(HEALTH_SAVES).toEqual(['health_day', 'body', 'undo']);
+    expect(TODAY_SAVES).toContain('body_skip');
+    expect(TODAY_SAVES).not.toContain('health_day');
+    expect(TODAY_SAVES).not.toContain('body');
+    const { door, seen } = net();
+    await runSave(door, SESSION, 'health_day', form({ day: '2026-11-15', mood: '4', key: KEY }), undefined, 'health');
+    await runSave(door, SESSION, 'body', form({ day: '2026-11-16', hips: '101.5', key: KEY }), undefined, 'body');
+    await runSave(door, SESSION, 'body_skip', form({}));
+    expect(seen.map((x) => [x.path, x.body.view])).toEqual([
+      ['/api/v1/health/day', 'health'],
+      ['/api/v1/body', 'body'],
+      ['/api/v1/body/skip', 'day'],
+    ]);
+  });
+});

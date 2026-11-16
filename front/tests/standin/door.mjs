@@ -26,6 +26,14 @@
 // webfood.label_add: a new catalogue food, logged with an amount, with Undo of the entry; keyed) and POST /lookup (the sample's
 // read-back as a "lookup_confirm" question under Needs you, Yes/No through /answer). A typed line with "mystery" in it asks the
 // door's food question ("Which food is …?", tool "log", kind "food"), where the page offers "Look it up".
+// Deploy 92: the Health page's routes, from tests/samples/health.json (real answers of the door for an invented day): GET /health
+// (the sample's days, charts and sleep times; range 7 and 90 cut or widen them, all=1 a row for every day of the range), POST
+// /health/day (a value added, changed or cleared as webactions.health_day does: a clear read back first, Yes = confirm_delete;
+// a weight outside 30 to 300 kg or a sugar outside 20 to 600 read back, Yes = confirmed; a day outside the last 12 months
+// refused; keyed, with Undo), GET /body (the sample's card, its sessions made from the sample's charts; ?day= a session to change),
+// POST /body (a value out of the measure's range or 4 cm or more from the last read back, a clear asked first; keyed, with
+// Undo) and POST /body/skip (Today's "Body measurements due", which GET /day has from the sample's day_body_due, goes; no Undo).
+// The charts stay the sample's (the stand-in draws nothing new).
 // Usage: node tests/standin/door.mjs [port]  (FRONT_TOKEN from the environment). POST /standin/reset starts the day again,
 // POST /standin/drop-sessions signs every session out (for the re-send after a sign-in), POST /standin/ai-down and
 // /standin/ai-up make /log hold its lines or read them again.
@@ -47,6 +55,7 @@ const LOG = read('log.json');
 const FOOD = read('food.json');
 const USUAL = read('usual.json');
 const SCAN = read('scan.json');
+const HEALTH = read('health.json');
 const READ_MS = 1200; // the AI's moment: long enough to see the "being read" row
 
 let state; // { day, usual, undo: {token, head, expires_at} | null, before: {day, usual} before the last save (for Undo), keys: Map, lines: Map, aiDown }
@@ -54,7 +63,9 @@ let ids = 9000;
 let mode = 'up'; // 'up' | 'core-down' | 'door-off' (step F)
 function reset() {
   state = { day: read('day.json').day, usual: usualStart(), undo: null, before: null, keys: new Map(), lines: new Map(), aiDown: false,
-    scanned: new Map([[SCAN.barcode.code, SCAN.barcode.food]]), labelFail: false };
+    scanned: new Map([[SCAN.barcode.code, SCAN.barcode.food]]), labelFail: false,
+    hv: healthStart(), sessions: sessionsStart() };
+  state.day.needs.body_due = structuredClone(HEALTH.day_body_due);
   // the notes of the food sample's rows (the same invented day), kept on the rows so an Undo puts them back too
   const notes = new Map(FOOD.food_day.food_day.rows.map((r) => [r.ref, r.note]));
   for (const r of state.day.rows) if (r.kind === 'food') r.note = notes.get(r.ref) ?? null;
@@ -411,6 +422,225 @@ function save(path, b) {
   return { outcome, head, undo: state.undo, tone: 'ok' };
 }
 
+
+// ---- the Health page (deploy 92) ---------------------------------------------------------------------------------------------
+
+const H = HEALTH.health.health;
+const B = HEALTH.body.body;
+const ROW_KIND = Object.fromEntries(H.columns.map((c) => [c.row, c.kind]));
+const ROW_NAME = { weight: 'Weight', bp_morning: 'BP morning', bp_evening: 'BP evening', sugar: 'Sugar', bed: 'Bed', wake: 'Woke up', mood: 'Mood', energy: 'Energy' };
+const shiftIso = (iso, n) => new Date(Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10) + n)).toISOString().slice(0, 10);
+const dm = (iso) => new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', timeZone: 'UTC' }) + ` ${iso.slice(8, 10)}.${iso.slice(5, 7)}.`;
+const g = (v) => String(+v);
+
+/** Every day's values the stand-in knows: the sample's 14 days ({day: {values, slept_minutes}}). */
+function healthStart() {
+  return Object.fromEntries(H.days.map((d) => [d.day, structuredClone(d)]));
+}
+
+/** A chart cut to the last `days` of the sample's range, or widened (its points moved along). */
+function rangeChart(c, days) {
+  const from = H.days_in_range - days; // > 0: cut; < 0: widened
+  const series = c.series.map((s) => ({ ...s, pts: s.pts.filter((p) => p[0] >= from).map((p) => [p[0] - from, ...p.slice(1)]) }));
+  return { ...c, start: shiftIso(H.today, 1 - days), days, series };
+}
+
+/** GET /health as the door answers: the sample, for the range asked (7, 30 or 90) and all. */
+function healthOut(range = 30, all = false) {
+  const days = [];
+  const shown = all ? range : Math.min(range, H.shown_days);
+  for (let i = 0; i < shown; i++) {
+    const day = shiftIso(H.today, -i);
+    const known = state.hv[day];
+    days.push(known ? structuredClone(known) : { day, values: Object.fromEntries(H.columns.map((c) => [c.row, null])), slept_minutes: null });
+  }
+  const n = Math.min(range, 30);
+  return {
+    ...structuredClone(H), range, all, days_in_range: range, start: shiftIso(H.today, 1 - range), days,
+    charts: H.charts.map((c) => ({ ...c, chart: rangeChart(c.chart, range) })),
+    times: { ...H.times, days: n, rows: H.times.rows.slice(-n).map((r, i, a) => ({ ...r, label: i === a.length - 1 || n <= 7 ? `${r.date.slice(8, 10)}.${r.date.slice(5, 7)}.` : r.label })) },
+  };
+}
+
+const hvText = (row, v) => (!v ? '' : ROW_KIND[row] === 'time' ? v.time : ROW_KIND[row] === 'pair' ? `${g(v.v1)}/${g(v.v2)}` : g(v.v1));
+
+/** POST /health/day, as webactions.health_day answers (the stand-in's version of its checks). */
+function healthDay(b) {
+  if (typeof b.day !== 'string' || !/^\d{4}-\d\d-\d\d$/.test(b.day)) return [400, { error: 'bad_request', message: 'day is missing.' }];
+  if (!b.values || typeof b.values !== 'object' || !Object.keys(b.values).length) return [400, { error: 'bad_request', message: 'values must be an object of rows and values.' }];
+  for (const [row, v] of Object.entries(b.values)) {
+    const kind = ROW_KIND[row];
+    if (!kind) return [400, { error: 'bad_request', message: `Unknown row: ${row}.` }];
+    if (kind === 'pair' && v !== null && v !== '' && !(Array.isArray(v) && v.length === 2 && v.every((x) => x === null || typeof x === 'number'))) return [400, { error: 'bad_request', message: `${row} must be [upper, lower] or null.` }];
+    if (kind === 'time' && v !== null && !(typeof v === 'string')) return [400, { error: 'bad_request', message: `${row} must be a time hh:mm or null.` }];
+    if (kind === 'number' && v !== null && v !== '' && typeof v !== 'number') return [400, { error: 'bad_request', message: `${row} must be a number or null.` }];
+  }
+  const no = (reason) => [200, { outcome: 'rejected', head: 'Nothing saved.', reason }];
+  if (b.day > H.today || b.day < H.oldest_day) return no('Pick a day of the last 12 months.');
+  const was = state.hv[b.day] ?? { day: b.day, values: Object.fromEntries(H.columns.map((c) => [c.row, null])), slept_minutes: null };
+  const adds = [];
+  const changes = [];
+  const deletes = [];
+  for (const [row, raw] of Object.entries(b.values)) {
+    const kind = ROW_KIND[row];
+    const cur = was.values[row];
+    const empty = raw === null || raw === '' || (Array.isArray(raw) && raw.every((x) => x === null));
+    if (empty) {
+      if (cur) deletes.push(row);
+      continue;
+    }
+    if (kind === 'pair' && raw.some((x) => x === null)) return no(`${ROW_NAME[row]}: give both numbers.`);
+    if (kind === 'time' && !/^\d\d:\d\d$/.test(raw)) return no(`${ROW_NAME[row]}: give the time as hh:mm.`);
+    const v = kind === 'time' ? { v1: null, v2: null, time: raw } : kind === 'pair' ? { v1: raw[0], v2: raw[1], time: null } : { v1: raw, v2: null, time: null };
+    if (cur && hvText(row, cur) === hvText(row, { ...cur, ...v })) continue;
+    (cur ? changes : adds).push([row, v]);
+  }
+  if (!adds.length && !changes.length && !deletes.length) return [200, { outcome: 'unchanged', head: 'Nothing changed.', reason: 'Nothing changed.' }];
+  if (deletes.length && b.confirm_delete !== true) {
+    return [200, { ...HEALTH.saves.health_day_delete, read_back: `Delete on ${dm(b.day)}: ${deletes.map((r) => `${ROW_NAME[r]} ${hvText(r, was.values[r])}`).join(', ')}?` }];
+  }
+  for (const [row, v] of [...adds, ...changes]) {
+    const odd = (row === 'weight' && (v.v1 < 30 || v.v1 > 300)) || (row === 'sugar' && (v.v1 < 20 || v.v1 > 600));
+    if (odd && b.confirmed !== true) {
+      return [200, { ...HEALTH.saves.health_day_read_back, read_back: row === 'weight' ? `${g(v.v1)} is outside the plausible range 30-300 kg` : `${g(v.v1)} is outside the plausible range 20-600 mg/dL` }];
+    }
+  }
+  const hv = structuredClone(state.hv);
+  const d = hv[b.day] ?? structuredClone(was);
+  hv[b.day] = d;
+  const parts = [];
+  for (const row of deletes) {
+    parts.push(`${ROW_NAME[row]} ${hvText(row, d.values[row])} deleted`);
+    d.values[row] = null;
+  }
+  for (const [row, v] of [...changes, ...adds]) {
+    const cur = d.values[row];
+    const kind = ROW_KIND[row];
+    const at = kind === 'time' ? `${row === 'bed' ? shiftIso(b.day, -1) : b.day}T${v.time}:00+01:00` : null;
+    parts.push(cur ? `${ROW_NAME[row]} ${hvText(row, cur)} → ${hvText(row, v)}` : `${ROW_NAME[row]} ${hvText(row, v)} added`);
+    d.values[row] = { ref: cur?.ref ?? `${kind === 'time' ? 'e' : 'm'}${++ids}`, ...v, at };
+  }
+  const bed = d.values.bed?.at;
+  const wake = d.values.wake?.at;
+  const mins = bed && wake ? Math.round((Date.parse(wake) - Date.parse(bed)) / 60000) : null;
+  d.slept_minutes = mins !== null && mins > 0 && mins < 1440 ? mins : null;
+  const head = `Saved for ${dm(b.day)}: ${parts.join(', ')}.`;
+  state.before = { day: state.day, usual: state.usual, hv: state.hv, sessions: state.sessions };
+  state.hv = hv;
+  state.undo = { token: randomBytes(12).toString('base64url'), head, expires_at: new Date(Date.now() + 15 * 60_000).toISOString() };
+  return [200, { outcome: adds.length ? 'saved' : 'changed', head, undo: state.undo }];
+}
+
+/** The body sessions: {day: {measure: {cm, ref}}}, made from the sample's charts (each dot a session's value) and its table's refs. */
+function sessionsStart() {
+  const out = {};
+  for (const c of B.charts) {
+    const dots = c.chart.series.find((s) => s.mark === 'dot');
+    for (const p of dots.pts) {
+      const day = shiftIso(c.chart.start, p[0]);
+      out[day] ??= {};
+      out[day][c.key] = { cm: p[1], ref: null };
+    }
+  }
+  for (const t of B.table) out[t.day][t.key].ref = t.ref;
+  for (const d of Object.values(out)) for (const v of Object.values(d)) v.ref ??= `m${++ids}`;
+  return out;
+}
+
+const cm1 = (v) => v.toFixed(1);
+const signed = (d) => (Math.abs(d) < 0.05 ? '±0' : `${d > 0 ? '+' : '−'}${Math.abs(d).toFixed(1)}`);
+
+/** GET /body as the door answers: the card of the session of `asked` (today without), from the sessions now. */
+function bodyOut(asked) {
+  const day = asked && /^\d{4}-\d\d-\d\d$/.test(asked) && asked < B.today ? asked : B.today;
+  const days = Object.keys(state.sessions).filter((d) => Object.keys(state.sessions[d]).length).sort();
+  const of = (k) => days.filter((d) => state.sessions[d][k]).map((d) => ({ day: d, ...state.sessions[d][k] }));
+  const last = days.at(-1) ?? null;
+  const left = last ? B.interval_days - Math.round((Date.parse(B.today) - Date.parse(last)) / 86400000) : null;
+  const due = left === null ? null : left <= 0 ? 'due now' : left < 7 ? `next due in ${left} day${left === 1 ? '' : 's'}` : `next due in about ${Math.round(left / 7)} week${Math.round(left / 7) === 1 ? '' : 's'}`;
+  const form = B.form.map((m) => {
+    const s = state.sessions[day]?.[m.key];
+    const before = of(m.key).filter((x) => x.day < day).at(-1);
+    return { ...m, cm: s ? s.cm : null, ref: s ? s.ref : null, last_cm: before ? before.cm : null };
+  });
+  const table = B.form.flatMap((m) => {
+    const vals = of(m.key);
+    if (!vals.length) return [];
+    const now = vals.at(-1);
+    const lastD = vals.length > 1 ? now.cm - vals.at(-2).cm : null;
+    const startD = vals.length > 1 ? now.cm - vals[0].cm : null;
+    return [{ key: m.key, label: m.label, ref: now.ref, cm: now.cm, day: now.day, last: lastD, start: startD,
+      last_text: lastD === null ? null : signed(lastD), start_text: startD === null ? null : signed(startD) }];
+  });
+  const charts = B.form.flatMap((m) => {
+    const vals = of(m.key);
+    if (!vals.length) return [];
+    const first = vals[0].day;
+    const idx = (d) => Math.round((Date.parse(d) - Date.parse(first)) / 86400000);
+    return [{ key: m.key, label: m.label, chart: { start: first, days: Math.max(1, idx(vals.at(-1).day) + 1), label: `${m.label} in cm`,
+      series: [{ mark: 'line', cls: 'a', pts: vals.map((v) => [idx(v.day), v.cm]) },
+        { mark: 'dot', cls: 'a', pts: vals.map((v) => [idx(v.day), v.cm, `${v.day.slice(8, 10)}.${v.day.slice(5, 7)}.${v.day.slice(0, 4)}: ${cm1(v.cm)} cm`]) }],
+      pointLabels: 1, xAtPoints: 1 } }];
+  });
+  const waist = of('waist').at(-1);
+  return { ...structuredClone(B), day, last_measured: last, due_text: due, form, table, charts, first_day: days[0] ?? null,
+    waist_height: waist ? { waist_cm: waist.cm, day: waist.day, height_cm: B.waist_height.height_cm, ratio: +(waist.cm / B.waist_height.height_cm).toFixed(2) } : null };
+}
+
+/** POST /body, as webactions.body_save answers (the stand-in's version of its checks). */
+function bodySave(b) {
+  if (typeof b.day !== 'string' || !/^\d{4}-\d\d-\d\d$/.test(b.day)) return [400, { error: 'bad_request', message: 'day is missing.' }];
+  if (!b.values || typeof b.values !== 'object' || !Object.keys(b.values).length) return [400, { error: 'bad_request', message: 'values must be an object of measures and cm.' }];
+  const no = (reason) => [200, { outcome: 'rejected', head: 'Nothing saved.', reason }];
+  if (b.day > B.today || b.day < shiftIso(B.today, -365)) return no('Pick a day of the last 12 months.');
+  const label = Object.fromEntries(B.form.map((m) => [m.key, m]));
+  const cur = state.sessions[b.day] ?? {};
+  const adds = [];
+  const deletes = [];
+  for (const [k, v] of Object.entries(b.values)) {
+    if (!label[k]) return [400, { error: 'bad_request', message: `Unknown measure: ${k}.` }];
+    if (v === null || v === '') {
+      if (cur[k]) deletes.push(k);
+      continue;
+    }
+    if (typeof v !== 'number') return [400, { error: 'bad_request', message: `${k} must be a number or null.` }];
+    if (v <= 0) return no(`${label[k].label}: give a number in cm.`);
+    if (cur[k] && cur[k].cm === v) continue;
+    adds.push([k, v]);
+  }
+  if (!adds.length && !deletes.length) return [200, { outcome: 'unchanged', head: 'Nothing changed.', reason: 'Nothing changed.' }];
+  if (deletes.length && b.confirm_delete !== true) {
+    return [200, { ...HEALTH.saves.health_day_delete, read_back: `Delete on ${dm(b.day)}: ${deletes.map((k) => `${label[k].label} ${cm1(cur[k].cm)}`).join(', ')}?`, confirm: { label: 'Yes, delete', no_label: 'Keep it' } }];
+  }
+  for (const [k, v] of adds) {
+    const before = Object.keys(state.sessions).filter((d) => d < b.day && state.sessions[d][k]).sort().at(-1);
+    const lastCm = before ? state.sessions[before][k].cm : null;
+    const m = label[k];
+    if (b.confirmed !== true && (v < m.min || v > m.max)) {
+      return [200, { ...HEALTH.saves.body_read_back, read_back: `Check: ${m.label} ${cm1(v)} cm is outside the usual ${m.min} to ${m.max} cm. Right?` }];
+    }
+    if (b.confirmed !== true && lastCm !== null && Math.abs(v - lastCm) >= B.jump_cm) {
+      return [200, { ...HEALTH.saves.body_read_back, read_back: `Check: ${m.label} ${cm1(v)} cm is ${cm1(Math.abs(v - lastCm))} cm away from last time (${cm1(lastCm)}). Right?` }];
+    }
+  }
+  const sessions = structuredClone(state.sessions);
+  const s = (sessions[b.day] ??= {});
+  const parts = [];
+  for (const k of deletes) {
+    parts.push(`${label[k].label} ${cm1(s[k].cm)} deleted`);
+    delete s[k];
+  }
+  for (const [k, v] of adds) {
+    parts.push(s[k] ? `${label[k].label} ${cm1(s[k].cm)} → ${cm1(v)}` : `${label[k].label} ${cm1(v)} added`);
+    s[k] = { cm: v, ref: s[k]?.ref ?? `m${++ids}` };
+  }
+  const head = `Saved for ${dm(b.day)}: ${parts.join(', ')}.`;
+  state.before = { day: state.day, usual: state.usual, hv: state.hv, sessions: state.sessions };
+  state.sessions = sessions;
+  state.undo = { token: randomBytes(12).toString('base64url'), head, expires_at: new Date(Date.now() + 15 * 60_000).toISOString() };
+  return [200, { outcome: 'saved', head, undo: state.undo }];
+}
+
 // ---- the scan sheet (deploy 90) ------------------------------------------------------------------------------------------------
 
 const codeOf = (url) => {
@@ -488,7 +718,7 @@ function lookUp(b) {
   return { ...sample, questions: [q] };
 }
 
-const KEYED = ['/food/labeladd', '/log', '/water', '/again', '/usual', '/habit', '/checkin', '/health', '/held/retry', '/held/delete', '/usual/meal', '/usual/new', '/usual/from_meal'];
+const KEYED = ['/health/day', '/body', '/food/labeladd', '/log', '/water', '/again', '/usual', '/habit', '/checkin', '/health', '/held/retry', '/held/delete', '/usual/meal', '/usual/new', '/usual/from_meal'];
 
 reset();
 
@@ -552,6 +782,12 @@ createServer(async (req, res) => {
     return entry ? send(res, 200, { entry }, signedIn) : send(res, 404, { error: 'no_entry', message: 'No such entry.' }, signedIn);
   }
   if (url.pathname === '/api/v1/usual' && req.method === 'GET') return send(res, 200, { usual: state.usual, undo: undo() }, signedIn);
+  if ((url.pathname === '/api/v1/health' || url.pathname === '/api/v1/body') && req.method === 'GET') {
+    const r = url.searchParams.get('range') ?? '30';
+    if (!['7', '30', '90'].includes(r)) return send(res, 400, { error: 'bad_request', message: 'range must be 7, 30 or 90.' }, signedIn);
+    if (url.pathname.endsWith('/body')) return send(res, 200, { body: bodyOut(url.searchParams.get('day')), undo: undo() }, signedIn);
+    return send(res, 200, { health: healthOut(Number(r), url.searchParams.get('all') === '1'), undo: undo() }, signedIn);
+  }
   if ((url.pathname === '/api/v1/foods/barcode' || url.pathname === '/api/v1/foods/off') && req.method === 'GET') {
     const code = codeOf(url);
     if (!code) return send(res, 400, { error: 'bad_request', message: 'A barcode is 8 to 14 digits.' }, signedIn);
@@ -568,8 +804,14 @@ createServer(async (req, res) => {
   if (url.pathname === '/api/v1/foods' && req.method === 'GET') return send(res, 200, { foods: foods(url.searchParams.get('q')) }, signedIn);
   // A save's fresh read: the Food day or the usual meals when the body asks for it (view "food" with view_day, "usual"), else
   // Today; as the core, /usual/meal and /usual/new default to the usual meals and /usual/from_meal to the Food day.
-  const view = body.view ?? ({ '/api/v1/usual/meal': 'usual', '/api/v1/usual/new': 'usual', '/api/v1/usual/from_meal': 'food' })[req.url];
-  const fresh = () => (view === 'food' ? { food_day: foodDay(body.view_day) } : view === 'usual' ? { usual: state.usual } : { day: dayOut(state.day) });
+  const view = body.view ?? ({ '/api/v1/usual/meal': 'usual', '/api/v1/usual/new': 'usual', '/api/v1/usual/from_meal': 'food', '/api/v1/health/day': 'health', '/api/v1/body': 'body' })[req.url];
+  const range = [7, 30, 90].includes(body.range) ? body.range : 30;
+  const fresh = () =>
+    view === 'food' ? { food_day: foodDay(body.view_day) }
+    : view === 'usual' ? { usual: state.usual }
+    : view === 'health' ? { health: healthOut(range, body.all === true) }
+    : view === 'body' ? { body: bodyOut(req.url === '/api/v1/body' ? body.day : body.view_day) }
+    : { day: dayOut(state.day) };
   if (req.url === '/api/v1/session' && req.method === 'DELETE') {
     sessions.delete(bearer);
     return send(res, 200, { outcome: 'signed_out' });
@@ -581,6 +823,7 @@ createServer(async (req, res) => {
       if (!undo() || body.token !== state.undo.token) {
         return send(res, 200, { ...base, outcome: 'rejected', tone: 'warning', head: 'Nothing undone.', reason: 'There is nothing to undo any more.', ...fresh() }, signedIn);
       }
+      if (state.before.hv) [state.hv, state.sessions] = [state.before.hv, state.before.sessions];
       [state.day, state.usual, state.before, state.undo] = [state.before.day, state.before.usual, null, null];
       return send(res, 200, { ...base, outcome: 'changed', head: 'Undone.', undo: null, ...fresh() }, signedIn);
     }
@@ -599,6 +842,17 @@ createServer(async (req, res) => {
       const answer = { ...r.answer, v: 1, replayed: false, undo: r.undo ? state.undo : null };
       if (body.key && !['rejected', 'needs_confirmation', 'held'].includes(answer.outcome)) state.keys.set(body.key, answer);
       return send(res, 200, { ...answer, ...fresh() }, signedIn);
+    }
+    if (path === '/health/day' || path === '/body') {
+      const [status, out] = path === '/body' ? bodySave(body) : healthDay(body);
+      if (status !== 200) return send(res, status, out, signedIn);
+      const answer = { ...base, undo: out.undo ?? undo(), ...out, v: 1, tone: ['saved', 'changed', 'unchanged'].includes(out.outcome) ? 'ok' : 'warning' };
+      if (body.key && !['rejected', 'needs_confirmation'].includes(answer.outcome)) state.keys.set(body.key, answer);
+      return send(res, 200, { ...answer, ...fresh() }, signedIn);
+    }
+    if (path === '/body/skip') {
+      state.day = { ...structuredClone(state.day), needs: { ...state.day.needs, body_due: null } };
+      return send(res, 200, { ...HEALTH.saves.body_skip, undo: undo(), ...fresh() }, signedIn);
     }
     const out = path.startsWith('/usual/') ? usualSave(path, body) : path === '/food/labeladd' ? labelAdd(body) : path === '/lookup' ? lookUp(body) : save(path, body);
     if (!out) return send(res, 404, { error: 'not_found', message: 'Not found.' });

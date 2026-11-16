@@ -2,6 +2,7 @@
   import { dayOf, hm } from '#lib/format.js';
   import { needsCount, reviewText, type Answer, type Day, type Question } from '#lib/day.js';
   import { getToday } from '#lib/today.svelte.js';
+  import { bodyDueLine } from '#lib/health.js';
 
   let { day, appUrl }: { day: Day; appUrl: string } = $props();
   const today = getToday();
@@ -121,6 +122,24 @@
         </div>
       </div>
     {/each}
+
+    {#if needs.body_due}
+      {@const due = bodyDueLine(needs.body_due)}
+      <!-- app.'s line at the top of To review (bodypage.today_line, deploy 92): Measure opens the Health page's body form, Not today
+           hides it until the next health day. -->
+      <div class="flex flex-wrap items-center gap-x-3 gap-y-2" data-body-due>
+        <span class="flex min-w-0 flex-1 basis-48 flex-col">
+          <span class="font-medium">{due.head}</span>
+          <span class="num text-[13px] text-muted">{due.sub}</span>
+        </span>
+        <span class="flex items-center gap-2">
+          <a href="/health?measure=1#body" class="{btn} {STYLE.primary} inline-flex items-center no-underline" data-body-measure>Measure</a>
+          <form method="POST" action="?/body_skip" class="m-0" onsubmit={today.submit('body_skip', 'body_skip')}>
+            <button type="submit" class="{btn} {STYLE.quiet}" disabled={today.busy.body_skip}>Not today</button>
+          </form>
+        </span>
+      </div>
+    {/if}
 
     {#if needs.review.length}
       <div class="flex flex-col gap-2">

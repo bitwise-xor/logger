@@ -8,7 +8,7 @@ skeleton, the sign-in and an empty Today. Step B (deploy 79): Today read-only fr
 (deploy 80): the taps save in place (water, Again and usual chips, habits, check-in, review, Health card, question buttons,
 Try again / Delete for a message not read yet, Undo). Step D (deploy 81): the logging box. Step E (deploy 84): the Food day.
 Step F (deploy 85): polish (plain messages when the core is down or the door is off, back to your page after a sign-in, phone,
-tablet and PC width). Then the trial runs (below). Deploy 87: the Usual meals page. Deploy 88: Today shows each food's and meal's macros, a pie of the day's kcal from protein, carbs and fat in the Energy card (app.'s macro colours, `--macro-*` in `app.css`), a one-line logging box that grows, and two habits per row. Deploy 90: scan, label photo, look-up and voice in the logging box (step 1a of the move to `logger.`, below).
+tablet and PC width). Then the trial runs (below). Deploy 87: the Usual meals page. Deploy 88: Today shows each food's and meal's macros, a pie of the day's kcal from protein, carbs and fat in the Energy card (app.'s macro colours, `--macro-*` in `app.css`), a one-line logging box that grows, and two habits per row. Deploy 90: scan, label photo, look-up and voice in the logging box (step 1a of the move to `logger.`, below). Deploy 92: the Health page with body measurements (step 1b, below).
 
 ## How it fits
 
@@ -63,6 +63,30 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   you (tool `log`, kind `food`, where app. shows it): the `lookup` save, read back as a new question answered with Yes or No.
   The microphone shows only where the browser has speech recognition; its words go into the box. Headers: `Permissions-Policy:
   camera=(self), microphone=(self)`, and the CSP allows `blob:` for images and media (the thumbnails, the camera).
+- The Health page (deploy 92, the move's step 1b; the door's routes came with deploy 91): `src/routes/(app)/health`, from the
+  Health card's "Health" link on Today. `?range=7|30|90` (30 without), `?all=1` every day of the range, `?measure=1` the body
+  form open (`&mday=yyyy-mm-dd` an older session; Today's "Measure" and the table's Now lead there, `#body`). The load asks
+  GET /health and GET /body together. Six charts (one column on phones, two from the tablet width): the door's five chart
+  descriptions and the sleep times, drawn by the chart part (below). The entries, newest first (14, or all): on phones and
+  tablets a row per day that opens to change (as a food row), from 1100 px app.'s table with a field per value; one Save per
+  day sends only the changed rows (`health_day`: `src/lib/health.ts` has the rules, `healthValues` the door's `values`). A
+  cleared value is asked first (Yes = `confirm_delete`), an odd one read back (Yes = `confirmed`): `HealthPage.yes` in
+  `src/lib/healthpage.svelte.ts` (the shared answer bar got a `yes()` hook). The body card (`components/health/BodyCard.svelte`):
+  last measured and due, Measure (a cm field per shown measure, the last value as the placeholder, only the changed ones sent:
+  `body`), Now / Last / Start, a chip per measure with its chart, waist ÷ height and the weekly weight rate; the body settings
+  stay at app. (the Settings link). A save's answer brings the read it changed (`view` "health" with the range and all, or
+  "body"; Undo the one of the save it undoes). A new weight more than 5 kg from the last is the logger's own question: the bar
+  says it waits under Needs you on Today. On Today: "Body measurements due" (`needs.body_due`) at the top of the review items,
+  counted in Needs you as app. counts it with its To review items, with Measure and "Not today" (`body_skip`). The container's
+  health check shares the path: `+server.ts` in the same folder answers the check's fetch, a browser gets the page.
+- The chart part (deploy 92; for Trends and Gym too): `components/chart/Chart.svelte` draws a chart description of the door
+  (`ChartData` in `src/lib/chart.ts`: `start`, `days`, `series` of `line`, `dot`, `ring`, `bar` with points `[day, value,
+  text, base]`, and `lines`, `min`, `max`, `prefix`, `unit`, `decimals`, `band`, `pointLabels`, `xAtPoints`, `years`) as SVG,
+  app.'s `drawChart` ported: `<Chart chart={…} legend={…} />`. The mouse shows a mark's text, a tap shows it in a box. The
+  geometry is plain functions with tests (`chartLayout`, `niceTicks`, `nearestHit`, `tipBox`); colour keys `a`, `b`, `c`,
+  `w`, `r` and the legend's `key` classes use `--chart-a`, `--chart-b`, `--chart-soft`, `--chart-warn` (`src/app.css`, dark
+  and light). `components/chart/ClockRows.svelte` draws rows across 0 to 24 h (`clockLayout`: bands and ticks in minutes);
+  `Legend.svelte` the colour keys alone. Nothing in them knows about health.
 - When the door cannot be asked (step F): `src/lib/problems.ts` tells three cases apart and words them for a page, a save and the
   sign-in. The door off (its 404 `not_found` to everything, or no `FRONT_TOKEN` here): app. still works, so the message links
   there. The core down (no answer: `unreachable`): app. is the same core, so it says to try again in a minute, with no link.
@@ -106,7 +130,10 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   checks and words), with Undo. Deploy 90: the scan routes from `tests/samples/scan.json` (`door.mjs` says which code and how many
   photos give which answer; POST `/standin/label-unreadable` fails the next read; a typed line with "mystery" asks a food
   question, to try "Look it up"). Step F: POST `/standin/core-down` (every
-  door call gets no answer), `/standin/door-off` (every door call answers 404 `not_found`) and `/standin/up` (or `/standin/reset`). `tests/test_front_samples.py` checks on every Python run that the samples still have the
+  door call gets no answer), `/standin/door-off` (every door call answers 404 `not_found`) and `/standin/up` (or `/standin/reset`). Deploy 92: GET
+  `/health` and `/body` from `tests/samples/health.json` (range 7 and 90 cut or widen the sample's charts), POST `/health/day`
+  and `/body` change the data as the core would (a clear asked first, an odd weight or sugar and a body jump of 4 cm read back,
+  keyed, Undo), `/body/skip` takes Today's due line away (`door.mjs` says which values do what). `tests/test_front_samples.py` checks on every Python run that the samples still have the
   door's shape; after a change of the door, write it again with
   `WRITE_FRONT_SAMPLES=1 .venv/bin/python -m pytest -q tests/test_front_samples.py` and commit the diff.
 - Deploy: `tools/deploy-front.sh <N>` (the core: `tools/deploy.sh`). Rollback of deploy N:

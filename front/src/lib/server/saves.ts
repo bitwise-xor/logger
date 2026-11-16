@@ -15,6 +15,7 @@ import type { Door } from './door.js';
 import { DoorError } from './door.js';
 import { problemOf, problemText, type ProblemKind } from '../problems.js';
 import { labeladdBody } from '../scan.js';
+import { bodyValues, healthValues } from '../health.js';
 
 /** The form's fields: what `FormData` offers (and a plain test double). */
 export interface Fields {
@@ -158,15 +159,34 @@ export const SAVES = {
     body: (f) => ({ text: str(f, 'text', 200), question_id: str(f, 'question_id', 64) }),
     timeoutMs: 60_000,
   },
+  // The Health page (deploy 92): one day's row (only the rows changed: `values`), a body session (only the measures changed). A
+  // value cleared is read back first (Yes = confirm_delete), then an odd value (Yes = confirmed, keeping confirm_delete).
+  health_day: {
+    path: '/health/day',
+    keyed: true,
+    body: (f) => ({ day: str(f, 'day', 10), values: healthValues(f), ...yes(f) }),
+  },
+  body: { path: '/body', keyed: true, body: (f) => ({ day: str(f, 'day', 10), values: bodyValues(f), ...yes(f) }) },
+  // Today's "Not today" on "Body measurements due": hidden until the next health day (no key, no Undo).
+  body_skip: { path: '/body/skip', keyed: false, body: () => ({}) },
 } satisfies Record<string, Save>;
+
+/** The two yeses of a read-back (deploy 92): confirmed (an odd value) and confirm_delete (a value cleared). */
+function yes(f: Fields): Body {
+  return { confirmed: f.get('confirmed') === '1' ? true : undefined, confirm_delete: f.get('confirm_delete') === '1' ? true : undefined };
+}
 
 export type SaveName = keyof typeof SAVES;
 export const SAVE_NAMES = Object.keys(SAVES) as SaveName[];
 /** The Food day's form actions (src/routes/(app)/food), the Usual meals page's (src/routes/(app)/food/usual); Today has all the others. */
 export const FOOD_SAVES: SaveName[] = ['food_entry', 'food_note', 'usual_from_meal', 'undo'];
 export const USUAL_SAVES: SaveName[] = ['usual_meal', 'usual_new', 'undo'];
-export const TODAY_SAVES: SaveName[] = SAVE_NAMES.filter((n) => n === 'undo' || (!FOOD_SAVES.includes(n) && !USUAL_SAVES.includes(n)));
-export type View = 'day' | 'food' | 'usual';
+/** The Health page's (deploy 92, src/routes/(app)/health): a day's row, a body session, Undo. */
+export const HEALTH_SAVES: SaveName[] = ['health_day', 'body', 'undo'];
+export const TODAY_SAVES: SaveName[] = SAVE_NAMES.filter(
+  (n) => n === 'undo' || (!FOOD_SAVES.includes(n) && !USUAL_SAVES.includes(n) && !HEALTH_SAVES.includes(n)),
+);
+export type View = 'day' | 'food' | 'usual' | 'health' | 'body';
 
 /** A key as the browser makes them (src/lib/saver.ts): a random UUID or base64url; anything else is replaced. */
 const KEY = /^[A-Za-z0-9_-]{16,64}$/;
@@ -182,6 +202,12 @@ export function bodyFor(
   const save: Save = SAVES[name];
   const body: Body = { ...save.body(f), view };
   if (viewDay && /^\d{4}-\d\d-\d\d$/.test(viewDay)) body.view_day = viewDay;
+  // The Health page's fresh read (deploy 92): its range (7, 30 or 90) and "Show all".
+  if (view === 'health' || view === 'body') {
+    const range = str(f, 'range', 3);
+    if (range && ['7', '30', '90'].includes(range)) body.range = Number(range);
+    if (view === 'health' && f.get('all') === '1') body.all = true;
+  }
   if (save.keyed) {
     const key = str(f, 'key', 64);
     // A form sent without the page's script has no key: one is made here (a re-send of that form is then a new save).

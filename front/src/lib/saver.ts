@@ -46,6 +46,8 @@ export const KEYED = new Set([
   'usual_meal', 'usual_new', 'usual_from_meal',
   // the scan sheet's new food (deploy 90)
   'labeladd',
+  // the Health page's day row and body session (deploy 92)
+  'health_day', 'body',
 ]);
 /** The actions the AI reads (up to about 40 s; the look-up since deploy 90): their answer is never dropped for a tap made while they were read. */
 export const SLOW = new Set(['log', 'held_retry', 'lookup']);

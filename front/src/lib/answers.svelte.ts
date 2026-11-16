@@ -50,9 +50,14 @@ export abstract class Answers {
   /** The answer's fresh day onto the screen. */
   protected abstract take(a: SaveAnswer, action: string, fields: FieldValues): void;
 
-  /** Fields every save of the page carries (the Food day: the day shown, so the answer brings that day). */
-  protected extra(): FieldValues {
+  /** Fields every save of the page carries (the Food day: the day shown, so the answer brings that day; the Health page: its range). */
+  protected extra(_action: string): FieldValues {
     return {};
+  }
+
+  /** What "Yes" adds to a read-back's tap (the Health page: confirm_delete for a value cleared, deploy 92). */
+  protected yes(_confirm: NonNullable<Bar['confirm']>): FieldValues {
+    return { confirmed: '1' };
   }
 
   /** The bar's smaller lines under the head. */
@@ -118,7 +123,7 @@ export abstract class Answers {
     if (this.busy[id]) return null;
     this.busy[id] = true;
     try {
-      const all = { ...this.extra(), ...fields };
+      const all = { ...this.extra(action), ...fields };
       const sent = await this.saver.send<SaveAnswer>(action, all);
       return this.handle(sent, action, all);
     } finally {
@@ -136,7 +141,7 @@ export abstract class Answers {
     const c = this.bar?.confirm;
     if (!c) return;
     const { key: _old, ...fields } = c.fields;
-    await this.tap(c.action, `confirm:${c.action}`, { ...fields, confirmed: '1' });
+    await this.tap(c.action, `confirm:${c.action}`, { ...fields, ...this.yes(c) });
   }
 
   async undo() {

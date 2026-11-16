@@ -23,3 +23,16 @@
   --macro-carbs: #c4513a;
   --macro-fat: #c98c12;
 }
+
+/* The chart part's colours (deploy 92, components/chart/), as app.'s charts (app.css --accent, --c2, --accent-soft, --bad):
+   series a in the ink colour, series b blue (app.'s second colour), a light band, amber for the reference lines to mind. */
+:root,
+[data-theme='dark'] {
+  --chart-a: var(--text);
+  --chart-b: #8db2ea;
+  --chart-soft: var(--chip);
+  --chart-warn: var(--amber);
+}
+[data-theme='light'] {
+  --chart-b: #3d6fb6;
+}

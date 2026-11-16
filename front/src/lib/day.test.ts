@@ -246,6 +246,9 @@ describe('needs you, habits, chips', () => {
     const d = copy();
     d.needs = { questions: [], not_read: [], review: [], checkin: null };
     expect(needsCount(d)).toBe(0);
+    // "Body measurements due" counts as one (deploy 92: app. counts it with the items to review)
+    d.needs.body_due = { last: '2026-10-15', days: 32 };
+    expect(needsCount(d)).toBe(1);
   });
   it('names a thought by its type only', () => {
     const texts = SAMPLE.needs.review.map(reviewText);
