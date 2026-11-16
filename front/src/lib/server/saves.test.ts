@@ -2,7 +2,7 @@
 // day asked for, and a gone session told apart from other problems.
 import { describe, expect, it } from 'vitest';
 import { makeDoor, type Fetch } from './door.js';
-import { bodyFor, EXERCISES_SAVES, FOOD_SAVES, GYM_SAVES, HABITS_SAVES, HEALTH_SAVES, EDIT_SAVES, HISTORY_SAVES, HOME_SAVES, PICK_SAVES, PLAN_SAVES, runSave, SAVE_NAMES, SAVES, TODAY_SAVES, USUAL_SAVES, ZONES_SAVES } from './saves.js';
+import { bodyFor, EXERCISES_SAVES, FOOD_SAVES, GYM_SAVES, HABITS_SAVES, HEALTH_SAVES, EDIT_SAVES, HISTORY_SAVES, HOME_SAVES, PICK_SAVES, PLAN_SAVES, runSave, SAVE_NAMES, SAVES, TODAY_SAVES, TRENDS_SAVES, USUAL_SAVES, ZONES_SAVES } from './saves.js';
 
 const TOKEN = 'f'.repeat(40);
 const SESSION = 's'.repeat(43);
@@ -191,7 +191,7 @@ describe('the Food day saves (step E)', () => {
     expect(TODAY_SAVES).not.toContain('usual_meal');
     expect(TODAY_SAVES).toContain('usual');
     expect(TODAY_SAVES).toContain('undo');
-    expect(new Set([...TODAY_SAVES, ...FOOD_SAVES, ...USUAL_SAVES, ...HEALTH_SAVES, ...HABITS_SAVES, ...GYM_SAVES, ...PLAN_SAVES, ...EXERCISES_SAVES, ...HOME_SAVES, ...PICK_SAVES, ...ZONES_SAVES, ...HISTORY_SAVES, ...EDIT_SAVES])).toEqual(new Set(SAVE_NAMES));
+    expect(new Set([...TODAY_SAVES, ...FOOD_SAVES, ...USUAL_SAVES, ...HEALTH_SAVES, ...HABITS_SAVES, ...GYM_SAVES, ...PLAN_SAVES, ...EXERCISES_SAVES, ...HOME_SAVES, ...PICK_SAVES, ...ZONES_SAVES, ...HISTORY_SAVES, ...EDIT_SAVES, ...TRENDS_SAVES])).toEqual(new Set(SAVE_NAMES));
   });
 });
 
@@ -790,5 +790,34 @@ describe('Home’s Zones, History and Edit zones pages (deploy 100)', () => {
 
   it('asks a chore’s page for its chore', () => {
     expect(bodyFor('undo', form({ token: 'xxr8bM8hNQ71ey7c', view_id: '3' }), undefined, undefined, 'home_chore')).toEqual({ token: 'xxr8bM8hNQ71ey7c', view: 'home_chore', view_id: 3 });
+  });
+});
+
+// Deploy 102: the Week review's button (POST /coach/start): kind "week" and the card's period, never a key, the page's period for the
+// fresh Week, and time enough for the door so a slow answer is not mistaken for "not saved".
+describe('the Week review', () => {
+  it('starts a week review with the card\'s period and no key, and asks for the Week of the page\'s period', () => {
+    const body = bodyFor('coach_start', form({ start: '2026-11-02', end: '2026-11-08', view_p: 'last', key: KEY }), undefined, undefined, 'week');
+    expect(body).toEqual({ kind: 'week', start: '2026-11-02', end: '2026-11-08', view: 'week', view_p: 'last' });
+    expect(SAVES.coach_start.keyed).toBe(false);
+    expect(TRENDS_SAVES).toEqual(['coach_start']);
+    expect(TODAY_SAVES).not.toContain('coach_start');
+  });
+
+  it('leaves out a date that is no date and a period that is not one of the four (the door then refuses in its words)', () => {
+    const body = bodyFor('coach_start', form({ start: '2.11.2026', end: '2026-11-08', view_p: '90' }), undefined, undefined, 'week');
+    expect(body).toEqual({ kind: 'week', end: '2026-11-08', view: 'week' });
+  });
+
+  it('goes to /coach/start once, with 60 s for the door', async () => {
+    const seen: { path: string; body: Record<string, unknown>; timeout: boolean }[] = [];
+    const { door } = net(200, { v: 1, outcome: 'changed', head: 'The coach is reading your week: about 45 seconds.', coaching: { id: 5, state: 'working' }, week: {} });
+    const wrapped = { ...door, post: (path: string, session: string | null, body: Record<string, unknown>, timeoutMs?: number) => {
+      seen.push({ path, body, timeout: timeoutMs === 60_000 });
+      return door.post(path, session, body, timeoutMs);
+    } };
+    const r = await runSave(wrapped as typeof door, SESSION, 'coach_start', form({ start: '2026-11-09', end: '2026-11-10', view_p: 'this' }), undefined, 'week');
+    expect(r.ok).toBe(true);
+    expect(seen).toEqual([{ path: '/coach/start', body: { kind: 'week', start: '2026-11-09', end: '2026-11-10', view: 'week', view_p: 'this' }, timeout: true }]);
   });
 });

@@ -7,7 +7,8 @@
 
   // The places (deploy 96, the Spaces menu): the PC's rail has Today, Trends, Library, then "Spaces" (Gym, Health, Habits, Home), then
   // More; the Space you are in is the highlighted one. Phones and tablets keep four tabs, Today, Trends, Library and More; More is
-  // the page /more with the Spaces, and it is highlighted on a Space's page too. Trends and Library stay greyed (in the full app).
+  // the page /more with the Spaces, and it is highlighted on a Space's page too. Trends is a page of this app since deploy 102 (lit on
+  // every /trends page); Library stays greyed (in the full app).
   const here = $derived(placeOf(page.url.pathname));
 
   const tab = 'flex h-[52px] items-center justify-center text-[13px] font-medium no-underline desktop:h-9 desktop:justify-start desktop:rounded-lg desktop:px-2.5 desktop:text-sm';
@@ -26,14 +27,13 @@
   >
     <span class="hidden px-2.5 pb-3 text-[15px] font-semibold tracking-tight desktop:block">Logger</span>
     <a href="/" aria-current={here.tab === 'today' ? (page.url.pathname === '/' ? 'page' : 'true') : undefined} class="{tab} {here.tab === 'today' ? on : off}" data-place="today">Today</a>
-    {#each ['Trends', 'Library'] as name (name)}
-      <span
-        aria-disabled="true"
-        title="In the full app"
-        class="flex h-[52px] cursor-default items-center justify-center text-[13px] font-medium text-muted opacity-50 desktop:h-9 desktop:justify-start desktop:px-2.5 desktop:text-sm"
-        data-place={name.toLowerCase()}>{name}</span
-      >
-    {/each}
+    <a href="/trends" aria-current={here.tab === 'trends' ? (page.url.pathname === '/trends' ? 'page' : 'true') : undefined} class="{tab} {here.tab === 'trends' ? on : off}" data-place="trends">Trends</a>
+    <span
+      aria-disabled="true"
+      title="In the full app"
+      class="flex h-[52px] cursor-default items-center justify-center text-[13px] font-medium text-muted opacity-50 desktop:h-9 desktop:justify-start desktop:px-2.5 desktop:text-sm"
+      data-place="library">Library</span
+    >
     <!-- The Spaces, on the PC only (phones and tablets find them under More). -->
     <span class="hidden px-2.5 pt-4 pb-1 text-xs font-medium tracking-wider text-muted uppercase desktop:block" data-rail-group>Spaces</span>
     {#each SPACES.filter((s) => s.href) as s (s.key)}
@@ -57,7 +57,7 @@
   <div class="mx-auto flex w-full max-w-[960px] min-w-0 flex-1 flex-col desktop:mx-0 desktop:max-w-[1440px] gap-3 px-3.5 pt-3.5 pb-[calc(84px+var(--dock,0px))] desktop:px-6 desktop:pb-8">
     {@render children()}
     <p class="m-0 mt-auto pt-6 text-[13px] text-muted">
-      Trends, Library and the rest are <a href="{data.appUrl}/web/">in the full app</a>.
+      Library and the rest are <a href="{data.appUrl}/web/">in the full app</a>.
     </p>
   </div>
 </div>

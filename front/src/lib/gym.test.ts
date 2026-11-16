@@ -216,5 +216,9 @@ describe('the Spaces menu', () => {
     expect(placeOf('/homework')).toEqual({ tab: null, space: null, atMore: false });
     expect(placeOf('/gymnastics')).toEqual({ tab: null, space: null, atMore: false });
     expect(placeOf('/scan/barcode')).toEqual({ tab: null, space: null, atMore: false });
+    // deploy 102: Trends is a tab of this app, lit on every /trends page
+    expect(placeOf('/trends')).toEqual({ tab: 'trends', space: null, atMore: false });
+    expect(placeOf('/trends/charts')).toEqual({ tab: 'trends', space: null, atMore: false });
+    expect(placeOf('/trendsetter')).toEqual({ tab: null, space: null, atMore: false });
   });
 });

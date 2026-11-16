@@ -1,7 +1,7 @@
 /**
  * The places of the app (deploy 96, the Spaces menu): the tab or rail item a page belongs to, and the Spaces. The PC's rail shows
- * Today, Trends, Library, the Spaces (Gym, Health, Habits, and Home since deploy 99) and More; phones and tablets four tabs, with
- * the Spaces on the More page (/more), where Medical waits greyed ("soon"). Plain TypeScript, so the tests need no browser.
+ * Today, Trends (a page of this app since deploy 102), Library, the Spaces (Gym, Health, Habits, and Home since deploy 99) and More;
+ * phones and tablets four tabs, with the Spaces on the More page (/more), where Medical waits greyed ("soon"). Plain TypeScript, so the tests need no browser.
  */
 
 export interface Space {
@@ -22,11 +22,14 @@ export const SPACES: Space[] = [
 ];
 
 /**
- * Where a path belongs: the tab (Today for Today and the Food day with its usual meals; More for /more and every Space) and the
- * Space (on the PC's rail the Space itself is highlighted, on phones and tablets the More tab).
+ * Where a path belongs: the tab (Today for Today and the Food day with its usual meals; Trends for /trends and its tabs since
+ * deploy 102; More for /more and every Space) and the Space (on the PC's rail the Space itself is highlighted, on phones and tablets
+ * the More tab).
  */
-export function placeOf(path: string): { tab: 'today' | 'more' | null; space: string | null; atMore: boolean } {
+export type Tab = 'today' | 'trends' | 'more';
+export function placeOf(path: string): { tab: Tab | null; space: string | null; atMore: boolean } {
   const under = (p: string) => path === p || path.startsWith(`${p}/`);
+  if (under('/trends')) return { tab: 'trends', space: null, atMore: false };
   const space = SPACES.find((s) => s.href && under(s.href))?.key ?? null;
   if (space) return { tab: 'more', space, atMore: false };
   if (under('/more')) return { tab: 'more', space: null, atMore: true };

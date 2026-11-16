@@ -8,7 +8,7 @@ skeleton, the sign-in and an empty Today. Step B (deploy 79): Today read-only fr
 (deploy 80): the taps save in place (water, Again and usual chips, habits, check-in, review, Health card, question buttons,
 Try again / Delete for a message not read yet, Undo). Step D (deploy 81): the logging box. Step E (deploy 84): the Food day.
 Step F (deploy 85): polish (plain messages when the core is down or the door is off, back to your page after a sign-in, phone,
-tablet and PC width). Then the trial runs (below). Deploy 87: the Usual meals page. Deploy 88: Today shows each food's and meal's macros, a pie of the day's kcal from protein, carbs and fat in the Energy card (app.'s macro colours, `--macro-*` in `app.css`), a one-line logging box that grows, and two habits per row. Deploy 90: scan, label photo, look-up and voice in the logging box (step 1a of the move to `logger.`, below). Deploy 92: the Health page with body measurements (step 1b, below). Deploy 94: the Habits page (step 1c, below). Deploy 96: the Gym's Workout page, the Gym card on Today and the Spaces menu (step 2, below). Deploy 97: Gym's other five parts (below). Deploy 99: Home's Now and Pick pages with the timer, the Home card on Today and Home in the Spaces menu (step 3, below). Deploy 100: Home's other four pages (Zones, History, a chore's page, Edit zones).
+tablet and PC width). Then the trial runs (below). Deploy 87: the Usual meals page. Deploy 88: Today shows each food's and meal's macros, a pie of the day's kcal from protein, carbs and fat in the Energy card (app.'s macro colours, `--macro-*` in `app.css`), a one-line logging box that grows, and two habits per row. Deploy 90: scan, label photo, look-up and voice in the logging box (step 1a of the move to `logger.`, below). Deploy 92: the Health page with body measurements (step 1b, below). Deploy 94: the Habits page (step 1c, below). Deploy 96: the Gym's Workout page, the Gym card on Today and the Spaces menu (step 2, below). Deploy 97: Gym's other five parts (below). Deploy 99: Home's Now and Pick pages with the timer, the Home card on Today and Home in the Spaces menu (step 3, below). Deploy 100: Home's other four pages (Zones, History, a chore's page, Edit zones). Deploy 102: Trends' Week tab with the Week review; the Trends tab is live (below).
 
 ## How it fits
 
@@ -177,10 +177,28 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   `HISTORY_SAVES`, `EDIT_SAVES`). The stand-in now keeps Home's zones and chores as Edit zones' sample has them and changes them as the core would
   (the pairs are worked out from them; History from the sample's rows): POST `/standin/home-many` (70 more history rows), `/standin/home-nohistory`,
   `/standin/home-bare` (two zones with no chore, one of them Storage); `SHOOT_ONLY=homeparts` runs only these checks.
+- Trends' Week tab (deploy 102, the move's step 4; the door's routes came with deploy 101): `src/routes/(app)/trends` (`?p=7|last|30|this`, 7
+  without or for anything else), from the Trends tab (a link since 102, lit on every `/trends` path: `placeOf` in `places.ts`). The title with
+  the tabs Week · Charts · Insights (`components/trends/TrendsTabs.svelte`; until deploy 103 Charts and Insights open app.'s Food > Trends and
+  Insights: only the two hrefs in `TRENDS_TABS` in `src/lib/week.ts` change then), the four periods (links), the header line, the empty state
+  (`empty_text`); then on phones and tablets the Week review, Food (four tiles: the meter's 100% line at 80% of the track, amber only for the
+  door's warn level), Health and habits, Foods that count most (five rows, "Show all N") and The days (seven rows, "Show all N", "partly"); from
+  1100 px Food, Health and habits and The days in the middle and the review and the foods in a 380 px column. The door's food charts are not
+  drawn here (Charts, deploy 103). The Week review card (`ReviewCard.svelte`) in the door's words for its five states (not offered, none,
+  working, done, failed). Its button is the form action `coach_start` (`saves.ts`: POST /coach/start, kind "week", the card's start and end,
+  view "week" with view_p, 60 s): no key, never sent again by the page (not after a network error, not after a sign-in: `mayResend` refuses
+  `coach_`), the button disabled from the press until the answer is in (`OneStart` in `week.ts`, state in `weekpage.svelte.ts`); the answer's
+  head or refusal is said in the card. While a review is read the browser asks `src/routes/(app)/trends/status` (GET /coach/status) every 5 s
+  (`StatusPoll`), reads the week again in place (`invalidateAll`) when it is over, and after 5 minutes stops with "Taking longer than usual" and
+  "Look again". The stand-in answers GET `/week`, `/coach/status` and POST `/coach/start` from `tests/samples/week.json` (POST
+  `/standin/week?last=…&this=…&monday=1&latest=1&limit=1&foods=8&polls=n&fail=1` sets the states; GET `/standin/week-starts` counts the
+  starts); `SHOOT_ONLY=trends` runs only these checks (the variable must reach the container: `docker run -e SHOOT_ONLY=…`; `tools/front-screens`
+  does not pass it). Also on the Habits page: on the PC the page leaves room for the answer bar while it shows, so an open calendar's last week can
+  be scrolled clear of it.
 - The Spaces menu (deploy 96): `src/lib/places.ts` says where a page belongs. The PC rail: Today, Trends, Library, then "Spaces"
   (Gym, Health, Habits, Home since deploy 99; the one you are in highlighted), then More. Phones and tablets keep four tabs; More is the page `/more`
   (`src/routes/(app)/more`): the Spaces as a list (Medical greyed, "soon"; Home since deploy 99), then one line that the rest is in the full app.
-  On a Space's page the More tab is highlighted. Trends and Library stay greyed. Deploy 96 also fixed two things on the Habits page:
+  On a Space's page the More tab is highlighted. Trends and Library stayed greyed (Trends is live since deploy 102). Deploy 96 also fixed two things on the Habits page:
   after a day tick the open calendar is scrolled above the answer bar (phones and tablets), and app.'s "in the calendar below" is
   worded "in Last 30 days" (`helpText` in `habits.ts`).
 - The chart part (deploy 92; for Trends and Gym too): `components/chart/Chart.svelte` draws a chart description of the door

@@ -43,6 +43,18 @@
     const by = Math.min(r.bottom + 8 - top, r.top - 8);
     if (by > 0) window.scrollBy({ top: by, behavior: 'smooth' });
   });
+
+  // Deploy 102: on the PC the bar floats at the bottom right over the page's end, where the left column's open calendar can end
+  // (a short "Your habits", a window near 1100 px): while it shows, the page gets room for it, so the calendar's last week can always
+  // be scrolled above it. (Phones and tablets have that room already: the layout's --dock.)
+  let pcBar = $state(0);
+  $effect(() => {
+    const el = dock?.firstElementChild;
+    if (!(el instanceof HTMLElement)) return;
+    const ro = new ResizeObserver(() => (pcBar = window.innerWidth >= 1100 ? el.offsetHeight : 0));
+    ro.observe(el);
+    return () => ro.disconnect();
+  });
 </script>
 
 <svelte:head><title>Habits · Logger</title></svelte:head>
@@ -85,6 +97,8 @@
     Hiding habits on Today, their order and the reminders stay in <a href="{data.appUrl}/web/settings?tab=today">app.'s Settings</a>.
   </p>
 {/if}
+
+<div aria-hidden="true" class="hidden shrink-0 desktop:block" style="height: {pcBar ? pcBar + 24 : 0}px" data-bar-room></div>
 
 <!-- The answer bar: above the tab bar on phones, at the bottom right on the PC (as on the Health page). -->
 <div

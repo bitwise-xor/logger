@@ -37,6 +37,8 @@
 // calendar not covered by the answer bar after a tick, and the line under the filter worded for this page.
 // Deploy 97: the Gym's other five parts, Plan, Exercises, Progress, Activity and History (checkGymParts says what).
 // Deploy 99: Home's Now and Pick pages with the timer, Today's Home card and Home in the Spaces menu (checkHome says what).
+// Deploy 102: Trends' Week tab with the Week review and the Trends tab live (checkTrends says what), and on the Habits page the open
+// calendar's last week reachable above the answer bar at every width.
 // Every check throws on a failure, so the script ends with an error.
 // Usage: node tests/screens/shoot.mjs <base url> <out dir> <stand-in url>
 import assert from 'node:assert/strict';
@@ -55,6 +57,7 @@ const HEALTH = JSON.parse(readFileSync(new URL('../samples/health.json', import.
 const HABITS = JSON.parse(readFileSync(new URL('../samples/habits.json', import.meta.url), 'utf8'));
 const GYM = JSON.parse(readFileSync(new URL('../samples/gym.json', import.meta.url), 'utf8'));
 const HOME = JSON.parse(readFileSync(new URL('../samples/home.json', import.meta.url), 'utf8'));
+const WEEK = JSON.parse(readFileSync(new URL('../samples/week.json', import.meta.url), 'utf8'));
 
 // What the page must show, worked out here from the sample on its own (not with the page's code).
 const even = (x) => {
@@ -200,7 +203,7 @@ async function checkSaves(page, name, theme) {
   if (name !== 'pc') {
     // step F: scrolled to the end, the logging box and its answer bar cover nothing (the page leaves room for both)
     await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-    const last = await page.getByText('Trends, Library and the rest are').boundingBox();
+    const last = await page.getByText('Library and the rest are').boundingBox();
     const dock = await page.locator('[data-logbox]').boundingBox();
     assert.ok(last.y + last.height <= dock.y + 1, `the logging box covers nothing at the end (${last.y + last.height} > ${dock.y})`);
   }
@@ -1291,6 +1294,30 @@ async function checkHabits(page, name, theme) {
   assert.equal(await page.locator('[data-calendar]').count(), 1, 'opening another closes the first');
   await page.screenshot({ path: `${out}/habits-calendar-open-${name}-${theme}.png`, fullPage: true });
   await checkWidth(page, 'habits, after day taps');
+  // deploy 102: with the answer bar showing, the open calendar's last week can always be scrolled clear of it (the page leaves room
+  // for the bar at every width: --dock on phones and tablets, a spacer on the PC)
+  await bar.waitFor();
+  for (const at of ['end', 'calendar']) {
+    await page.evaluate((a) => {
+      if (a === 'end') window.scrollTo(0, document.documentElement.scrollHeight);
+      else {
+        const cells = [...document.querySelectorAll('[data-calendar] [data-day]')];
+        const r = cells.at(-1).getBoundingClientRect();
+        const b = document.querySelector('[data-bar]').getBoundingClientRect();
+        window.scrollBy(0, r.bottom - b.top + 8); // the last week as low as it can be while above the bar
+      }
+    }, at);
+    await page.waitForTimeout(200);
+    const reach = await page.evaluate(() => {
+      const cells = [...document.querySelectorAll('[data-calendar] [data-day]')];
+      const r = cells.at(-1).getBoundingClientRect();
+      const b = document.querySelector('[data-bar]').getBoundingClientRect();
+      return { ok: r.right <= b.left || r.left >= b.right || r.bottom <= b.top + 1, row: Math.round(r.bottom), bar: Math.round(b.top) };
+    });
+    assert.ok(reach.ok, `${name}: the calendar's last week is not under the answer bar (${at}: row ends ${reach.row}, bar at ${reach.bar})`);
+  }
+  if (name === 'phone') await page.screenshot({ path: `${out}/habits-calendar-reach-${name}-${theme}.png` });
+  assert.equal(await page.evaluate(() => /calendar below/.test(document.body.innerText)), false, 'no "in the calendar below" on this page');
 
   // a habit the read marks as not editable opens read-only, with one line why
   await standinPost('/standin/reset');
@@ -3066,6 +3093,243 @@ async function checkHomeParts(page, name, theme) {
   await page.goto(`${base}/`);
 }
 
+async function checkTrends(page, name, theme) {
+  await standinPost('/standin/reset');
+  const pc = name === 'pc';
+  const wk = (k) => WEEK[k].week;
+  const week = (q) => standinPost(`/standin/week?${q}`);
+  const starts = async () => (await (await fetch(`${standin}/standin/week-starts`)).json()).starts;
+  const card = page.locator('[data-card="review"]');
+  const shot = (n, full = true) => page.screenshot({ path: `${out}/trends-${n}-${name}-${theme}.png`, fullPage: full });
+  const headLine = (w) => [w.dates_text, w.days_text, w.left_out].filter(Boolean).join(' · ');
+  const checkWeek = async (w) => {
+    assert.deepEqual(await page.locator('[data-period]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-period'), e.textContent.trim(), e.getAttribute('aria-current')])),
+      w.periods.map((x) => [x.p, x.label, x.current ? 'page' : null]), 'the four periods, the current one marked');
+    assert.equal(await text(page.locator('[data-head-line]')), headLine(w));
+    assert.equal(await text(page.locator('[data-meter-hint]')), w.meter_hint);
+    for (const t of w.food) {
+      const tile = page.locator(`[data-tile="${t.key}"]`);
+      assert.equal(await text(tile.locator('[data-tile-avg]')), t.average_text);
+      assert.equal(await text(tile.locator('[data-tile-target]')), `average per day · target ${t.target_text} ${t.unit}`);
+      assert.equal(await text(tile.locator('[data-tile-pct]')), `${even(t.pct)}%`);
+      const amber = await tile.locator('[data-meter-fill]').evaluate((e) => e.className.includes('bg-amber'));
+      assert.equal(amber, t.level === 'warn', `${t.key}: amber only for warn (${t.level})`);
+      const fill = await tile.locator('[data-meter-fill]').evaluate((e) => parseFloat(e.style.width));
+      assert.ok(Math.abs(fill - Math.min(100, t.pct * 0.8)) < 0.1, `${t.key}: the bar is ${fill}%`);
+    }
+    assert.deepEqual(await page.locator('[data-hrow]').evaluateAll((els) => els.map((e) => e.textContent.replace(/\s+/g, ' ').trim())),
+      w.health.map((h) => [h.label, h.value, h.detail].filter(Boolean).join(' ')), 'Health and habits, in the door\'s order');
+    for (const [key, list] of [['kcal', w.foods.by_kcal], ['count', w.foods.by_count]]) {
+      assert.deepEqual(await page.locator(`[data-foods="${key}"] [data-food]`).evaluateAll((els) => els.map((e) => [e.querySelector('[data-food-name]').textContent.trim(), e.querySelector('[data-food-text]').textContent.trim()])),
+        list.slice(0, 5).map((f) => [f.name, f.text]));
+    }
+    const rows = w.days.slice(0, 7);
+    assert.deepEqual(await page.locator('[data-day]').evaluateAll((els) => els.map((e) => e.getAttribute('data-day'))), rows.map((d) => d.day), 'The days, newest first');
+    assert.equal(await page.locator('[data-chart], svg[data-chart], [data-card="charts"]').count(), 0, 'no food charts on the Week tab');
+  };
+
+  // ---- the tab bar: Trends is live and lit on /trends; Library stays greyed -------------------------------------------------------
+  await page.goto(`${base}/`);
+  await page.locator('[data-place="trends"]').click();
+  await page.waitForURL(/\/trends$/);
+  await page.locator('[data-card="food"]').waitFor();
+  const trendsTab = page.locator('[data-place="trends"]');
+  assert.equal(await trendsTab.evaluate((e) => e.tagName), 'A');
+  assert.equal(await trendsTab.getAttribute('href'), '/trends');
+  assert.equal(await trendsTab.getAttribute('aria-current'), 'page');
+  assert.match(await trendsTab.getAttribute('class'), /text-blue/);
+  assert.equal(await page.locator('[data-place="today"]').getAttribute('aria-current'), null);
+  assert.equal(await page.locator('[data-place="more"]').getAttribute('aria-current'), null);
+  assert.equal(await page.locator('[data-place="library"]').getAttribute('aria-disabled'), 'true');
+  assert.equal(await page.locator('[data-place="library"]').evaluate((e) => e.tagName), 'SPAN');
+  assert.ok(await page.getByText('Library and the rest are').isVisible(), 'the footer says what is still in the full app');
+  assert.equal(await page.getByText('Trends, Library and the rest').count(), 0);
+  // the tabs: Week here, Charts and Insights at app. until deploy 103
+  assert.deepEqual(await page.locator('[data-tab]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-tab'), e.getAttribute('aria-current')])), [['week', 'page'], ['charts', null], ['insights', null]]);
+  assert.match(await page.locator('[data-tab="charts"]').getAttribute('href'), /\/web\/food\/trends$/);
+  assert.match(await page.locator('[data-tab="insights"]').getAttribute('href'), /\/web\/insights$/);
+  await page.evaluate(() => (window.__noReload = true));
+
+  // ---- 7 days: the not-offered review card --------------------------------------------------------------------------------------
+  await checkWeek(wk('7'));
+  const r7 = wk('7').review;
+  assert.equal(await card.getAttribute('data-state'), 'not-offered');
+  assert.equal(await text(card.locator('h2')), r7.title);
+  assert.equal(await text(card.locator('[data-review-small]')), r7.small);
+  assert.equal(await text(card.locator('[data-review-blurb]')), r7.blurb);
+  assert.deepEqual(await card.locator('[data-review-week]').evaluateAll((els) => els.map((e) => [e.textContent.trim(), e.getAttribute('href')])), [['Last week', '/trends?p=last'], ['This week so far', '/trends?p=this']]);
+  assert.equal(await card.locator('[data-review-latest]').count(), 0);
+  assert.equal(await card.locator('[data-review-button]').count(), 0);
+  // the PC: Food, Health and habits and The days in the middle; the review and the foods on the right. Phones and tablets: one column,
+  // the review first
+  const [food, health, days, rev, foods] = await Promise.all(['food', 'health', 'days', 'review', 'foods'].map((k) => page.locator(`[data-card="${k}"]`).boundingBox()));
+  if (pc) {
+    assert.ok(rev.x > food.x + food.width - 1 && Math.abs(rev.y - food.y) < 2, 'pc: the review beside Food');
+    assert.ok(Math.abs(foods.x - rev.x) < 1 && foods.y > rev.y, 'pc: the foods under the review');
+    assert.ok(Math.abs(health.x - food.x) < 1 && Math.abs(days.x - food.x) < 1 && days.y > health.y && health.y > food.y, 'pc: the middle column');
+    assert.ok(Math.abs(rev.width - 380) < 2, `pc: a side column of 380 px (${rev.width})`);
+  } else {
+    const ys = [rev, food, health, foods, days].map((b) => b.y);
+    assert.deepEqual([...ys].sort((a, b) => a - b), ys, `${name}: the review, Food, Health and habits, the foods, The days`);
+    assert.ok([rev, food, health, foods, days].every((b) => Math.abs(b.x - food.x) < 1 && Math.abs(b.width - food.width) < 1), `${name}: one column`);
+  }
+  await shot('week-7');
+  await checkWidth(page, 'trends, 7 days');
+  await card.locator('[data-review-week="last"]').click();
+  await page.waitForURL(/\/trends\?p=last$/);
+  await card.locator('[data-review-button]').waitFor();
+  assert.equal(await page.locator('[data-place="trends"]').getAttribute('aria-current'), 'page', 'Trends lit on /trends?p=last');
+  // the latest review's line
+  await week('latest=1');
+  await page.goto(`${base}/trends`);
+  assert.equal(await text(card.locator('[data-review-latest]')), wk('7_latest').review.latest.text);
+  // a period that is not one of the four: the 7 days
+  await page.goto(`${base}/trends?p=90`);
+  assert.equal(await page.locator('[data-period="7"]').getAttribute('aria-current'), 'page');
+
+  // ---- last week, none: press the button; disabled at once, working, then done without a reload -------------------------------
+  await week('polls=1');
+  await page.goto(`${base}/trends?p=last`);
+  await page.evaluate(() => (window.__noReload = true));
+  await checkWeek(wk('last_none'));
+  const rn = wk('last_none').review;
+  assert.equal(await card.getAttribute('data-state'), 'none');
+  assert.equal(await text(card.locator('[data-review-intro]')), rn.intro);
+  assert.equal(await text(card.locator('[data-review-cost]')), rn.cost);
+  assert.equal(await text(card.locator('[data-review-button]')), rn.button);
+  await shot('review-none');
+  await checkWidth(page, 'trends, review none');
+  const before = await starts();
+  await card.locator('[data-review-button]').dblclick();
+  assert.equal(await card.locator('[data-review-button]').isDisabled().catch(() => true), true, 'the button is disabled from the first press');
+  await card.locator('[data-review-wait]').waitFor();
+  assert.equal(await card.getAttribute('data-state'), 'working');
+  assert.equal(await text(card.locator('[data-review-wait-head]')), wk('this_working').review.wait);
+  assert.equal(await text(card.locator('[data-review-said] span').first()), WEEK.saves.start.head);
+  await page.waitForTimeout(300);
+  assert.equal(await starts(), before + 1, 'a double press started one review');
+  if (pc || name === 'phone') await shot(`week-working`, false);
+  await checkWidth(page, 'trends, review working');
+  // the poll (every 5 s): done, read again in place
+  await card.locator('[data-review-parts]').waitFor({ timeout: 15000 });
+  assert.equal(await card.getAttribute('data-state'), 'done');
+  assert.ok(await page.evaluate(() => window.__noReload === true), 'no reload while the review was read');
+  assert.equal(await starts(), before + 1, 'nothing was started again');
+  const rd = wk('last_done').review;
+  assert.deepEqual(await card.locator('[data-part]').evaluateAll((els) => els.map((e) => e.getAttribute('data-part'))), rd.parts.map((x) => x.key), 'the parts in the door\'s order');
+  for (const part of rd.parts) {
+    const el = card.locator(`[data-part="${part.key}"]`);
+    if (part.style === 'note') assert.equal(await text(el), part.text);
+    else {
+      assert.equal(await text(el.locator('h3')), part.title);
+      assert.equal(await el.locator(part.style === 'numbered' ? 'ol' : 'ul').count(), 1, `${part.key}: ${part.style}`);
+      assert.deepEqual(await el.locator('li').allTextContents(), part.items);
+    }
+  }
+  assert.equal(await text(card.locator('[data-review-meta]')), rd.meta.text);
+  assert.equal(await text(card.locator('[data-review-button]')), rd.button);
+  assert.deepEqual(await card.locator('[data-review-link]').evaluateAll((els) => els.map((e) => [e.textContent.trim(), new URL(e.href).pathname + new URL(e.href).search])), rd.links.map((l) => [l.label, l.href]));
+  assert.equal(await text(card.locator('[data-review-caution]')), rd.caution);
+  assert.equal(await card.locator('[data-review-said]').count(), 0, 'the start\'s words go once the review is there');
+  await shot('week-last-done');
+  await checkWidth(page, 'trends, review done');
+
+  // ---- a refusal: the daily limit, in the door's words next to the card; "already on it" ---------------------------------------
+  await week('limit=1');
+  const n0 = await starts();
+  await card.locator('[data-review-button]').click(); // Review again
+  await card.locator('[data-review-said="warning"]').waitFor();
+  assert.deepEqual(await card.locator('[data-review-said] span').allTextContents(), [WEEK.saves.limit.head, WEEK.saves.limit.reason]);
+  assert.equal(await card.getAttribute('data-state'), 'done', 'the card stays as it was');
+  assert.equal(await card.locator('[data-review-button]').isDisabled(), false, 'the owner may press again');
+  assert.equal(await starts(), n0 + 1);
+  await checkWidth(page, 'trends, a refusal');
+  if (name === 'phone') await card.screenshot({ path: `${out}/trends-review-limit-${name}-${theme}.png` });
+  await standinPost('/standin/reset');
+  await page.goto(`${base}/trends?p=last`);
+  await card.locator('[data-review-button]').waitFor();
+  await week('last=working'); // started elsewhere (another tab) while this page still shows the button
+  await card.locator('[data-review-button]').click();
+  await card.locator('[data-review-wait]').waitFor();
+  assert.equal(await text(card.locator('[data-review-said] span').first()), WEEK.saves.on_it.head);
+
+  // ---- failed: the door's words and the button to try again ---------------------------------------------------------------------
+  await standinPost('/standin/reset');
+  await week('last=failed');
+  await page.goto(`${base}/trends?p=last`);
+  assert.equal(await card.getAttribute('data-state'), 'failed');
+  assert.equal(await text(card.locator('[data-review-failed]')), wk('last_failed').review.failed);
+  assert.equal(await text(card.locator('[data-review-button]')), wk('last_failed').review.button);
+  await checkWidth(page, 'trends, review failed');
+
+  // ---- this week so far: working on arrival, done by the poll; taking longer after 5 minutes ----------------------------------
+  await standinPost('/standin/reset');
+  await week('this=none');
+  await page.goto(`${base}/trends?p=this`);
+  await checkWeek(wk('this_working'));
+  await page.evaluate(() => (window.__noReload = true));
+  await week('polls=1');
+  await card.locator('[data-review-button]').click();
+  await card.locator('[data-review-wait]').waitFor();
+  await card.locator('[data-review-parts]').waitFor({ timeout: 15000 });
+  assert.ok(await page.evaluate(() => window.__noReload === true), 'no reload');
+  // 5 minutes without an end (the stand-in's coaching 3 stays working): the clock jumps, the page stops asking and says so
+  await standinPost('/standin/reset');
+  await week('this=working');
+  const slow = await page.context().newPage();
+  await slow.clock.install();
+  await slow.goto(`${base}/trends?p=this`);
+  await slow.locator('[data-card="review"] [data-review-wait]').waitFor();
+  await slow.clock.fastForward('05:01');
+  await slow.locator('[data-review-slow]').waitFor();
+  assert.equal(await text(slow.locator('[data-review-slow]')), 'Taking longer than usual: look again in a few minutes. Look again');
+  assert.equal(await slow.locator('[data-card="review"]').getAttribute('data-state'), 'working');
+  await checkWidth(slow, 'trends, taking longer');
+  await slow.locator('[data-look-again]').click();
+  await slow.locator('[data-review-slow]').waitFor({ state: 'detached' });
+  await slow.close();
+
+  // ---- the empty Monday ----------------------------------------------------------------------------------------------------------
+  await standinPost('/standin/reset');
+  await week('monday=1');
+  await page.goto(`${base}/trends?p=this`);
+  assert.equal(await text(page.locator('[data-empty]')), wk('this_monday').empty_text);
+  assert.equal(await page.locator('[data-card="review"], [data-card="food"], [data-card="days"]').count(), 0);
+  assert.equal(await page.locator('[data-period="this"]').getAttribute('aria-current'), 'page');
+  await checkWidth(page, 'trends, empty');
+
+  // ---- 30 days: Show all of the foods (eight, POST foods=8) and of the days; the partly marks ---------------------------------
+  await standinPost('/standin/reset');
+  await week('foods=8');
+  await page.goto(`${base}/trends?p=30`);
+  const w30 = wk('30');
+  assert.equal(await text(page.locator('[data-head-line]')), headLine(w30));
+  assert.equal(await page.locator('[data-foods="kcal"] [data-food]').count(), 5);
+  assert.equal(await text(page.locator('[data-foods-all]')), 'Show all 8');
+  await page.locator('[data-foods-all]').click();
+  assert.equal(await page.locator('[data-foods="kcal"] [data-food]').count(), 8);
+  assert.equal(await page.locator('[data-foods="count"] [data-food]').count(), 8);
+  assert.equal(await text(page.locator('[data-foods-all]')), 'Show fewer');
+  assert.equal(await page.locator('[data-day]').count(), 7);
+  assert.equal(await text(page.locator('[data-days-all]')), `Show all ${w30.days.length}`);
+  await page.locator('[data-days-all]').click();
+  assert.deepEqual(await page.locator('[data-day]').evaluateAll((els) => els.map((e) => e.getAttribute('data-day'))), w30.days.map((d) => d.day));
+  assert.deepEqual(await page.locator('[data-day][data-partly="true"]').evaluateAll((els) => els.map((e) => e.getAttribute('data-day'))), w30.days.filter((d) => d.partly).map((d) => d.day));
+  assert.equal(await page.locator('[data-partly-mark]').count(), w30.days.filter((d) => d.partly).length);
+  const d0 = w30.days.find((d) => d.kg !== null);
+  assert.equal(await text(page.locator(`[data-day="${d0.day}"] td`).last()), d0.kg.toFixed(1));
+  await shot('week-30-all');
+  await checkWidth(page, 'trends, 30 days, all');
+
+  // ---- the core down: the plain message ----------------------------------------------------------------------------------------
+  await standinPost('/standin/core-down');
+  await page.goto(`${base}/trends?p=last`);
+  await page.locator('[data-problem="core_down"]').waitFor();
+  await standinPost('/standin/up');
+  await standinPost('/standin/reset');
+  await page.goto(`${base}/`);
+}
+
 async function checkWidth(page, what) {
   const sideways = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   assert.ok(sideways <= 0, `${what}: no sideways scroll (${sideways} px too wide)`);
@@ -3173,6 +3437,10 @@ for (const theme of ['dark', 'light']) {
     if (only('homeparts')) {
       await checkHomeParts(page, name, theme);
       console.log(`home zones, history, a chore, edit zones ${name} ${theme}: checks passed`);
+    }
+    if (only('trends')) {
+      await checkTrends(page, name, theme);
+      console.log(`trends week, the week review, the trends tab ${name} ${theme}: checks passed`);
     }
     if (only('problems')) {
       await checkProblems(page, name, theme);

@@ -251,7 +251,23 @@ export const SAVES = {
   home_choreedit: { path: '/home/choreedit', keyed: false, body: (f) => ({ chore_id: int(f, 'chore_id'), ...choreBody(f) }) },
   home_choreactive: { path: '/home/choreactive', keyed: false, body: (f) => ({ chore_id: int(f, 'chore_id'), on: f.get('on') === '1' }) },
   home_chorezones: { path: '/home/chorezones', keyed: false, body: (f) => ({ chore_id: int(f, 'chore_id'), zones: zonesOf(f) }) },
+  // The Week review's button (deploy 102, the Trends page): POST /coach/start with the card's period. The door takes NO key and the
+  // page never sends it again by itself (saver.ts: not keyed, never kept; a review costs about 20 cents). kind is always "week" (the
+  // door has no day coaching yet). It answers with the coaching and the fresh Week of the page's period (view "week", view_p). The
+  // core only starts the AI in the background, but the door is given 60 s, so a slow answer is not mistaken for "not saved".
+  coach_start: {
+    path: '/coach/start',
+    keyed: false,
+    body: (f) => ({ kind: 'week', start: dateOf(f, 'start'), end: dateOf(f, 'end') }),
+    timeoutMs: 60_000,
+  },
 } satisfies Record<string, Save>;
+
+/** A date field (yyyy-mm-dd), or left out (the door then says it is missing). */
+function dateOf(f: Fields, name: string): string | undefined {
+  const t = str(f, name, 10);
+  return t && /^\d{4}-\d\d-\d\d$/.test(t) ? t : undefined;
+}
 
 /** A job's pairs: the form's "3-1,7-2" (app.'s own format) as the door's [[3, 1], [7, 2]] (1 to 12); anything else is left out. */
 function pairsOf(f: Fields): number[][] | undefined {
@@ -377,12 +393,14 @@ export const HISTORY_SAVES: SaveName[] = ['home_remove', 'home_earlier', 'undo']
 /** Edit zones' (deploy 100, src/routes/(app)/home/edit): the goal, the zone and chore forms, Retire and Bring back, the Per zone table. No Undo exists for them. */
 export const EDIT_SAVES: SaveName[] = ['home_goalset', 'home_zonenew', 'home_zoneedit', 'home_zoneactive', 'home_chorenew', 'home_choreedit', 'home_choreactive', 'home_chorezones'];
 const HOME_ONLY: SaveName[] = [...HOME_SAVES, ...PICK_SAVES, ...ZONES_SAVES, ...HISTORY_SAVES, ...EDIT_SAVES];
+/** The Trends page's (deploy 102, src/routes/(app)/trends): the Week review's button. No Undo exists for it. */
+export const TRENDS_SAVES: SaveName[] = ['coach_start'];
 export const TODAY_SAVES: SaveName[] = SAVE_NAMES.filter(
   (n) =>
     n === 'undo' ||
-    (!FOOD_SAVES.includes(n) && !USUAL_SAVES.includes(n) && !HEALTH_SAVES.includes(n) && !HABITS_ONLY.includes(n) && !GYM_ONLY.includes(n) && !HOME_ONLY.includes(n)),
+    (!FOOD_SAVES.includes(n) && !USUAL_SAVES.includes(n) && !HEALTH_SAVES.includes(n) && !HABITS_ONLY.includes(n) && !GYM_ONLY.includes(n) && !HOME_ONLY.includes(n) && !TRENDS_SAVES.includes(n)),
 );
-export type View = 'day' | 'food' | 'usual' | 'health' | 'body' | 'habits' | 'gym' | 'gym_plan' | 'gym_exercises' | 'home' | 'home_pick' | 'home_zones' | 'home_history' | 'home_chore' | 'home_edit';
+export type View = 'day' | 'food' | 'usual' | 'health' | 'body' | 'habits' | 'gym' | 'gym_plan' | 'gym_exercises' | 'home' | 'home_pick' | 'home_zones' | 'home_history' | 'home_chore' | 'home_edit' | 'week';
 
 /** A key as the browser makes them (src/lib/saver.ts): a random UUID or base64url; anything else is replaced. */
 const KEY = /^[A-Za-z0-9_-]{16,64}$/;
@@ -424,6 +442,11 @@ export function bodyFor(
   if (view === 'home_chore') {
     const id = str(f, 'view_id', 12);
     if (id && /^\d{1,12}$/.test(id)) body.view_id = Number(id);
+  }
+  // The Week's fresh read (deploy 102): the page's period (?p=), so the answer brings the Week on screen.
+  if (view === 'week') {
+    const p = str(f, 'view_p', 4);
+    if (p && ['7', 'last', '30', 'this'].includes(p)) body.view_p = p;
   }
   if (save.keyed) {
     const key = str(f, 'key', 64);

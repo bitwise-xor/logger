@@ -99,7 +99,7 @@ let mode = 'up'; // 'up' | 'core-down' | 'door-off' (step F)
 function reset() {
   state = { day: read('day.json').day, usual: usualStart(), undo: null, before: null, keys: new Map(), lines: new Map(), aiDown: false,
     scanned: new Map([[SCAN.barcode.code, SCAN.barcode.food]]), labelFail: false,
-    hv: healthStart(), sessions: sessionsStart(), hab: habitsStart(), dayKeys: new Set(), slow: 0, locked: new Set(), gym: gymStart(), watchNone: false, gymEmpty: false, home: homeStart() };
+    hv: healthStart(), sessions: sessionsStart(), hab: habitsStart(), dayKeys: new Set(), slow: 0, locked: new Set(), gym: gymStart(), watchNone: false, gymEmpty: false, home: homeStart(), week: weekStart() };
   state.day.needs.body_due = structuredClone(HEALTH.day_body_due);
   // the notes of the food sample's rows (the same invented day), kept on the rows so an Undo puts them back too
   const notes = new Map(FOOD.food_day.food_day.rows.map((r) => [r.ref, r.note]));
@@ -1990,6 +1990,88 @@ const homeView = (action) =>
   : ['zonenew', 'zoneedit', 'zoneactive', 'chorenew', 'choreedit', 'choreactive', 'chorezones', 'goalset'].includes(action) ? 'home_edit'
   : 'home_pick';
 
+
+// ---- Trends' Week and the Week review (deploy 102) ------------------------------------------------------------------------------
+// GET /week?p= from tests/samples/week.json (real answers of the door for invented weeks): 7 (or 7_latest), 30, last (the sample's
+// last week with its review in the state kept here), this (the sample's this-week with its review in its state; this_monday when
+// POST /standin/week?monday=1). The review of each week is made from the sample's cards of that state (none, working, done, failed),
+// with the week's own start, end and button. POST /coach/start as coach.start: kind "week" and dates checked, the daily limit
+// (POST /standin/week?limit=1: the sample's refusal), a week already being read is "already on it" (the sample's answer), else a new
+// coaching that is working; it answers with the fresh Week (view_p, else the started week). GET /coach/status?id= says working until
+// it has been asked `polls` times (2 unless POST /standin/week?polls=n; 0 = never done), then the review is done (or failed with
+// ?fail=1). Every start is counted (GET /standin/week-starts) so a page check can see that the page sent one start for one press.
+// POST /standin/week?last=done|failed|working|none&this=…&latest=1&foods=8 sets the states; POST /standin/reset puts it back.
+const WK = read('week.json');
+const WK_REVIEW = {
+  none: WK.last_none.week.review,
+  failed: WK.last_failed.week.review,
+  done: WK.last_done.week.review,
+  working: WK.this_working.week.review,
+};
+const WK_BUTTON = { last: 'Review last week', this: 'Review this week so far' };
+const WK_PERIOD = { last: WK.last_none.week, this: WK.this_working.week };
+function weekStart() {
+  return { last: 'none', this: 'none', monday: false, latest: false, foods: 0, limit: false, polls: 2, fail: false, starts: 0, coachings: new Map(), nextId: 10 };
+}
+function wkReview(which) {
+  const st = state.week[which];
+  const per = WK_PERIOD[which];
+  const id = st === 'none' ? null : [...state.week.coachings.entries()].filter(([, c]) => c.which === which).map(([k]) => k).at(-1) ?? { failed: 1, done: 2, working: 3 }[st];
+  const r = structuredClone(WK_REVIEW[st]);
+  r.start = per.start;
+  r.end = per.end;
+  r.id = id;
+  if (st === 'none' || st === 'failed') r.button = WK_BUTTON[which];
+  if (st === 'failed' && which === 'this') r.failed = WK.this_cut_off.week.review.failed;
+  return r;
+}
+function weekOut(p) {
+  if (p === '7') return structuredClone(state.week.latest ? WK['7_latest'].week : WK['7'].week);
+  if (p === '30') {
+    const w = structuredClone(WK['30'].week);
+    // POST /standin/week?foods=8: eight foods in each list (the door's most), so "Show all 8" shows; the extra names are invented
+    for (let i = w.foods.by_kcal.length; i < state.week.foods; i++) {
+      w.foods.by_kcal.push({ name: `Test food ${i + 1}`, kcal: 800 - i * 50, n: 2, text: `${800 - i * 50} kcal` });
+      w.foods.by_count.push({ name: `Test food ${i + 1}`, kcal: 800 - i * 50, n: 2, text: '2×' });
+    }
+    return w;
+  }
+  if (p === 'this' && state.week.monday) return structuredClone(WK.this_monday.week);
+  const w = structuredClone(WK_PERIOD[p]);
+  w.review = wkReview(p);
+  return w;
+}
+const wkWhich = (start) => (start === WK_PERIOD.last.start ? 'last' : start === WK_PERIOD.this.start ? 'this' : null);
+function coachStart(b) {
+  if (b.kind !== 'week') return [400, { error: 'bad_request', message: 'kind must be "week" (a day coaching is not in the door yet).' }];
+  for (const f of ['start', 'end']) if (!/^\d{4}-\d\d-\d\d$/.test(b[f] ?? '')) return [400, { error: 'bad_request', message: `${f} must be a date yyyy-mm-dd.` }];
+  state.week.starts++;
+  const which = wkWhich(b.start);
+  if (!which || b.end < b.start) return [200, { ...WK.saves.limit, reason: 'That is not a day or week to coach.' }];
+  if (state.week.limit) return [200, structuredClone(WK.saves.limit)];
+  const busy = [...state.week.coachings.entries()].find(([, c]) => c.which === which && c.state === 'working');
+  if (busy || state.week[which] === 'working') {
+    const id = busy?.[0] ?? wkReview(which).id;
+    return [200, { ...structuredClone(WK.saves.on_it), coaching: { id, state: 'working' } }];
+  }
+  const id = state.week.nextId++;
+  state.week.coachings.set(id, { which, state: 'working', asked: 0 });
+  state.week[which] = 'working';
+  return [200, { ...structuredClone(WK.saves.start), coaching: { id, state: 'working' } }];
+}
+function coachStatus(id) {
+  const c = state.week.coachings.get(Number(id));
+  if (!c) {
+    const st = { 1: 'failed', 2: 'done', 3: 'working' }[id] ?? 'gone';
+    return { id: Number(id), state: st };
+  }
+  if (c.state === 'working' && state.week.polls > 0 && ++c.asked >= state.week.polls) {
+    c.state = state.week.fail ? 'failed' : 'done';
+    state.week[c.which] = c.state;
+  }
+  return { id: Number(id), state: c.state };
+}
+
 const KEYED = ['/gym/tick', '/health/day', '/home/tick', '/home/pickdone', '/home/picknext', '/home/earlier', '/home/alldone', '/home/startpoint', '/body', '/food/labeladd', '/log', '/water', '/again', '/usual', '/habit', '/checkin', '/health', '/held/retry', '/held/delete', '/usual/meal', '/usual/new', '/usual/from_meal'];
 
 reset();
@@ -2007,6 +2089,15 @@ createServer(async (req, res) => {
     mode = 'up';
     return send(res, 200, { outcome: 'reset' });
   }
+  // deploy 102: the Week's states (see weekOut), and how many review starts the stand-in got
+  if (req.url.startsWith('/standin/week?') && req.method === 'POST') {
+    const q = new URL(req.url, 'http://standin').searchParams;
+    for (const k of ['last', 'this']) if (q.has(k)) state.week[k] = q.get(k);
+    for (const k of ['monday', 'latest', 'limit', 'fail']) if (q.has(k)) state.week[k] = q.get(k) === '1';
+    for (const k of ['foods', 'polls']) if (q.has(k)) state.week[k] = Number(q.get(k));
+    return send(res, 200, { outcome: 'week', week: { ...state.week, coachings: [...state.week.coachings] } });
+  }
+  if (req.url === '/standin/week-starts' && req.method === 'GET') return send(res, 200, { starts: state.week.starts });
   if (req.url === '/standin/slow' && req.method === 'POST') {
     state.slow = 700; // the next day taps of the Habits page (and the Gym's ticks) take a moment
     return send(res, 200, { outcome: 'slow' });
@@ -2156,6 +2247,16 @@ createServer(async (req, res) => {
     const chore = hmChoreOut(id);
     return chore ? send(res, 200, { home_chore: chore, undo: undo() }, signedIn) : send(res, 404, { error: 'no_entry', message: 'That chore is not in the list.' }, signedIn);
   }
+  if (url.pathname === '/api/v1/week' && req.method === 'GET') {
+    const p = url.searchParams.get('p') ?? '7';
+    if (!['7', 'last', '30', 'this'].includes(p)) return send(res, 400, { error: 'bad_request', message: 'p must be 7, last, 30 or this.' }, signedIn);
+    return send(res, 200, { week: weekOut(p), undo: undo() }, signedIn);
+  }
+  if (url.pathname === '/api/v1/coach/status' && req.method === 'GET') {
+    const id = url.searchParams.get('id') ?? '';
+    if (!/^\d+$/.test(id)) return send(res, 400, { error: 'bad_request', message: "id must be a coaching's id." }, signedIn);
+    return send(res, 200, { coaching: coachStatus(id), undo: undo() }, signedIn);
+  }
   if (url.pathname === '/api/v1/gym' && req.method === 'GET') return send(res, 200, { gym: gymOut(), undo: undo() }, signedIn);
   if (url.pathname === '/api/v1/gym/plan' && req.method === 'GET') return send(res, 200, { gym_plan: planOut(), undo: undo() }, signedIn);
   if (url.pathname === '/api/v1/gym/exercises' && req.method === 'GET') return send(res, 200, { gym_exercises: exercisesOut(), undo: undo() }, signedIn);
@@ -2253,6 +2354,16 @@ createServer(async (req, res) => {
       const answer = { ...base, ...out, v: 1, tone: out.outcome === 'rejected' ? 'warning' : 'ok' };
       if (KEYED.includes(path) && body.key && answer.outcome !== 'rejected') state.keys.set(body.key, answer);
       return send(res, 200, { ...answer, ...fresh() }, signedIn);
+    }
+    if (path === '/coach/start') {
+      if ('key' in body) return send(res, 400, { error: 'bad_request', message: 'The stand-in: /coach/start takes no key.' }, signedIn);
+      await new Promise((r) => setTimeout(r, 600)); // a moment, so a check can see the button disabled while the start is on its way
+      const [status, out] = coachStart(body);
+      if (status !== 200) return send(res, status, out, signedIn);
+      const which = ['7', 'last', '30', 'this'].includes(body.view_p) ? body.view_p : wkWhich(body.start) ?? '7';
+      state.undo = null; // as app., a start ends the session's Undo bar
+      const { v: _v, ...answer } = out;
+      return send(res, 200, { ...answer, v: 1, undo: null, week: weekOut(which) }, signedIn);
     }
     if (path === '/body/skip') {
       state.day = { ...structuredClone(state.day), needs: { ...state.day.needs, body_due: null } };
