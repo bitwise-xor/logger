@@ -1,10 +1,10 @@
 # The JSON door `/api/v1` (for the new front end)
 
 Since deploys 75 and 76 (16.11.2026); deploy 77 (16.11.2026) made the changes of the door's review (marked "since 77");
-deploy 78 removed the old field names that 77 kept for one deploy; deploy 86 added the usual-meal editor; deploy 89 the scanner, the label photo and the look-up. The front end that calls it: `front/` (`front/README.md`).
+deploy 78 removed the old field names that 77 kept for one deploy; deploy 86 added the usual-meal editor; deploy 89 the scanner, the label photo and the look-up; deploy 91 the Health page and body measurements. The front end that calls it: `front/` (`front/README.md`).
 Code: `core/app/api.py` (the door, the saves), `core/app/reads.py` (the reads).
 Tests: `tests/test_api_door.py`, `tests/test_api_reads.py`, `tests/test_api_saves.py`, `tests/test_api_shape.py` (77),
-`tests/test_api_usual.py` (86), `tests/test_api_scan.py` (89).
+`tests/test_api_usual.py` (86), `tests/test_api_scan.py` (89), `tests/test_api_health.py` (91).
 
 The door is for one caller only: the new front end's own server, from inside Docker. The browser never calls it.
 The live web app at `app.` does not use it and did not change.
@@ -54,7 +54,7 @@ signed in before counts its own failures; all others share one pool, together wi
 ### `GET /api/v1/day?day=yyyy-mm-dd` → `{"day": Day, "undo": Undo}`
 
 Today without `day`; an earlier day as asked; a later day is today. Built on `todaypage.load`, `webquestions.load`, `held.rows` and the
-gratitude count. No Home, Gym or Coach cards, no body-measure line.
+gratitude count. No Home, Gym or Coach cards.
 
 ```
 Day = {
@@ -64,7 +64,8 @@ Day = {
     questions: [Question],                              // today only; every open question, newest first
     not_read:  [{id, received_at, text, tries, needs_you, reading}],   // messages kept but not read yet (today only)
     review:    [{ref, kind, label, day, reason, at, logged_at, thought_type, area, type, v1, v2, unit}],
-    checkin:   null | {day, mood, energy, scale: {mood: [5 words], energy: [5 words]}}
+    checkin:   null | {day, mood, energy, scale: {mood: [5 words], energy: [5 words]}},
+    body_due:  null | {last, days}                      // (91) "Body measurements due": the last session (yyyy-mm-dd) and how many days ago
   },
   energy:  {totals: {kcal, protein, fat, carbs}, targets: {…same, null if none}, meals: [{meal, label, nutrients}]},
   water:   {ml, target_ml, glass_ml},
@@ -100,6 +101,9 @@ Undo         = null | {token, head, expires_at}         // the session's Undo, t
   logged (since 77; until 77 `at` was the logged time; the old `time`, hh:mm of an event, is gone since 78).
 - `undo` (since 77): the session's Undo while it lasts, so the Undo bar can stay after a reload.
 - A thought to review comes with `thought_type` and `area`, never its words (`label` null).
+- `needs.body_due` (91): app.'s line in Today's To review card (`body.due`, `bodypage.today_line`): today only, after the wake-up, when
+  the last tape-measure session is `interval_days` (Settings > Body, 28) or more ago; `last` and `days` both null before the first
+  session ("not measured yet"); null after "Not today" (`POST /body/skip`) until the next health day. "Measure" opens the body form.
 
 ### `GET /api/v1/food/day?day=` → `{"food_day": FoodDay, "undo": Undo}`
 
@@ -154,6 +158,71 @@ A found food is logged through `POST /again` (`food_id`, `amount`); no route of 
 
 The form fills from this; its Add is `POST /food/labeladd` with `source: "off"`.
 
+### `GET /api/v1/health?range=7|30|90&all=1` → `{"health": Health, "undo": Undo}` (91)
+
+app.'s Health page as data (`healthpage.load`, `charts`, `times_data`: app.'s page draws the same). `range` 30 when not given; another
+value is 400 `bad_request` ("range must be 7, 30 or 90."). `all=1`: a row for every day of the range, else the last 14.
+
+```
+Health = {
+  today, start,                       // the range: start .. today
+  range, ranges: [7, 30, 90], all, days_in_range, shown_days: 14,
+  oldest_day,                         // a save takes a day from here (today − 365) to today
+  columns: [{row, label, sub, type, period, kind}],   // the row's order: weight, bp_morning, bp_evening, sugar, bed, wake, mood, energy
+                                                      // kind: "number" | "pair" (blood pressure: upper, lower) | "time" (hh:mm)
+  days: [{day, values: {<row>: null | HValue}, slept_minutes}],   // newest first
+  charts: [Chart],                    // weight, bp, sugar, sleep, mood (in this order)
+  times: Times                        // the sleep-times chart
+}
+HValue = {ref, v1, v2, time, at}      // ref: the entry a change goes to (m<id> or e<id>); numbers in v1 (v2: blood pressure's lower);
+                                      // bed and wake: time "hh:mm" and at (ISO); bed is the night's, the evening before
+Chart  = {id, title, small,           // small: the grey words after the title ("mmHg") or null
+          stat: [{text, bold}],       // the line under the title, in parts ("80.4 kg" bold, " last · ", …)
+          chart: {start, days, series: [{mark, cls, pts}], label, lines?, min?, max?, unit?, decimals?},
+          legend: [{key, text}]}      // key: the colour key's class (a, b, line b, ref, ref r)
+Times  = {days, empty, title, small, legend,
+          rows: [{date, label, bands: [{from, to, nap, tip}], ticks: [{at, nap, tip}]}]}
+```
+
+- `chart` is exactly what app. puts into `data-chart` for its `drawChart` (`core/app/static/app.js`), so the page ports that one
+  drawing function: `start` the first day (yyyy-mm-dd) and `days` the length; a series' `mark` is `line`, `dot` (filled), `ring`
+  (blood pressure in the evening) or `bar` (sleep), `cls` its colour (`a`, `b`), `pts` `[day index from start, value, hover text]`
+  (a line's points have no text); `lines` the dashed reference lines `[value, "w" (grey) | "r" (amber), label]` (blood pressure
+  130/80 and 140/90, sugar 100 and 126, sleep 7 h and 6 h); `min`/`max` a fixed bottom or top (sleep from 0; mood 1 to 5); `unit` after
+  the axis numbers (" h"); `decimals` of the axis (weight 1).
+- `times`: a row per calendar date, oldest first (at most 30), the clock across 0 to 24 h; `from`, `to` and `at` in minutes from that
+  date's midnight (0 to 1440). A sleep over midnight is a band on each of its two rows; `nap` = a nap or a night waking (lighter);
+  a tick is a wake-up without a bed time. `label`: the date on the row's left (the last row and Mondays; every row in 7 days), else
+  null. `empty`: no bed or wake-up times at all ("No bed and wake-up times in this range yet.").
+- `slept_minutes`: bed to wake-up of that day's wake-up, null without both (or 24 hours or more).
+
+### `GET /api/v1/body?day=yyyy-mm-dd&range=7|30|90` → `{"body": Body, "undo": Undo}` (91)
+
+The Body measurements card (`bodypage.load`, `table`, `chart_data`). `day`: the session the form shows and changes (today without
+it; a later day is today); `range` (30): the charts show the sessions in it, or every session when fewer than 2 are in it. app.'s
+`measure` (the form open) and `bx` (which measure's chart) are the page's own state: every chart comes, one per measure.
+
+```
+Body = {
+  today, day, last_measured,          // yyyy-mm-dd, null before the first session
+  due_text,                           // "due now", "next due in 3 days", "next due in about 4 weeks"; null before the first session
+  interval_days, hidden: [keys],      // Settings > Body (read only here; changed at app.)
+  jump_cm: 4, protocol, hint,         // the form's line on how to measure; the line under the card (typing it in the Log bar)
+  form: [{key, label, hint, ref, cm, last_cm, min, max}],   // the shown measures in order: waist, hips, chest, upper_arm, thigh
+                                      // cm: the session's value (ref its entry) or null; last_cm: the last value before the
+                                      // session (the field's placeholder); min, max: the usual range (outside it is read back)
+  table: [{key, label, ref, cm, day, last, start, last_text, start_text}],   // Now / Last / Start: each measure's newest value
+                                      // and its change since the time before and since first_day (null with one value);
+                                      // the *_text as app. writes them ("+1.5", "−2.0", "±0")
+  first_day,
+  charts: [{key, label, chart}],      // as Health's chart, with pointLabels and xAtPoints (the dates of the points on the axis)
+  waist_height: null | {waist_cm, day, height_cm, ratio},   // the newest waist ÷ the height of that day; height_cm and ratio
+                                      // null without a height ("add your height in Settings"); under 0.5 is the common target
+  weight_rate:  null | {kg_week, pct_week, sign}            // the 7-day average weight now against 4 weeks before, a week;
+                                      // sign "+", "−" or "±" (under 0.005 kg); null without weighings in both weeks
+}
+```
+
 ## The label photo: `POST /api/v1/food/label` (89)
 
 One to three photos of ONE package (the name and the nutrition table often need two), read together in one AI call
@@ -202,6 +271,9 @@ function takes one, so a re-sent request saves once (`replayed: true`).
 | `/api/v1/usual/new` (86) | `name`, `drink` (true or false, default false), `items: [{food_id, amount}]` (1 to 8), `key` | `webfood.usual_create` |
 | `/api/v1/usual/from_meal` (86) | `day` (yyyy-mm-dd), `meal` (1, 2, …; 0, the drinks, is refused), `name`, `key` | `webfood.usual_new` |
 | `/api/v1/food/labeladd` (89) | `name` (2 to 120 characters), `basis` (`g` or `ml`, default `g`), `kcal`, `protein`, `fat`, `carbs` (numbers, per 100), optional `sat_fat`, `sugar_total`, `fibre`, `salt_g` (numbers or null), `barcode` (8 to 14 digits; otherwise left out), `source` (`label`, default, or `off`), optional `amount` (to log it now, in g or ml, above 0 and at most 5000) and `time` (hh:mm, default now), `key` | `webfood.label_add` |
+| `/api/v1/health/day` (91) | `day` (yyyy-mm-dd), `values: {<row>: value}` (only the rows sent are looked at), `confirmed`, `confirm_delete`, `key`; `range`, `all` for the fresh read | `webactions.health_day` |
+| `/api/v1/body` (91) | `day` (the session, yyyy-mm-dd), `values: {<measure>: cm}` (only the measures sent are looked at), `confirmed`, `confirm_delete`, `key`; `range` for the fresh read | `webactions.body_save` |
+| `/api/v1/body/skip` (91) | | `webactions.body_skip` ("Not today": the due line hidden until the next health day; no Undo) |
 | `/api/v1/lookup` (89) | `text` (a name, or a barcode of 8 to 14 digits), optional `question_id` (an open food question it answers; without `text` the question's word is looked up) | `webfood.look_up` → `logbook.food_lookup` (no key: it saves nothing) |
 
 The usual-meal saves (86): the front end sends `confirmed: true` and the change is made at once, with Undo (without it a change or
@@ -227,6 +299,30 @@ back: `needs_confirmation`, `read_back` (its values per 100) and its question in
 (`saved`; with a `question_id`, the question's waiting item is logged too), `no` is `cancelled`. A food already in the catalogue is
 `saved` at once ("Your catalogue already has N…"). Nothing found, or no word: `rejected` with a `reason`.
 
+The Health page's row and the body session (91), each like app.'s Save of that row or form:
+
+- `values` of `/health/day`: `weight`, `sugar`, `mood`, `energy` a number; `bp_morning`, `bp_evening` `[upper, lower]`; `bed`, `wake`
+  `"hh:mm"`. `/body`: `waist`, `hips`, `chest`, `upper_arm`, `thigh` in cm. A value that is there is changed (Save is the yes), an
+  empty day's value is added for that day (no AI call), `null` or `""` deletes it; a row the same as now is left alone (all the
+  same: `unchanged`, "Nothing changed."). Any value of the last 12 months: a later or older day is `rejected` ("Pick a day of the
+  last 12 months."); `rejected` too for one number of a blood pressure ("BP morning: give both numbers."), a time not hh:mm, a body
+  value of 0 or less ("Waist: give a number in cm."), a body form with nothing in it. A wrong kind of field is 400 `bad_request`
+  (`weight must be a number or null.`, `bp_morning must be [upper, lower] or null.`, `bed must be a time hh:mm or null.`,
+  `Unknown row: …`, `Unknown measure: …`, `range must be 7, 30 or 90.`, `day is missing.`).
+- Read back first (`needs_confirmation`, nothing saved), in this order: **a delete** ("Delete on Sun 15.11.: Weight 82.4?", `confirm`
+  "Yes, delete" / "No", on `/body` "Keep it"): send the same again with `confirm_delete: true`; then **an odd value** (a weight or
+  sugar out of range, a body value out of the measure's range or 4 cm or more away from last time: "Check: Waist 96.5 cm is 4.5 cm
+  away from last time (92.0). Right?", `confirm` "Yes, save it" / "Yes, save" and "Fix it"): send the same again with
+  `confirmed: true` as well (keep `confirm_delete`). A **new** weight more than 5 kg away from the last one (within 60 days) is the
+  logger's own question instead (`questions[0]`, `tool: "log_confirm"`, `confirm` null): `yes` through `POST /answer` saves it.
+- `key`: the added values are logged once per key (a re-send while the first is still running is `replayed`); a re-send after it
+  was saved finds the values there and answers `unchanged` (which ends the Undo bar, as on app.).
+- **Undo** (`POST /undo`): changes and deletes only: the entries put back as they were (same ids); added values only: the logged
+  message taken back (the chat's undo, while it is the newest); **a save that both changes and adds: the added values only** (the
+  changes stay; app.'s rule, the same function). "Not today" has no Undo.
+- The answer carries the fresh read: `view: "health"` (default of `/health/day`: `health` as `GET /health` with the body's `range`
+  and `all`), `view: "body"` (default of `/body`: `body` of the session's day, or `view_day`); `/body/skip` answers with the `day`.
+
 Field names since 77: `action` (was `act` on `/review` and `/food/entry`), `time` (was `t` on `/health`), `items[].item_id` (was
 `items[].id` on `/usual`). Since deploy 78 only the new names work: a field sent under its old name counts as missing.
 
@@ -245,9 +341,12 @@ Every save answers (HTTP 200, also when nothing was saved):
   refill: null | {label, text},                // words to put back in the log box ("Try again" on a message that is not an entry)
   replayed,
   undo: Undo,            // one per session, 15 minutes; POST /api/v1/undo {token}
-  day: Day  |  food_day: FoodDay  |  usual: [Usual]   // the fresh read; body "view": "day" | "food" | "usual" (86) and
-                                                       // "view_day": "yyyy-mm-dd" choose it; /usual/meal and /usual/new default to
-                                                       // "usual", /usual/from_meal and /food/* to "food", the rest to "day"
+  day: Day  |  food_day: FoodDay  |  usual: [Usual]  |  health: Health  |  body: Body
+                                                       // the fresh read; body "view": "day" | "food" | "usual" (86) | "health" |
+                                                       // "body" (91) and "view_day": "yyyy-mm-dd" choose it; /usual/meal and
+                                                       // /usual/new default to "usual", /usual/from_meal and /food/* to "food",
+                                                       // /health/day to "health" (with "range", "all"), /body to "body" (its day),
+                                                       // the rest to "day"
 }
 ```
 
@@ -282,5 +381,5 @@ Texts in `read_back`, `result` and questions never carry the lines meant for the
 - Errors inside a save (the AI or the database not answering) are `outcome: "rejected"` with a reason that nothing was saved; a typed
   line's words stay kept (`held`) and appear in `day.needs.not_read`.
 
-Not in the door (on purpose, for now): Home, Gym and Coach, body measurements, the Food catalogue editor, the gratitude list
-itself (only its count), Ideas and Private.
+Not in the door (on purpose, for now): Home, Gym and Coach, the body settings (interval, hidden measures, height: read in
+`GET /body`, changed at app.), the Food catalogue editor, the gratitude list itself (only its count), Ideas and Private.

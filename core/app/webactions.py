@@ -380,8 +380,7 @@ def body_save(form, key: Optional[str]) -> dict:
         if not today - timedelta(days=365) <= day <= today:
             return _rejected("Pick a day of the last 12 months.")
         now_vals = body.day_values(cur, day)
-        cur.execute("SELECT name, min1, max1 FROM log_types WHERE name = ANY(%s)", (list(body.NAMES),))
-        ranges = {t["name"]: (float(t["min1"]), float(t["max1"])) for t in cur.fetchall()}
+        ranges = body.ranges(cur)
         steps, items, words, said, deletes, checks, filled = [], [], [], [], [], [], False
         for k, lbl, _h in body.TAPE:
             sent = form.get(k)

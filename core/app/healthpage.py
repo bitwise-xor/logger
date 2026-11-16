@@ -93,7 +93,7 @@ def day_values(cur, first: date, last: date) -> dict:
     while day <= last:
         b = pick_bed(beds, wakes, bed_anchor(day, today, out.get(day, {}).get("wake", {}).get("at")))
         if b:
-            out.setdefault(day, {})["bed"] = {"id": f"e{b[0]}", "v": [_hm(b[1])]}
+            out.setdefault(day, {})["bed"] = {"id": f"e{b[0]}", "v": [_hm(b[1])], "at": b[1]}
         day += timedelta(days=1)
     return out
 
@@ -125,27 +125,20 @@ def load(days: int) -> dict:
 TIMES_DAYS = 30  # rows of the sleep-times chart at most
 
 
-def _times(d: dict) -> str:
+def times_data(d: dict) -> dict:
     """When you slept, one row per calendar date and the clock across (05.11.2026): a sleep cycle that moves shows as a diagonal band.
-    A sleep over midnight is split over its two rows; naps are lighter; a wake-up without a bed time is a tick."""
+    A sleep over midnight is split over its two rows; naps are lighter; a wake-up without a bed time is a tick. As data (deploy 91,
+    for the JSON door; _times draws it for app.): rows oldest first, each with its bands and ticks in minutes from the row's midnight."""
     now = datetime.now(rules.BERLIN).replace(tzinfo=None)
     last = max(now.date(), d["today"])
     n = min(d["days"], TIMES_DAYS)
     dates = [last - timedelta(days=n - 1 - i) for i in range(n)]
-    left, width, rh, top = 40, 320, 13, 16  # sized for a phone: about 1:1 at 375 px, so the text stays readable
-    x = lambda t, day: left + width * (t - datetime.combine(day, time(0))).total_seconds() / 86400  # noqa: E731
     local = lambda ts: ts.astimezone(rules.BERLIN).replace(tzinfo=None)  # noqa: E731
-    out = []
-    for h in range(0, 25, 6):
-        gx = left + width * h / 24
-        out.append(f'<line class="grid" x1="{gx:.1f}" y1="{top - 4}" x2="{gx:.1f}" y2="{top + n * rh}"/>'
-                   f'<text x="{gx:.1f}" y="{top - 7}" text-anchor="middle">{h:02d}</text>')
+    mins = lambda t, day: _whole((t - datetime.combine(day, time(0))).total_seconds() / 60)  # noqa: E731
+    rows = []
     for i, day in enumerate(dates):
-        y = top + i * rh
-        lbl = f"{day:%d.%m.}" if i == n - 1 or day.weekday() == 0 or n <= 7 else ""  # the last row and each Monday
-        if lbl:
-            out.append(f'<text x="{left - 6}" y="{y + rh - 4}" text-anchor="end">{lbl}</text>')
         start, end = datetime.combine(day, time(0)), datetime.combine(day + timedelta(days=1), time(0))
+        bands, ticks = [], []
         for s in d["sleeps"]:
             b, w = local(s["bed_at"]), local(s["wake_at"])
             a, z = max(b, start), min(w, end)
@@ -153,20 +146,50 @@ def _times(d: dict) -> str:
                 continue
             span = w - b
             tip = f'{"Nap" if s["nap"] else "Sleep"}: bed {b:%a %H:%M}, up {w:%a %H:%M} ({int(span.total_seconds() // 3600)} h {int(span.total_seconds() % 3600 // 60):02d})'
-            out.append(f'<rect class="slp{" nap" if s["nap"] else ""}" x="{x(a, day):.1f}" y="{y + 2}" width="{max(x(z, day) - x(a, day), 1.5):.1f}" '
-                       f'height="{rh - 4}" rx="2"><title>{esc(tip)}</title></rect>')
+            bands.append({"from": mins(a, day), "to": mins(z, day), "nap": bool(s["nap"]), "tip": tip})
         for e in d["lone"]:
             t = local(e["event_at"])
             if start <= t < end:
-                out.append(f'<line class="up" x1="{x(t, day):.1f}" y1="{y + 1}" x2="{x(t, day):.1f}" y2="{y + rh - 1}">'
-                           f'<title>{"Up from a nap" if e["nap"] else "Woke up"} {t:%a %H:%M}, no bed time</title></line>')
+                ticks.append({"at": mins(t, day), "nap": bool(e["nap"]), "tip": f'{"Up from a nap" if e["nap"] else "Woke up"} {t:%a %H:%M}, no bed time'})
+        label = f"{day:%d.%m.}" if i == n - 1 or day.weekday() == 0 or n <= 7 else None  # the last row and each Monday
+        rows.append({"date": day.isoformat(), "label": label, "bands": bands, "ticks": ticks})
+    return {"days": n, "rows": rows, "empty": not (d["sleeps"] or d["lone"]),
+            "title": "Sleep times", "small": "a row per date, the clock across",
+            "legend": [{"key": "sq d", "text": "sleep"},
+                       {"key": "sq h", "text": "nap or night waking · a tick is a wake-up without a bed time · rows start on Mondays · "
+                                               "a cycle that moves later each day shows as a diagonal band"}]}
+
+
+def _whole(m: float):
+    return int(m) if m == int(m) else m
+
+
+def _times(t: dict) -> str:
+    """app.'s drawing of times_data: an SVG sized for a phone (about 1:1 at 375 px, so the text stays readable)."""
+    n = t["days"]
+    left, width, rh, top = 40, 320, 13, 16
+    x = lambda m: left + width * m / 1440  # noqa: E731
+    out = []
+    for h in range(0, 25, 6):
+        gx = left + width * h / 24
+        out.append(f'<line class="grid" x1="{gx:.1f}" y1="{top - 4}" x2="{gx:.1f}" y2="{top + n * rh}"/>'
+                   f'<text x="{gx:.1f}" y="{top - 7}" text-anchor="middle">{h:02d}</text>')
+    for i, row in enumerate(t["rows"]):
+        y = top + i * rh
+        if row["label"]:
+            out.append(f'<text x="{left - 6}" y="{y + rh - 4}" text-anchor="end">{row["label"]}</text>')
+        for b in row["bands"]:
+            out.append(f'<rect class="slp{" nap" if b["nap"] else ""}" x="{x(b["from"]):.1f}" y="{y + 2}" width="{max(x(b["to"]) - x(b["from"]), 1.5):.1f}" '
+                       f'height="{rh - 4}" rx="2"><title>{esc(b["tip"])}</title></rect>')
+        for k in row["ticks"]:
+            out.append(f'<line class="up" x1="{x(k["at"]):.1f}" y1="{y + 1}" x2="{x(k["at"]):.1f}" y2="{y + rh - 1}">'
+                       f'<title>{k["tip"]}</title></line>')
     h = top + n * rh + 4
     svg = (f'<svg class="times" viewBox="0 0 {left + width + 8} {h}" role="img" aria-label="Sleep times of the last {n} days">'
            + "".join(out) + "</svg>")
-    note = "" if d["sleeps"] or d["lone"] else '<p class="empty">No bed and wake-up times in this range yet.</p>'
-    return ('<div class="card"><h2>Sleep times <span class="small">a row per date, the clock across</span></h2>'
-            f'{note}{svg}<p class="legend"><i class="key sq d"></i>sleep <i class="key sq h"></i>nap or night waking · '
-            'a tick is a wake-up without a bed time · rows start on Mondays · a cycle that moves later each day shows as a diagonal band</p></div>')
+    note = '<p class="empty">No bed and wake-up times in this range yet.</p>' if t["empty"] else ""
+    return (f'<div class="card"><h2>{t["title"]} <span class="small">{t["small"]}</span></h2>'
+            f'{note}{svg}<p class="legend">{_legend(t["legend"])}</p></div>')
 
 
 def _dm(d: date) -> str:
@@ -177,8 +200,14 @@ def _num(v: float) -> str:
     return format(round(v, 1), "g")
 
 
-def _chart(cid: str, d: dict, series: list, **opts) -> str:
-    data = {"start": d["start"].isoformat(), "days": d["days"], "series": series, **opts}
+def chart_data(d: dict, series: list, **opts) -> dict:
+    """A chart as app.js's drawChart takes it (the data-chart attribute): the range's first day and length, the series (mark line,
+    dot, ring or bar; cls a or b; pts [day index, value, hover text]) and the options (label, lines [value, w or r, text], min,
+    max, unit, decimals)."""
+    return {"start": d["start"].isoformat(), "days": d["days"], "series": series, **opts}
+
+
+def _chart(cid: str, data: dict) -> str:
     return f'<div class="chart" id="{cid}" data-chart="{esc(json.dumps(data, separators=(",", ":")))}"></div>'
 
 
@@ -186,7 +215,18 @@ def _avg(xs: list) -> float:
     return sum(xs) / len(xs)
 
 
-def _charts(d: dict) -> str:
+def _b(text: str) -> dict:
+    return {"text": text, "bold": True}
+
+
+def _t(text: str) -> dict:
+    return {"text": text, "bold": False}
+
+
+def charts(d: dict) -> list[dict]:
+    """The five charts of the Health page as data (deploy 91: app.'s cards and the JSON door read the same): each with its id,
+    title, small heading, the stat line as parts (bold or not), the chart (chart_data) and the legend ({key: the colour key's
+    class, text})."""
     start, today, idx = d["start"], d["today"], lambda day: (day - d["start"]).days
     days = [start + timedelta(days=i) for i in range(d["days"])]
     # weight: the day's value and the 7-day average of the days that have one
@@ -195,12 +235,12 @@ def _charts(d: dict) -> str:
     if w:
         delta = w[-1][1] - w[0][1]
         sign = "+" if delta > 0 else "−" if delta < 0 else "±"
-        wstat = f'<b>{_num(w[-1][1])} kg</b> last · <b>{sign}{abs(delta):.1f} kg</b> in {d["days"]} days'
+        wstat = [_b(f"{_num(w[-1][1])} kg"), _t(" last · "), _b(f"{sign}{abs(delta):.1f} kg"), _t(f' in {d["days"]} days')]
     else:
-        wstat = "no weighings in this range"
-    weight = _chart("c-weight", d, [{"mark": "line", "cls": "b", "pts": avg7},
-                                    {"mark": "dot", "cls": "a", "pts": [[idx(day), v, f"{_dm(day)}: {_num(v)} kg"] for day, v in w]}],
-                    label="Weight in kg", decimals=1)
+        wstat = [_t("no weighings in this range")]
+    weight = chart_data(d, [{"mark": "line", "cls": "b", "pts": avg7},
+                            {"mark": "dot", "cls": "a", "pts": [[idx(day), v, f"{_dm(day)}: {_num(v)} kg"] for day, v in w]}],
+                        label="Weight in kg", decimals=1)
     # blood pressure: filled = morning, ring = evening; systolic and diastolic in two colours
     bp = {"bm": [], "be": []}
     for day in days:
@@ -214,48 +254,85 @@ def _charts(d: dict) -> str:
         series.append({"mark": mark, "cls": "a", "pts": [[idx(day), a, tip(day, a, b, per)] for day, a, b in bp[col]]})
         series.append({"mark": mark, "cls": "b", "pts": [[idx(day), b, tip(day, a, b, per)] for day, a, b in bp[col]]})
     mean = lambda rows: f"{round(_avg([r[1] for r in rows]))}/{round(_avg([r[2] for r in rows]))}" if rows else "–"
-    bpstat = f'Morning avg <b>{mean(bp["bm"])}</b> · evening avg <b>{mean(bp["be"])}</b>'
+    bpstat = [_t("Morning avg "), _b(mean(bp["bm"])), _t(" · evening avg "), _b(mean(bp["be"]))]
     # dashed lines at the limits decided for the Sheet (27.10.2026): grey from 130/80, amber from 140/90 (no red since 15.11.2026)
-    pressure = _chart("c-bp", d, series, label="Blood pressure in mmHg", lines=[[140, "r", "140"], [130, "w", "130"], [90, "r", "90"], [80, "w", "80"]])
+    pressure = chart_data(d, series, label="Blood pressure in mmHg", lines=[[140, "r", "140"], [130, "w", "130"], [90, "r", "90"], [80, "w", "80"]])
     # fasted sugar
     s = [(day, float(d["vals"][day]["s"]["v"][0])) for day in days if d["vals"].get(day, {}).get("s")]
-    sstat = f'avg <b>{round(_avg([v for _, v in s]))}</b> mg/dL · {len(s)} readings' if s else "no readings in this range"
-    sugar = _chart("c-sugar", d, [{"mark": "dot", "cls": "a", "pts": [[idx(day), v, f"{_dm(day)}: {v:g} mg/dL"] for day, v in s]}],
-                   label="Fasted blood sugar in mg/dL", lines=[[126, "r", "126"], [100, "w", "100"]])
+    sstat = [_t("avg "), _b(str(round(_avg([v for _, v in s])))), _t(f" mg/dL · {len(s)} readings")] if s else [_t("no readings in this range")]
+    sugar = chart_data(d, [{"mark": "dot", "cls": "a", "pts": [[idx(day), v, f"{_dm(day)}: {v:g} mg/dL"] for day, v in s]}],
+                       label="Fasted blood sugar in mg/dL", lines=[[126, "r", "126"], [100, "w", "100"]])
     # sleep: hours from bed to wake-up, on the day of the wake-up
     nights = [(day, d["sleep"][day]) for day in days if day in d["sleep"] and 0 < float(d["sleep"][day]["hours"]) < 24]
     hm = lambda h: f"{int(h)} h {round((h % 1) * 60):02d} min"
     pts = [[idx(day), round(float(r["hours"]), 2), f"Night to {_dm(day)}: bed {_hm(r['bed_at'])}, up {_hm(r['wake_at'])}, {hm(float(r['hours']))}"]
            for day, r in nights]
-    slstat = f'avg <b>{hm(_avg([float(r["hours"]) for _, r in nights]))}</b> · {len(nights)} nights' if nights else "no nights with bed and wake-up"
+    slstat = ([_t("avg "), _b(hm(_avg([float(r["hours"]) for _, r in nights]))), _t(f" · {len(nights)} nights")] if nights
+              else [_t("no nights with bed and wake-up")])
     # the 7-day average of the nights in the week up to each night (02.11.2026), like the weight's
     good = {k: float(r["hours"]) for k, r in d["sleep"].items() if 0 < float(r["hours"]) < 24}
     avg7 = [[idx(day), round(a, 2), f"7-day average to {_dm(day)}: {hm(a)}"]
             for day, _r in nights for a in [_avg([h for k, h in good.items() if day - timedelta(days=6) <= k <= day])]]
-    sleep = _chart("c-sleep", d, [{"mark": "bar", "cls": "a", "pts": pts}, {"mark": "line", "cls": "b", "pts": avg7}],
-                   label="Sleep in hours", min=0, unit=" h", lines=[[7, "w", "7 h"], [6, "r", "6 h"]])
+    sleep = chart_data(d, [{"mark": "bar", "cls": "a", "pts": pts}, {"mark": "line", "cls": "b", "pts": avg7}],
+                       label="Sleep in hours", min=0, unit=" h", lines=[[7, "w", "7 h"], [6, "r", "6 h"]])
     # mood and energy, 1 to 5 (the evening check-in, 02.11.2026)
     feel = {t: [(day, float(d["vals"][day][col]["v"][0])) for day in days if d["vals"].get(day, {}).get(col)] for t, col in (("mood", "mo"), ("energy", "en"))}
     fpts = lambda t, cls: [{"mark": "line", "cls": cls, "pts": [[idx(day), v] for day, v in feel[t]]},
                            {"mark": "dot", "cls": cls, "pts": [[idx(day), v, f"{_dm(day)}: {t} {v:g}"] for day, v in feel[t]]}]
-    fstat = (" · ".join(f'{t} avg <b>{_avg([v for _, v in feel[t]]):.1f}</b>' for t in ("mood", "energy") if feel[t])
-             + f' · {len({day for t in feel for day, _ in feel[t]})} evenings') if feel["mood"] or feel["energy"] else "no check-ins in this range"
-    mood = _chart("c-mood", d, fpts("mood", "a") + fpts("energy", "b"), label="Mood and energy, 1 to 5", min=1, max=5)
-    card = lambda title, stat, chart, legend="": (f'<div class="card"><h2>{title}</h2><p class="stat">{stat}</p>{chart}'
-                                                 + (f'<p class="legend">{legend}</p>' if legend else "") + "</div>")
-    return ('<div class="grid2">'
-            + card("Weight", wstat, weight, '<i class="key a"></i>daily <i class="key line b"></i>7-day average')
-            + card('Blood pressure <span class="small">mmHg</span>', bpstat, pressure,
-                   '<i class="key a"></i>systolic <i class="key b"></i>diastolic · filled = morning, ring = evening · '
-                   '<i class="key ref"></i>grey from 130/80 <i class="key ref r"></i>amber from 140/90')
-            + card('Blood sugar <span class="small">fasted, mg/dL</span>', sstat, sugar,
-                   '<i class="key ref"></i>grey from 100 <i class="key ref r"></i>amber from 126')
-            + card("Sleep", slstat, sleep, '<i class="key a"></i>night <i class="key line b"></i>7-day average · '
-                   'hours from bed to wake-up; point at or tap a bar for the times · '
-                   '<i class="key ref"></i>grey under 7 h <i class="key ref r"></i>amber under 6 h')
-            + card('Mood and energy <span class="small">1 to 5</span>', fstat, mood,
-                   '<i class="key a"></i>mood <i class="key b"></i>energy · from the evening check-in on Today')
-            + _times(d) + "</div>")
+    if feel["mood"] or feel["energy"]:
+        fstat = []
+        for t in ("mood", "energy"):
+            if feel[t]:
+                fstat += [_t(f"{' · ' if fstat else ''}{t} avg "), _b(f"{_avg([v for _, v in feel[t]]):.1f}")]
+        fstat.append(_t(f' · {len({day for t in feel for day, _ in feel[t]})} evenings'))
+    else:
+        fstat = [_t("no check-ins in this range")]
+    mood = chart_data(d, fpts("mood", "a") + fpts("energy", "b"), label="Mood and energy, 1 to 5", min=1, max=5)
+    key = lambda k, text: {"key": k, "text": text}  # noqa: E731
+    return [
+        {"id": "weight", "title": "Weight", "small": None, "stat": wstat, "chart": weight,
+         "legend": [key("a", "daily"), key("line b", "7-day average")]},
+        {"id": "bp", "title": "Blood pressure", "small": "mmHg", "stat": bpstat, "chart": pressure,
+         "legend": [key("a", "systolic"), key("b", "diastolic · filled = morning, ring = evening ·"),
+                    key("ref", "grey from 130/80"), key("ref r", "amber from 140/90")]},
+        {"id": "sugar", "title": "Blood sugar", "small": "fasted, mg/dL", "stat": sstat, "chart": sugar,
+         "legend": [key("ref", "grey from 100"), key("ref r", "amber from 126")]},
+        {"id": "sleep", "title": "Sleep", "small": None, "stat": slstat, "chart": sleep,
+         "legend": [key("a", "night"), key("line b", "7-day average · hours from bed to wake-up; point at or tap a bar for the times ·"),
+                    key("ref", "grey under 7 h"), key("ref r", "amber under 6 h")]},
+        {"id": "mood", "title": "Mood and energy", "small": "1 to 5", "stat": fstat, "chart": mood,
+         "legend": [key("a", "mood"), key("b", "energy · from the evening check-in on Today")]},
+    ]
+
+
+def _legend(items: list) -> str:
+    return " ".join(f'<i class="key {k["key"]}"></i>{esc(k["text"])}' for k in items)
+
+
+def _stat(parts: list) -> str:
+    return "".join(f"<b>{esc(p['text'])}</b>" if p["bold"] else esc(p["text"]) for p in parts)
+
+
+def _charts(d: dict) -> str:
+    cards = []
+    for c in charts(d):
+        small = f' <span class="small">{c["small"]}</span>' if c["small"] else ""
+        cards.append(f'<div class="card"><h2>{c["title"]}{small}</h2><p class="stat">{_stat(c["stat"])}</p>'
+                     f'{_chart("c-" + c["id"], c["chart"])}<p class="legend">{_legend(c["legend"])}</p></div>')
+    return '<div class="grid2">' + "".join(cards) + _times(times_data(d)) + "</div>"
+
+
+def shown_days(d: dict, show_all: bool) -> tuple[list, list]:
+    """(every day of the range, the days whose rows show), newest first: the last SHOWN_DAYS, or all."""
+    days = [d["today"] - timedelta(days=i) for i in range(d["days"])]
+    return days, (days if show_all else days[:SHOWN_DAYS])
+
+
+def slept_minutes(d: dict, day: date):
+    """The sleep of a row (bed to wake-up, on the day of the wake-up) in minutes, or None (none, or not under 24 hours)."""
+    sl = d["sleep"].get(day)
+    hours = float(sl["hours"]) if sl else 0
+    return round(hours * 60) if 0 < hours < 24 else None
 
 
 def _field(day: date, col: str, kind, cur, fid: str) -> str:
@@ -270,8 +347,7 @@ def _field(day: date, col: str, kind, cur, fid: str) -> str:
 
 
 def _entries(d: dict, csrf: str, show_all: bool) -> str:
-    days = [d["today"] - timedelta(days=i) for i in range(d["days"])]
-    shown = days if show_all else days[:SHOWN_DAYS]
+    days, shown = shown_days(d, show_all)
     rows = []
     for day in shown:
         fid = f"hd-{day.isoformat()}"

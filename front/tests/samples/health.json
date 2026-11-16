@@ -1,0 +1,3103 @@
+{
+ "health": {
+  "v": 1,
+  "health": {
+   "today": "2026-11-16",
+   "start": "2026-10-18",
+   "range": 30,
+   "ranges": [
+    7,
+    30,
+    90
+   ],
+   "all": false,
+   "days_in_range": 30,
+   "shown_days": 14,
+   "oldest_day": "2025-11-16",
+   "columns": [
+    {
+     "row": "weight",
+     "label": "Weight",
+     "sub": "kg",
+     "type": "weight",
+     "period": null,
+     "kind": "number"
+    },
+    {
+     "row": "bp_morning",
+     "label": "BP",
+     "sub": "morning",
+     "type": "bp",
+     "period": "morning",
+     "kind": "pair"
+    },
+    {
+     "row": "bp_evening",
+     "label": "BP",
+     "sub": "evening",
+     "type": "bp",
+     "period": "evening",
+     "kind": "pair"
+    },
+    {
+     "row": "sugar",
+     "label": "Sugar",
+     "sub": "fasted",
+     "type": "blood_sugar",
+     "period": "fasted",
+     "kind": "number"
+    },
+    {
+     "row": "bed",
+     "label": "Bed",
+     "sub": "night before",
+     "type": "bed",
+     "period": null,
+     "kind": "time"
+    },
+    {
+     "row": "wake",
+     "label": "Woke up",
+     "sub": null,
+     "type": "wake",
+     "period": null,
+     "kind": "time"
+    },
+    {
+     "row": "mood",
+     "label": "Mood",
+     "sub": "1–5",
+     "type": "mood",
+     "period": null,
+     "kind": "number"
+    },
+    {
+     "row": "energy",
+     "label": "Energy",
+     "sub": "1–5",
+     "type": "energy",
+     "period": null,
+     "kind": "number"
+    }
+   ],
+   "days": [
+    {
+     "day": "2026-11-16",
+     "values": {
+      "weight": {
+       "ref": "m1",
+       "v1": 81.6,
+       "v2": null,
+       "time": null,
+       "at": null
+      },
+      "bp_morning": {
+       "ref": "m2",
+       "v1": 118,
+       "v2": 77,
+       "time": null,
+       "at": null
+      },
+      "bp_evening": null,
+      "sugar": {
+       "ref": "m3",
+       "v1": 88,
+       "v2": null,
+       "time": null,
+       "at": null
+      },
+      "bed": {
+       "ref": "e1",
+       "v1": null,
+       "v2": null,
+       "time": "22:00",
+       "at": "2026-11-15T22:00:00+01:00"
+      },
+      "wake": {
+       "ref": "e2",
+       "v1": null,
+       "v2": null,
+       "time": "06:00",
+       "at": "2026-11-16T06:00:00+01:00"
+      },
+      "mood": null,
+      "energy": null
+     },
+     "slept_minutes": 480
+    },
+    {
+     "day": "2026-11-15",
+     "values": {
+      "weight": {
+       "ref": "m4",
+       "v1": 81.8,
+       "v2": null,
+       "time": null,
+       "at": null
+      },
+      "bp_morning": null,
+      "bp_evening": {
+       "ref": "m5",
+       "v1": 125,
+       "v2": 81,
+       "time": null,
+       "at": null
+      },
+      "sugar": null,
+      "bed": {
+       "ref": "e3",
+       "v1": null,
+       "v2": null,
+       "time": "23:07",
+       "at": "2026-11-14T23:07:00+01:00"
+      },
+      "wake": {
+       "ref": "e4",
+       "v1": null,
+       "v2": null,
+       "time": "07:11",
+       "at": "2026-11-15T07:11:00+01:00"
+      },
+      "mood": {
+       "ref": "m6",
+       "v1": 3,
+       "v2": null,
+       "time": null,
+       "at": null
+      },
+      "energy": {
+       "ref": "m7",
+       "v1": 3,
+       "v2": null,
+       "time": null,
+       "at": null
+      }
+     },
+     "slept_minutes": 484
+    },
+    {
+     "day": "2026-11-14",
+     "values": {
+      "weight": {
+       "ref": "m8",
+       "v1": 81.9,
+       "v2": null,
+       "time": null,
+       "at": null
+      },
+      "bp_morning": {
+       "ref": "m9",
+       "v1": 120,
+       "v2": 79,
+       "time": null,
+       "at": null
+      },
+      "bp_evening": null,
+      "sugar": null,
+      "bed": {
+       "ref": "e5",
+       "v1": null,
+       "v2": null,
+       "time": "22:14",
+       "at": "2026-11-13T22:14:00+01:00"
+      },
+      "wake": {
+       "ref": "e6",
+       "v1": null,
+       "v2": null,
+       "time": "06:22",
+       "at": "2026-11-14T06:22:00+01:00"
+      },
+      "mood": null,
+      "energy": null
+     },
+     "slept_minutes": 488
+    },
+    {
+     "day": "2026-11-13",
+     "values": {
+      "weight": null,
+      "bp_morning": null,
+      "bp_evening": null,
+      "sugar": {
+       "ref": "m10",
+       "v1": 91,
+       "v2": null,
+       "time": null,
+       "at": null
+      },
+      "bed": {
+       "ref": "e7",
+       "v1": null,
+       "v2": null,
+       "time": "23:21",
+       "at": "2026-11-12T23:21:00+01:00"
+      },
+      "wake": {
+       "ref": "e8",
+       "v1": null,
+       "v2": null,
+       "time": "07:33",
+       "at": "2026-11-13T07:33:00+01:00"
+      },
+      "mood": {
+       "ref": "m11",
+       "v1": 5,
+       "v2": null,
+       "time": null,
+       "at": null
+      },
+      "energy": {
+       "ref": "m12",
+       "v1": 5,
+       "v2": null,
+       "time": null,
+       "at": null
+      }
+     },
+     "slept_minutes": 492
+    },
+    {
+     "day": "2026-11-12",
+     "values": {
+      "weight": {
+       "ref": "m13",
+       "v1": 81.6,
+       "v2": null,
+       "time": null,
+       "at": null
+      },
+      "bp_morning": {
+       "ref": "m14",
+       "v1": 122,
+       "v2": 77,
+       "time": null,
+       "at": null
+      },
+      "bp_evening": null,
+      "sugar": null,
+      "bed": null,
+      "wake": {
+       "ref": "e9",
+       "v1": null,
+       "v2": null,
+       "time": "06:20",
+       "at": "2026-11-12T06:20:00+01:00"
+      },
+      "mood": null,
+      "energy": null
+     },
+     "slept_minutes": null
+    },
+    {
+     "day": "2026-11-11",
+     "values": {
+      "weight": {
+       "ref": "m15",
+       "v1": 81.8,
+       "v2": null,
+       "time": null,
+       "at": null
+      },
+      "bp_morning": null,
+      "bp_evening": null,
+      "sugar": null,
+      "bed": {
+       "ref": "e10",
+       "v1": null,
+       "v2": null,
+       "time": "23:35",
+       "at": "2026-11-10T23:35:00+01:00"
+      },
+      "wake": {
+       "ref": "e11",
+       "v1": null,
+       "v2": null,
+       "time": "07:55",
+       "at": "2026-11-11T07:55:00+01:00"
+      },
+      "mood": {
+       "ref": "m16",
+       "v1": 3,
+       "v2": null,
+       "time": null,
+       "at": null
+      },
+      "energy": {
+       "ref": "m17",
+       "v1": 2,
+       "v2": null,
+       "time": null,
+       "at": null
+      }
+     },
+     "slept_minutes": 500
+    },
+    {
+     "day": "2026-11-10",
+     "values": {
+      "weight": {
+       "ref": "m18",
+       "v1": 81.4,
+       "v2": null,
+       "time": null,
+       "at": null
+      },
+      "bp_morning": {
+       "ref": "m19",
+       "v1": 124,
+       "v2": 79,
+       "time": null,
+       "at": null
+      },
+      "bp_evening": {
+       "ref": "m20",
+       "v1": 124,
+       "v2": 80,
+       "time": null,
+       "at": null
+      },
+      "sugar": {
+       "ref": "m21",
+       "v1": 94,
+       "v2": null,
+       "time": null,
+       "at": null
+      },
+      "bed": {
+       "ref": "e12",
+       "v1": null,
+       "v2": null,
+       "time": "22:42",
+       "at": "2026-11-09T22:42:00+01:00"
+      },
+      "wake": {
+       "ref": "e13",
+       "v1": null,
+       "v2": null,
+       "time": "06:06",
+       "at": "2026-11-10T06:06:00+01:00"
+      },
+      "mood": null,
+      "energy": null
+     },
+     "slept_minutes": 444
+    },
+    {
+     "day": "2026-11-09",
+     "values": {
+      "weight": null,
+      "bp_morning": null,
+      "bp_evening": null,
+      "sugar": null,
+      "bed": {
+       "ref": "e14",
+       "v1": null,
+       "v2": null,
+       "time": "23:49",
+       "at": "2026-11-08T23:49:00+01:00"
+      },
+      "wake": {
+       "ref": "e15",
+       "v1": null,
+       "v2": null,
+       "time": "07:17",
+       "at": "2026-11-09T07:17:00+01:00"
+      },
+      "mood": {
+       "ref": "m22",
+       "v1": 5,
+       "v2": null,
+       "time": null,
+       "at": null
+      },
+      "energy": {
+       "ref": "m23",
+       "v1": 4,
+       "v2": null,
+       "time": null,
+       "at": null
+      }
+     },
+     "slept_minutes": 448
+    },
+    {
+     "day": "2026-11-08",
+     "values": {
+      "weight": {
+       "ref": "m24",
+       "v1": 81.7,
+       "v2": null,
+       "time": null,
+       "at": null
+      },
+      "bp_morning": {
+       "ref": "m25",
+       "v1": 119,
+       "v2": 77,
+       "time": null,
+       "at": null
+      },
+      "bp_evening": null,
+      "sugar": null,
+      "bed": {
+       "ref": "e16",
+       "v1": null,
+       "v2": null,
+       "time": "22:56",
+       "at": "2026-11-07T22:56:00+01:00"
+      },
+      "wake": {
+       "ref": "e17",
+       "v1": null,
+       "v2": null,
+       "time": "06:28",
+       "at": "2026-11-08T06:28:00+01:00"
+      },
+      "mood": null,
+      "energy": null
+     },
+     "slept_minutes": 452
+    },
+    {
+     "day": "2026-11-07",
+     "values": {
+      "weight": {
+       "ref": "m26",
+       "v1": 81.2,
+       "v2": null,
+       "time": null,
+       "at": null
+      },
+      "bp_morning": null,
+      "bp_evening": null,
+      "sugar": {
+       "ref": "m27",
+       "v1": 88,
+       "v2": null,
+       "time": null,
+       "at": null
+      },
+      "bed": {
+       "ref": "e18",
+       "v1": null,
+       "v2": null,
+       "time": "23:03",
+       "at": "2026-11-06T23:03:00+01:00"
+      },
+      "wake": {
+       "ref": "e19",
+       "v1": null,
+       "v2": null,
+       "time": "07:39",
+       "at": "2026-11-07T07:39:00+01:00"
+      },
+      "mood": {
+       "ref": "m28",
+       "v1": 3,
+       "v2": null,
+       "time": null,
+       "at": null
+      },
+      "energy": {
+       "ref": "m29",
+       "v1": 1,
+       "v2": null,
+       "time": null,
+       "at": null
+      }
+     },
+     "slept_minutes": 516
+    },
+    {
+     "day": "2026-11-06",
+     "values": {
+      "weight": {
+       "ref": "m30",
+       "v1": 81.4,
+       "v2": null,
+       "time": null,
+       "at": null
+      },
+      "bp_morning": {
+       "ref": "m31",
+       "v1": 121,
+       "v2": 79,
+       "time": null,
+       "at": null
+      },
+      "bp_evening": null,
+      "sugar": null,
+      "bed": {
+       "ref": "e22",
+       "v1": null,
+       "v2": null,
+       "time": "22:10",
+       "at": "2026-11-05T22:10:00+01:00"
+      },
+      "wake": {
+       "ref": "e23",
+       "v1": null,
+       "v2": null,
+       "time": "06:50",
+       "at": "2026-11-06T06:50:00+01:00"
+      },
+      "mood": null,
+      "energy": null
+     },
+     "slept_minutes": 520
+    },
+    {
+     "day": "2026-11-05",
+     "values": {
+      "weight": null,
+      "bp_morning": null,
+      "bp_evening": {
+       "ref": "m32",
+       "v1": 129,
+       "v2": 82,
+       "time": null,
+       "at": null
+      },
+      "sugar": null,
+      "bed": null,
+      "wake": {
+       "ref": "e24",
+       "v1": null,
+       "v2": null,
+       "time": "06:20",
+       "at": "2026-11-05T06:20:00+01:00"
+      },
+      "mood": {
+       "ref": "m33",
+       "v1": 5,
+       "v2": null,
+       "time": null,
+       "at": null
+      },
+      "energy": {
+       "ref": "m34",
+       "v1": 3,
+       "v2": null,
+       "time": null,
+       "at": null
+      }
+     },
+     "slept_minutes": null
+    },
+    {
+     "day": "2026-11-04",
+     "values": {
+      "weight": {
+       "ref": "m35",
+       "v1": 81.1,
+       "v2": null,
+       "time": null,
+       "at": null
+      },
+      "bp_morning": {
+       "ref": "m36",
+       "v1": 123,
+       "v2": 77,
+       "time": null,
+       "at": null
+      },
+      "bp_evening": null,
+      "sugar": {
+       "ref": "m37",
+       "v1": 91,
+       "v2": null,
+       "time": null,
+       "at": null
+      },
+      "bed": {
+       "ref": "e25",
+       "v1": null,
+       "v2": null,
+       "time": "22:24",
+       "at": "2026-11-03T22:24:00+01:00"
+      },
+      "wake": {
+       "ref": "e26",
+       "v1": null,
+       "v2": null,
+       "time": "06:12",
+       "at": "2026-11-04T06:12:00+01:00"
+      },
+      "mood": null,
+      "energy": null
+     },
+     "slept_minutes": 468
+    },
+    {
+     "day": "2026-11-03",
+     "values": {
+      "weight": {
+       "ref": "m38",
+       "v1": 81.3,
+       "v2": null,
+       "time": null,
+       "at": null
+      },
+      "bp_morning": null,
+      "bp_evening": null,
+      "sugar": null,
+      "bed": {
+       "ref": "e27",
+       "v1": null,
+       "v2": null,
+       "time": "23:31",
+       "at": "2026-11-02T23:31:00+01:00"
+      },
+      "wake": {
+       "ref": "e28",
+       "v1": null,
+       "v2": null,
+       "time": "07:23",
+       "at": "2026-11-03T07:23:00+01:00"
+      },
+      "mood": {
+       "ref": "m39",
+       "v1": 3,
+       "v2": null,
+       "time": null,
+       "at": null
+      },
+      "energy": {
+       "ref": "m40",
+       "v1": 5,
+       "v2": null,
+       "time": null,
+       "at": null
+      }
+     },
+     "slept_minutes": 472
+    }
+   ],
+   "charts": [
+    {
+     "id": "weight",
+     "title": "Weight",
+     "small": null,
+     "stat": [
+      {
+       "text": "81.6 kg",
+       "bold": true
+      },
+      {
+       "text": " last · ",
+       "bold": false
+      },
+      {
+       "text": "+0.8 kg",
+       "bold": true
+      },
+      {
+       "text": " in 30 days",
+       "bold": false
+      }
+     ],
+     "chart": {
+      "start": "2026-10-18",
+      "days": 30,
+      "series": [
+       {
+        "mark": "line",
+        "cls": "b",
+        "pts": [
+         [
+          0,
+          80.52,
+          "7-day average"
+         ],
+         [
+          1,
+          80.55,
+          "7-day average"
+         ],
+         [
+          3,
+          80.72,
+          "7-day average"
+         ],
+         [
+          4,
+          80.74,
+          "7-day average"
+         ],
+         [
+          5,
+          80.72,
+          "7-day average"
+         ],
+         [
+          7,
+          80.8,
+          "7-day average"
+         ],
+         [
+          8,
+          80.82,
+          "7-day average"
+         ],
+         [
+          9,
+          80.88,
+          "7-day average"
+         ],
+         [
+          11,
+          80.88,
+          "7-day average"
+         ],
+         [
+          12,
+          81.02,
+          "7-day average"
+         ],
+         [
+          13,
+          81.05,
+          "7-day average"
+         ],
+         [
+          15,
+          81.2,
+          "7-day average"
+         ],
+         [
+          16,
+          81.22,
+          "7-day average"
+         ],
+         [
+          17,
+          81.2,
+          "7-day average"
+         ],
+         [
+          19,
+          81.28,
+          "7-day average"
+         ],
+         [
+          20,
+          81.28,
+          "7-day average"
+         ],
+         [
+          21,
+          81.35,
+          "7-day average"
+         ],
+         [
+          23,
+          81.36,
+          "7-day average"
+         ],
+         [
+          24,
+          81.5,
+          "7-day average"
+         ],
+         [
+          25,
+          81.52,
+          "7-day average"
+         ],
+         [
+          27,
+          81.68,
+          "7-day average"
+         ],
+         [
+          28,
+          81.7,
+          "7-day average"
+         ],
+         [
+          29,
+          81.68,
+          "7-day average"
+         ]
+        ]
+       },
+       {
+        "mark": "dot",
+        "cls": "a",
+        "pts": [
+         [
+          0,
+          80.8,
+          "Sun 18.10.: 80.8 kg"
+         ],
+         [
+          1,
+          80.7,
+          "Mon 19.10.: 80.7 kg"
+         ],
+         [
+          3,
+          81.0,
+          "Wed 21.10.: 81 kg"
+         ],
+         [
+          4,
+          80.8,
+          "Thu 22.10.: 80.8 kg"
+         ],
+         [
+          5,
+          80.6,
+          "Fri 23.10.: 80.6 kg"
+         ],
+         [
+          7,
+          80.9,
+          "Sun 25.10.: 80.9 kg"
+         ],
+         [
+          8,
+          80.8,
+          "Mon 26.10.: 80.8 kg"
+         ],
+         [
+          9,
+          81.2,
+          "Tue 27.10.: 81.2 kg"
+         ],
+         [
+          11,
+          80.9,
+          "Thu 29.10.: 80.9 kg"
+         ],
+         [
+          12,
+          81.3,
+          "Fri 30.10.: 81.3 kg"
+         ],
+         [
+          13,
+          81.2,
+          "Sat 31.10.: 81.2 kg"
+         ],
+         [
+          15,
+          81.4,
+          "Mon 02.11.: 81.4 kg"
+         ],
+         [
+          16,
+          81.3,
+          "Tue 03.11.: 81.3 kg"
+         ],
+         [
+          17,
+          81.1,
+          "Wed 04.11.: 81.1 kg"
+         ],
+         [
+          19,
+          81.4,
+          "Fri 06.11.: 81.4 kg"
+         ],
+         [
+          20,
+          81.2,
+          "Sat 07.11.: 81.2 kg"
+         ],
+         [
+          21,
+          81.7,
+          "Sun 08.11.: 81.7 kg"
+         ],
+         [
+          23,
+          81.4,
+          "Tue 10.11.: 81.4 kg"
+         ],
+         [
+          24,
+          81.8,
+          "Wed 11.11.: 81.8 kg"
+         ],
+         [
+          25,
+          81.6,
+          "Thu 12.11.: 81.6 kg"
+         ],
+         [
+          27,
+          81.9,
+          "Sat 14.11.: 81.9 kg"
+         ],
+         [
+          28,
+          81.8,
+          "Sun 15.11.: 81.8 kg"
+         ],
+         [
+          29,
+          81.6,
+          "Mon 16.11.: 81.6 kg"
+         ]
+        ]
+       }
+      ],
+      "label": "Weight in kg",
+      "decimals": 1
+     },
+     "legend": [
+      {
+       "key": "a",
+       "text": "daily"
+      },
+      {
+       "key": "line b",
+       "text": "7-day average"
+      }
+     ]
+    },
+    {
+     "id": "bp",
+     "title": "Blood pressure",
+     "small": "mmHg",
+     "stat": [
+      {
+       "text": "Morning avg ",
+       "bold": false
+      },
+      {
+       "text": "121/78",
+       "bold": true
+      },
+      {
+       "text": " · evening avg ",
+       "bold": false
+      },
+      {
+       "text": "126/81",
+       "bold": true
+      }
+     ],
+     "chart": {
+      "start": "2026-10-18",
+      "days": 30,
+      "series": [
+       {
+        "mark": "dot",
+        "cls": "a",
+        "pts": [
+         [
+          1,
+          118.0,
+          "Mon 19.10. morning: 118/77"
+         ],
+         [
+          3,
+          123.0,
+          "Wed 21.10. morning: 123/79"
+         ],
+         [
+          5,
+          121.0,
+          "Fri 23.10. morning: 121/77"
+         ],
+         [
+          7,
+          119.0,
+          "Sun 25.10. morning: 119/79"
+         ],
+         [
+          9,
+          124.0,
+          "Tue 27.10. morning: 124/77"
+         ],
+         [
+          11,
+          122.0,
+          "Thu 29.10. morning: 122/79"
+         ],
+         [
+          13,
+          120.0,
+          "Sat 31.10. morning: 120/77"
+         ],
+         [
+          15,
+          118.0,
+          "Mon 02.11. morning: 118/79"
+         ],
+         [
+          17,
+          123.0,
+          "Wed 04.11. morning: 123/77"
+         ],
+         [
+          19,
+          121.0,
+          "Fri 06.11. morning: 121/79"
+         ],
+         [
+          21,
+          119.0,
+          "Sun 08.11. morning: 119/77"
+         ],
+         [
+          23,
+          124.0,
+          "Tue 10.11. morning: 124/79"
+         ],
+         [
+          25,
+          122.0,
+          "Thu 12.11. morning: 122/77"
+         ],
+         [
+          27,
+          120.0,
+          "Sat 14.11. morning: 120/79"
+         ],
+         [
+          29,
+          118.0,
+          "Mon 16.11. morning: 118/77"
+         ]
+        ]
+       },
+       {
+        "mark": "dot",
+        "cls": "b",
+        "pts": [
+         [
+          1,
+          77.0,
+          "Mon 19.10. morning: 118/77"
+         ],
+         [
+          3,
+          79.0,
+          "Wed 21.10. morning: 123/79"
+         ],
+         [
+          5,
+          77.0,
+          "Fri 23.10. morning: 121/77"
+         ],
+         [
+          7,
+          79.0,
+          "Sun 25.10. morning: 119/79"
+         ],
+         [
+          9,
+          77.0,
+          "Tue 27.10. morning: 124/77"
+         ],
+         [
+          11,
+          79.0,
+          "Thu 29.10. morning: 122/79"
+         ],
+         [
+          13,
+          77.0,
+          "Sat 31.10. morning: 120/77"
+         ],
+         [
+          15,
+          79.0,
+          "Mon 02.11. morning: 118/79"
+         ],
+         [
+          17,
+          77.0,
+          "Wed 04.11. morning: 123/77"
+         ],
+         [
+          19,
+          79.0,
+          "Fri 06.11. morning: 121/79"
+         ],
+         [
+          21,
+          77.0,
+          "Sun 08.11. morning: 119/77"
+         ],
+         [
+          23,
+          79.0,
+          "Tue 10.11. morning: 124/79"
+         ],
+         [
+          25,
+          77.0,
+          "Thu 12.11. morning: 122/77"
+         ],
+         [
+          27,
+          79.0,
+          "Sat 14.11. morning: 120/79"
+         ],
+         [
+          29,
+          77.0,
+          "Mon 16.11. morning: 118/77"
+         ]
+        ]
+       },
+       {
+        "mark": "ring",
+        "cls": "a",
+        "pts": [
+         [
+          3,
+          126.0,
+          "Wed 21.10. evening: 126/82"
+         ],
+         [
+          8,
+          127.0,
+          "Mon 26.10. evening: 127/80"
+         ],
+         [
+          13,
+          128.0,
+          "Sat 31.10. evening: 128/81"
+         ],
+         [
+          18,
+          129.0,
+          "Thu 05.11. evening: 129/82"
+         ],
+         [
+          23,
+          124.0,
+          "Tue 10.11. evening: 124/80"
+         ],
+         [
+          28,
+          125.0,
+          "Sun 15.11. evening: 125/81"
+         ]
+        ]
+       },
+       {
+        "mark": "ring",
+        "cls": "b",
+        "pts": [
+         [
+          3,
+          82.0,
+          "Wed 21.10. evening: 126/82"
+         ],
+         [
+          8,
+          80.0,
+          "Mon 26.10. evening: 127/80"
+         ],
+         [
+          13,
+          81.0,
+          "Sat 31.10. evening: 128/81"
+         ],
+         [
+          18,
+          82.0,
+          "Thu 05.11. evening: 129/82"
+         ],
+         [
+          23,
+          80.0,
+          "Tue 10.11. evening: 124/80"
+         ],
+         [
+          28,
+          81.0,
+          "Sun 15.11. evening: 125/81"
+         ]
+        ]
+       }
+      ],
+      "label": "Blood pressure in mmHg",
+      "lines": [
+       [
+        140,
+        "r",
+        "140"
+       ],
+       [
+        130,
+        "w",
+        "130"
+       ],
+       [
+        90,
+        "r",
+        "90"
+       ],
+       [
+        80,
+        "w",
+        "80"
+       ]
+      ]
+     },
+     "legend": [
+      {
+       "key": "a",
+       "text": "systolic"
+      },
+      {
+       "key": "b",
+       "text": "diastolic · filled = morning, ring = evening ·"
+      },
+      {
+       "key": "ref",
+       "text": "grey from 130/80"
+      },
+      {
+       "key": "ref r",
+       "text": "amber from 140/90"
+      }
+     ]
+    },
+    {
+     "id": "sugar",
+     "title": "Blood sugar",
+     "small": "fasted, mg/dL",
+     "stat": [
+      {
+       "text": "avg ",
+       "bold": false
+      },
+      {
+       "text": "91",
+       "bold": true
+      },
+      {
+       "text": " mg/dL · 10 readings",
+       "bold": false
+      }
+     ],
+     "chart": {
+      "start": "2026-10-18",
+      "days": 30,
+      "series": [
+       {
+        "mark": "dot",
+        "cls": "a",
+        "pts": [
+         [
+          2,
+          88.0,
+          "Tue 20.10.: 88 mg/dL"
+         ],
+         [
+          5,
+          94.0,
+          "Fri 23.10.: 94 mg/dL"
+         ],
+         [
+          8,
+          91.0,
+          "Mon 26.10.: 91 mg/dL"
+         ],
+         [
+          11,
+          88.0,
+          "Thu 29.10.: 88 mg/dL"
+         ],
+         [
+          14,
+          94.0,
+          "Sun 01.11.: 94 mg/dL"
+         ],
+         [
+          17,
+          91.0,
+          "Wed 04.11.: 91 mg/dL"
+         ],
+         [
+          20,
+          88.0,
+          "Sat 07.11.: 88 mg/dL"
+         ],
+         [
+          23,
+          94.0,
+          "Tue 10.11.: 94 mg/dL"
+         ],
+         [
+          26,
+          91.0,
+          "Fri 13.11.: 91 mg/dL"
+         ],
+         [
+          29,
+          88.0,
+          "Mon 16.11.: 88 mg/dL"
+         ]
+        ]
+       }
+      ],
+      "label": "Fasted blood sugar in mg/dL",
+      "lines": [
+       [
+        126,
+        "r",
+        "126"
+       ],
+       [
+        100,
+        "w",
+        "100"
+       ]
+      ]
+     },
+     "legend": [
+      {
+       "key": "ref",
+       "text": "grey from 100"
+      },
+      {
+       "key": "ref r",
+       "text": "amber from 126"
+      }
+     ]
+    },
+    {
+     "id": "sleep",
+     "title": "Sleep",
+     "small": null,
+     "stat": [
+      {
+       "text": "avg ",
+       "bold": false
+      },
+      {
+       "text": "8 h 03 min",
+       "bold": true
+      },
+      {
+       "text": " · 26 nights",
+       "bold": false
+      }
+     ],
+     "chart": {
+      "start": "2026-10-18",
+      "days": 30,
+      "series": [
+       {
+        "mark": "bar",
+        "cls": "a",
+        "pts": [
+         [
+          0,
+          7.93,
+          "Night to Sun 18.10.: bed 23:23, up 07:19, 7 h 56 min"
+         ],
+         [
+          1,
+          7.87,
+          "Night to Mon 19.10.: bed 22:16, up 06:08, 7 h 52 min"
+         ],
+         [
+          2,
+          8.8,
+          "Night to Tue 20.10.: bed 23:09, up 07:57, 8 h 48 min"
+         ],
+         [
+          3,
+          8.73,
+          "Night to Wed 21.10.: bed 22:02, up 06:46, 8 h 44 min"
+         ],
+         [
+          5,
+          7.6,
+          "Night to Fri 23.10.: bed 22:48, up 06:24, 7 h 36 min"
+         ],
+         [
+          6,
+          7.53,
+          "Night to Sat 24.10.: bed 23:41, up 07:13, 7 h 32 min"
+         ],
+         [
+          7,
+          8.47,
+          "Night to Sun 25.10.: bed 22:34, up 06:02, 8 h 28 min"
+         ],
+         [
+          8,
+          8.4,
+          "Night to Mon 26.10.: bed 23:27, up 07:51, 8 h 24 min"
+         ],
+         [
+          9,
+          8.33,
+          "Night to Tue 27.10.: bed 22:20, up 06:40, 8 h 20 min"
+         ],
+         [
+          10,
+          8.27,
+          "Night to Wed 28.10.: bed 23:13, up 07:29, 8 h 16 min"
+         ],
+         [
+          12,
+          7.13,
+          "Night to Fri 30.10.: bed 23:59, up 07:07, 7 h 08 min"
+         ],
+         [
+          13,
+          8.07,
+          "Night to Sat 31.10.: bed 22:52, up 06:56, 8 h 04 min"
+         ],
+         [
+          14,
+          8.0,
+          "Night to Sun 01.11.: bed 23:45, up 07:45, 8 h 00 min"
+         ],
+         [
+          15,
+          7.93,
+          "Night to Mon 02.11.: bed 22:38, up 06:34, 7 h 56 min"
+         ],
+         [
+          16,
+          7.87,
+          "Night to Tue 03.11.: bed 23:31, up 07:23, 7 h 52 min"
+         ],
+         [
+          17,
+          7.8,
+          "Night to Wed 04.11.: bed 22:24, up 06:12, 7 h 48 min"
+         ],
+         [
+          19,
+          8.67,
+          "Night to Fri 06.11.: bed 22:10, up 06:50, 8 h 40 min"
+         ],
+         [
+          20,
+          8.6,
+          "Night to Sat 07.11.: bed 23:03, up 07:39, 8 h 36 min"
+         ],
+         [
+          21,
+          7.53,
+          "Night to Sun 08.11.: bed 22:56, up 06:28, 7 h 32 min"
+         ],
+         [
+          22,
+          7.47,
+          "Night to Mon 09.11.: bed 23:49, up 07:17, 7 h 28 min"
+         ],
+         [
+          23,
+          7.4,
+          "Night to Tue 10.11.: bed 22:42, up 06:06, 7 h 24 min"
+         ],
+         [
+          24,
+          8.33,
+          "Night to Wed 11.11.: bed 23:35, up 07:55, 8 h 20 min"
+         ],
+         [
+          26,
+          8.2,
+          "Night to Fri 13.11.: bed 23:21, up 07:33, 8 h 12 min"
+         ],
+         [
+          27,
+          8.13,
+          "Night to Sat 14.11.: bed 22:14, up 06:22, 8 h 08 min"
+         ],
+         [
+          28,
+          8.07,
+          "Night to Sun 15.11.: bed 23:07, up 07:11, 8 h 04 min"
+         ],
+         [
+          29,
+          8.0,
+          "Night to Mon 16.11.: bed 22:00, up 06:00, 8 h 00 min"
+         ]
+        ]
+       },
+       {
+        "mark": "line",
+        "cls": "b",
+        "pts": [
+         [
+          0,
+          7.93,
+          "7-day average to Sun 18.10.: 7 h 56 min"
+         ],
+         [
+          1,
+          7.9,
+          "7-day average to Mon 19.10.: 7 h 54 min"
+         ],
+         [
+          2,
+          8.2,
+          "7-day average to Tue 20.10.: 8 h 12 min"
+         ],
+         [
+          3,
+          8.33,
+          "7-day average to Wed 21.10.: 8 h 20 min"
+         ],
+         [
+          5,
+          8.19,
+          "7-day average to Fri 23.10.: 8 h 11 min"
+         ],
+         [
+          6,
+          8.08,
+          "7-day average to Sat 24.10.: 8 h 05 min"
+         ],
+         [
+          7,
+          8.17,
+          "7-day average to Sun 25.10.: 8 h 10 min"
+         ],
+         [
+          8,
+          8.26,
+          "7-day average to Mon 26.10.: 8 h 15 min"
+         ],
+         [
+          9,
+          8.18,
+          "7-day average to Tue 27.10.: 8 h 11 min"
+         ],
+         [
+          10,
+          8.1,
+          "7-day average to Wed 28.10.: 8 h 06 min"
+         ],
+         [
+          12,
+          8.02,
+          "7-day average to Fri 30.10.: 8 h 01 min"
+         ],
+         [
+          13,
+          8.11,
+          "7-day average to Sat 31.10.: 8 h 07 min"
+         ],
+         [
+          14,
+          8.03,
+          "7-day average to Sun 01.11.: 8 h 02 min"
+         ],
+         [
+          15,
+          7.95,
+          "7-day average to Mon 02.11.: 7 h 57 min"
+         ],
+         [
+          16,
+          7.88,
+          "7-day average to Tue 03.11.: 7 h 53 min"
+         ],
+         [
+          17,
+          7.8,
+          "7-day average to Wed 04.11.: 7 h 48 min"
+         ],
+         [
+          19,
+          8.06,
+          "7-day average to Fri 06.11.: 8 h 03 min"
+         ],
+         [
+          20,
+          8.14,
+          "7-day average to Sat 07.11.: 8 h 09 min"
+         ],
+         [
+          21,
+          8.07,
+          "7-day average to Sun 08.11.: 8 h 04 min"
+         ],
+         [
+          22,
+          7.99,
+          "7-day average to Mon 09.11.: 7 h 59 min"
+         ],
+         [
+          23,
+          7.91,
+          "7-day average to Tue 10.11.: 7 h 55 min"
+         ],
+         [
+          24,
+          8.0,
+          "7-day average to Wed 11.11.: 8 h 00 min"
+         ],
+         [
+          26,
+          7.92,
+          "7-day average to Fri 13.11.: 7 h 55 min"
+         ],
+         [
+          27,
+          7.84,
+          "7-day average to Sat 14.11.: 7 h 51 min"
+         ],
+         [
+          28,
+          7.93,
+          "7-day average to Sun 15.11.: 7 h 56 min"
+         ],
+         [
+          29,
+          8.02,
+          "7-day average to Mon 16.11.: 8 h 01 min"
+         ]
+        ]
+       }
+      ],
+      "label": "Sleep in hours",
+      "min": 0,
+      "unit": " h",
+      "lines": [
+       [
+        7,
+        "w",
+        "7 h"
+       ],
+       [
+        6,
+        "r",
+        "6 h"
+       ]
+      ]
+     },
+     "legend": [
+      {
+       "key": "a",
+       "text": "night"
+      },
+      {
+       "key": "line b",
+       "text": "7-day average · hours from bed to wake-up; point at or tap a bar for the times ·"
+      },
+      {
+       "key": "ref",
+       "text": "grey under 7 h"
+      },
+      {
+       "key": "ref r",
+       "text": "amber under 6 h"
+      }
+     ]
+    },
+    {
+     "id": "mood",
+     "title": "Mood and energy",
+     "small": "1 to 5",
+     "stat": [
+      {
+       "text": "mood avg ",
+       "bold": false
+      },
+      {
+       "text": "3.9",
+       "bold": true
+      },
+      {
+       "text": " · energy avg ",
+       "bold": false
+      },
+      {
+       "text": "3.0",
+       "bold": true
+      },
+      {
+       "text": " · 15 evenings",
+       "bold": false
+      }
+     ],
+     "chart": {
+      "start": "2026-10-18",
+      "days": 30,
+      "series": [
+       {
+        "mark": "line",
+        "cls": "a",
+        "pts": [
+         [
+          0,
+          3.0
+         ],
+         [
+          2,
+          5.0
+         ],
+         [
+          4,
+          3.0
+         ],
+         [
+          6,
+          5.0
+         ],
+         [
+          8,
+          3.0
+         ],
+         [
+          10,
+          5.0
+         ],
+         [
+          12,
+          3.0
+         ],
+         [
+          14,
+          5.0
+         ],
+         [
+          16,
+          3.0
+         ],
+         [
+          18,
+          5.0
+         ],
+         [
+          20,
+          3.0
+         ],
+         [
+          22,
+          5.0
+         ],
+         [
+          24,
+          3.0
+         ],
+         [
+          26,
+          5.0
+         ],
+         [
+          28,
+          3.0
+         ]
+        ]
+       },
+       {
+        "mark": "dot",
+        "cls": "a",
+        "pts": [
+         [
+          0,
+          3.0,
+          "Sun 18.10.: mood 3"
+         ],
+         [
+          2,
+          5.0,
+          "Tue 20.10.: mood 5"
+         ],
+         [
+          4,
+          3.0,
+          "Thu 22.10.: mood 3"
+         ],
+         [
+          6,
+          5.0,
+          "Sat 24.10.: mood 5"
+         ],
+         [
+          8,
+          3.0,
+          "Mon 26.10.: mood 3"
+         ],
+         [
+          10,
+          5.0,
+          "Wed 28.10.: mood 5"
+         ],
+         [
+          12,
+          3.0,
+          "Fri 30.10.: mood 3"
+         ],
+         [
+          14,
+          5.0,
+          "Sun 01.11.: mood 5"
+         ],
+         [
+          16,
+          3.0,
+          "Tue 03.11.: mood 3"
+         ],
+         [
+          18,
+          5.0,
+          "Thu 05.11.: mood 5"
+         ],
+         [
+          20,
+          3.0,
+          "Sat 07.11.: mood 3"
+         ],
+         [
+          22,
+          5.0,
+          "Mon 09.11.: mood 5"
+         ],
+         [
+          24,
+          3.0,
+          "Wed 11.11.: mood 3"
+         ],
+         [
+          26,
+          5.0,
+          "Fri 13.11.: mood 5"
+         ],
+         [
+          28,
+          3.0,
+          "Sun 15.11.: mood 3"
+         ]
+        ]
+       },
+       {
+        "mark": "line",
+        "cls": "b",
+        "pts": [
+         [
+          0,
+          1.0
+         ],
+         [
+          2,
+          4.0
+         ],
+         [
+          4,
+          2.0
+         ],
+         [
+          6,
+          5.0
+         ],
+         [
+          8,
+          3.0
+         ],
+         [
+          10,
+          1.0
+         ],
+         [
+          12,
+          4.0
+         ],
+         [
+          14,
+          2.0
+         ],
+         [
+          16,
+          5.0
+         ],
+         [
+          18,
+          3.0
+         ],
+         [
+          20,
+          1.0
+         ],
+         [
+          22,
+          4.0
+         ],
+         [
+          24,
+          2.0
+         ],
+         [
+          26,
+          5.0
+         ],
+         [
+          28,
+          3.0
+         ]
+        ]
+       },
+       {
+        "mark": "dot",
+        "cls": "b",
+        "pts": [
+         [
+          0,
+          1.0,
+          "Sun 18.10.: energy 1"
+         ],
+         [
+          2,
+          4.0,
+          "Tue 20.10.: energy 4"
+         ],
+         [
+          4,
+          2.0,
+          "Thu 22.10.: energy 2"
+         ],
+         [
+          6,
+          5.0,
+          "Sat 24.10.: energy 5"
+         ],
+         [
+          8,
+          3.0,
+          "Mon 26.10.: energy 3"
+         ],
+         [
+          10,
+          1.0,
+          "Wed 28.10.: energy 1"
+         ],
+         [
+          12,
+          4.0,
+          "Fri 30.10.: energy 4"
+         ],
+         [
+          14,
+          2.0,
+          "Sun 01.11.: energy 2"
+         ],
+         [
+          16,
+          5.0,
+          "Tue 03.11.: energy 5"
+         ],
+         [
+          18,
+          3.0,
+          "Thu 05.11.: energy 3"
+         ],
+         [
+          20,
+          1.0,
+          "Sat 07.11.: energy 1"
+         ],
+         [
+          22,
+          4.0,
+          "Mon 09.11.: energy 4"
+         ],
+         [
+          24,
+          2.0,
+          "Wed 11.11.: energy 2"
+         ],
+         [
+          26,
+          5.0,
+          "Fri 13.11.: energy 5"
+         ],
+         [
+          28,
+          3.0,
+          "Sun 15.11.: energy 3"
+         ]
+        ]
+       }
+      ],
+      "label": "Mood and energy, 1 to 5",
+      "min": 1,
+      "max": 5
+     },
+     "legend": [
+      {
+       "key": "a",
+       "text": "mood"
+      },
+      {
+       "key": "b",
+       "text": "energy · from the evening check-in on Today"
+      }
+     ]
+    }
+   ],
+   "times": {
+    "days": 30,
+    "rows": [
+     {
+      "date": "2026-10-18",
+      "label": null,
+      "bands": [
+       {
+        "from": 0,
+        "to": 439,
+        "nap": false,
+        "tip": "Sleep: bed Sat 23:23, up Sun 07:19 (7 h 56)"
+       },
+       {
+        "from": 1336,
+        "to": 1440,
+        "nap": false,
+        "tip": "Sleep: bed Sun 22:16, up Mon 06:08 (7 h 52)"
+       }
+      ],
+      "ticks": []
+     },
+     {
+      "date": "2026-10-19",
+      "label": "19.10.",
+      "bands": [
+       {
+        "from": 0,
+        "to": 368,
+        "nap": false,
+        "tip": "Sleep: bed Sun 22:16, up Mon 06:08 (7 h 52)"
+       },
+       {
+        "from": 1389,
+        "to": 1440,
+        "nap": false,
+        "tip": "Sleep: bed Mon 23:09, up Tue 07:57 (8 h 48)"
+       }
+      ],
+      "ticks": []
+     },
+     {
+      "date": "2026-10-20",
+      "label": null,
+      "bands": [
+       {
+        "from": 0,
+        "to": 477,
+        "nap": false,
+        "tip": "Sleep: bed Mon 23:09, up Tue 07:57 (8 h 48)"
+       },
+       {
+        "from": 1322,
+        "to": 1440,
+        "nap": false,
+        "tip": "Sleep: bed Tue 22:02, up Wed 06:46 (8 h 44)"
+       }
+      ],
+      "ticks": []
+     },
+     {
+      "date": "2026-10-21",
+      "label": null,
+      "bands": [
+       {
+        "from": 0,
+        "to": 406,
+        "nap": false,
+        "tip": "Sleep: bed Tue 22:02, up Wed 06:46 (8 h 44)"
+       }
+      ],
+      "ticks": []
+     },
+     {
+      "date": "2026-10-22",
+      "label": null,
+      "bands": [
+       {
+        "from": 1368,
+        "to": 1440,
+        "nap": false,
+        "tip": "Sleep: bed Thu 22:48, up Fri 06:24 (7 h 36)"
+       }
+      ],
+      "ticks": [
+       {
+        "at": 380,
+        "nap": false,
+        "tip": "Woke up Thu 06:20, no bed time"
+       }
+      ]
+     },
+     {
+      "date": "2026-10-23",
+      "label": null,
+      "bands": [
+       {
+        "from": 0,
+        "to": 384,
+        "nap": false,
+        "tip": "Sleep: bed Thu 22:48, up Fri 06:24 (7 h 36)"
+       },
+       {
+        "from": 1421,
+        "to": 1440,
+        "nap": false,
+        "tip": "Sleep: bed Fri 23:41, up Sat 07:13 (7 h 32)"
+       }
+      ],
+      "ticks": []
+     },
+     {
+      "date": "2026-10-24",
+      "label": null,
+      "bands": [
+       {
+        "from": 0,
+        "to": 433,
+        "nap": false,
+        "tip": "Sleep: bed Fri 23:41, up Sat 07:13 (7 h 32)"
+       },
+       {
+        "from": 1354,
+        "to": 1440,
+        "nap": false,
+        "tip": "Sleep: bed Sat 22:34, up Sun 06:02 (7 h 28)"
+       }
+      ],
+      "ticks": []
+     },
+     {
+      "date": "2026-10-25",
+      "label": null,
+      "bands": [
+       {
+        "from": 0,
+        "to": 362,
+        "nap": false,
+        "tip": "Sleep: bed Sat 22:34, up Sun 06:02 (7 h 28)"
+       },
+       {
+        "from": 1407,
+        "to": 1440,
+        "nap": false,
+        "tip": "Sleep: bed Sun 23:27, up Mon 07:51 (8 h 24)"
+       }
+      ],
+      "ticks": []
+     },
+     {
+      "date": "2026-10-26",
+      "label": "26.10.",
+      "bands": [
+       {
+        "from": 0,
+        "to": 471,
+        "nap": false,
+        "tip": "Sleep: bed Sun 23:27, up Mon 07:51 (8 h 24)"
+       },
+       {
+        "from": 1340,
+        "to": 1440,
+        "nap": false,
+        "tip": "Sleep: bed Mon 22:20, up Tue 06:40 (8 h 20)"
+       }
+      ],
+      "ticks": []
+     },
+     {
+      "date": "2026-10-27",
+      "label": null,
+      "bands": [
+       {
+        "from": 0,
+        "to": 400,
+        "nap": false,
+        "tip": "Sleep: bed Mon 22:20, up Tue 06:40 (8 h 20)"
+       },
+       {
+        "from": 1393,
+        "to": 1440,
+        "nap": false,
+        "tip": "Sleep: bed Tue 23:13, up Wed 07:29 (8 h 16)"
+       }
+      ],
+      "ticks": []
+     },
+     {
+      "date": "2026-10-28",
+      "label": null,
+      "bands": [
+       {
+        "from": 0,
+        "to": 449,
+        "nap": false,
+        "tip": "Sleep: bed Tue 23:13, up Wed 07:29 (8 h 16)"
+       }
+      ],
+      "ticks": []
+     },
+     {
+      "date": "2026-10-29",
+      "label": null,
+      "bands": [
+       {
+        "from": 1439,
+        "to": 1440,
+        "nap": false,
+        "tip": "Sleep: bed Thu 23:59, up Fri 07:07 (7 h 08)"
+       }
+      ],
+      "ticks": [
+       {
+        "at": 380,
+        "nap": false,
+        "tip": "Woke up Thu 06:20, no bed time"
+       }
+      ]
+     },
+     {
+      "date": "2026-10-30",
+      "label": null,
+      "bands": [
+       {
+        "from": 0,
+        "to": 427,
+        "nap": false,
+        "tip": "Sleep: bed Thu 23:59, up Fri 07:07 (7 h 08)"
+       },
+       {
+        "from": 1372,
+        "to": 1440,
+        "nap": false,
+        "tip": "Sleep: bed Fri 22:52, up Sat 06:56 (8 h 04)"
+       }
+      ],
+      "ticks": []
+     },
+     {
+      "date": "2026-10-31",
+      "label": null,
+      "bands": [
+       {
+        "from": 0,
+        "to": 416,
+        "nap": false,
+        "tip": "Sleep: bed Fri 22:52, up Sat 06:56 (8 h 04)"
+       },
+       {
+        "from": 1425,
+        "to": 1440,
+        "nap": false,
+        "tip": "Sleep: bed Sat 23:45, up Sun 07:45 (8 h 00)"
+       }
+      ],
+      "ticks": []
+     },
+     {
+      "date": "2026-11-01",
+      "label": null,
+      "bands": [
+       {
+        "from": 0,
+        "to": 465,
+        "nap": false,
+        "tip": "Sleep: bed Sat 23:45, up Sun 07:45 (8 h 00)"
+       },
+       {
+        "from": 1358,
+        "to": 1440,
+        "nap": false,
+        "tip": "Sleep: bed Sun 22:38, up Mon 06:34 (7 h 56)"
+       }
+      ],
+      "ticks": []
+     },
+     {
+      "date": "2026-11-02",
+      "label": "02.11.",
+      "bands": [
+       {
+        "from": 0,
+        "to": 394,
+        "nap": false,
+        "tip": "Sleep: bed Sun 22:38, up Mon 06:34 (7 h 56)"
+       },
+       {
+        "from": 1411,
+        "to": 1440,
+        "nap": false,
+        "tip": "Sleep: bed Mon 23:31, up Tue 07:23 (7 h 52)"
+       }
+      ],
+      "ticks": []
+     },
+     {
+      "date": "2026-11-03",
+      "label": null,
+      "bands": [
+       {
+        "from": 0,
+        "to": 443,
+        "nap": false,
+        "tip": "Sleep: bed Mon 23:31, up Tue 07:23 (7 h 52)"
+       },
+       {
+        "from": 1344,
+        "to": 1440,
+        "nap": false,
+        "tip": "Sleep: bed Tue 22:24, up Wed 06:12 (7 h 48)"
+       }
+      ],
+      "ticks": []
+     },
+     {
+      "date": "2026-11-04",
+      "label": null,
+      "bands": [
+       {
+        "from": 0,
+        "to": 372,
+        "nap": false,
+        "tip": "Sleep: bed Tue 22:24, up Wed 06:12 (7 h 48)"
+       }
+      ],
+      "ticks": []
+     },
+     {
+      "date": "2026-11-05",
+      "label": null,
+      "bands": [
+       {
+        "from": 1330,
+        "to": 1440,
+        "nap": false,
+        "tip": "Sleep: bed Thu 22:10, up Fri 06:50 (8 h 40)"
+       }
+      ],
+      "ticks": [
+       {
+        "at": 380,
+        "nap": false,
+        "tip": "Woke up Thu 06:20, no bed time"
+       }
+      ]
+     },
+     {
+      "date": "2026-11-06",
+      "label": null,
+      "bands": [
+       {
+        "from": 0,
+        "to": 410,
+        "nap": false,
+        "tip": "Sleep: bed Thu 22:10, up Fri 06:50 (8 h 40)"
+       },
+       {
+        "from": 1383,
+        "to": 1440,
+        "nap": false,
+        "tip": "Sleep: bed Fri 23:03, up Sat 07:39 (8 h 36)"
+       }
+      ],
+      "ticks": []
+     },
+     {
+      "date": "2026-11-07",
+      "label": null,
+      "bands": [
+       {
+        "from": 0,
+        "to": 459,
+        "nap": false,
+        "tip": "Sleep: bed Fri 23:03, up Sat 07:39 (8 h 36)"
+       },
+       {
+        "from": 850,
+        "to": 885,
+        "nap": true,
+        "tip": "Nap: bed Sat 14:10, up Sat 14:45 (0 h 35)"
+       },
+       {
+        "from": 1376,
+        "to": 1440,
+        "nap": false,
+        "tip": "Sleep: bed Sat 22:56, up Sun 06:28 (7 h 32)"
+       }
+      ],
+      "ticks": []
+     },
+     {
+      "date": "2026-11-08",
+      "label": null,
+      "bands": [
+       {
+        "from": 0,
+        "to": 388,
+        "nap": false,
+        "tip": "Sleep: bed Sat 22:56, up Sun 06:28 (7 h 32)"
+       },
+       {
+        "from": 1429,
+        "to": 1440,
+        "nap": false,
+        "tip": "Sleep: bed Sun 23:49, up Mon 07:17 (7 h 28)"
+       }
+      ],
+      "ticks": []
+     },
+     {
+      "date": "2026-11-09",
+      "label": "09.11.",
+      "bands": [
+       {
+        "from": 0,
+        "to": 437,
+        "nap": false,
+        "tip": "Sleep: bed Sun 23:49, up Mon 07:17 (7 h 28)"
+       },
+       {
+        "from": 1362,
+        "to": 1440,
+        "nap": false,
+        "tip": "Sleep: bed Mon 22:42, up Tue 06:06 (7 h 24)"
+       }
+      ],
+      "ticks": []
+     },
+     {
+      "date": "2026-11-10",
+      "label": null,
+      "bands": [
+       {
+        "from": 0,
+        "to": 366,
+        "nap": false,
+        "tip": "Sleep: bed Mon 22:42, up Tue 06:06 (7 h 24)"
+       },
+       {
+        "from": 1415,
+        "to": 1440,
+        "nap": false,
+        "tip": "Sleep: bed Tue 23:35, up Wed 07:55 (8 h 20)"
+       }
+      ],
+      "ticks": []
+     },
+     {
+      "date": "2026-11-11",
+      "label": null,
+      "bands": [
+       {
+        "from": 0,
+        "to": 475,
+        "nap": false,
+        "tip": "Sleep: bed Tue 23:35, up Wed 07:55 (8 h 20)"
+       }
+      ],
+      "ticks": []
+     },
+     {
+      "date": "2026-11-12",
+      "label": null,
+      "bands": [
+       {
+        "from": 1401,
+        "to": 1440,
+        "nap": false,
+        "tip": "Sleep: bed Thu 23:21, up Fri 07:33 (8 h 12)"
+       }
+      ],
+      "ticks": [
+       {
+        "at": 380,
+        "nap": false,
+        "tip": "Woke up Thu 06:20, no bed time"
+       }
+      ]
+     },
+     {
+      "date": "2026-11-13",
+      "label": null,
+      "bands": [
+       {
+        "from": 0,
+        "to": 453,
+        "nap": false,
+        "tip": "Sleep: bed Thu 23:21, up Fri 07:33 (8 h 12)"
+       },
+       {
+        "from": 1334,
+        "to": 1440,
+        "nap": false,
+        "tip": "Sleep: bed Fri 22:14, up Sat 06:22 (8 h 08)"
+       }
+      ],
+      "ticks": []
+     },
+     {
+      "date": "2026-11-14",
+      "label": null,
+      "bands": [
+       {
+        "from": 0,
+        "to": 382,
+        "nap": false,
+        "tip": "Sleep: bed Fri 22:14, up Sat 06:22 (8 h 08)"
+       },
+       {
+        "from": 1387,
+        "to": 1440,
+        "nap": false,
+        "tip": "Sleep: bed Sat 23:07, up Sun 07:11 (8 h 04)"
+       }
+      ],
+      "ticks": []
+     },
+     {
+      "date": "2026-11-15",
+      "label": null,
+      "bands": [
+       {
+        "from": 0,
+        "to": 431,
+        "nap": false,
+        "tip": "Sleep: bed Sat 23:07, up Sun 07:11 (8 h 04)"
+       },
+       {
+        "from": 1320,
+        "to": 1440,
+        "nap": false,
+        "tip": "Sleep: bed Sun 22:00, up Mon 06:00 (8 h 00)"
+       }
+      ],
+      "ticks": []
+     },
+     {
+      "date": "2026-11-16",
+      "label": "16.11.",
+      "bands": [
+       {
+        "from": 0,
+        "to": 360,
+        "nap": false,
+        "tip": "Sleep: bed Sun 22:00, up Mon 06:00 (8 h 00)"
+       }
+      ],
+      "ticks": []
+     }
+    ],
+    "empty": false,
+    "title": "Sleep times",
+    "small": "a row per date, the clock across",
+    "legend": [
+     {
+      "key": "sq d",
+      "text": "sleep"
+     },
+     {
+      "key": "sq h",
+      "text": "nap or night waking · a tick is a wake-up without a bed time · rows start on Mondays · a cycle that moves later each day shows as a diagonal band"
+     }
+    ]
+   }
+  },
+  "undo": null
+ },
+ "body": {
+  "v": 1,
+  "body": {
+   "today": "2026-11-16",
+   "day": "2026-11-16",
+   "last_measured": "2026-11-12",
+   "due_text": "next due in about 3 weeks",
+   "interval_days": 28,
+   "hidden": [],
+   "jump_cm": 4,
+   "protocol": "Morning, before eating, relaxed, tape level and snug. Right side for arm and thigh. Leave a field empty to skip it.",
+   "hint": "Or type it in the Log bar or in Claude: waist 92.5 hips 101 chest 98 arm 33.5 thigh 57. Any of them alone works too (\"waist 92.5\"); no AI is needed for these.",
+   "form": [
+    {
+     "key": "waist",
+     "label": "Waist",
+     "hint": "At the navel, after a normal breath out",
+     "ref": null,
+     "cm": null,
+     "last_cm": 92.0,
+     "min": 50,
+     "max": 200
+    },
+    {
+     "key": "hips",
+     "label": "Hips",
+     "hint": "Widest point of the buttocks",
+     "ref": null,
+     "cm": null,
+     "last_cm": 102.0,
+     "min": 60,
+     "max": 200
+    },
+    {
+     "key": "chest",
+     "label": "Chest",
+     "hint": "Across the nipples, arms down",
+     "ref": null,
+     "cm": null,
+     "last_cm": 98.5,
+     "min": 60,
+     "max": 200
+    },
+    {
+     "key": "upper_arm",
+     "label": "Upper arm",
+     "hint": "Halfway shoulder to elbow, relaxed, right side",
+     "ref": null,
+     "cm": null,
+     "last_cm": 33.0,
+     "min": 15,
+     "max": 70
+    },
+    {
+     "key": "thigh",
+     "label": "Thigh",
+     "hint": "Halfway hip to knee, standing, right side",
+     "ref": null,
+     "cm": null,
+     "last_cm": 57.5,
+     "min": 30,
+     "max": 110
+    }
+   ],
+   "table": [
+    {
+     "key": "waist",
+     "label": "Waist",
+     "ref": "m98",
+     "cm": 92.0,
+     "day": "2026-11-12",
+     "last": -1,
+     "start": -2,
+     "last_text": "−1.0",
+     "start_text": "−2.0"
+    },
+    {
+     "key": "hips",
+     "label": "Hips",
+     "ref": "m99",
+     "cm": 102.0,
+     "day": "2026-11-12",
+     "last": -0.5,
+     "start": -1,
+     "last_text": "−0.5",
+     "start_text": "−1.0"
+    },
+    {
+     "key": "chest",
+     "label": "Chest",
+     "ref": "m100",
+     "cm": 98.5,
+     "day": "2026-11-12",
+     "last": -0.5,
+     "start": -0.5,
+     "last_text": "−0.5",
+     "start_text": "−0.5"
+    },
+    {
+     "key": "upper_arm",
+     "label": "Upper arm",
+     "ref": "m92",
+     "cm": 33.0,
+     "day": "2026-09-17",
+     "last": null,
+     "start": null,
+     "last_text": null,
+     "start_text": null
+    },
+    {
+     "key": "thigh",
+     "label": "Thigh",
+     "ref": "m97",
+     "cm": 57.5,
+     "day": "2026-10-15",
+     "last": -0.5,
+     "start": -0.5,
+     "last_text": "−0.5",
+     "start_text": "−0.5"
+    }
+   ],
+   "first_day": "2026-09-17",
+   "charts": [
+    {
+     "key": "waist",
+     "label": "Waist",
+     "chart": {
+      "start": "2026-09-17",
+      "days": 57,
+      "label": "Waist in cm",
+      "series": [
+       {
+        "mark": "line",
+        "cls": "a",
+        "pts": [
+         [
+          0,
+          94.0
+         ],
+         [
+          28,
+          93.0
+         ],
+         [
+          56,
+          92.0
+         ]
+        ]
+       },
+       {
+        "mark": "dot",
+        "cls": "a",
+        "pts": [
+         [
+          0,
+          94.0,
+          "17.09.2026: 94.0 cm"
+         ],
+         [
+          28,
+          93.0,
+          "15.10.2026: 93.0 cm"
+         ],
+         [
+          56,
+          92.0,
+          "12.11.2026: 92.0 cm"
+         ]
+        ]
+       }
+      ],
+      "pointLabels": 1,
+      "xAtPoints": 1
+     }
+    },
+    {
+     "key": "hips",
+     "label": "Hips",
+     "chart": {
+      "start": "2026-09-17",
+      "days": 57,
+      "label": "Hips in cm",
+      "series": [
+       {
+        "mark": "line",
+        "cls": "a",
+        "pts": [
+         [
+          0,
+          103.0
+         ],
+         [
+          28,
+          102.5
+         ],
+         [
+          56,
+          102.0
+         ]
+        ]
+       },
+       {
+        "mark": "dot",
+        "cls": "a",
+        "pts": [
+         [
+          0,
+          103.0,
+          "17.09.2026: 103.0 cm"
+         ],
+         [
+          28,
+          102.5,
+          "15.10.2026: 102.5 cm"
+         ],
+         [
+          56,
+          102.0,
+          "12.11.2026: 102.0 cm"
+         ]
+        ]
+       }
+      ],
+      "pointLabels": 1,
+      "xAtPoints": 1
+     }
+    },
+    {
+     "key": "chest",
+     "label": "Chest",
+     "chart": {
+      "start": "2026-09-17",
+      "days": 57,
+      "label": "Chest in cm",
+      "series": [
+       {
+        "mark": "line",
+        "cls": "a",
+        "pts": [
+         [
+          0,
+          99.0
+         ],
+         [
+          28,
+          99.0
+         ],
+         [
+          56,
+          98.5
+         ]
+        ]
+       },
+       {
+        "mark": "dot",
+        "cls": "a",
+        "pts": [
+         [
+          0,
+          99.0,
+          "17.09.2026: 99.0 cm"
+         ],
+         [
+          28,
+          99.0,
+          "15.10.2026: 99.0 cm"
+         ],
+         [
+          56,
+          98.5,
+          "12.11.2026: 98.5 cm"
+         ]
+        ]
+       }
+      ],
+      "pointLabels": 1,
+      "xAtPoints": 1
+     }
+    },
+    {
+     "key": "upper_arm",
+     "label": "Upper arm",
+     "chart": {
+      "start": "2026-09-17",
+      "days": 1,
+      "label": "Upper arm in cm",
+      "series": [
+       {
+        "mark": "line",
+        "cls": "a",
+        "pts": [
+         [
+          0,
+          33.0
+         ]
+        ]
+       },
+       {
+        "mark": "dot",
+        "cls": "a",
+        "pts": [
+         [
+          0,
+          33.0,
+          "17.09.2026: 33.0 cm"
+         ]
+        ]
+       }
+      ],
+      "pointLabels": 1,
+      "xAtPoints": 1
+     }
+    },
+    {
+     "key": "thigh",
+     "label": "Thigh",
+     "chart": {
+      "start": "2026-09-17",
+      "days": 29,
+      "label": "Thigh in cm",
+      "series": [
+       {
+        "mark": "line",
+        "cls": "a",
+        "pts": [
+         [
+          0,
+          58.0
+         ],
+         [
+          28,
+          57.5
+         ]
+        ]
+       },
+       {
+        "mark": "dot",
+        "cls": "a",
+        "pts": [
+         [
+          0,
+          58.0,
+          "17.09.2026: 58.0 cm"
+         ],
+         [
+          28,
+          57.5,
+          "15.10.2026: 57.5 cm"
+         ]
+        ]
+       }
+      ],
+      "pointLabels": 1,
+      "xAtPoints": 1
+     }
+    }
+   ],
+   "waist_height": {
+    "waist_cm": 92.0,
+    "day": "2026-11-12",
+    "height_cm": 178,
+    "ratio": 0.52
+   },
+   "weight_rate": {
+    "kg_week": 0.258,
+    "pct_week": 0.317,
+    "sign": "+"
+   }
+  },
+  "undo": null
+ },
+ "saves": {
+  "health_day": {
+   "v": 1,
+   "outcome": "saved",
+   "tone": "ok",
+   "head": "Saved for Sun 15.11.: Weight 81.8 → 81.2, BP morning 121/79 added, Sugar 91 added.",
+   "receipt": [
+    "+ m101 bp 121/79 mmHg (morning) | day 15.11. | 15.11.2026 (date only)",
+    "+ m102 blood_sugar 91 mg/dL (fasted) | day 15.11. | 15.11.2026 (date only)"
+   ],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": {
+    "token": "wBLCS4-4XSeACjg4",
+    "head": "Saved for Sun 15.11.: Weight 81.8 → 81.2, BP morning 121/79 added, Sugar 91 added.",
+    "expires_at": "2026-11-16T16:29:50.502656+00:00"
+   }
+  },
+  "health_day_read_back": {
+   "v": 1,
+   "outcome": "needs_confirmation",
+   "tone": "warning",
+   "head": "Nothing saved yet: please confirm.",
+   "receipt": [],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": "400 is outside the plausible range 30-300 kg",
+   "confirm": {
+    "label": "Yes, save it",
+    "no_label": "No"
+   },
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": null
+  },
+  "health_day_delete": {
+   "v": 1,
+   "outcome": "needs_confirmation",
+   "tone": "warning",
+   "head": "Nothing saved yet: please confirm.",
+   "receipt": [],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": "Delete on Sun 15.11.: Sugar 91?",
+   "confirm": {
+    "label": "Yes, delete",
+    "no_label": "No"
+   },
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": null
+  },
+  "body": {
+   "v": 1,
+   "outcome": "saved",
+   "tone": "ok",
+   "head": "Saved for Mon 16.11.: Waist 91.8 added, Hips 101.5 added.",
+   "receipt": [
+    "+ m103 waist 91.8 cm | day 16.11. | 16.11.2026 17:14",
+    "+ m104 hips 101.5 cm | day 16.11. | 16.11.2026 17:14"
+   ],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": {
+    "token": "TWwtrSFhxFl5rNDJ",
+    "head": "Saved for Mon 16.11.: Waist 91.8 added, Hips 101.5 added.",
+    "expires_at": "2026-11-16T16:29:50.649765+00:00"
+   }
+  },
+  "body_read_back": {
+   "v": 1,
+   "outcome": "needs_confirmation",
+   "tone": "warning",
+   "head": "Nothing saved yet: please confirm.",
+   "receipt": [],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": "Check: Thigh 52.5 cm is 5.0 cm away from last time (57.5). Right?",
+   "confirm": {
+    "label": "Yes, save",
+    "no_label": "Fix it"
+   },
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": null
+  },
+  "body_skip": {
+   "v": 1,
+   "outcome": "changed",
+   "tone": "ok",
+   "head": "Body measurements hidden until tomorrow.",
+   "receipt": [],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": null
+  }
+ },
+ "day_body_due": {
+  "last": "2026-10-15",
+  "days": 32
+ }
+}

@@ -21,7 +21,7 @@ from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-from . import hubtools, labelread, logbook, privateline, reads, web, webactions, webentry, webfood, webheld, webundo
+from . import body as tape, healthpage, hubtools, labelread, logbook, privateline, reads, web, webactions, webentry, webfood, webheld, webundo
 from .ai.provider import ProviderError
 from .config import FRONT_TOKEN
 from .db import connect
@@ -403,6 +403,10 @@ def saved(session, out: dict, body: dict, view: str = "day", private: bool = Fal
         res["food_day"] = reads.food_day(asked)
     elif shown == "usual":  # the usual-meal editor (deploy 86): every usual meal, as GET /usual
         res["usual"] = reads.usual()
+    elif shown == "health":  # the Health page (deploy 91), as GET /health with the body's range and all
+        res["health"] = reads.health(_range(body.get("range"), strict=False), body.get("all") is True)
+    elif shown == "body":  # the body card (deploy 91), as GET /body of view_day
+        res["body"] = reads.body(asked, _range(body.get("range"), strict=False))
     else:
         res["day"] = reads.day(asked)
     return res
@@ -713,3 +717,114 @@ def food_look_up(_request, body, session):
     "no" to it through /answer."""
     words, qid = text(body, "text", 200), text(body, "question_id", 64)
     return saved(session, _work(lambda: webfood.look_up(words, qid)), body)
+
+
+# ---- the Health page and body measurements (deploy 91) -------------------------------------------------------------------------
+# app.'s Health page (healthpage) and its Body measurements card (bodypage), through the same functions: the reads as data (the
+# charts as drawChart takes them, the sleep times as rows), a day's row saved by webactions.health_day, a session of tape measures
+# by webactions.body_save, Today's "Not today" by webactions.body_skip. The body settings (interval, hidden measures, height) stay
+# at app. for now: read, not changed here.
+
+def _range(raw, strict: bool = True) -> int:
+    """The Health page's range: 7, 30 or 90 days (30 when not given; strict: anything else is a bad request, else 30)."""
+    if raw in (None, ""):
+        return healthpage.DEFAULT_RANGE
+    if str(raw) in {str(r) for r in healthpage.RANGES} and not isinstance(raw, bool):
+        return int(raw)
+    if strict:
+        raise Refused(400, "bad_request", "range must be 7, 30 or 90.")
+    return healthpage.DEFAULT_RANGE
+
+
+def _flag(raw) -> bool:
+    return raw in ("1", "true")
+
+
+@route("/health", "GET")
+def health_read(request, _body, session):
+    """The Health page: ?range=7|30|90 (30), &all=1 for every day's row of the range (else the last 14); and the session's Undo."""
+    q = request.query_params
+    return {"health": reads.health(_range(q.get("range")), _flag(q.get("all", ""))), "undo": _undo_out(session.get("undo"))}
+
+
+def _number(name: str, v, clear: bool = True) -> str:
+    """A number of a save as the form's text; null or "" = cleared ("")."""
+    if v is None or v == "":
+        return ""
+    if not isinstance(v, (int, float)) or isinstance(v, bool):
+        raise Refused(400, "bad_request", f"{name} must be a number" + (" or null." if clear else "."))
+    return str(v)
+
+
+ROW_FIELDS = {row: col for col, row in reads.HEALTH_ROWS.items()}  # weight -> w, bp_morning -> bm, ...
+
+
+@route("/health/day", "POST")
+def health_day(_request, body, session):
+    """One day's row of the Health page (webactions.health_day): day, values {row: value} with the rows to save (a row left out is
+    not touched; null or "" clears it, a delete). Numbers for weight, sugar, mood and energy; [upper, lower] for blood pressure;
+    "hh:mm" for bed and wake. confirmed: true after an odd value's read-back; confirm_delete: true is the delete's yes."""
+    day_s = text(body, "day", 10, required=True)
+    values = body.get("values")
+    if not isinstance(values, dict) or not values:
+        raise Refused(400, "bad_request", "values must be an object of rows and values.")
+    fields = {}
+    kinds = {col: kind for col, _h, _s, _t, _p, kind in healthpage.COLS}
+    for row, v in values.items():
+        col = ROW_FIELDS.get(row)
+        if not col:
+            raise Refused(400, "bad_request", f"Unknown row: {str(row)[:20]}.")
+        kind = kinds[col]
+        if kind == 2:
+            if v is None or v == "":
+                v = [None, None]
+            if not isinstance(v, list) or len(v) != 2:
+                raise Refused(400, "bad_request", f"{row} must be [upper, lower] or null.")
+            fields[f"{col}1"], fields[f"{col}2"] = _number(row, v[0]), _number(row, v[1])
+        elif kind == "t":
+            if v is not None and not isinstance(v, str):
+                raise Refused(400, "bad_request", f"{row} must be a time hh:mm or null.")
+            fields[col] = (v or "")[:5]
+        else:
+            fields[col] = _number(row, v)
+    r = str(_range(body.get("range")))
+    flags = {"confirmed": "1"} if body.get("confirmed") is True else {}
+    if body.get("confirm_delete") is True:
+        flags["confirm_del"] = "1"
+    f = Form({**fields, **flags, "day": day_s, "r": r})
+    return saved(session, _work(lambda: webactions.health_day(day_s, r, f, _key(body))), body, view="health")
+
+
+@route("/body", "GET")
+def body_read(request, _body, session):
+    """The Body measurements card: ?day=yyyy-mm-dd the session the form changes (today when not given), ?range=7|30|90 for the
+    charts; and the session's Undo."""
+    return {"body": reads.body(day_param(request), _range(request.query_params.get("range"))), "undo": _undo_out(session.get("undo"))}
+
+
+@route("/body", "POST")
+def body_save(_request, body, session):
+    """A session of tape measures (webactions.body_save): day, values {measure: cm} with the measures of the form (one left out is
+    not touched; null or "" clears it, a delete). confirmed: true after the read-back of a value out of range or a jump of 4 cm
+    or more; confirm_delete: true is the delete's yes."""
+    day_s = text(body, "day", 10, required=True)
+    values = body.get("values")
+    if not isinstance(values, dict) or not values:
+        raise Refused(400, "bad_request", "values must be an object of measures and cm.")
+    fields = {}
+    for k, v in values.items():
+        if k not in tape.NAMES:
+            raise Refused(400, "bad_request", f"Unknown measure: {str(k)[:20]}.")
+        fields[k] = _number(k, v)
+    r = str(_range(body.get("range")))
+    flags = {"confirmed": "1"} if body.get("confirmed") is True else {}
+    if body.get("confirm_delete") is True:
+        flags["confirm_del"] = "1"
+    f = Form({**fields, **flags, "day": day_s, "r": r})
+    return saved(session, _work(lambda: webactions.body_save(f, _key(body))), {"view_day": day_s, **body}, view="body")
+
+
+@route("/body/skip", "POST")
+def body_skip(_request, body, session):
+    """"Not today" on Today's "Body measurements due" line: hidden until the next health day."""
+    return saved(session, _work(webactions.body_skip), body)

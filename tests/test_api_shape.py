@@ -2,7 +2,7 @@
 the private guard on questions and on lines the AI files as private, one name per field (the old names gone since deploy 78), Undo on a
 reload, a mixed line's look-up in result, answer styles and refill buttons, the outcome's tone, no chat lines in read-backs, and
 Try again / Delete on a message not read yet; the usual-meal editor's shapes (deploy 86); the scanner's, label photo's and look-up's
-shapes (deploy 89). Every name, food, number and sentence is invented."""
+shapes (deploy 89); the Health page's and body measurements' shapes (deploy 91). Every name, food, number and sentence is invented."""
 from datetime import datetime
 
 import pytest
@@ -11,7 +11,7 @@ from app import api, reads
 from conftest import owner_sql
 from test_api_door import door, door_on, signed_in  # noqa: F401 - door_on is autouse
 from test_api_reads import OFFSET, event as event_ago, pending
-from test_api_saves import Door, breakfast, clean_usual, got_undo, n, shaped  # noqa: F401 - clean_usual is autouse; breakfast a fixture
+from test_api_saves import KEYS, Door, breakfast, clean_usual, got_undo, n, shaped  # noqa: F401 - clean_usual is autouse; breakfast a fixture
 from test_log import ANSWERS, F, P, fake, off, skyr  # noqa: F401 - fixtures reused: the AI is a fake
 from test_webbed import recent_wake
 from test_webfood import eat_on, oats
@@ -308,3 +308,47 @@ def test_the_scan_shapes(sv, fake, off):
     j = shaped(sv.post("/lookup", text=OAT["code"]))
     [q] = j["questions"]
     assert j["outcome"] == "needs_confirmation" and q["tool"] == "lookup_confirm" and q["lookup"] is None and j["read_back"]
+
+
+# ---- 10. the Health page and body measurements (deploy 91) -------------------------------------------------------------------------
+
+def test_the_health_and_body_shapes(sv, fake):
+    from test_api_health import week
+    from test_body import seed, woke
+
+    t = day()
+    week(t)
+    seed(t, waist=92.5, hips=101.0)
+    h = get(sv, "/health?range=7")
+    assert set(h) == {"v", "health", "undo"}
+    h = h["health"]
+    assert set(h) == {"today", "start", "range", "ranges", "all", "days_in_range", "shown_days", "oldest_day", "columns", "days", "charts", "times"}
+    assert all(set(c) == {"row", "label", "sub", "type", "period", "kind"} for c in h["columns"])
+    r = h["days"][1]
+    assert set(r) == {"day", "values", "slept_minutes"} and len(r["values"]) == 8
+    assert all(set(v) == {"ref", "v1", "v2", "time", "at"} for v in r["values"].values() if v)
+    for c in h["charts"]:
+        assert set(c) == {"id", "title", "small", "stat", "chart", "legend"}
+        assert {"start", "days", "series", "label"} <= set(c["chart"]) and all(set(s) == {"mark", "cls", "pts"} for s in c["chart"]["series"])
+        assert all(set(p) == {"text", "bold"} for p in c["stat"]) and all(set(k) == {"key", "text"} for k in c["legend"])
+    tm = h["times"]
+    assert set(tm) == {"days", "rows", "empty", "title", "small", "legend"}
+    assert all(set(x) == {"date", "label", "bands", "ticks"} for x in tm["rows"])
+    assert all(set(b) == {"from", "to", "nap", "tip"} for x in tm["rows"] for b in x["bands"])
+    assert all(set(k) == {"at", "nap", "tip"} for x in tm["rows"] for k in x["ticks"])
+    b = get(sv, "/body")
+    assert set(b) == {"v", "body", "undo"}
+    b = b["body"]
+    assert set(b) == {"today", "day", "last_measured", "due_text", "interval_days", "hidden", "jump_cm", "protocol", "hint", "form", "table",
+                      "first_day", "charts", "waist_height", "weight_rate"}
+    assert all(set(f) == {"key", "label", "hint", "ref", "cm", "last_cm", "min", "max"} for f in b["form"])
+    assert all(set(x) == {"key", "label", "ref", "cm", "day", "last", "start", "last_text", "start_text"} for x in b["table"])
+    assert all(set(c) == {"key", "label", "chart"} for c in b["charts"])
+    assert set(b["weight_rate"] or {"kg_week": 0, "pct_week": 0, "sign": ""}) == {"kg_week", "pct_week", "sign"}
+    j = sv.post("/health/day", day=t.isoformat(), values={"weight": 79.9})
+    assert set(j) == KEYS | {"health"}
+    j = sv.post("/body", day=t.isoformat(), values={"waist": 92.0})
+    assert set(j) == KEYS | {"body"}
+    woke(t)
+    assert set(get(sv, "/day")["day"]["needs"]) == {"questions", "not_read", "review", "checkin", "body_due"}
+    assert set(sv.post("/body/skip")) == KEYS | {"day"}

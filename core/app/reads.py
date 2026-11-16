@@ -5,10 +5,10 @@ pages are not changed by it. Values are raw: numbers, ISO 8601 times (Europe/Ber
 strings. Private and gratitude words never come out of here (the gratitude lines as a count only, a thought to review by its
 type only, a not-read message that carries a private label without its words)."""
 import re
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Optional
 
-from . import foodpage, gratitude, held, privateline, todaypage, uiprefs, webquestions
+from . import body as tape, bodypage, foodpage, gratitude, healthpage, held, privateline, todaypage, uiprefs, webquestions
 from .db import connect
 from .rules import BERLIN
 from .webentry import readable
@@ -310,7 +310,7 @@ def day(asked: Optional[date] = None) -> dict:
                             for n in raw["naps"]],
                    "next_sleep": raw["next_sleep"], "watch_wake_at": iso(d["watch_up"])},
         "needs": {"questions": [question(q) for q in d["questions"]], "not_read": [_not_read(r) for r in d["held"]],
-                  "review": [_review(r, happened) for r in d["review"]], "checkin": ci},
+                  "review": [_review(r, happened) for r in d["review"]], "checkin": ci, "body_due": body_due(d["body_due"])},
         "energy": {"totals": tot, "targets": tgt,
                    "meals": [{"meal": r["meal"], "label": r["meal_label"], "nutrients": _macros(r)} for r in d["food"] if r["meal"] is not None]},
         "water": {"ml": num(water.get("drunk")) or 0, "target_ml": num(water.get("target")), "glass_ml": todaypage.WATER_GLASS},
@@ -403,3 +403,77 @@ def foods(q: str) -> list:
         rows = foodpage._food_list(cur, str(q or "")[:60], "all")[:FOODS_LIMIT]
     return [{"food_id": r["id"], "name": r["name"], "unit": r["basis"], "drink": bool(r["is_drink"]),
              "per_100": {k: num(r[k]) for k in ("kcal", "protein", "fat", "carbs")}} for r in rows]
+
+
+# ---- the Health page and body measurements (deploy 91, step 1b of the move to logger.) -----------------------------------------
+
+# The Health page's columns (healthpage.COLS) by the names the door's saves use (the Health card's rows, POST /health).
+HEALTH_ROWS = {"w": "weight", "bm": "bp_morning", "be": "bp_evening", "s": "sugar", "bed": "bed", "wake": "wake", "mo": "mood", "en": "energy"}
+KINDS = {1: "number", 2: "pair", "t": "time"}
+
+
+def _hvalue(v, kind) -> Optional[dict]:
+    """A day's value of one column (healthpage.day_values): the entry a change goes to, its numbers or its time hh:mm."""
+    if not v:
+        return None
+    if kind == "t":
+        return {"ref": v["id"], "v1": None, "v2": None, "time": v["v"][0], "at": iso(v.get("at"))}
+    return {"ref": v["id"], "v1": num(float(v["v"][0])), "v2": num(float(v["v"][1])) if kind == 2 else None, "time": None, "at": None}
+
+
+def health(days: int, show_all: bool = False) -> dict:
+    """The Health page: the rows of its days (newest first: the last 14, or every day of the range), the five charts and the
+    sleep times, as data (healthpage.load, charts, times_data: the same as app.'s page)."""
+    d = healthpage.load(days)
+    every, shown = healthpage.shown_days(d, show_all)
+    return {
+        "today": iso(d["today"]), "start": iso(d["start"]), "range": days, "ranges": list(healthpage.RANGES), "all": show_all,
+        "days_in_range": len(every), "shown_days": healthpage.SHOWN_DAYS, "oldest_day": iso(d["today"] - timedelta(days=365)),
+        "columns": [{"row": HEALTH_ROWS[col], "label": h, "sub": sub or None, "type": t, "period": per, "kind": KINDS[kind]}
+                    for col, h, sub, t, per, kind in healthpage.COLS],
+        "days": [{"day": iso(day), "values": {HEALTH_ROWS[col]: _hvalue(d["vals"].get(day, {}).get(col), kind)
+                                              for col, _h, _s, _t, _p, kind in healthpage.COLS},
+                  "slept_minutes": healthpage.slept_minutes(d, day)} for day in shown],
+        "charts": healthpage.charts(d),
+        "times": healthpage.times_data(d),
+    }
+
+
+def _r(x, n: int):
+    return None if x is None else num(round(x, n))
+
+
+def body(asked: Optional[date] = None, days: int = healthpage.DEFAULT_RANGE) -> dict:
+    """The Body measurements card (bodypage.load): last measured and the due text, the session form of a day (today, or an earlier
+    day asked for), the table Now / Last / Start, a chart per measure, waist ÷ height and the weight rate. days: the Health page's
+    range, for the charts (a measure with fewer than 2 sessions in it shows every session)."""
+    with connect() as c, c.cursor() as cur:
+        today = c.execute("SELECT log_day(now()) AS d").fetchone()["d"]
+        limits = tape.ranges(cur)
+    the_day = min(asked, today) if asked else today
+    b = bodypage.load(today, the_day)
+    wh, rate = b["derived"]["waist_height"], b["derived"]["rate"]
+    return {
+        "today": iso(today), "day": iso(the_day), "last_measured": iso(b["last"]), "due_text": b["due_text"],
+        "interval_days": b["prefs"]["interval"], "hidden": sorted(b["prefs"]["hidden"]), "jump_cm": tape.JUMP_CM,
+        "protocol": tape.PROTOCOL, "hint": bodypage.HINT,
+        "form": [{"key": k, "label": lbl, "hint": hint, "ref": b["now"][k]["id"] if k in b["now"] else None,
+                  "cm": b["now"][k]["v"] if k in b["now"] else None, "last_cm": b["before"].get(k),
+                  "min": num(limits[k][0]), "max": num(limits[k][1])} for k, lbl, hint in b["shown"]],
+        "table": [{**{k: t[k] for k in ("key", "label", "ref", "cm")}, "day": iso(t["day"]),
+                   "last": _r(t["last"], 1), "start": _r(t["start"], 1),
+                   "last_text": tape.signed(t["last"]) if t["last"] is not None else None,
+                   "start_text": tape.signed(t["start"]) if t["start"] is not None else None} for t in bodypage.table(b["sessions"], b["shown"])],
+        "first_day": iso(b["sessions"][0]["day"]) if b["sessions"] else None,
+        "charts": [{"key": k, "label": lbl, "chart": bodypage.chart_data(k, lbl, b["sessions"], today, days)}
+                   for k, lbl in bodypage.charted(b["sessions"], b["shown"])],
+        "waist_height": None if not wh else {"waist_cm": wh["waist"], "day": iso(wh["day"]), "height_cm": num(wh["height"]),
+                                             "ratio": round(wh["waist"] / wh["height"], 2) if wh["height"] else None},
+        "weight_rate": None if not rate else {"kg_week": _r(rate[0], 3), "pct_week": _r(rate[1], 3), "sign": bodypage.rate_sign(rate[0])},
+    }
+
+
+def body_due(due) -> Optional[dict]:
+    """Today's "Body measurements due" line (body.due, bodypage.today_line): the last session and how many days ago, both None
+    before the first one; None when not due."""
+    return {"last": iso(due["last"]), "days": due["days"]} if due else None

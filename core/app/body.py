@@ -80,6 +80,12 @@ def jump(cur, name: str, value: float, day: date) -> list[str]:
     return []
 
 
+def ranges(cur) -> dict:
+    """{measure: (lowest, highest cm)}: the usual range of each tape measure (log_types); a value outside it is read back."""
+    cur.execute("SELECT name, min1, max1 FROM log_types WHERE name = ANY(%s)", (list(NAMES),))
+    return {t["name"]: (float(t["min1"]), float(t["max1"])) for t in cur.fetchall()}
+
+
 def heights(cur) -> list[dict]:
     cur.execute("SELECT valid_from, height_cm FROM body_height ORDER BY valid_from DESC")
     return cur.fetchall()

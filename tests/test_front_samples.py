@@ -6,7 +6,7 @@ the check-in, health values, habits, chips), reads it through the door (day.json
 water, saved with Undo, and an odd weight correction read back first, with confirm; the stand-in answers every save in this shape),
 the Food day (food.json, step E: GET /food/day of the day and the day before, GET /food/entry, a change and a note), the usual
 meals (usual.json, deploy 86: GET /usual, GET /foods, a change with Undo and a refusal), the scanner, label photo and look-up
-(scan.json, deploy 89), and
+(scan.json, deploy 89), the Health page and body measurements (health.json, deploy 91), and
 - with WRITE_FRONT_SAMPLES=1: writes the answer to the sample file (then look at the diff and commit it);
 - otherwise: checks that the committed sample still has the door's shape (the same keys at every level), so a change of the door
   that the stand-in does not know about fails here.
@@ -319,3 +319,97 @@ def test_the_scan_sample_has_the_doors_shape(four_pm, fake, off):
     assert sample.keys() == answers.keys()
     gone = differences(sample, answers, "scan")
     assert not gone, "front/tests/samples/scan.json no longer has the door's shape; run this test with WRITE_FRONT_SAMPLES=1:\n" + "\n".join(gone)
+
+
+def month() -> None:
+    """30 invented days of health values: weighings, blood pressure mornings and some evenings, fasted sugar, nights, a nap, a
+    wake-up without a bed time, check-ins; and three tape-measure sessions with a height."""
+    def put(kind, d, hm, v1, v2=None, period=None):
+        owner_sql("""INSERT INTO measurements (raw_id, type_id, day, event_at, time_known, value1, value2, period, extractor_version)
+                     SELECT %s, id, %s, %s, true, %s, %s, %s, 'test' FROM log_types WHERE name = %s""",
+                  raw(), d, datetime.combine(d, time.fromisoformat(hm), BERLIN), v1, v2, period, kind)
+
+    def ev(kind, d, hm):
+        owner_sql("""INSERT INTO events (raw_id, type_id, day, event_at, time_known, extractor_version)
+                     SELECT %s, id, log_day(%s), %s, true, 'test' FROM log_types WHERE name = %s""",
+                  raw(), *(datetime.combine(d, time.fromisoformat(hm), BERLIN),) * 2, kind)
+
+    t = day()
+    for i in range(36):
+        d = t - timedelta(days=i)
+        if i % 4 != 3:
+            put("weight", d, "07:00", round(81.6 - i * 0.04 + (i % 3) * 0.2, 1))
+        if i >= 30:
+            continue
+        if i % 2 == 0:
+            put("bp", d, "07:05", 118 + i % 7, 77 + i % 4, "morning")
+        if i % 5 == 1:
+            put("bp", d, "21:10", 124 + i % 6, 80 + i % 3, "evening")
+        if i % 3 == 0:
+            put("blood_sugar", d, "07:10", 88 + i % 9, None, "fasted")
+        if i % 2 == 1:
+            put("mood", d, "21:00", 2 + i % 4)
+            put("energy", d, "21:01", 1 + (i + 1) % 5)
+        if i % 7 != 4:
+            ev("bed", d - timedelta(days=1), f"{22 + i % 2}:{(i * 7) % 60:02d}")
+            ev("wake", d, f"0{6 + i % 2}:{(i * 11) % 60:02d}")
+        else:
+            ev("wake", d, "06:20")  # no bed time: a tick
+        if i == 9:
+            ev("bed", d, "14:10")
+            ev("nap", d, "14:45")
+    for back, vals in ((60, dict(waist=94.0, hips=103.0, chest=99.0, upper_arm=33.0, thigh=58.0)),
+                       (32, dict(waist=93.0, hips=102.5, chest=99.0, thigh=57.5)), (4, dict(waist=92.0, hips=102.0, chest=98.5))):
+        for k, v in vals.items():
+            put(k, t - timedelta(days=back), "07:30", v)
+    owner_sql("INSERT INTO body_height (valid_from, height_cm) VALUES ('2020-01-01', 178)")
+
+
+def test_the_health_sample_has_the_doors_shape(four_pm, fake):
+    """The Health page and body measurements (deploy 91, for the page of deploy 92): GET /health of 30 days with every chart and the
+    sleep times filled, a day's row saved (with Undo) and an odd value read back, a delete asked first, GET /body, a body session
+    saved, a jump read back, Today's due line (needs.body_due) and "Not today". Answers of saves without their fresh read."""
+    month()
+    c, bearer, _ = signed_in()
+    get = lambda path: c.get("/api/v1" + path, headers=bearer).json()  # noqa: E731
+    post = lambda path, **body: c.post("/api/v1" + path, headers=bearer, json=body).json()  # noqa: E731
+    t = day()
+    answers = {"health": get("/health?range=30")}
+    h = answers["health"]["health"]
+    assert all(any(s["pts"] for s in ch["chart"]["series"]) for ch in h["charts"]), "every chart filled"
+    times = h["times"]["rows"]
+    assert any(b["nap"] for r in times for b in r["bands"]) and any(r["ticks"] for r in times) and any(r["bands"] for r in times)
+    y = t - timedelta(days=1)
+    saved = post("/health/day", day=y.isoformat(), values={"weight": 81.2, "bp_morning": [121, 79], "sugar": 91, "mood": 3},
+                 key="sample-healthday-key-0001", range=30)
+    odd = post("/health/day", day=y.isoformat(), values={"weight": 400}, range=30)
+    delete = post("/health/day", day=y.isoformat(), values={"sugar": None}, range=30)
+    answers["body"] = get("/body")
+    body_saved = post("/body", day=t.isoformat(), values={"waist": 91.8, "hips": 101.5}, key="sample-body-key-0001")
+    jump = post("/body", day=t.isoformat(), values={"thigh": 52.5})
+    for a in (saved, odd, delete):
+        assert a.pop("health")["range"] == 30, a
+    for a in (body_saved, jump):
+        assert a.pop("body")["day"] == t.isoformat(), a
+    answers["saves"] = {"health_day": saved, "health_day_read_back": odd, "health_day_delete": delete, "body": body_saved, "body_read_back": jump}
+    assert saved["outcome"] == "saved" and saved["undo"] and odd["outcome"] == "needs_confirmation" and odd["confirm"]
+    assert delete["outcome"] == "needs_confirmation" and delete["read_back"].startswith("Delete on")
+    assert body_saved["outcome"] == "saved" and body_saved["undo"] and jump["outcome"] == "needs_confirmation" and "4 cm" not in jump["head"]
+    b = answers["body"]["body"]
+    assert b["table"] and b["charts"] and b["waist_height"]["ratio"] and b["weight_rate"] and b["form"][0]["last_cm"] == 92.0
+    # Today's due line: without the sessions of the last 30 days, the last one is 32 days ago (due after 28), then "Not today"
+    owner_sql("DELETE FROM measurements WHERE day > %s AND type_id IN (SELECT id FROM log_types WHERE name IN ('waist', 'hips', 'chest'))",
+              t - timedelta(days=30))
+    answers["day_body_due"] = get("/day")["day"]["needs"]["body_due"]
+    skip = post("/body/skip")
+    assert skip.pop("day")["needs"]["body_due"] is None
+    answers["saves"]["body_skip"] = skip
+    assert answers["day_body_due"] == {"last": (t - timedelta(days=32)).isoformat(), "days": 32}
+    path = SAMPLES / "health.json"
+    if os.environ.get("WRITE_FRONT_SAMPLES") == "1":
+        path.write_text(json.dumps(answers, indent=1, ensure_ascii=False) + "\n")
+        return
+    sample = json.loads(path.read_text())
+    assert sample.keys() == answers.keys()
+    gone = differences(sample, answers, "health")
+    assert not gone, "front/tests/samples/health.json no longer has the door's shape; run this test with WRITE_FRONT_SAMPLES=1:\n" + "\n".join(gone)

@@ -55,14 +55,15 @@ def entry_ids():
 
 # ---- Today: the shape ------------------------------------------------------------------------------------------
 
-def test_an_empty_day_has_every_key(api):
+def test_an_empty_day_has_every_key(api, monkeypatch):
+    monkeypatch.setattr(todaypage, "clock", lambda: datetime.now(BERLIN).replace(hour=12))  # no check-in card yet (from 17:00 without a wake-up)
     d = today_json(api)
     assert set(d) == DAY_KEYS
     assert d["day"] == d["today"] == day().isoformat() and d["past"] is False
     assert set(d["header"]) == {"wake_at", "slept_minutes", "awake_minutes", "naps", "next_sleep", "watch_wake_at"}
     assert d["header"]["naps"] == []
-    assert set(d["needs"]) == {"questions", "not_read", "review", "checkin"}
-    assert d["needs"] == {"questions": [], "not_read": [], "review": [], "checkin": None}
+    assert set(d["needs"]) == {"questions", "not_read", "review", "checkin", "body_due"}
+    assert d["needs"] == {"questions": [], "not_read": [], "review": [], "checkin": None, "body_due": None}
     assert set(d["energy"]) == {"totals", "targets", "meals"}
     assert d["energy"]["totals"] == {"kcal": 0, "protein": 0, "fat": 0, "carbs": 0}
     assert d["energy"]["targets"] == {"kcal": None, "protein": None, "fat": None, "carbs": None} and d["energy"]["meals"] == []
