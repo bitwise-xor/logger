@@ -1,11 +1,10 @@
 <script lang="ts">
   import ProblemCard from '#lib/components/ProblemCard.svelte';
-  import ThemeButton from '#lib/components/ThemeButton.svelte';
   import GymAdd from '#lib/components/gym/GymAdd.svelte';
-  import GymParts from '#lib/components/gym/GymParts.svelte';
+  import GymHeader from '#lib/components/gym/GymHeader.svelte';
   import GymRow from '#lib/components/gym/GymRow.svelte';
   import GymSide from '#lib/components/gym/GymSide.svelte';
-  import AnswerBar from '#lib/components/today/AnswerBar.svelte';
+  import GymDock from '#lib/components/gym/GymDock.svelte';
   import { hintText, otherLabel } from '#lib/gym.js';
   import { GymPage, setGymPage } from '#lib/gympage.svelte.js';
   import { untrack } from 'svelte';
@@ -23,23 +22,11 @@
   const w = $derived(page.workout);
   const hint = $derived(w ? hintText(w) : null);
 
-  // The answer bar floats above the tab bar on phones; the page leaves room for it (the layout's --dock).
-  let barHeight = $state(0);
-  $effect(() => {
-    document.documentElement.style.setProperty('--dock', `${barHeight}px`);
-    return () => document.documentElement.style.removeProperty('--dock');
-  });
 </script>
 
 <svelte:head><title>Gym · Logger</title></svelte:head>
 
-<header class="flex flex-col gap-1.5">
-  <div class="flex items-center gap-2">
-    <h1 class="m-0 flex-1 text-[26px] leading-[1.1] font-semibold tracking-tight desktop:text-[30px]">Gym</h1>
-    <ThemeButton />
-  </div>
-  <GymParts appUrl={data.appUrl} />
-</header>
+<GymHeader on="workout" />
 
 {#if !w}
   <ProblemCard kind={data.problem ?? 'trouble'} appHref="{data.appUrl}/web/gym" />
@@ -67,7 +54,7 @@
         </div>
         {#if w.why}<p class="m-0 text-[13px] text-muted" data-why>{w.why}</p>{/if}
       {:else}
-        <p class="m-0 text-[13px] text-muted">No split yet: make one on the <a href="{data.appUrl}/web/gym/plan">Plan</a> tab (in the full app).</p>
+        <p class="m-0 text-[13px] text-muted">No split yet: make one on the <a href="/gym/plan">Plan</a> part.</p>
       {/if}
 
       <div class="flex flex-col gap-2" data-list="exercises">
@@ -99,15 +86,9 @@
       {#if hint}<p class="m-0 text-xs text-muted" data-hint>{hint}</p>{/if}
     </section>
     <div class="flex min-w-0 flex-col gap-3 desktop:w-[340px] desktop:shrink-0 desktop:gap-4" data-side>
-      <GymSide workout={w} appUrl={data.appUrl} />
+      <GymSide workout={w} />
     </div>
   </main>
 {/if}
 
-<!-- The answer bar: above the tab bar on phones, at the bottom right on the PC (as on the Habits page). -->
-<div
-  bind:clientHeight={barHeight}
-  class="pointer-events-none fixed inset-x-0 bottom-[calc(52px+env(safe-area-inset-bottom))] z-20 px-3.5 pb-2 desktop:static desktop:p-0"
->
-  <AnswerBar answers={page} />
-</div>
+<GymDock answers={page} />

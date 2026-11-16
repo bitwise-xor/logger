@@ -3,7 +3,7 @@
 
   // "This week's split" (each day, its exercises, done this week or today's) and "Last 4 weeks" (a square per day, Monday first,
   // the workouts of each week): under the list on phones and tablets, the right column from 1100 px.
-  let { workout: w, appUrl }: { workout: Workout; appUrl: string } = $props();
+  let { workout: w }: { workout: Workout } = $props();
   const card = 'flex flex-col rounded-card border border-line bg-panel px-3 py-3 desktop:px-3.5';
   const HEAD = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 </script>
@@ -12,7 +12,7 @@
   <section aria-labelledby="split-h" class={card} data-card="split">
     <div class="flex items-center justify-between gap-2 pb-1">
       <h2 id="split-h" class="m-0 text-[15px] font-semibold">This week’s split</h2>
-      <a href="{appUrl}/web/gym/plan" class="inline-flex min-h-11 items-center text-[13px] font-medium desktop:min-h-0" title="In the full app">Edit</a>
+      <a href="/gym/plan" data-split-edit class="inline-flex min-h-11 items-center text-[13px] font-medium desktop:min-h-0">Edit</a>
     </div>
     {#each w.week_split as x (x.day_id)}
       {@const note = splitNote(x)}

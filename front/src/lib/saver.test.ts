@@ -1,6 +1,6 @@
 // Saving in place in the browser, against a faked network: the key rule, newest answer wins, and the re-send after a sign-in.
 import { describe, expect, it } from 'vitest';
-import { RESEND_ITEM, RESEND_MS, Saver, type ActionResult } from './saver.js';
+import { mayResend, RESEND_ITEM, RESEND_MS, Saver, type ActionResult } from './saver.js';
 
 interface Call {
   url: string;
@@ -218,6 +218,41 @@ describe('the saver', () => {
     }
     expect(await s.resend()).toBeNull();
     expect(n.calls).toHaveLength(5);
+  });
+
+  // Deploy 97: the Plan's and Exercises' saves take no key at the door and are never kept for a re-send after a sign-in
+  it('never keeps a gym save of the Plan or Exercises parts for a re-send, whatever its tap', async () => {
+    const n = fakeNet();
+    const store = memory();
+    const s = new Saver({ ...n, storage: store, newKey: () => 'k', page: '/gym/plan' });
+    const taps = [
+      ['gym_itemset', { item_id: '1', sets: '3', reps: '8' }],
+      ['gym_itemmove', { item_id: '1', dir: 'down' }],
+      ['gym_itemremove', { item_id: '1' }],
+      ['gym_itemadd', { day_id: '1', exercise_id: '3' }],
+      ['gym_daynew', { name: 'Arms' }],
+      ['gym_dayedit', { day_id: '1', name: 'Chest' }],
+      ['gym_dayactive', { day_id: '1', on: '0' }],
+      ['gym_rename', { exercise_id: '1', name: 'Flat press' }],
+      ['gym_active', { exercise_id: '1', on: '0' }],
+      ['gym_new', { name: 'Rowing machine', kind: 'cardio' }],
+    ] as const;
+    for (const [i, [action, fields]] of taps.entries()) {
+      const r = s.send(action, { ...fields });
+      await tick();
+      expect(n.calls[i]!.url).toBe(`/gym/plan?/${action}`);
+      expect(n.calls[i]!.fields, action).not.toHaveProperty('key');
+      n.calls[i]!.answer({ type: 'failure', status: 401, data: { signedOut: true } });
+      expect(await r).toEqual({ kind: 'signed_out' });
+      expect(store.m.has(RESEND_ITEM), action).toBe(false);
+      expect(mayResend(action), action).toBe(false);
+    }
+    expect(await s.resend()).toBeNull();
+    expect(n.calls).toHaveLength(taps.length);
+    // the rule is for every gym save by its name, a keyed one too
+    expect(mayResend('gym_tick')).toBe(false);
+    expect(mayResend('gym_anything_new')).toBe(false);
+    expect(mayResend('water')).toBe(true);
   });
 
   // Step D: the logging box's typed line

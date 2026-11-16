@@ -8,7 +8,7 @@ skeleton, the sign-in and an empty Today. Step B (deploy 79): Today read-only fr
 (deploy 80): the taps save in place (water, Again and usual chips, habits, check-in, review, Health card, question buttons,
 Try again / Delete for a message not read yet, Undo). Step D (deploy 81): the logging box. Step E (deploy 84): the Food day.
 Step F (deploy 85): polish (plain messages when the core is down or the door is off, back to your page after a sign-in, phone,
-tablet and PC width). Then the trial runs (below). Deploy 87: the Usual meals page. Deploy 88: Today shows each food's and meal's macros, a pie of the day's kcal from protein, carbs and fat in the Energy card (app.'s macro colours, `--macro-*` in `app.css`), a one-line logging box that grows, and two habits per row. Deploy 90: scan, label photo, look-up and voice in the logging box (step 1a of the move to `logger.`, below). Deploy 92: the Health page with body measurements (step 1b, below). Deploy 94: the Habits page (step 1c, below). Deploy 96: the Gym's Workout page, the Gym card on Today and the Spaces menu (step 2, below).
+tablet and PC width). Then the trial runs (below). Deploy 87: the Usual meals page. Deploy 88: Today shows each food's and meal's macros, a pie of the day's kcal from protein, carbs and fat in the Energy card (app.'s macro colours, `--macro-*` in `app.css`), a one-line logging box that grows, and two habits per row. Deploy 90: scan, label photo, look-up and voice in the logging box (step 1a of the move to `logger.`, below). Deploy 92: the Health page with body measurements (step 1b, below). Deploy 94: the Habits page (step 1c, below). Deploy 96: the Gym's Workout page, the Gym card on Today and the Spaces menu (step 2, below). Deploy 97: Gym's other five parts (below).
 
 ## How it fits
 
@@ -96,8 +96,7 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   `/standin/slow` slows day taps, `/standin/locked` marks Medication not editable); `SHOOT_ONLY=habits` (passed to the Playwright container with `-e`) runs only that page's checks.
 - The Gym's Workout page (deploy 96, the move's step 2; the door's routes came with deploy 95): `src/routes/(app)/gym`, from Today's
   Gym card ("Open today's workout"), the More page and the PC rail. The title "Gym" with its parts (Workout · Plan · Progress · History ·
-  Exercises · Activity; the row scrolls sideways inside itself); until deploy 97 the other five open app.'s tabs ("In the full app",
-  `GymParts.svelte`). Today's day of the split with its status, the chips to pick another day or Free workout (`gym_pick`, no Undo)
+  Exercises · Activity; the row scrolls sideways inside itself; since deploy 97 all six are pages of this app, `GymParts.svelte`). Today's day of the split with its status, the chips to pick another day or Free workout (`gym_pick`, no Undo)
   and the "why" line; a row per exercise (`components/gym/GymRow.svelte`): the round button logs the read's ready numbers in one tap
   (`gym_tick`), takes a done exercise off (`gym_remove` with `exercise_id`: all of today's rows, as app.), or, where the read says
   the numbers are not ready, opens the row; the row opens to − and + (and typing) with the read's steps and limits, "Log" or "Add
@@ -111,6 +110,21 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   the day: today's day, the last workout, the 14 squares, "Last week n · this week n", "Open today's workout". The stand-in answers
   GET `/gym` and POST `/gym/tick`, `/gym/remove`, `/gym/pick`, `/gym/new` from `tests/samples/gym.json` and changes the data as the
   core would (Undo of a tick or a remove; POST `/standin/slow` slows ticks too); `SHOOT_ONLY=gym` runs only these checks.
+- Gym's other five parts (deploy 97, step 2's last page deploy): `/gym/plan`, `/gym/exercises`, `/gym/progress?x=`, `/gym/activity?day=`
+  and `/gym/history`, each from the parts row (the part you are in highlighted, no "full app" marks; Workout's "Edit" by "This week's
+  split" goes to Plan). Plan (`PlanPage` in `planpage.svelte.ts`, `components/gym/PlanDay.svelte`, `PlanItem.svelte`): how the day is
+  picked with the week's done days, a card per active day (two columns from 1100 px) with sets and reps per exercise (not cardio),
+  up and down, take off (the only save of these parts with Undo), "+ Add exercise", "Rename or remove", "+ New workout day" and
+  "Removed days" with Bring back. Exercises (`ExercisesPage`): kind, "also: words", use, Rename, Retire or Bring back, "+ New
+  exercise" (open while the list is empty; not put on a day). A refusal is said next to its form, which keeps what was typed. Progress:
+  the chips, the top number, the chart (the chart part), the last 6 sessions and "Workouts per week" as bars (`WeekBars.svelte`, from
+  `per_week`); Activity (read only): the guide while the watch has sent nothing, else the day with its links, tiles, night, the watch's
+  workouts and three 7-day charts; History: the last 60 workouts as cards with their anchors (`#w<id>`). None of the saves takes a key
+  at the door; a button is blocked while its save is on the way and no gym save is ever sent again by the page, also not after a
+  sign-in (`mayResend` in `saver.ts` refuses every `gym_` action). Plain rules: `src/lib/gymplan.ts`, `gymread.ts`; saves in
+  `saves.ts` (`PLAN_SAVES`, `EXERCISES_SAVES`). The stand-in answers the five reads and the plan and exercise actions, changing the
+  data as the core would (POST `/standin/watch-none`: no watch data; `/standin/gym-empty`: no exercises or days; `/standin/week-done`;
+  `/standin/slow` slows every gym save); `SHOOT_ONLY=gymparts` runs only these checks.
 - The Spaces menu (deploy 96): `src/lib/places.ts` says where a page belongs. The PC rail: Today, Trends, Library, then "Spaces"
   (Gym, Health, Habits; the one you are in highlighted), then More. Phones and tablets keep four tabs; More is the page `/more`
   (`src/routes/(app)/more`): the Spaces as a list (Home and Medical greyed, "soon"), then one line that the rest is in the full app.

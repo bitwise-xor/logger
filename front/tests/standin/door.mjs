@@ -52,6 +52,15 @@
 // tick of an exercise is another row; keyed), /gym/remove (one row by set_id, or all of an exercise's by exercise_id; the last one
 // ends the workout), /gym/pick (another day or Free workout swaps the list; no Undo) and /gym/new (with today: on today's day;
 // the core's words; no Undo); Undo of a tick or a remove puts the rows back. GET /day's gym card is the day sample's.
+// Deploy 97: the Gym's other five parts: GET /gym/plan (the days in order as "Day n · Name", their exercises with the plan numbers, what
+// can still be added, the removed days), /gym/exercises (the list with kind, words, use), /gym/progress?x= (the sample's Bench press
+// as it is; another exercise's is made here from its kind, six weekly sessions), /gym/history (the sample), /gym/activity?day= (the
+// sample's day for every day, the watch's workout on today; POST /standin/watch-none: the watch has sent nothing, the set-up guide);
+// and POST /gym/itemset, itemmove, itemremove (Undo puts it back, same id and place), itemadd, daynew (a day name already there is
+// refused), dayedit, dayactive, rename, active, and /gym/new without today (the Exercises part): the core's checks and words, the
+// data changed as the core would; the Workout read follows the plan (the chips and the split come from the days). POST
+// /standin/gym-empty: no exercises, no days (the empty Exercises list, the empty Progress, History and Plan). POST
+// /standin/week-done: Day 1 counts as done this week.
 import { createServer } from 'node:http';
 import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
@@ -78,7 +87,7 @@ let mode = 'up'; // 'up' | 'core-down' | 'door-off' (step F)
 function reset() {
   state = { day: read('day.json').day, usual: usualStart(), undo: null, before: null, keys: new Map(), lines: new Map(), aiDown: false,
     scanned: new Map([[SCAN.barcode.code, SCAN.barcode.food]]), labelFail: false,
-    hv: healthStart(), sessions: sessionsStart(), hab: habitsStart(), dayKeys: new Set(), slow: 0, locked: new Set(), gym: gymStart() };
+    hv: healthStart(), sessions: sessionsStart(), hab: habitsStart(), dayKeys: new Set(), slow: 0, locked: new Set(), gym: gymStart(), watchNone: false, gymEmpty: false };
   state.day.needs.body_due = structuredClone(HEALTH.day_body_due);
   // the notes of the food sample's rows (the same invented day), kept on the rows so an Undo puts them back too
   const notes = new Map(FOOD.food_day.food_day.rows.map((r) => [r.ref, r.note]));
@@ -939,16 +948,22 @@ const gpick = (v) => Object.fromEntries(GVALS.map((k) => [k, v[k] ?? null]));
 /** The exercises (the Exercises sample's list, with each one's last session from the Workout sample), today's rows, the plan's days. */
 function gymStart() {
   const rows = new Map([...GW.exercises, ...GW.other].map((r) => [r.exercise_id, r]));
+  const days = [...GPL.days.map((d) => ({ id: d.day_id, name: d.name, active: true })), ...GPL.removed.map((d) => ({ id: d.day_id, name: d.name, active: false }))];
   return {
-    ex: GEX.exercises.map((e) => ({ id: e.exercise_id, name: e.name, kind: e.kind, active: e.active, last: rows.get(e.exercise_id)?.last ?? null, lastText: rows.get(e.exercise_id)?.last_text ?? null })),
+    ex: GEX.exercises.map((e) => ({ id: e.exercise_id, name: e.name, kind: e.kind, active: e.active, words: [...e.words], n: e.workouts, lastDay: e.last_day, last: rows.get(e.exercise_id)?.last ?? null, lastText: rows.get(e.exercise_id)?.last_text ?? null })),
     logs: [...rows.values()].flatMap((r) => r.logged.map((s) => ({ ...s, exercise_id: r.exercise_id }))),
-    plan: new Map(GPL.days.map((d) => [d.day_id, d.items.map((i) => ({ item_id: i.item_id, exercise_id: i.exercise_id, sets: i.sets, reps: i.reps }))])),
-    day: GW.day.day_id, auto: GW.day.day_id, startedAt: GW.started_at, setIds: 100, itemIds: 100,
+    days,
+    plan: new Map([...GPL.days.map((d) => [d.day_id, d.items.map((i) => ({ item_id: i.item_id, exercise_id: i.exercise_id, sets: i.sets, reps: i.reps }))]), ...GPL.removed.map((d) => [d.day_id, []])]),
+    day: GW.day.day_id, auto: GW.day.day_id, startedAt: GW.started_at, setIds: 100, itemIds: 100, dayIds: 100, done: new Map(),
   };
 }
 
-const gLabel = (id) => GW.chips.find((c) => c.day_id === id)?.label ?? 'Free workout';
-const gDayName = (id) => GPL.days.find((d) => d.day_id === id)?.name;
+/** The active days in order, labelled as the core does: "Day 1 · Push". */
+const gActive = () => state.gym.days.filter((d) => d.active);
+const gDay = (id) => state.gym.days.find((d) => d.id === id);
+const gDayLabel = (d) => `Day ${gActive().indexOf(d) + 1} · ${d.name}`;
+const gLabel = (id) => (id === null || !gDay(id) ? 'Free workout' : gDayLabel(gDay(id)));
+const gDayName = (id) => gDay(id)?.name;
 
 /** gym.values: the numbers of one row checked for the exercise's kind; a string is the refusal. */
 function gValues(kind, b) {
@@ -1030,12 +1045,16 @@ function gymOut() {
     status: started ? `started ${hm(new Date(g.startedAt))} · ${doneIds.size} done` : 'not started: the first tick starts it',
     day: free ? null : { day_id: g.day, name: gDayName(g.day), label: gLabel(g.day) },
     free, picked_by_hand: hand,
-    chips: GW.chips.map((c) => ({ ...c, on: c.day_id === g.day })),
+    has_split: gActive().length > 0,
+    chips: gActive().length ? [...gActive().map((d) => ({ day_id: d.id, label: gDayLabel(d), on: d.id === g.day })), { day_id: null, label: 'Free workout', on: g.day === null }] : [],
     why: free ? 'Free workout: all your exercises.' : hand ? `Picked by you instead of ${gLabel(g.auto)}.` : started ? 'Today’s day. Tap another day to switch.' : 'Your 1st workout this week: the first day not done yet. Tap another day to switch.',
     exercises: shown, other: rest,
     empty: shown.length ? null : free ? 'No exercises yet: add your first one below.' : 'No exercises on this day yet: add them on the Plan tab.',
     hint: shown.length || rest.length ? GW.hint : null,
-    week_split: GW.week_split.map((x) => ({ ...x, today: x.day_id === g.day })),
+    week_split: gActive().map((d) => ({
+      day_id: d.id, label: gDayLabel(d), today: d.id === g.day, done: g.done.get(d.id) ?? null,
+      exercises: g.plan.get(d.id).map((i) => g.ex.find((x) => x.id === i.exercise_id)).filter((x) => x?.active).map((x) => x.name).join(', '),
+    })),
     weeks,
     retired: g.ex.filter((x) => !x.active).map((x) => x.name),
   };
@@ -1083,7 +1102,7 @@ function gymAction(action, b) {
   }
   if (action === 'pick') {
     if (!('day_id' in b)) return [400, { error: 'bad_request', message: 'day_id is missing (null = Free workout).' }];
-    if (b.day_id !== null && !g.plan.has(b.day_id)) return [200, rejected('Unknown day.')];
+    if (b.day_id !== null && !gDay(b.day_id)?.active) return [200, rejected('Unknown day.')];
     g.day = b.day_id;
     return [200, gymPlain({ outcome: 'changed', head: `Today: ${b.day_id === null ? 'Free workout' : gLabel(b.day_id)}.` })];
   }
@@ -1105,12 +1124,216 @@ function gymAction(action, b) {
       return [200, gymPlain({ outcome: 'changed', head: `${old.name} is back in your list (${KINDS[old.kind].toLowerCase()}).${onToday(old.id)}` })];
     }
     if (!KINDS[b.kind]) return [200, rejected('Pick weights, bodyweight or machine cardio.')];
-    const x = { id: Math.max(...g.ex.map((e) => e.id)) + 1, name, kind: b.kind, active: true, last: null, lastText: null };
+    const words = (Array.isArray(b.words) ? b.words : []).map((w) => String(w).split(/\s+/).filter(Boolean).join(' ').slice(0, 40)).filter(Boolean).slice(0, 10);
+    const x = { id: Math.max(0, ...g.ex.map((e) => e.id)) + 1, name, kind: b.kind, active: true, words, n: 0, lastDay: null, last: null, lastText: null };
     g.ex.push(x);
     return [200, gymPlain({ outcome: 'changed', head: `Added ${name} (${KINDS[b.kind].toLowerCase()}).${onToday(x.id)}` })];
   }
+  // ---- the Plan and Exercises parts (deploy 97) ----
+  const planNumbers = () => {
+    const ok = (v, hi) => v === null || v === undefined || (typeof v === 'number' && Number.isInteger(v) && v >= 1 && v <= hi);
+    if (!ok(b.sets, 50) || !ok(b.reps, 500)) return "Numbers only: sets 1 to 50, reps 1 to 500.";
+    if ((b.sets == null) !== (b.reps == null)) return 'Give both sets and reps, or neither.';
+    return null;
+  };
+  const itemOf = (id) => {
+    for (const [day, items] of g.plan) {
+      const i = items.find((x) => x.item_id === id);
+      if (i) return { day, items, i };
+    }
+    return null;
+  };
+  const xName = (id) => g.ex.find((x) => x.id === id)?.name;
+  if (action === 'itemset') {
+    if (!isId(b.item_id)) return [400, { error: 'bad_request', message: 'item_id must be a number.' }];
+    const why = planNumbers();
+    if (why) return [200, rejected(why)];
+    const at = itemOf(b.item_id);
+    if (!at) return [200, rejected('That is not on a day any more.')];
+    at.i.sets = b.sets ?? null;
+    at.i.reps = b.reps ?? null;
+    return [200, gymPlain({ outcome: 'changed', head: `${xName(at.i.exercise_id)}: plan ${gfmt('bodyweight', at.i) || 'without numbers'}.` })];
+  }
+  if (action === 'itemmove') {
+    if (!isId(b.item_id)) return [400, { error: 'bad_request', message: 'item_id must be a number.' }];
+    if (!['up', 'down'].includes(b.dir)) return [400, { error: 'bad_request', message: 'dir must be up or down.' }];
+    const at = itemOf(b.item_id);
+    if (!at) return [200, rejected('That is not on a day any more.')];
+    const k = at.items.indexOf(at.i);
+    const to = b.dir === 'up' ? k - 1 : k + 1;
+    if (to >= 0 && to < at.items.length) [at.items[k], at.items[to]] = [at.items[to], at.items[k]];
+    return [200, gymPlain({ outcome: 'changed', head: `Moved ${xName(at.i.exercise_id)} ${b.dir}.` })];
+  }
+  if (action === 'itemremove') {
+    if (!isId(b.item_id)) return [400, { error: 'bad_request', message: 'item_id must be a number.' }];
+    const at = itemOf(b.item_id);
+    if (!at) return [200, rejected('That is not on a day any more.')];
+    const before = structuredClone(g);
+    at.items.splice(at.items.indexOf(at.i), 1);
+    const [name, day] = [xName(at.i.exercise_id), gDayName(at.day)];
+    return [200, gymSave(before, { outcome: 'changed', head: `Took ${name} off ${day}.` }, `Undone: ${name} is back on ${day}.`)];
+  }
+  if (action === 'itemadd') {
+    if (!isId(b.day_id) || !isId(b.exercise_id)) return [400, { error: 'bad_request', message: 'day_id and exercise_id must be numbers.' }];
+    const why = planNumbers();
+    if (why) return [200, rejected(why)];
+    const d = gDay(b.day_id);
+    const x = g.ex.find((e) => e.id === b.exercise_id && e.active);
+    if (!d?.active || !x) return [200, rejected('Pick a day and one of your exercises.')];
+    const items = g.plan.get(d.id);
+    if (items.some((i) => i.exercise_id === x.id)) return [200, rejected(`${x.name} is already on ${d.name}.`)];
+    items.push({ item_id: ++g.itemIds, exercise_id: x.id, sets: b.sets ?? null, reps: b.reps ?? null });
+    return [200, gymPlain({ outcome: 'changed', head: `Added ${x.name} to ${d.name}.` })];
+  }
+  const tidyName = (v, max) => String(v ?? '').split(/\s+/).filter(Boolean).join(' ').slice(0, max);
+  if (action === 'daynew') {
+    if (typeof b.name === 'string' && b.name.length > 40) return [400, { error: 'bad_request', message: 'name must be 40 characters or fewer.' }];
+    const name = tidyName(b.name, 40);
+    if (!name) return [200, rejected("Type the day's name, e.g. Push.")];
+    if (gActive().some((d) => d.name.toLowerCase() === name.toLowerCase())) return [200, rejected(`${name} is already a day of your split.`)];
+    const d = { id: ++g.dayIds, name, active: true };
+    g.days.push(d);
+    g.plan.set(d.id, []);
+    return [200, gymPlain({ outcome: 'changed', head: `Added ${gDayLabel(d)}. Add its exercises below.` })];
+  }
+  if (action === 'dayedit') {
+    if (!isId(b.day_id)) return [400, { error: 'bad_request', message: 'day_id must be a number.' }];
+    const name = tidyName(b.name, 40);
+    if (!name) return [200, rejected("Type the day's name.")];
+    const d = gDay(b.day_id);
+    if (!d) return [200, rejected('Unknown day.')];
+    d.name = name;
+    return [200, gymPlain({ outcome: 'changed', head: `Renamed to ${name}.` })];
+  }
+  if (action === 'dayactive') {
+    if (!isId(b.day_id) || typeof b.on !== 'boolean') return [400, { error: 'bad_request', message: 'day_id must be a number and on true or false.' }];
+    const d = gDay(b.day_id);
+    if (!d) return [200, rejected('Unknown day.')];
+    d.active = b.on;
+    if (b.on) g.days.push(...g.days.splice(g.days.indexOf(d), 1));
+    else for (const k of ['day', 'auto']) if (g[k] === d.id) g[k] = gActive()[0]?.id ?? null;
+    return [200, gymPlain({ outcome: 'changed', head: b.on ? `${d.name} is back in your split.` : `Removed ${d.name} from your split. Past workouts keep its name; "Removed days" below brings it back.` })];
+  }
+  if (action === 'rename') {
+    if (!isId(b.exercise_id)) return [400, { error: 'bad_request', message: 'exercise_id must be a number.' }];
+    const name = tidyName(b.name, 60);
+    if (!name) return [200, rejected("Type the exercise's name.")];
+    const x = g.ex.find((e) => e.id === b.exercise_id);
+    if (!x) return [200, rejected('Unknown exercise.')];
+    if (name === x.name) return [200, rejected(`It is called ${name} already.`)];
+    const o = g.ex.find((e) => e.id !== x.id && e.name.toLowerCase() === name.toLowerCase());
+    if (o) return [200, rejected(o.active ? `${o.name} is already in your list.` : `A retired exercise is called ${o.name}.`)];
+    const old = x.name;
+    x.words = x.words.filter((w) => w.toLowerCase() !== name.toLowerCase());
+    if (old.toLowerCase() !== name.toLowerCase() && !x.words.some((w) => w.toLowerCase() === old.toLowerCase())) x.words = [...x.words.slice(0, 9), old];
+    x.name = name;
+    return [200, gymPlain({ outcome: 'changed', head: `Renamed ${old} to ${name}. Its history moved with it.` })];
+  }
+  if (action === 'active') {
+    if (!isId(b.exercise_id) || typeof b.on !== 'boolean') return [400, { error: 'bad_request', message: 'exercise_id must be a number and on true or false.' }];
+    const x = g.ex.find((e) => e.id === b.exercise_id);
+    if (!x) return [200, rejected('Unknown exercise.')];
+    x.active = b.on;
+    return [200, gymPlain({ outcome: 'changed', head: b.on ? `${x.name} is back in your list.` : `Retired ${x.name}. Its history stays.` })];
+  }
   return [404, { error: 'not_found', message: 'Not found.' }];
 }
+
+/** GET /gym/plan as the door answers: the sample's words and limits, the days and items as they stand now. */
+function planOut() {
+  const g = state.gym;
+  const byId = new Map(g.ex.map((x) => [x.id, x]));
+  const days = gActive().map((d) => {
+    const items = g.plan.get(d.id).map((i) => {
+      const x = byId.get(i.exercise_id);
+      return { item_id: i.item_id, exercise_id: x.id, name: x.name, kind: x.kind, active: x.active, sets: i.sets, reps: i.reps,
+        text: KINDS[x.kind] + (i.sets ? ` · plan ${i.sets} × ${i.reps}` : '') + (x.active ? '' : ' · retired') };
+    });
+    const on = new Set(items.map((i) => i.exercise_id));
+    return { day_id: d.id, name: d.name, label: gDayLabel(d), today: d.id === g.day, items,
+      can_add: g.ex.filter((x) => x.active && !on.has(x.id)).map((x) => ({ exercise_id: x.id, name: x.name })) };
+  });
+  const done = [...g.done].map(([id, day]) => ({ day_id: id, label: gLabel(id), day })).filter((x) => gDay(x.day_id)?.active);
+  const today = g.day === null ? null : { day_id: g.day, name: gDayName(g.day), label: gLabel(g.day) };
+  const week = (done.length ? `This week: ${done.map((x) => `${x.label} on ${new Date(`${x.day}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', timeZone: 'UTC' })}`).join(', ')} done. ` : '')
+    + (today ? `Today: ${today.label}.` : days.length ? 'Today: Free workout.' : '');
+  return { ...GPL, week: days.length ? week : null, done, day: today, free: days.length > 0 && g.day === null, days,
+    removed: g.days.filter((d) => !d.active).map((d) => ({ day_id: d.id, name: d.name })) };
+}
+
+/** GET /gym/exercises as the door answers. */
+function exercisesOut() {
+  const g = state.gym;
+  const use = (x) => (x.n ? `${x.n} workout${x.n === 1 ? '' : 's'}, last ${x.lastDay.slice(8, 10)}.${x.lastDay.slice(5, 7)}.` : 'not done yet');
+  return { ...GEX, active: g.ex.filter((x) => x.active).length,
+    exercises: g.ex.map((x) => ({ exercise_id: x.id, name: x.name, kind: x.kind, kind_label: KINDS[x.kind], words: x.words, active: x.active,
+      workouts: x.n, last_day: x.lastDay, use: use(x), meta: [KINDS[x.kind], x.words.length ? `also: ${x.words.join(', ')}` : '', use(x)].filter(Boolean).join(' · ') })) };
+}
+
+const WD = (iso) => new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', timeZone: 'UTC' });
+const DM = (iso) => `${iso.slice(8, 10)}.${iso.slice(5, 7)}.`;
+const addDays = (iso, n) => new Date(Date.parse(`${iso}T12:00:00Z`) + n * 86400_000).toISOString().slice(0, 10);
+
+/** GET /gym/progress?x=: the sample's own exercise as it is; another one's six weekly sessions are made here from its kind. */
+function progressOut(x) {
+  const P = GYM.progress.gym_progress;
+  const g = state.gym;
+  if (state.gymEmpty) return { ...P, exercises: [], exercise: null, per_week: { weeks: P.per_week.weeks.map((w) => ({ ...w, n: 0 })), top: 3, good: 0 } };
+  const shown = P.exercises.filter((c) => g.ex.some((e) => e.id === c.exercise_id));
+  const pick = shown.find((c) => c.exercise_id === Number(x)) ?? shown[0];
+  const chips = shown.map((c) => ({ ...c, on: c.exercise_id === pick.exercise_id }));
+  if (pick.exercise_id === P.exercise.exercise_id) return { ...P, exercises: chips };
+  const e = g.ex.find((q) => q.id === pick.exercise_id);
+  const [unit, title, base, step] = { weights: ['kg', 'top weight', 30, 2.5], bodyweight: ['reps', 'most reps in a set', 8, 1], cardio: ['min', 'longest session', 15, 2] }[e.kind];
+  const dates = [0, 1, 2, 3, 4, 5].map((i) => addDays(P.today, -7 * (5 - i) - (i % 2)));
+  const rowOf = (v) => (e.kind === 'weights' ? { sets: 3, reps: 8, kg: v, minutes: null, km: null, text: `3 × 8 at ${v} kg` }
+    : e.kind === 'bodyweight' ? { sets: 3, reps: v, kg: null, minutes: null, km: null, text: `3 × ${v}` } : { sets: null, reps: null, kg: null, minutes: v, km: null, text: `${v} min` });
+  const vals = dates.map((_, i) => base + i * step);
+  const sessions = dates.map((d, i) => ({ day: d, v: vals[i], row: { set_id: 700 + i, ...rowOf(vals[i]) } }));
+  const [first, last] = [sessions[0], sessions.at(-1)];
+  const pts = sessions.map((q) => [Math.round((Date.parse(`${q.day}T12:00:00Z`) - Date.parse(`${P.start}T12:00:00Z`)) / 86400_000), q.v, `${WD(q.day)} ${DM(q.day)}: ${q.row.text}`]);
+  const orm = e.kind === 'weights' ? Math.round(last.v * (1 + 8 / 30)) : null;
+  return { ...P, exercises: chips, exercise: { exercise_id: e.id, name: e.name, kind: e.kind }, unit, title, top: last.v,
+    top_reps: e.kind === 'weights' ? 8 : null, top_text: `${last.v} ${unit}`, change: `+${last.v - first.v} ${unit} since ${DM(first.day)}`, one_rep_max: orm,
+    sub: orm ? `Top set ${last.v} kg × 8 · estimated 1-rep max ≈ ${orm} kg` : `Last session ${WD(last.day)} ${DM(last.day)}`,
+    chart: { start: P.start, days: P.weeks * 7, label: `${e.name}: ${title} in ${unit}`, decimals: 1, series: [{ mark: 'line', cls: 'a', pts }, { mark: 'dot', cls: 'a', pts }] },
+    recent: [...sessions].reverse().map((q) => ({ day: q.day, text: q.row.text, rows: [q.row] })) };
+}
+
+/** GET /gym/activity?day=: the sample's day for any day; today has a watch workout that matches today's workout. */
+function activityOut(day) {
+  const A = GYM.activity.gym_activity;
+  if (state.watchNone) return structuredClone(GYM.activity_none.gym_activity);
+  const today = A.today;
+  const d = day && day < today ? day : today;
+  const out = structuredClone(A);
+  out.day = d;
+  out.label = d === today ? 'Today' : d === addDays(today, -1) ? 'Yesterday' : `${WD(d)} ${DM(d)}`;
+  out.prev_day = addDays(d, -1);
+  out.next_day = d === today ? null : addDays(d, 1);
+  const first = addDays(d, -6);
+  const k = Date.parse(`${d}T12:00:00Z`) / 86400_000 % 7;
+  for (const c of out.charts) {
+    c.chart.start = first;
+    const v = (i) => (c.id === 'steps' ? 1800 + ((i + k) % 5) * 700 : c.id === 'sleep' ? 6.5 + ((i + k) % 4) * 0.5 : 56 + ((i + k) % 4));
+    const text = (i, val) => `${WD(addDays(first, i))} ${DM(addDays(first, i))}: ${c.id === 'steps' ? `${val} steps` : c.id === 'sleep' ? `${val} h` : `${val} bpm`}`;
+    const pts = [0, 1, 2, 3, 4, 5, 6].map((i) => [i, v(i), text(i, v(i))]);
+    for (const sr of c.chart.series) sr.pts = pts;
+  }
+  const h = new Date(Date.now());
+  out.workouts = d === today ? [{ name: 'Traditional Strength Training', start_at: `${d}T18:15:00+01:00`, end_at: `${d}T19:20:00+01:00`, minutes: 65, kcal: 310, hr_avg: 118, km: null,
+    meta: '65 min · 310 kcal · avg 118 bpm', matches: GW.day ? gLabel(state.gym.day) : 'Free workout' }] : [];
+  void h;
+  return out;
+}
+
+/** GET /gym/history: the sample (none while the stand-in is empty). */
+const historyOut = () => ({ workouts: state.gymEmpty ? [] : GYM.history.gym_history.workouts });
+
+/** The read a gym save answers with when the body names none (docs/API.md): its tab's. */
+const gymView = (action, b) =>
+  ['daynew', 'dayedit', 'dayactive', 'itemadd', 'itemset', 'itemmove', 'itemremove'].includes(action) ? 'gym_plan'
+  : ['rename', 'active'].includes(action) || (action === 'new' && b.today !== true) ? 'gym_exercises' : 'gym';
 
 const KEYED = ['/gym/tick', '/health/day', '/body', '/food/labeladd', '/log', '/water', '/again', '/usual', '/habit', '/checkin', '/health', '/held/retry', '/held/delete', '/usual/meal', '/usual/new', '/usual/from_meal'];
 
@@ -1132,6 +1355,19 @@ createServer(async (req, res) => {
   if (req.url === '/standin/slow' && req.method === 'POST') {
     state.slow = 700; // the next day taps of the Habits page (and the Gym's ticks) take a moment
     return send(res, 200, { outcome: 'slow' });
+  }
+  if (req.url === '/standin/watch-none' && req.method === 'POST') {
+    state.watchNone = true; // the watch has sent nothing: Activity shows the set-up guide
+    return send(res, 200, { outcome: 'watch-none' });
+  }
+  if (req.url === '/standin/gym-empty' && req.method === 'POST') {
+    Object.assign(state.gym, { ex: [], days: [], plan: new Map(), day: null, auto: null, logs: [] }); // no exercises, no days
+    state.gymEmpty = true;
+    return send(res, 200, { outcome: 'gym-empty' });
+  }
+  if (req.url === '/standin/week-done' && req.method === 'POST') {
+    state.gym.done.set(1, '2026-11-16'); // Day 1 counts as done this week
+    return send(res, 200, { outcome: 'week-done' });
   }
   if (req.url === '/standin/locked' && req.method === 'POST') {
     state.locked = new Set(['meds']); // the read marks Medication as not editable (a time, as Wake-up would be)
@@ -1209,10 +1445,23 @@ createServer(async (req, res) => {
     return send(res, status, rest, signedIn);
   }
   if (url.pathname === '/api/v1/gym' && req.method === 'GET') return send(res, 200, { gym: gymOut(), undo: undo() }, signedIn);
+  if (url.pathname === '/api/v1/gym/plan' && req.method === 'GET') return send(res, 200, { gym_plan: planOut(), undo: undo() }, signedIn);
+  if (url.pathname === '/api/v1/gym/exercises' && req.method === 'GET') return send(res, 200, { gym_exercises: exercisesOut(), undo: undo() }, signedIn);
+  if (url.pathname === '/api/v1/gym/history' && req.method === 'GET') return send(res, 200, { gym_history: historyOut(), undo: undo() }, signedIn);
+  if (url.pathname === '/api/v1/gym/progress' && req.method === 'GET') {
+    const x = url.searchParams.get('x');
+    if (x !== null && !/^\d+$/.test(x)) return send(res, 400, { error: 'bad_request', message: "x must be an exercise's id." }, signedIn);
+    return send(res, 200, { gym_progress: progressOut(x), undo: undo() }, signedIn);
+  }
+  if (url.pathname === '/api/v1/gym/activity' && req.method === 'GET') {
+    const day = url.searchParams.get('day');
+    if (day !== null && !/^\d{4}-\d\d-\d\d$/.test(day)) return send(res, 400, { error: 'bad_request', message: 'day must be yyyy-mm-dd.' }, signedIn);
+    return send(res, 200, { gym_activity: activityOut(day), undo: undo() }, signedIn);
+  }
   if (url.pathname === '/api/v1/foods' && req.method === 'GET') return send(res, 200, { foods: foods(url.searchParams.get('q')) }, signedIn);
   // A save's fresh read: the Food day or the usual meals when the body asks for it (view "food" with view_day, "usual"), else
   // Today; as the core, /usual/meal and /usual/new default to the usual meals and /usual/from_meal to the Food day.
-  const view = body.view ?? ({ '/api/v1/usual/meal': 'usual', '/api/v1/usual/new': 'usual', '/api/v1/usual/from_meal': 'food', '/api/v1/health/day': 'health', '/api/v1/body': 'body', '/api/v1/habit/day': 'habits', '/api/v1/habits/manage': 'habits' })[req.url] ?? (req.url.startsWith('/api/v1/gym/') ? 'gym' : undefined);
+  const view = body.view ?? ({ '/api/v1/usual/meal': 'usual', '/api/v1/usual/new': 'usual', '/api/v1/usual/from_meal': 'food', '/api/v1/health/day': 'health', '/api/v1/body': 'body', '/api/v1/habit/day': 'habits', '/api/v1/habits/manage': 'habits' })[req.url] ?? (req.url.startsWith('/api/v1/gym/') ? gymView(req.url.slice('/api/v1/gym/'.length), body) : undefined);
   const range = [7, 30, 90].includes(body.range) ? body.range : 30;
   const fresh = () =>
     view === 'food' ? { food_day: foodDay(body.view_day) }
@@ -1220,6 +1469,8 @@ createServer(async (req, res) => {
     : view === 'health' ? { health: healthOut(range, body.all === true) }
     : view === 'body' ? { body: bodyOut(req.url === '/api/v1/body' ? body.day : body.view_day) }
     : view === 'gym' ? { gym: gymOut() }
+    : view === 'gym_plan' ? { gym_plan: planOut() }
+    : view === 'gym_exercises' ? { gym_exercises: exercisesOut() }
     : view === 'habits' ? { habits: habitsOut(['tracked', 'untracked', 'retired', 'all'].includes(body.show) ? body.show : 'tracked') }
     : { day: dayOut(state.day) };
   if (req.url === '/api/v1/session' && req.method === 'DELETE') {
@@ -1269,7 +1520,7 @@ createServer(async (req, res) => {
       return send(res, 200, { ...base, ...out, tone: out.outcome === 'changed' ? 'ok' : 'warning', ...(out.undo === null ? { undo: null } : {}), ...fresh() }, signedIn);
     }
     if (path.startsWith('/gym/')) {
-      if (state.slow && path === '/gym/tick') await new Promise((r) => setTimeout(r, state.slow)); // POST /standin/slow
+      if (state.slow) await new Promise((r) => setTimeout(r, state.slow)); // POST /standin/slow
       const [status, out] = gymAction(path.slice('/gym/'.length), body);
       if (status !== 200) return send(res, status, out, signedIn);
       const answer = { ...base, ...out, v: 1, tone: out.outcome === 'rejected' ? 'warning' : 'ok' };

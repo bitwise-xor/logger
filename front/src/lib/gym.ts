@@ -83,14 +83,14 @@ export interface GymCard {
 
 // ---- the parts of the Gym ------------------------------------------------------------------------------------------------------
 
-/** The Gym's parts in app.'s order of the mockup; until deploy 97 all but Workout open app.'s tab (`app`). */
+/** The Gym's parts in the mockup's order; each is a page of this app (deploy 97; the first five opened app.'s tabs until then). */
 export const PARTS = [
-  { key: 'workout', label: 'Workout', href: '/gym', app: null },
-  { key: 'plan', label: 'Plan', href: null, app: '/web/gym/plan' },
-  { key: 'progress', label: 'Progress', href: null, app: '/web/gym/progress' },
-  { key: 'history', label: 'History', href: null, app: '/web/gym/history' },
-  { key: 'exercises', label: 'Exercises', href: null, app: '/web/gym/exercises' },
-  { key: 'activity', label: 'Activity', href: null, app: '/web/gym/activity' },
+  { key: 'workout', label: 'Workout', href: '/gym' },
+  { key: 'plan', label: 'Plan', href: '/gym/plan' },
+  { key: 'progress', label: 'Progress', href: '/gym/progress' },
+  { key: 'history', label: 'History', href: '/gym/history' },
+  { key: 'exercises', label: 'Exercises', href: '/gym/exercises' },
+  { key: 'activity', label: 'Activity', href: '/gym/activity' },
 ] as const;
 
 // ---- numbers as app. writes them ---------------------------------------------------------------------------------------------

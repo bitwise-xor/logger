@@ -196,8 +196,31 @@ export const SAVES = {
   gym_new: {
     path: '/gym/new',
     keyed: false,
-    body: (f) => ({ name: str(f, 'name', 60) ?? '', kind: str(f, 'kind', 20), words: wordsOf(str(f, 'words', 600) ?? ''), today: true }),
+    body: (f) => ({ name: str(f, 'name', 60) ?? '', kind: str(f, 'kind', 20), words: wordsOf(str(f, 'words', 600) ?? ''), today: f.get('today') === '1' ? true : undefined }),
   },
+  // The Plan part (deploy 97): a day's exercises and the days of the split. None takes a key, none has Undo but itemremove. Each
+  // answers with the Plan read (view "gym_plan"). Ids are numbers; sets and reps as JSON numbers, both null for no plan numbers.
+  gym_itemset: {
+    path: '/gym/itemset',
+    keyed: false,
+    body: (f) => ({ item_id: int(f, 'item_id'), sets: gymNumber(f, 'sets'), reps: gymNumber(f, 'reps') }),
+  },
+  gym_itemmove: { path: '/gym/itemmove', keyed: false, body: (f) => ({ item_id: int(f, 'item_id'), dir: str(f, 'dir', 4) }) },
+  gym_itemremove: { path: '/gym/itemremove', keyed: false, body: (f) => ({ item_id: int(f, 'item_id') }) },
+  // sets and reps both or neither: the door says so
+  gym_itemadd: {
+    path: '/gym/itemadd',
+    keyed: false,
+    body: (f) => ({ day_id: int(f, 'day_id'), exercise_id: int(f, 'exercise_id'), sets: gymNumber(f, 'sets'), reps: gymNumber(f, 'reps') }),
+  },
+  gym_daynew: { path: '/gym/daynew', keyed: false, body: (f) => ({ name: str(f, 'name', 40) ?? '' }) },
+  gym_dayedit: { path: '/gym/dayedit', keyed: false, body: (f) => ({ day_id: int(f, 'day_id'), name: str(f, 'name', 40) ?? '' }) },
+  // Remove a day (on 0) or bring it back (on 1): the door wants true or false
+  gym_dayactive: { path: '/gym/dayactive', keyed: false, body: (f) => ({ day_id: int(f, 'day_id'), on: f.get('on') === '1' }) },
+  // The Exercises part (deploy 97): Rename, Retire or Bring back (+ New exercise is gym_new without today). Each answers with the
+  // Exercises read (view "gym_exercises"); no key, no Undo.
+  gym_rename: { path: '/gym/rename', keyed: false, body: (f) => ({ exercise_id: int(f, 'exercise_id'), name: str(f, 'name', 60) ?? '' }) },
+  gym_active: { path: '/gym/active', keyed: false, body: (f) => ({ exercise_id: int(f, 'exercise_id'), on: f.get('on') === '1' }) },
 } satisfies Record<string, Save>;
 
 /**
@@ -251,12 +274,17 @@ export const HABITS_SAVES: SaveName[] = ['habit', 'habit_day', 'habits_manage', 
 const HABITS_ONLY: SaveName[] = ['habit_day', 'habits_manage'];
 /** The Gym's Workout page's (deploy 96, src/routes/(app)/gym): a tick, a remove, the day pick, + Add exercise, Undo. */
 export const GYM_SAVES: SaveName[] = ['gym_tick', 'gym_remove', 'gym_pick', 'gym_new', 'undo'];
+/** The Plan part's (deploy 97, src/routes/(app)/gym/plan): the plan's exercises and days, Undo (of a take-off). */
+export const PLAN_SAVES: SaveName[] = ['gym_itemset', 'gym_itemmove', 'gym_itemremove', 'gym_itemadd', 'gym_daynew', 'gym_dayedit', 'gym_dayactive', 'undo'];
+/** The Exercises part's (deploy 97, src/routes/(app)/gym/exercises): Rename, Retire or Bring back, + New exercise. No Undo exists for them. */
+export const EXERCISES_SAVES: SaveName[] = ['gym_rename', 'gym_active', 'gym_new'];
+const GYM_ONLY: SaveName[] = [...GYM_SAVES, ...PLAN_SAVES, ...EXERCISES_SAVES];
 export const TODAY_SAVES: SaveName[] = SAVE_NAMES.filter(
   (n) =>
     n === 'undo' ||
-    (!FOOD_SAVES.includes(n) && !USUAL_SAVES.includes(n) && !HEALTH_SAVES.includes(n) && !HABITS_ONLY.includes(n) && !GYM_SAVES.includes(n)),
+    (!FOOD_SAVES.includes(n) && !USUAL_SAVES.includes(n) && !HEALTH_SAVES.includes(n) && !HABITS_ONLY.includes(n) && !GYM_ONLY.includes(n)),
 );
-export type View = 'day' | 'food' | 'usual' | 'health' | 'body' | 'habits' | 'gym';
+export type View = 'day' | 'food' | 'usual' | 'health' | 'body' | 'habits' | 'gym' | 'gym_plan' | 'gym_exercises';
 
 /** A key as the browser makes them (src/lib/saver.ts): a random UUID or base64url; anything else is replaced. */
 const KEY = /^[A-Za-z0-9_-]{16,64}$/;

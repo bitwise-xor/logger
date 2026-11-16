@@ -7,6 +7,7 @@ import type { FoodDay } from './food.js';
 import type { Body, BodyDue, Health } from './health.js';
 import type { Habits } from './habits.js';
 import type { GymCard, Workout } from './gym.js';
+import type { Exercises, Plan } from './gymplan.js';
 import type { Usual } from './usual.js';
 
 // ---- the door's shapes (docs/API.md; front/tests/samples/day.json is a real answer) ----------------------------------------
@@ -452,6 +453,9 @@ export interface SaveAnswer {
   habits?: Habits;
   /** A save of the Gym's Workout page (deploy 96): the Workout read ("view": "gym"). */
   gym?: Workout;
+  /** A save of the Gym's Plan part (deploy 97): the Plan read ("view": "gym_plan"); of the Exercises part: "gym_exercises". */
+  gym_plan?: Plan;
+  gym_exercises?: Exercises;
 }
 
 /** The rows a save added (in the fresh day, not in the one shown before): they get a blue edge (the mockup). */

@@ -59,9 +59,12 @@ export const KEYED = new Set([
  * the day is done it unticks. A tap that met a gone session is not kept; the page says to tap again after the sign-in.
  * Deploy 96: no gym save is sent again by the page either (a set is logged by a tap seen to work, never behind your back); the tick is
  * the only keyed one, the others take no key and are never kept anyway.
+ * Deploy 97: the rule is for every gym save by its name (`gym_`): the Plan's and Exercises' forms take no key at the door, so a
+ * second send would be a second change (a day added twice, an exercise moved twice), and a tap that met a gone session says to
+ * tap again after the sign-in.
  */
 export const NEVER_RESENT = new Set(['habit_day', 'gym_tick']);
-export const mayResend = (action: string) => KEYED.has(action) && !NEVER_RESENT.has(action);
+export const mayResend = (action: string) => KEYED.has(action) && !NEVER_RESENT.has(action) && !action.startsWith('gym_');
 /** The actions the AI reads (up to about 40 s; the look-up since deploy 90): their answer is never dropped for a tap made while they were read. */
 export const SLOW = new Set(['log', 'held_retry', 'lookup']);
 export const RESEND_ITEM = 'logger-resend';

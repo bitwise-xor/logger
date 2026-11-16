@@ -2,7 +2,7 @@
 // day asked for, and a gone session told apart from other problems.
 import { describe, expect, it } from 'vitest';
 import { makeDoor, type Fetch } from './door.js';
-import { bodyFor, FOOD_SAVES, GYM_SAVES, HABITS_SAVES, HEALTH_SAVES, runSave, SAVE_NAMES, SAVES, TODAY_SAVES, USUAL_SAVES } from './saves.js';
+import { bodyFor, EXERCISES_SAVES, FOOD_SAVES, GYM_SAVES, HABITS_SAVES, HEALTH_SAVES, PLAN_SAVES, runSave, SAVE_NAMES, SAVES, TODAY_SAVES, USUAL_SAVES } from './saves.js';
 
 const TOKEN = 'f'.repeat(40);
 const SESSION = 's'.repeat(43);
@@ -191,7 +191,7 @@ describe('the Food day saves (step E)', () => {
     expect(TODAY_SAVES).not.toContain('usual_meal');
     expect(TODAY_SAVES).toContain('usual');
     expect(TODAY_SAVES).toContain('undo');
-    expect(new Set([...TODAY_SAVES, ...FOOD_SAVES, ...USUAL_SAVES, ...HEALTH_SAVES, ...HABITS_SAVES, ...GYM_SAVES])).toEqual(new Set(SAVE_NAMES));
+    expect(new Set([...TODAY_SAVES, ...FOOD_SAVES, ...USUAL_SAVES, ...HEALTH_SAVES, ...HABITS_SAVES, ...GYM_SAVES, ...PLAN_SAVES, ...EXERCISES_SAVES])).toEqual(new Set(SAVE_NAMES));
   });
 });
 
@@ -528,5 +528,74 @@ describe('the Gym’s Workout page (deploy 96)', () => {
     await runSave(door, SESSION, 'undo', form({ token: 'T4v0N4V_gRMyUTvZ' }), undefined, 'gym');
     expect(seen.map((x) => x.path)).toEqual(['/api/v1/gym/tick', '/api/v1/gym/remove', '/api/v1/gym/pick', '/api/v1/gym/new', '/api/v1/undo']);
     expect(seen.at(-1)!.body).toEqual({ token: 'T4v0N4V_gRMyUTvZ', view: 'gym' });
+  });
+});
+
+describe('the Gym’s Plan and Exercises parts (deploy 97)', () => {
+  const PLAN_ACTIONS = ['gym_itemset', 'gym_itemmove', 'gym_itemremove', 'gym_itemadd', 'gym_daynew', 'gym_dayedit', 'gym_dayactive'] as const;
+  const EX_ACTIONS = ['gym_rename', 'gym_active', 'gym_new'] as const;
+
+  it('offers each part its saves and keeps them off Today', () => {
+    expect(PLAN_SAVES).toEqual([...PLAN_ACTIONS, 'undo']);
+    expect(EXERCISES_SAVES).toEqual(['gym_rename', 'gym_active', 'gym_new']);
+    for (const n of PLAN_ACTIONS) expect(TODAY_SAVES).not.toContain(n);
+    for (const n of EX_ACTIONS) expect(TODAY_SAVES).not.toContain(n);
+  });
+
+  it('none takes a key at the door: a key sent is not passed on', () => {
+    for (const n of [...PLAN_ACTIONS, ...EX_ACTIONS]) {
+      expect(SAVES[n].keyed, n).toBe(false);
+      expect(bodyFor(n, form({ key: KEY, item_id: '1', day_id: '1', exercise_id: '1', name: 'x', kind: 'weights', dir: 'up', on: '1' }), undefined, undefined, 'gym_plan'), n).not.toHaveProperty('key');
+    }
+  });
+
+  it('a plan exercise’s numbers: JSON numbers, both null for none', () => {
+    expect(bodyFor('gym_itemset', form({ item_id: '2', sets: '4', reps: '6' }), undefined, undefined, 'gym_plan')).toEqual({ item_id: 2, sets: 4, reps: 6, view: 'gym_plan' });
+    expect(bodyFor('gym_itemset', form({ item_id: '2' }), undefined, undefined, 'gym_plan')).toEqual({ item_id: 2, sets: null, reps: null, view: 'gym_plan' });
+    // words are sent as typed: the door refuses them in plain words
+    expect(bodyFor('gym_itemset', form({ item_id: '2', sets: 'x', reps: '6' }), undefined, undefined, 'gym_plan')).toMatchObject({ sets: 'x', reps: 6 });
+  });
+
+  it('up and down, and take off', () => {
+    expect(bodyFor('gym_itemmove', form({ item_id: '3', dir: 'down' }), undefined, undefined, 'gym_plan')).toEqual({ item_id: 3, dir: 'down', view: 'gym_plan' });
+    expect(bodyFor('gym_itemremove', form({ item_id: '3' }), undefined, undefined, 'gym_plan')).toEqual({ item_id: 3, view: 'gym_plan' });
+  });
+
+  it('+ Add exercise on a day: the day, the exercise, sets and reps or null', () => {
+    expect(bodyFor('gym_itemadd', form({ day_id: '2', exercise_id: '4', sets: '3', reps: '10' }), undefined, undefined, 'gym_plan')).toEqual({ day_id: 2, exercise_id: 4, sets: 3, reps: 10, view: 'gym_plan' });
+    expect(bodyFor('gym_itemadd', form({ day_id: '2', exercise_id: '4' }), undefined, undefined, 'gym_plan')).toEqual({ day_id: 2, exercise_id: 4, sets: null, reps: null, view: 'gym_plan' });
+  });
+
+  it('the days: new, rename, and remove or bring back as true or false', () => {
+    expect(bodyFor('gym_daynew', form({ name: '  Arms ' }), undefined, undefined, 'gym_plan')).toEqual({ name: 'Arms', view: 'gym_plan' });
+    expect(bodyFor('gym_dayedit', form({ day_id: '1', name: 'Chest' }), undefined, undefined, 'gym_plan')).toEqual({ day_id: 1, name: 'Chest', view: 'gym_plan' });
+    expect(bodyFor('gym_dayactive', form({ day_id: '1', on: '0' }), undefined, undefined, 'gym_plan')).toEqual({ day_id: 1, on: false, view: 'gym_plan' });
+    expect(bodyFor('gym_dayactive', form({ day_id: '4', on: '1' }), undefined, undefined, 'gym_plan')).toEqual({ day_id: 4, on: true, view: 'gym_plan' });
+  });
+
+  it('rename, retire and bring back', () => {
+    expect(bodyFor('gym_rename', form({ exercise_id: '5', name: ' Chin-up ' }), undefined, undefined, 'gym_exercises')).toEqual({ exercise_id: 5, name: 'Chin-up', view: 'gym_exercises' });
+    expect(bodyFor('gym_active', form({ exercise_id: '5', on: '0' }), undefined, undefined, 'gym_exercises')).toEqual({ exercise_id: 5, on: false, view: 'gym_exercises' });
+    expect(bodyFor('gym_active', form({ exercise_id: '9', on: '1' }), undefined, undefined, 'gym_exercises')).toEqual({ exercise_id: 9, on: true, view: 'gym_exercises' });
+  });
+
+  it('+ New exercise on the Exercises part is not put on today’s day; the Workout page’s is', () => {
+    const typed = { name: ' Rowing machine ', kind: 'cardio', words: 'rower, erg,' };
+    expect(bodyFor('gym_new', form(typed), undefined, undefined, 'gym_exercises')).toEqual({ name: 'Rowing machine', kind: 'cardio', words: ['rower', 'erg'], view: 'gym_exercises' });
+    expect(bodyFor('gym_new', form({ ...typed, today: '1' }), undefined, undefined, 'gym')).toMatchObject({ today: true, view: 'gym' });
+  });
+
+  it('each goes to its /gym/<action>; Undo of a take-off asks for the Plan read', async () => {
+    const { door, seen } = net(200, { v: 1, outcome: 'changed', head: 'Moved Bench press down.', gym_plan: {} });
+    for (const n of PLAN_ACTIONS) await runSave(door, SESSION, n, form({ item_id: '1', day_id: '1', exercise_id: '1', name: 'x', dir: 'up', on: '1' }), undefined, 'gym_plan');
+    for (const n of EX_ACTIONS) await runSave(door, SESSION, n, form({ exercise_id: '1', name: 'x', kind: 'weights', on: '1' }), undefined, 'gym_exercises');
+    await runSave(door, SESSION, 'undo', form({ token: 'T4v0N4V_gRMyUTvZ' }), undefined, 'gym_plan');
+    expect(seen.map((x) => x.path)).toEqual([
+      '/api/v1/gym/itemset', '/api/v1/gym/itemmove', '/api/v1/gym/itemremove', '/api/v1/gym/itemadd', '/api/v1/gym/daynew', '/api/v1/gym/dayedit', '/api/v1/gym/dayactive',
+      '/api/v1/gym/rename', '/api/v1/gym/active', '/api/v1/gym/new', '/api/v1/undo',
+    ]);
+    expect(seen.at(-1)!.body).toEqual({ token: 'T4v0N4V_gRMyUTvZ', view: 'gym_plan' });
+    expect(seen.slice(0, 7).every((x) => (x.body as { view: string }).view === 'gym_plan')).toBe(true);
+    expect(seen.slice(7, 10).every((x) => (x.body as { view: string }).view === 'gym_exercises')).toBe(true);
   });
 });

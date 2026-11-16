@@ -185,9 +185,9 @@ describe('the cards', () => {
     expect(weekLine(CARD)).toBe('Last week 3 · this week 1');
   });
 
-  it('the parts: Workout here, the other five in the full app until deploy 97', () => {
+  it('the parts: six pages of this app, in the mockup’s order', () => {
     expect(PARTS.map((p) => p.label)).toEqual(['Workout', 'Plan', 'Progress', 'History', 'Exercises', 'Activity']);
-    expect(PARTS.filter((p) => p.app).map((p) => p.app)).toEqual(['/web/gym/plan', '/web/gym/progress', '/web/gym/history', '/web/gym/exercises', '/web/gym/activity']);
+    expect(PARTS.map((p) => p.href)).toEqual(['/gym', '/gym/plan', '/gym/progress', '/gym/history', '/gym/exercises', '/gym/activity']);
   });
 });
 

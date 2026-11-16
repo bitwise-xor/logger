@@ -1,0 +1,9 @@
+import { readGym } from '#lib/server/gymread.js';
+import type { HistoryWorkout } from '#lib/gymread.js';
+import type { PageServerLoad } from './$types';
+
+// The Gym's History part (deploy 97) from GET /api/v1/gym/history: the last 60 workouts, newest first.
+export const load: PageServerLoad = async (event) => {
+  const { read, problem } = await readGym<{ workouts: HistoryWorkout[] }>(event, '/gym/history', 'gym_history');
+  return { workouts: read?.workouts ?? null, problem };
+};

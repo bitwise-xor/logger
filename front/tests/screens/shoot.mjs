@@ -35,6 +35,7 @@
 // its question, Track, Retire and Bring back, and the settings line; one column on phones and tablets, two from 1100 px.
 // Deploy 96: the Gym's Workout page, Today's Gym card and the Spaces menu (checkGym says what), and on the Habits page the open
 // calendar not covered by the answer bar after a tick, and the line under the filter worded for this page.
+// Deploy 97: the Gym's other five parts, Plan, Exercises, Progress, Activity and History (checkGymParts says what).
 // Every check throws on a failure, so the script ends with an error.
 // Usage: node tests/screens/shoot.mjs <base url> <out dir> <stand-in url>
 import assert from 'node:assert/strict';
@@ -1515,10 +1516,11 @@ async function checkGym(page, name, theme) {
   assert.equal(await text(page.locator('h1')), 'Gym');
   assert.deepEqual(await page.locator('[data-part]').evaluateAll((els) => els.map((e) => e.getAttribute('data-part'))), ['workout', 'plan', 'progress', 'history', 'exercises', 'activity']);
   assert.equal(await page.locator('[data-part="workout"]').getAttribute('aria-current'), 'page');
-  for (const p of ['plan', 'progress', 'history', 'exercises', 'activity']) {
-    assert.match(await page.locator(`[data-part="${p}"]`).getAttribute('href'), new RegExp(`/web/gym/${p}$`), `${p} opens app.'s tab`);
-    assert.equal(await page.locator(`[data-part="${p}"]`).getAttribute('title'), 'In the full app');
-  }
+  // deploy 97: every part is a page of this app, no "full app" mark
+  assert.deepEqual(await page.locator('[data-part]').evaluateAll((els) => els.map((e) => e.getAttribute('href'))), ['/gym', '/gym/plan', '/gym/progress', '/gym/history', '/gym/exercises', '/gym/activity']);
+  assert.equal(await page.locator('[data-part][title]').count(), 0);
+  assert.equal(await page.locator('[data-parts]').getByText('↗').count(), 0, 'no full-app arrows');
+  assert.equal(await page.locator('[data-split-edit]').getAttribute('href'), '/gym/plan', "Edit by This week's split goes to the Plan part");
   assert.equal(await text(page.locator('[data-title]')), W.title);
   assert.equal(await status(), W.status);
   assert.deepEqual(await page.locator('[data-chip]').allTextContents().then((x) => x.map((t) => t.trim())), W.chips.map((c) => c.label), 'the chips');
@@ -1772,6 +1774,509 @@ async function checkGym(page, name, theme) {
   await standinPost('/standin/reset');
 }
 
+/**
+ * Deploy 97: the Gym's other five parts, each opened from the parts row (the one you are in highlighted, no full-app marks), against
+ * the gym sample.
+ * Plan: how the day is picked with the week's done days, a card per day (two columns from 1100 px), sets and reps saved (and cleared),
+ * the page's refusals next to the form with the typed words kept, up and down, take off with Undo (the only Undo of these parts), "+ Add
+ * exercise", Rename or remove, "Removed days" and Bring back, "+ New workout day" and a duplicate refused; a button blocked while its
+ * save is on the way; no save sent again after a sign-in. Exercises: the list, Rename (and a refusal), Retire and Bring back, "+ New
+ * exercise", open while the list is empty. Progress: the chips, the number and its change, the chart drawn with the sample's points, the
+ * bars of Workouts per week, another chip; Activity: with data (tiles, night, the watch's workout, the charts, the day links) and without
+ * (the guide); History: the cards and a link that jumps to one.
+ */
+async function checkGymParts(page, name, theme) {
+  await standinPost('/standin/reset');
+  const G = GYM;
+  const PL = G.plan.gym_plan;
+  const EX = G.exercises.gym_exercises;
+  const PR = G.progress.gym_progress;
+  const HI = G.history.gym_history.workouts;
+  const AC = G.activity.gym_activity;
+  const pc = name === 'pc';
+  const bar = page.locator('[data-bar]');
+  const headIs = async (want) => {
+    await page.locator('[data-bar-head]', { hasText: want }).waitFor();
+    assert.equal(await text(page.locator('[data-bar-head]')), want, 'the answer bar');
+  };
+  const noUndo = async (why) => assert.equal(await bar.getByRole('button', { name: 'Undo' }).count(), 0, `no Undo: ${why}`);
+  const texts = (loc) => loc.allTextContents().then((x) => x.map((t) => t.replace(/\s+/g, ' ').trim()));
+  const parts = ['workout', 'plan', 'progress', 'history', 'exercises', 'activity'];
+  const open = async (key, path) => {
+    await page.locator(`[data-part="${key}"]`).click();
+    await page.waitForURL(new RegExp(`${path}$`));
+    await page.locator('h1').waitFor();
+    await page.locator(`[data-part="${key}"][aria-current="page"]`).waitFor();
+    for (const other of parts.filter((k) => k !== key)) assert.equal(await page.locator(`[data-part="${other}"]`).getAttribute('aria-current'), null, `${key}: only it is highlighted`);
+    assert.equal(await text(page.locator('h1')), 'Gym');
+    assert.equal(await page.locator('[data-part][title]').count(), 0, 'no full-app marks');
+    assert.equal(await page.locator('[data-part="workout"]').getAttribute('href'), '/gym');
+  };
+  const items = (day) => texts(page.locator(`[data-day="${day}"] [data-pi-name] span:first-child`));
+  const labels = () => texts(page.locator('[data-day-label]'));
+
+  // ---- Plan, from the Workout page's parts row and from "This week's split" Edit
+  await page.goto(`${base}/gym`);
+  await page.locator('[data-card="workout"]').waitFor();
+  await page.locator('[data-split-edit]').click();
+  await page.waitForURL(/\/gym\/plan$/);
+  await page.locator('[data-card="how"]').waitFor();
+  await page.locator('[data-part="plan"][aria-current="page"]').waitFor();
+  await page.goto(`${base}/gym`);
+  await open('plan', '/gym/plan');
+  await page.locator('[data-card="how"]').waitFor();
+  await page.evaluate(() => (window.__noReload = true));
+  assert.equal(await text(page.locator('[data-how]')), PL.how);
+  assert.equal(await text(page.locator('[data-week]')), PL.week);
+  assert.equal(await page.locator('[data-done]').count(), 0, 'no day done this week in the sample');
+  assert.deepEqual(await labels(), PL.days.map((d) => d.label));
+  assert.deepEqual(await texts(page.locator('[data-day-tag]')), ['Today', '3 exercises', '3 exercises']);
+  for (const d of PL.days) {
+    assert.deepEqual(await items(d.day_id), d.items.map((i) => i.name), `${d.label}: its exercises in order`);
+    assert.deepEqual(await texts(page.locator(`[data-day="${d.day_id}"] [data-pi-text]`)), d.items.map((i) => i.text), `${d.label}: kind and plan numbers`);
+  }
+  assert.deepEqual(await texts(page.locator('[data-removed]')), ['Arms Bring back']);
+  const [d1, d2, d3] = await Promise.all([1, 2, 3].map((i) => page.locator(`[data-day="${i}"]`).boundingBox()));
+  if (pc) assert.ok(Math.abs(d1.y - d2.y) < 2 && d2.x > d1.x + d1.width - 1 && d3.y > d1.y + d1.height - 1, 'pc: the day cards in two columns');
+  else assert.ok(d2.y > d1.y + d1.height - 1 && Math.abs(d2.x - d1.x) < 2, `${name}: one column`);
+  await page.screenshot({ path: `${out}/gym-plan-${name}-${theme}.png`, fullPage: true });
+  await checkWidth(page, 'gym plan');
+
+  // sets and reps: the form opens with the plan's numbers, saved in place, no Undo
+  await page.locator('[data-pi-name="1"]').click();
+  const form = page.locator('[data-pi-editor="1"]');
+  assert.equal(await form.locator('[data-field="sets"]').inputValue(), '3');
+  assert.equal(await form.locator('[data-field="reps"]').inputValue(), '8');
+  await form.locator('[data-field="sets"]').fill('4');
+  await form.locator('[data-field="reps"]').fill('6');
+  if (name === 'phone') await page.locator('[data-pi="1"]').screenshot({ path: `${out}/gym-plan-numbers-${name}-${theme}.png` });
+  await checkWidth(page, 'gym plan, numbers open');
+  await form.locator('[data-save]').click();
+  await headIs('Bench press: plan 4 × 6.');
+  assert.equal(await text(page.locator('[data-pi="1"] [data-pi-text]')), 'Weights · plan 4 × 6');
+  assert.equal(await page.locator('[data-pi-editor="1"]').count(), 0, 'the form closes');
+  assert.match(await page.locator('[data-pi="1"]').getAttribute('class'), /border-blue/, 'the blue edge');
+  await noUndo('sets and reps');
+
+  // the page's refusals next to the form, which keeps what was typed; then both cleared: no plan numbers
+  await page.locator('[data-pi-name="2"]').click();
+  const f2 = page.locator('[data-pi-editor="2"]');
+  await f2.locator('[data-field="sets"]').fill('');
+  await f2.locator('[data-save]').click();
+  assert.equal(await text(f2.locator('[data-err]')), 'Give both sets and reps, or neither.');
+  assert.equal(await f2.locator('[data-field="reps"]').inputValue(), '10', 'the words stay');
+  assert.equal(await bar.getByText('Give both').count(), 0, 'a refusal is not in the answer bar');
+  await f2.locator('[data-field="sets"]').fill('99');
+  await f2.locator('[data-save]').click();
+  assert.equal(await text(f2.locator('[data-err]')), PL.limits ? 'Numbers only: sets 1 to 50, reps 1 to 500.' : '');
+  assert.equal(await f2.locator('[data-field="sets"]').inputValue(), '99');
+  await f2.locator('[data-field="sets"]').fill('');
+  await f2.locator('[data-field="reps"]').fill('');
+  await f2.locator('[data-save]').click();
+  await headIs('Shoulder press: plan without numbers.');
+  assert.equal(await text(page.locator('[data-pi="2"] [data-pi-text]')), 'Weights');
+
+  // cardio has no numbers: its note
+  await page.locator('[data-pi-name="4"]').click();
+  assert.equal(await text(page.locator('[data-pi-editor="4"] [data-cardio]')), 'Cardio: you set the minutes when you log it.');
+  assert.equal(await page.locator('[data-pi-editor="4"] [data-field]').count(), 0);
+  await page.locator('[data-pi-name="4"]').click();
+
+  // up and down: the first has no Up, the last no Down; no Undo
+  assert.equal(await page.locator('[data-up="1"]').isDisabled(), true);
+  assert.equal(await page.locator('[data-down="4"]').isDisabled(), true);
+  assert.equal(await page.locator('[data-down="1"]').getAttribute('aria-label'), 'Move down: Bench press');
+  await page.locator('[data-down="2"]').click();
+  await headIs('Moved Shoulder press down.');
+  assert.deepEqual(await items(1), ['Bench press', 'Push-up', 'Shoulder press', 'Exercise bike']);
+  assert.match(await page.locator('[data-pi="2"]').getAttribute('class'), /border-blue/);
+  await noUndo('a move');
+  await page.locator('[data-up="2"]').click();
+  await page.locator('[data-bar-head]', { hasText: 'Moved Shoulder press up.' }).waitFor();
+  assert.deepEqual(await items(1), PL.days[0].items.map((i) => i.name));
+
+  // take off: Undo is in the bar, and it puts the exercise back where it was (same id)
+  await page.locator('[data-remove="3"]').click();
+  await headIs('Took Push-up off Push.');
+  assert.equal(await page.locator('[data-pi="3"]').count(), 0);
+  assert.deepEqual(await items(1), ['Bench press', 'Shoulder press', 'Exercise bike']);
+  assert.equal(await text(page.locator('[data-day="1"] [data-day-tag]')), 'Today');
+  if (name === 'phone') await page.screenshot({ path: `${out}/gym-plan-undo-${name}-${theme}.png` });
+  await bar.getByRole('button', { name: 'Undo' }).click();
+  await headIs('Undone: Push-up is back on Push.');
+  assert.deepEqual(await items(1), ['Bench press', 'Shoulder press', 'Push-up', 'Exercise bike']);
+  assert.equal(await text(page.locator('[data-pi="3"] [data-pi-text]')), 'Bodyweight');
+
+  // + Add exercise: a choice of the exercises the read allows, optional numbers; a refusal keeps the words
+  await page.locator('[data-add="1"]').click();
+  const add = page.locator('[data-add-form="1"]');
+  assert.deepEqual(await texts(add.locator('option')), PL.days[0].can_add.map((x) => x.name));
+  await add.locator('[data-add-go]').click(); // the first exercise, no numbers
+  await headIs('Added Seated row to Push.');
+  assert.deepEqual(await items(1), ['Bench press', 'Shoulder press', 'Push-up', 'Exercise bike', 'Seated row']);
+  assert.equal(await text(page.locator('[data-day="1"] [data-pi]:last-child [data-pi-text]')), 'Weights');
+  assert.equal(await page.locator('[data-add-form="1"]').count(), 0, 'the form closes');
+  assert.match(await page.locator('[data-day="1"] [data-pi]:last-child').getAttribute('class'), /border-blue/);
+  await page.locator('[data-add="1"]').click();
+  await add.locator('[data-add-exercise]').selectOption({ label: 'Leg press' });
+  await add.locator('[data-add-sets]').fill('3');
+  await add.locator('[data-add-go]').click();
+  assert.equal(await text(add.locator('[data-err]')), 'Give both sets and reps, or neither.');
+  assert.equal(await add.locator('[data-add-sets]').inputValue(), '3', 'the words stay');
+  await add.locator('[data-add-reps]').fill('12');
+  await add.locator('[data-add-go]').click();
+  await headIs('Added Leg press to Push.');
+  assert.equal(await text(page.locator('[data-day="1"] [data-pi]:last-child [data-pi-text]')), 'Weights · plan 3 × 12');
+  await noUndo('an added exercise');
+  await checkWidth(page, 'gym plan, exercises added');
+
+  // Rename or remove: the name, kept after a refusal; the label follows
+  await page.locator('[data-edit="1"]').click();
+  const edit = page.locator('[data-edit-panel="1"]');
+  assert.equal(await edit.locator('[data-edit-name]').inputValue(), 'Push');
+  await edit.locator('[data-edit-name]').fill('   ');
+  await edit.locator('[data-rename]').click();
+  assert.equal(await text(edit.locator('[data-err]')), "Type the day's name.");
+  await edit.locator('[data-edit-name]').fill('Chest');
+  if (name === 'phone') await edit.screenshot({ path: `${out}/gym-plan-rename-${name}-${theme}.png` });
+  await edit.locator('[data-rename]').click();
+  await headIs('Renamed to Chest.');
+  assert.deepEqual(await labels(), ['Day 1 · Chest', 'Day 2 · Pull', 'Day 3 · Legs']);
+  assert.match(await page.locator('[data-day="1"]').getAttribute('class'), /border-blue/);
+  await noUndo('a rename');
+
+  // remove a day: it moves to Removed days; Bring back puts it at the end; the days are numbered again
+  await page.locator('[data-edit="3"]').click();
+  await page.locator('[data-remove-day="3"]').click();
+  await page.locator('[data-bar-head]', { hasText: 'Removed Legs from your split.' }).waitFor();
+  assert.equal(await page.locator('[data-day="3"]').count(), 0);
+  assert.deepEqual(await texts(page.locator('[data-removed]')), ['Legs Bring back', 'Arms Bring back']);
+  await noUndo('a removed day');
+  await page.locator('[data-bring="4"]').click();
+  await headIs('Arms is back in your split.');
+  assert.deepEqual(await labels(), ['Day 1 · Chest', 'Day 2 · Pull', 'Day 3 · Arms']);
+  assert.deepEqual(await texts(page.locator('[data-removed]')), ['Legs Bring back']);
+  assert.equal(await text(page.locator('[data-day="4"] [data-empty]')), 'No exercises yet.');
+
+  // + New workout day: a new day at the end; the same name again is refused next to the form, which keeps the words
+  await page.locator('[data-newday]').click();
+  await page.locator('[data-newday-name]').fill('Core');
+  await page.locator('[data-newday-go]').click();
+  await headIs('Added Day 4 · Core. Add its exercises below.');
+  assert.deepEqual(await labels(), ['Day 1 · Chest', 'Day 2 · Pull', 'Day 3 · Arms', 'Day 4 · Core']);
+  assert.equal(await text(page.locator('[data-day="101"] [data-day-tag]')), '0 exercises');
+  assert.match(await page.locator('[data-day="101"]').getAttribute('class'), /border-blue/);
+  assert.equal(await page.locator('[data-newday-form]').count(), 0, 'the form closes');
+  await page.locator('[data-newday]').click();
+  await page.locator('[data-newday-name]').fill('core');
+  await page.locator('[data-newday-go]').click();
+  assert.equal(await text(page.locator('[data-newday-form] [data-err]')), 'core is already a day of your split.');
+  assert.equal(await page.locator('[data-newday-name]').inputValue(), 'core', 'the words stay');
+  assert.equal(await bar.getByText('already a day').count(), 0, 'not in the answer bar');
+  if (name === 'phone') await page.screenshot({ path: `${out}/gym-plan-refused-${name}-${theme}.png`, fullPage: true });
+  await checkWidth(page, 'gym plan, a refused day');
+  await page.getByRole('button', { name: 'Cancel' }).click();
+
+  // the Workout page follows the plan (its chips are the days)
+  await page.goto(`${base}/gym`);
+  await page.locator('[data-card="workout"]').waitFor();
+  assert.deepEqual(await texts(page.locator('[data-chip]')), ['Day 1 · Chest', 'Day 2 · Pull', 'Day 3 · Arms', 'Day 4 · Core', 'Free workout']);
+
+  // a button is blocked while its save is on the way: a double tap moves once
+  await standinPost('/standin/reset');
+  await page.goto(`${base}/gym/plan`);
+  await page.locator('[data-card="how"]').waitFor();
+  await standinPost('/standin/slow');
+  await page.locator('[data-down="1"]').dblclick();
+  await page.locator('[data-bar-head]', { hasText: 'Moved Bench press down.' }).waitFor();
+  await page.waitForTimeout(1000);
+  assert.deepEqual(await items(1), ['Shoulder press', 'Bench press', 'Push-up', 'Exercise bike'], 'two taps moved once');
+  await standinPost('/standin/reset');
+
+  // never sent again: a move that met a gone session is not made after the sign-in
+  await page.goto(`${base}/gym/plan`);
+  await page.locator('[data-card="how"]').waitFor();
+  await standinPost('/standin/drop-sessions');
+  await page.locator('[data-down="1"]').click();
+  await page.getByRole('button', { name: 'Sign in' }).waitFor();
+  await page.fill('#password', 'test');
+  await page.fill('#code', '123 456');
+  await page.click('button[type=submit]');
+  await page.waitForURL(/\/gym\/plan$/);
+  await page.locator('[data-card="how"]').waitFor();
+  await page.waitForTimeout(500);
+  assert.deepEqual(await items(1), PL.days[0].items.map((i) => i.name), 'not sent again after the sign-in');
+  await standinPost('/standin/reset');
+
+  // this week's done days
+  await standinPost('/standin/week-done');
+  await page.reload();
+  await page.locator('[data-card="how"]').waitFor();
+  assert.deepEqual(await texts(page.locator('[data-done-day]')), ['Day 1 · Push · done Mon 16.11.']);
+  assert.equal(await text(page.locator('[data-week]')), 'This week: Day 1 · Push on Mon done. Today: Day 1 · Push.');
+  await standinPost('/standin/reset');
+
+  // ---- Exercises
+  await page.goto(`${base}/gym`);
+  await open('exercises', '/gym/exercises');
+  await page.locator('[data-card="exercises"]').waitFor();
+  assert.equal(await text(page.locator('[data-count]')), '8 active');
+  assert.deepEqual(await texts(page.locator('[data-ex-name]')), EX.exercises.map((x) => x.name));
+  assert.deepEqual(await texts(page.locator('[data-ex-meta]')), EX.exercises.map((x) => x.meta), 'kind, also: words, use');
+  assert.equal(await page.locator('[data-ex="9"]').getAttribute('data-active'), 'false');
+  assert.equal(await text(page.locator('[data-active-btn="9"]')), 'Bring back');
+  assert.equal(await text(page.locator('[data-active-btn="1"]')), 'Retire');
+  assert.match(await text(page.locator('[data-ex="7"] [data-ex-meta]')), /not done yet$/);
+  if (pc) {
+    const [a, b] = await Promise.all([1, 2].map((i) => page.locator(`[data-ex="${i}"]`).boundingBox()));
+    assert.ok(Math.abs(a.y - b.y) < 2 && b.x > a.x + a.width - 1, 'pc: two columns');
+  }
+  await page.screenshot({ path: `${out}/gym-exercises-${name}-${theme}.png`, fullPage: true });
+  await checkWidth(page, 'gym exercises');
+
+  // Rename: refusals next to the form (the name stays), then the new name; the old one becomes one of its words
+  await page.locator('[data-rename="1"]').click();
+  const rn = page.locator('[data-rename-form="1"]');
+  assert.equal(await rn.locator('[data-rename-name]').inputValue(), 'Bench press');
+  await rn.locator('[data-rename-go]').click();
+  assert.equal(await text(rn.locator('[data-err]')), 'It is called Bench press already.');
+  await rn.locator('[data-rename-name]').fill('Seated row');
+  await rn.locator('[data-rename-go]').click();
+  assert.equal(await text(rn.locator('[data-err]')), 'Seated row is already in your list.');
+  await rn.locator('[data-rename-name]').fill('biceps curl');
+  await rn.locator('[data-rename-go]').click();
+  assert.equal(await text(rn.locator('[data-err]')), 'A retired exercise is called Biceps curl.');
+  assert.equal(await rn.locator('[data-rename-name]').inputValue(), 'biceps curl', 'the words stay');
+  assert.equal(await bar.count(), 0, 'a refusal is not in the answer bar');
+  await rn.locator('[data-rename-name]').fill('Flat bench press');
+  if (name === 'phone') await page.locator('[data-ex="1"]').screenshot({ path: `${out}/gym-exercises-rename-${name}-${theme}.png` });
+  await checkWidth(page, 'gym exercises, rename open');
+  await rn.locator('[data-rename-go]').click();
+  await headIs('Renamed Bench press to Flat bench press. Its history moved with it.');
+  assert.equal(await text(page.locator('[data-ex="1"] [data-ex-name]')), 'Flat bench press');
+  assert.equal(await text(page.locator('[data-ex="1"] [data-ex-meta]')), 'Weights · also: flat bench, Bench press · 8 workouts, last 16.11.');
+  assert.match(await page.locator('[data-ex="1"]').getAttribute('class'), /border-blue/);
+  await noUndo('a rename');
+
+  // Retire and Bring back: the row greys, the count follows
+  await page.locator('[data-active-btn="2"]').click();
+  await headIs('Retired Shoulder press. Its history stays.');
+  assert.equal(await page.locator('[data-ex="2"]').getAttribute('data-active'), 'false');
+  assert.equal(await text(page.locator('[data-active-btn="2"]')), 'Bring back');
+  assert.equal(await text(page.locator('[data-count]')), '7 active');
+  await noUndo('Retire');
+  await page.locator('[data-active-btn="2"]').click();
+  await headIs('Shoulder press is back in your list.');
+  assert.equal(await text(page.locator('[data-count]')), '8 active');
+  await page.locator('[data-active-btn="9"]').click();
+  await headIs('Biceps curl is back in your list.');
+  assert.equal(await text(page.locator('[data-count]')), '9 active');
+
+  // + New exercise: not put on a day; a refusal keeps the words; the other words are listed under the name
+  await page.locator('[data-new]').click();
+  const nw = page.locator('[data-new-form]');
+  await nw.locator('[data-new-name]').fill('Seated row');
+  await nw.locator('[data-new-go]').click();
+  assert.equal(await text(nw.locator('[data-err]')), 'Seated row is already in your list.');
+  assert.equal(await nw.locator('[data-new-name]').inputValue(), 'Seated row', 'the words stay');
+  await nw.locator('[data-new-name]').fill('Rowing machine');
+  await nw.getByText('Machine cardio').click();
+  await nw.locator('[data-new-words]').fill('rower, erg');
+  if (name === 'phone') await nw.screenshot({ path: `${out}/gym-exercises-new-${name}-${theme}.png` });
+  await checkWidth(page, 'gym exercises, new form open');
+  await nw.locator('[data-new-go]').click();
+  await headIs('Added Rowing machine (machine cardio).');
+  assert.equal(await page.locator('[data-new-form]').count(), 0, 'the form closes');
+  assert.equal(await text(page.locator('[data-ex="10"] [data-ex-meta]')), 'Machine cardio · also: rower, erg · not done yet');
+  assert.match(await page.locator('[data-ex="10"]').getAttribute('class'), /border-blue/);
+  assert.equal(await text(page.locator('[data-count]')), '10 active');
+  await noUndo('a new exercise');
+  await page.goto(`${base}/gym/plan`);
+  await page.locator('[data-card="how"]').waitFor();
+  await page.locator('[data-add="1"]').click();
+  assert.ok((await texts(page.locator('[data-add-form="1"] option'))).includes('Rowing machine'), 'the plan can use the new exercise');
+  assert.ok(!(await items(1)).includes('Rowing machine'), 'it is not on any day');
+  await standinPost('/standin/reset');
+
+  // the list is empty: "+ New exercise" starts open
+  await standinPost('/standin/gym-empty');
+  await page.goto(`${base}/gym/exercises`);
+  await page.locator('[data-card="exercises"]').waitFor();
+  assert.equal(await text(page.locator('[data-empty]')), 'No exercises yet.');
+  assert.equal(await page.locator('[data-new-form]').count(), 1, '+ New exercise is open');
+  assert.equal(await text(page.locator('[data-count]')), '0 active');
+  await checkWidth(page, 'gym exercises, empty');
+  await page.locator('[data-new-name]').fill('Bench press');
+  await page.locator('[data-new-go]').click();
+  await headIs('Added Bench press (weights).');
+  assert.equal(await page.locator('[data-ex]').count(), 1);
+  await standinPost('/standin/reset');
+
+  // ---- Progress
+  await page.goto(`${base}/gym`);
+  await open('progress', '/gym/progress');
+  await page.locator('[data-card="progress"]').waitFor();
+  assert.deepEqual(await texts(page.locator('[data-chip]')), PR.exercises.map((c) => c.name), 'the chips in the read’s order');
+  assert.equal(await page.locator('[data-chip="1"]').getAttribute('aria-current'), 'page');
+  assert.equal(await text(page.locator('[data-title]')), 'Bench press: top weight');
+  assert.equal(await text(page.locator('[data-top]')), PR.top_text);
+  assert.equal(await text(page.locator('[data-change]')), PR.change);
+  assert.deepEqual(await texts(page.locator('[data-sub] li')), ['Top set 70 kg × 6', 'Estimated 1-rep max ≈ 84 kg']);
+  assert.equal(await text(page.locator('[data-sub-part="orm"]')), `Estimated 1-rep max ≈ ${PR.one_rep_max} kg`);
+  const pts = PR.chart.series[0].pts;
+  assert.equal(await page.locator('[data-chart="gym"] [data-mark="dot"]').count(), pts.length, 'the chart: a dot per session');
+  assert.equal(await page.locator('[data-chart="gym"] [data-mark="line"]').count(), 1);
+  assert.equal(await page.locator('[data-chart="gym"] [data-mark="dot"]').last().locator('title').textContent(), pts.at(-1)[2], 'the last point’s text');
+  const rows = await texts(page.locator('[data-recent] tr'));
+  assert.deepEqual(rows, PR.recent.map((r) => `${new Date(`${r.day}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', timeZone: 'UTC' })} ${r.day.slice(8, 10)}.${r.day.slice(5, 7)}.${r.text}`), 'the last 6 sessions');
+  const per = PR.per_week.weeks;
+  assert.deepEqual(await page.locator('[data-bar]').evaluateAll((els) => els.map((e) => Number(e.getAttribute('data-bar')))), per.map((w) => w.n), 'the bars');
+  assert.deepEqual(await page.locator('[data-bar]').evaluateAll((els) => els.map((e) => Number(e.getAttribute('height')))), per.map((w) => Math.round((w.n / PR.per_week.top) * 56 * 10) / 10), 'bar heights');
+  assert.equal(await page.locator('[data-bar][data-now]').count(), 1);
+  assert.equal(await page.locator('[data-bars] text').count(), per.length * 2, 'a count and a Monday per bar');
+  assert.equal(await text(page.locator('[data-good]')), `${PR.per_week.good} of 8 weeks with 2+`);
+  assert.match(await page.locator('[data-bars]').getAttribute('aria-label'), /^Workouts per week: week of 28\.09\.: 3, /);
+  const [cc, wc, rc] = await Promise.all(['progress', 'per-week', 'recent'].map((c) => page.locator(`[data-card="${c}"]`).boundingBox()));
+  if (pc) assert.ok(wc.x > cc.x + cc.width - 1 && Math.abs(wc.y - cc.y) < 2 && rc.y > wc.y + wc.height - 1, 'pc: the chart left, the bars and the sessions right');
+  else assert.ok(wc.y > cc.y + cc.height - 1 && rc.y > wc.y + wc.height - 1 && Math.abs(wc.x - cc.x) < 2, `${name}: one column`);
+  const svg = await page.locator('[data-chart="gym"] svg').boundingBox();
+  assert.ok(svg.x >= 0 && svg.x + svg.width <= page.viewportSize().width + 1, 'the chart fits');
+  await page.screenshot({ path: `${out}/gym-progress-${name}-${theme}.png`, fullPage: true });
+  await checkWidth(page, 'gym progress');
+  // a tap on a point shows its text
+  await page.locator('[data-chart="gym"] [data-mark="dot"]').nth(2).click({ force: true });
+  assert.equal(await text(page.locator('[data-chart="gym"] [data-tip]')), pts[2][2], 'a tap shows the point’s text');
+
+  // another chip: the bike's longest session, no 1-rep max
+  await page.locator('[data-chip="8"]').click();
+  await page.waitForURL(/\/gym\/progress\?x=8$/);
+  await page.locator('[data-chip="8"][aria-current="page"]').waitFor();
+  assert.equal(await page.locator('[data-chip="1"]').getAttribute('aria-current'), null);
+  assert.equal(await text(page.locator('[data-title]')), 'Exercise bike: longest session');
+  assert.match(await text(page.locator('[data-top]')), /^\d+ min$/);
+  assert.equal(await page.locator('[data-sub-part="orm"]').count(), 0, 'no 1-rep max for cardio');
+  assert.equal(await page.locator('[data-chart="gym"] [data-mark="dot"]').count(), 6);
+  assert.equal(await page.locator('[data-recent] tr').count(), 6);
+  assert.equal(await text(page.locator('[data-good]')), `${PR.per_week.good} of 8 weeks with 2+`, 'the weeks do not depend on the exercise');
+  if (name === 'phone') await page.screenshot({ path: `${out}/gym-progress-bike-${name}-${theme}.png`, fullPage: true });
+  await checkWidth(page, 'gym progress, another exercise');
+  // a question that is not an id is left out: the most recent exercise
+  await page.goto(`${base}/gym/progress?x=abc`);
+  await page.locator('[data-chip="1"][aria-current="page"]').waitFor();
+
+  // nothing logged yet
+  await standinPost('/standin/gym-empty');
+  await page.goto(`${base}/gym/progress`);
+  await page.locator('[data-card="empty"]').waitFor();
+  assert.match(await text(page.locator('[data-empty]')), /^Nothing to show yet: tick exercises on the Workout part/);
+  assert.equal(await page.locator('[data-bar]').count(), 8);
+  await checkWidth(page, 'gym progress, empty');
+  await standinPost('/standin/reset');
+
+  // ---- Activity
+  await page.goto(`${base}/gym`);
+  await open('activity', '/gym/activity');
+  await page.locator('[data-tiles]').waitFor();
+  assert.equal(await text(page.locator('[data-day-title]')), 'Today 16.11.2026');
+  assert.equal(await page.locator('[data-prev]').getAttribute('href'), '/gym/activity?day=2026-11-15');
+  assert.equal(await page.locator('[data-next]').count(), 0, 'no day after today');
+  assert.equal(await page.locator('[data-next-off]').count(), 1);
+  assert.deepEqual(await texts(page.locator('[data-tile]')), AC.tiles.map((t) => `${t.label} ${t.text} ${t.sub ?? ''}`.replace(/\s+/g, ' ').trim()), 'the tiles');
+  assert.equal(await text(page.locator('[data-sleep]')), AC.sleep.text);
+  assert.equal(await text(page.locator('[data-in-bed]')), AC.sleep.in_bed);
+  assert.equal(await text(page.locator('[data-stages]')), AC.sleep.stages_text);
+  assert.equal(await text(page.locator('[data-typed]')), AC.sleep.typed_text);
+  assert.equal(await page.locator('[data-watch]').count(), 1);
+  assert.match(await text(page.locator('[data-watch]')), /^Traditional Strength Training 65 min · 310 kcal · avg 118 bpm Matches Day 1 · Push in the Logger 18:15–19:20$/);
+  assert.equal(await text(page.locator('[data-match]')), 'Matches Day 1 · Push in the Logger');
+  assert.deepEqual(await page.locator('[data-chart-card]').evaluateAll((els) => els.map((e) => e.getAttribute('data-chart-card'))), ['steps', 'sleep', 'rhr']);
+  assert.deepEqual(await texts(page.locator('[data-chart-card] h2')), ['Steps', 'Sleep', 'Resting heart rate']);
+  assert.equal(await page.locator('[data-chart="steps"] [data-mark="bar"]').count(), 7);
+  assert.equal(await page.locator('[data-chart="sleep"] [data-mark="bar"]').count(), 7);
+  assert.equal(await page.locator('[data-chart="rhr"] [data-mark="dot"]').count(), 7);
+  assert.equal(await page.locator('[data-chart="rhr"] [data-mark="line"]').count(), 1);
+  const [tl, ch] = await Promise.all([page.locator('[data-tiles]').boundingBox(), page.locator('[data-chart-card="steps"]').boundingBox()]);
+  if (pc) assert.ok(ch.x > tl.x + tl.width - 1 && Math.abs(ch.y - tl.y) < 2, 'pc: the charts on the right');
+  else assert.ok(ch.y > tl.y + tl.height - 1 && Math.abs(ch.x - tl.x) < 2, `${name}: one column`);
+  const tiles4 = await page.locator('[data-tile]').evaluateAll((els) => new Set(els.map((e) => Math.round(e.getBoundingClientRect().y))).size);
+  assert.equal(tiles4, name === 'phone' ? 4 : 2, `${name}: ${name === 'phone' ? 'two' : 'four'} tiles a row`);
+  await page.screenshot({ path: `${out}/gym-activity-${name}-${theme}.png`, fullPage: true });
+  await checkWidth(page, 'gym activity');
+  // the day before, and back
+  await page.locator('[data-prev]').click();
+  await page.waitForURL(/\/gym\/activity\?day=2026-11-15$/);
+  await page.locator('[data-day-title]', { hasText: 'Yesterday' }).waitFor();
+  assert.equal(await text(page.locator('[data-day-title]')), 'Yesterday 15.11.2026');
+  assert.equal(await page.locator('[data-watch]').count(), 0);
+  assert.equal(await text(page.locator('[data-no-watch]')), 'None on this day.');
+  assert.equal(await page.locator('[data-next]').getAttribute('href'), '/gym/activity', "today's own link has no day");
+  assert.equal(await page.locator('[data-prev]').getAttribute('href'), '/gym/activity?day=2026-11-14');
+  await page.locator('[data-prev]').click();
+  await page.locator('[data-day-title]', { hasText: 'Sat 14.11.' }).waitFor();
+  assert.equal(await text(page.locator('[data-day-title]')), 'Sat 14.11. 14.11.2026');
+  await page.locator('[data-next]').click();
+  await page.locator('[data-day-title]', { hasText: 'Yesterday' }).waitFor();
+  await page.locator('[data-next]').click();
+  await page.locator('[data-day-title]', { hasText: 'Today' }).waitFor();
+  await page.goto(`${base}/gym/activity?day=nonsense`);
+  await page.locator('[data-day-title]', { hasText: 'Today' }).waitFor();
+
+  // the watch has sent nothing: the guide's words from the read; Activity stays in the parts row
+  await standinPost('/standin/watch-none');
+  await page.goto(`${base}/gym/progress`);
+  await open('activity', '/gym/activity');
+  const NONE = G.activity_none.gym_activity.setup;
+  await page.locator('[data-card="setup"]').waitFor();
+  assert.equal(await text(page.locator('[data-setup-title]')), NONE.title);
+  assert.equal(await text(page.locator('[data-setup-intro]')), NONE.intro);
+  assert.deepEqual(await texts(page.locator('[data-setup-steps] li')), NONE.steps.map((st) => st.map((x) => x.text).join('').replace(/\s+/g, ' ').trim()));
+  assert.deepEqual(await texts(page.locator('[data-setup-steps] code')), NONE.steps.flat().filter((x) => x.code).map((x) => x.text), 'the code parts');
+  assert.equal(await text(page.locator('[data-setup-note]')), NONE.note);
+  assert.equal(await page.locator('[data-tiles]').count(), 0);
+  assert.equal(await page.locator('[data-part="activity"][aria-current="page"]').count(), 1, 'Activity stays in the parts row');
+  assert.equal(await page.locator('[data-part]').count(), 6);
+  await page.screenshot({ path: `${out}/gym-activity-guide-${name}-${theme}.png`, fullPage: true });
+  await checkWidth(page, 'gym activity, the guide');
+  await standinPost('/standin/reset');
+
+  // ---- History
+  await page.goto(`${base}/gym`);
+  await open('history', '/gym/history');
+  await page.locator('[data-history]').waitFor();
+  assert.deepEqual(await page.locator('[data-workout]').evaluateAll((els) => els.map((e) => e.id)), HI.map((w) => w.anchor), 'newest first, each with its anchor');
+  const dm = (iso) => `${new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', timeZone: 'UTC' })} ${iso.slice(8, 10)}.${iso.slice(5, 7)}.${iso.slice(0, 4)}`;
+  assert.deepEqual(await texts(page.locator('[data-date]')), HI.map((w) => dm(w.day)));
+  assert.deepEqual(await texts(page.locator('[data-sub]')), HI.map((w) => `${w.split} · ${w.when}`));
+  for (const w of [HI[0], HI[1], HI.at(-1)]) {
+    const card = page.locator(`#${w.anchor}`);
+    assert.deepEqual(await texts(card.locator('[data-line]')), w.exercises.map((x) => `${x.name} ${x.text}`), `${w.anchor}: its exercises with their sets`);
+  }
+  assert.equal(await text(page.locator('#w21 [data-sub]')), 'Push · 18:21–19:21');
+  assert.equal(await text(page.locator('#w20 [data-sub]')), 'Arms · 20:01');
+  const [h1, h2] = await Promise.all([page.locator('#w21').boundingBox(), page.locator('#w19').boundingBox()]);
+  if (pc) assert.ok(Math.abs(h1.y - h2.y) < 2 && h2.x > h1.x + h1.width - 1, 'pc: two columns');
+  else assert.ok(h2.y > h1.y + h1.height - 1 && Math.abs(h2.x - h1.x) < 2, `${name}: one column`);
+  await page.screenshot({ path: `${out}/gym-history-${name}-${theme}.png`, fullPage: true });
+  await checkWidth(page, 'gym history');
+  // a link with an anchor jumps to the card, which is marked
+  await page.goto(`${base}/gym/history#w13`);
+  await page.locator('#w13').waitFor();
+  await page.waitForTimeout(300);
+  const at = await page.locator('#w13').boundingBox();
+  assert.ok((await page.evaluate(() => window.scrollY)) > 100, 'the page scrolled to the card');
+  assert.ok(at.y >= -1 && at.y < page.viewportSize().height / 2, `the card is in view (top at ${Math.round(at.y)} px)`);
+  const edge = (id) => page.locator(id).evaluate((e) => getComputedStyle(e).borderTopColor);
+  assert.notEqual(await edge('#w13'), await edge('#w12'), 'the card jumped to is marked');
+  if (name === 'phone') await page.screenshot({ path: `${out}/gym-history-anchor-${name}-${theme}.png` });
+  await checkWidth(page, 'gym history, an anchor');
+  await standinPost('/standin/gym-empty');
+  await page.goto(`${base}/gym/history`);
+  await page.locator('[data-empty]').waitFor();
+  assert.equal(await text(page.locator('[data-empty]')), 'No workouts yet.');
+  await standinPost('/standin/reset');
+  await page.goto(`${base}/`);
+}
+
 async function checkWidth(page, what) {
   const sideways = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   assert.ok(sideways <= 0, `${what}: no sideways scroll (${sideways} px too wide)`);
@@ -1867,6 +2372,10 @@ for (const theme of ['dark', 'light']) {
     if (only('gym')) {
       await checkGym(page, name, theme);
       console.log(`gym workout, today's gym card, spaces menu ${name} ${theme}: checks passed`);
+    }
+    if (only('gymparts')) {
+      await checkGymParts(page, name, theme);
+      console.log(`gym plan, exercises, progress, activity, history ${name} ${theme}: checks passed`);
     }
     if (only('problems')) {
       await checkProblems(page, name, theme);
