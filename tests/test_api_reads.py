@@ -176,9 +176,9 @@ def test_a_yes_no_question_has_answers_and_a_read_back(api):
     qs = {q["id"]: q for q in today_json(api)["needs"]["questions"]}
     for qid, text in (("pq1", "Log it again?"), ("pq2", "Save this?")):
         q = qs[qid]
-        assert q["text"] == text and [(a["reply"], a["label"]) for a in q["answers"]] == [("yes", "Yes"), ("no", "No")]
+        assert q["text"] == text and [(a["reply"], a["label"], a["style"]) for a in q["answers"]] == [("yes", "Yes", "primary"), ("no", "No", "plain")]
         assert OFFSET.search(q["asked_at"]) and OFFSET.search(q["open_until"])
-    assert qs["pq1"]["read_back"] == "Same message as before." and qs["pq1"]["refill"] == "Test weight 82.4" and qs["pq1"]["message"] == "Test weight 82.4"
+    assert qs["pq1"]["read_back"] == "Same message as before." and qs["pq1"]["refill"] == {"label": "Correct it", "text": "Test weight 82.4"} and qs["pq1"]["message"] == "Test weight 82.4"
     assert qs["pq2"]["read_back"] == "Weight 82.4 kg, today." and qs["pq2"]["refill"] is None
     assert set(qs["pq1"]) == {"id", "tool", "kind", "asked_at", "open_until", "message", "text", "read_back", "answers", "free", "lookup", "refill"}
 
@@ -187,7 +187,7 @@ def test_a_question_with_a_free_answer_has_a_field_and_skip(api):
     pending("pq3", "command", "Which entry did you mean?")
     [q] = today_json(api)["needs"]["questions"]
     assert q["read_back"] is None and q["free"] == {"placeholder": "Your answer", "type": "text", "unit": None}
-    assert q["answers"] == [{"reply": "skip", "label": "Skip"}] and q["text"] == "Which entry did you mean?"
+    assert q["answers"] == [{"reply": "skip", "label": "Skip", "style": "quiet"}] and q["text"] == "Which entry did you mean?"
 
 
 def test_a_question_about_private_entries_never_says_what_it_is_about(api):

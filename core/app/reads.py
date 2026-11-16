@@ -24,6 +24,28 @@ def names_private(*texts) -> bool:
     return any(t and PRIVATE.search(str(t)) for t in texts)
 
 
+# Sentences in the logger's texts that tell the chat app what to do next ("resend with confirmed=true", "call add_food again"):
+# a person never sees them (deploy 77, the door review of 16.11.2026).
+CHAT = re.compile(r"resend|confirmed=true|call add_food|call answer|ask the user|ask which one|show the user|with the user|answer the user",
+                  re.I)
+
+
+def plain(text) -> Optional[str]:
+    """A read-back or question as a person reads it: webentry.readable, then without the sentences meant for the chat app.
+    A line without such a sentence stays exactly as it was (tables keep their spacing)."""
+    if not text:
+        return None
+    out = []
+    for ln in readable(str(text)).splitlines():
+        if not CHAT.search(ln):
+            out.append(ln)
+            continue
+        kept = [part for part in re.split(r"(?<=[.!?;])\s+", ln) if not CHAT.search(part)]
+        if kept:
+            out.append(" ".join(kept).rstrip(";").rstrip())
+    return "\n".join(out).strip() or None
+
+
 def num(x):
     """A plain JSON number from a database value (Decimal): whole numbers without ".0"; None stays None."""
     if x is None:
@@ -138,31 +160,52 @@ def _health_card(d: dict, by_ref: dict) -> list:
                 "v1": num(entry["value1"]) if entry and entry["kind"] == "measurement" else None,
                 "v2": num(entry["value2"]) if entry and entry["kind"] == "measurement" else None,
                 "at": iso(entry["at"]) if entry and entry["time_known"] else None, "last_at": None}
+        if key == "bed" and ref and not entry:  # the night's bed belongs to the day before: its time is the one Today found
+            item["at"] = iso(raw["bed_at"])
         if key in ("wake", "bed") and raw["next_sleep"] and not ref:
             item["last_at"] = iso(raw["wake_at"] if key == "wake" else raw["bed_at"])
         out.append(item)
     return out
 
 
-def _review(r: dict) -> dict:
-    """An item to review. A thought is named by its type and area only: its words never leave through the door."""
+def _happened(cur, refs: list) -> dict:
+    """ref -> when it happened (eaten_at or event_at; None when the time is not known), for the items to review: they can be
+    from any day, so the day's rows do not have them all."""
+    ids = {k: [int(r[1:]) for r in refs if r[0] == k] for k in "fme"}
+    out = {}
+    for k, sql in (("f", "SELECT id, eaten_at AS at, time_known FROM food_entries WHERE id = ANY(%s)"),
+                   ("m", "SELECT id, event_at AS at, time_known FROM measurements WHERE id = ANY(%s)"),
+                   ("e", "SELECT id, event_at AS at, time_known FROM events WHERE id = ANY(%s)")):
+        if ids[k]:
+            cur.execute(sql, (ids[k],))
+            out.update({f"{k}{r['id']}": r["at"] if r["time_known"] else None for r in cur.fetchall()})
+    return out
+
+
+def _review(r: dict, happened: dict) -> dict:
+    """An item to review. A thought is named by its type and area only: its words never leave through the door.
+    at: when it happened (a thought: when it was logged); logged_at: when it was logged. time (hh:mm, an event's) is the
+    name before deploy 77, kept for one deploy."""
     thought = r["kind"] == "thought"
     return {"ref": r["ref"], "kind": r["kind"], "label": None if thought else r["what"], "day": iso(r["day"]), "reason": r["reason"] or "",
-            "at": iso(r["at"]), "thought_type": r["a"] if thought else None, "area": r["b"] if thought else None,
+            "at": iso(r["at"] if thought else happened.get(r["ref"])), "logged_at": iso(r["at"]),
+            "thought_type": r["a"] if thought else None, "area": r["b"] if thought else None,
             "type": r["a"] if r["kind"] == "measurement" else None, "time": r["a"] if r["kind"] == "event" else None,
             "v1": num(r["v1"]), "v2": num(r["v2"]), "unit": r["unit"]}
 
 
-def _ans(reply: str, label: str) -> dict:
-    return {"reply": reply, "label": label}
+def _ans(reply: str, label: str, style: str = "plain") -> dict:
+    """An answer button; style as app. draws it: primary (the main one), plain, quiet (Skip, No, Cancel)."""
+    return {"reply": reply, "label": label, "style": style}
 
 
-SKIP = _ans("skip", "Skip")
+SKIP = _ans("skip", "Skip", "quiet")
 
 
 def question(q: dict) -> dict:
     """An open question as webquestions.card shows it, as data: the text, a read-back to show first, the answers as buttons
-    (each a reply for POST /api/v1/answer), a free answer field, a found food's values, the message it came from."""
+    (each a reply for POST /api/v1/answer, with its style), a free answer field, a found food's values (per 100 g or ml), the
+    message it came from, and refill {label, text}: the button that puts the message back in the log box."""
     p, tool = q["payload"], q["tool"]
     kind = p.get("kind") if tool == "log" else None
     out = {"id": q["id"], "tool": tool, "kind": kind, "asked_at": iso(q["created_at"]), "open_until": iso(q["expires_at"]),
@@ -175,8 +218,8 @@ def question(q: dict) -> dict:
         if lk:
             v = lk.get("values", {})
             out["lookup"] = {"name": lk.get("name", ""), "source": "usda" if lk.get("src") == "usda" else "off",
-                             "per_100": {k: v.get(k) for k in ("kcal", "protein", "fat", "carbs")}}
-            out["answers"].append(_ans("yes", "Use it" if lk.get("existing") else "Add this food"))
+                             "per_100": {k: v.get(k) for k in ("kcal", "protein", "fat", "carbs")}, "unit": "ml" if v.get("drink") else "g"}
+            out["answers"].append(_ans("yes", "Use it" if lk.get("existing") else "Add this food", "primary"))
         out["answers"] += [_ans(f"N{i}", q["foods"][i]["name"]) for i in p.get("candidates") or [] if i in q["foods"]]
         out["free"] = {"placeholder": "Another food: name or N number", "type": "text", "unit": None}
         out["answers"].append(SKIP)
@@ -185,27 +228,38 @@ def question(q: dict) -> dict:
         out["free"] = {"placeholder": "Amount", "type": "number", "unit": f.get("basis", "g")}
         out["answers"].append(SKIP)
     elif tool == "log" and kind in ("time", "type"):
-        out["refill"] = q["message"] or None
+        out["refill"] = {"label": "Log again", "text": q["message"]} if q["message"] else None
         out["answers"].append(SKIP)
     elif tool == "home_choice":
         out["text"] = (q["reason"] or "").split(" 1. ")[0]
         out["answers"] = [_ans(f"H{i}", c["label"]) for i, c in enumerate(p.get("cands") or [], 1)] + [_ans("all", "All of them"), SKIP]
     elif tool == "log_confirm" and p.get("nap"):
-        out.update(read_back=readable(q["reason"]), text="A new day, or up from a nap or a night waking?",
-                   answers=[_ans("yes", "New day"), _ans("nap", "Nap or night waking"), _ans("no", "Neither, drop it")])
+        out.update(read_back=plain(q["reason"]), text="A new day, or up from a nap or a night waking?",
+                   answers=[_ans("yes", "New day", "primary"), _ans("nap", "Nap or night waking"), _ans("no", "Neither, drop it", "quiet")])
     elif tool in webquestions._YES_NO and not (tool == "command_confirm" and p.get("ask_past")):
-        out.update(read_back=readable(q["reason"]), text=webquestions._YES_NO[tool], answers=[_ans("yes", "Yes"), _ans("no", "No")])
+        out.update(read_back=plain(q["reason"]), text=webquestions._YES_NO[tool], answers=[_ans("yes", "Yes", "primary"), _ans("no", "No")])
         if tool in webquestions._CORRECTABLE and q["message"]:
-            out["refill"] = q["message"]
+            out["refill"] = {"label": "Correct it", "text": q["message"]}
     elif tool == "command_confirm":
-        out.update(read_back=readable(q["reason"]), text="Change the past entries too?",
-                   answers=[_ans("yes", "Yes, past ones too"), _ans("no", "Only new ones"), _ans("cancel", "Cancel")])
+        out.update(read_back=plain(q["reason"]), text="Change the past entries too?",
+                   answers=[_ans("yes", "Yes, past ones too", "primary"), _ans("no", "Only new ones"), _ans("cancel", "Cancel", "quiet")])
     else:  # which entry was meant, which shopping item, ...
         out["free"] = {"placeholder": "Your answer", "type": "text", "unit": None}
         out["answers"].append(SKIP)
-    if names_private(out["text"], out["read_back"]):  # a change or look-up of private entries: its words stay at app.
-        out.update(text=HIDDEN, read_back=None)
+    out["text"] = plain(out["text"]) or ""
+    # a change or look-up of private entries, or a message that names them ("change P12 to ..."): its words stay at app.
+    if names_private(out["text"], out["read_back"], out["message"]) or privateline.label(out["message"] or ""):
+        out.update(text=HIDDEN, read_back=None, message=None, refill=None)
     return out
+
+
+def questions(ids: list) -> list:
+    """The open questions with these ids, in this order, as Question objects (a save's new questions, deploy 77). One that is
+    not open any more, or not one app. can answer, is left out."""
+    if not ids:
+        return []
+    by_id = {q["id"]: q for q in webquestions.load()}
+    return [question(by_id[i]) for i in dict.fromkeys(ids) if i in by_id]
 
 
 def _not_read(r: dict) -> dict:
@@ -238,6 +292,7 @@ def day(asked: Optional[date] = None) -> dict:
         eaten = _eaten(cur, the_day)
         values = _health_rows(cur, the_day)
         grat = {"count": gratitude.count(cur, the_day), "goal": gratitude.goal(cur)}
+        happened = _happened(cur, [r["ref"] for r in d["review"]])
     by_ref = {r["ref"]: r for r in values}
     rows = [(eaten.get(f["id"], (None, False)), _food_row(f, eaten)) for f in d["foods"]]
     rows += [((r["at"], r["time_known"]), _value_row(r)) for r in values]
@@ -256,7 +311,7 @@ def day(asked: Optional[date] = None) -> dict:
                             for n in raw["naps"]],
                    "next_sleep": raw["next_sleep"], "watch_wake_at": iso(d["watch_up"])},
         "needs": {"questions": [question(q) for q in d["questions"]], "not_read": [_not_read(r) for r in d["held"]],
-                  "review": [_review(r) for r in d["review"]], "checkin": ci},
+                  "review": [_review(r, happened) for r in d["review"]], "checkin": ci},
         "energy": {"totals": tot, "targets": tgt,
                    "meals": [{"meal": r["meal"], "label": r["meal_label"], "nutrients": _macros(r)} for r in d["food"] if r["meal"] is not None]},
         "water": {"ml": num(water.get("drunk")) or 0, "target_ml": num(water.get("target")), "glass_ml": todaypage.WATER_GLASS},

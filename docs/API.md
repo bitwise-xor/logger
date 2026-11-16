@@ -1,7 +1,7 @@
 # The JSON door `/api/v1` (for the new front end)
 
-Since deploys 75 and 76 (16.11.2026). Code: `core/app/api.py` (the door, the saves), `core/app/reads.py` (the reads).
-Tests: `tests/test_api_door.py`, `tests/test_api_reads.py`, `tests/test_api_saves.py`.
+Since deploys 75 and 76 (16.11.2026); deploy 77 (16.11.2026) made the changes of the door's review (marked "since 77"). Code: `core/app/api.py` (the door, the saves), `core/app/reads.py` (the reads).
+Tests: `tests/test_api_door.py`, `tests/test_api_reads.py`, `tests/test_api_saves.py`, `tests/test_api_shape.py` (77).
 
 The door is for one caller only: the new front end's own server, from inside Docker. The browser never calls it.
 The live web app at `app.` does not use it and did not change.
@@ -45,7 +45,7 @@ signed in before counts its own failures; all others share one pool, together wi
 
 ## Reads
 
-### `GET /api/v1/day?day=yyyy-mm-dd` → `{"day": Day}`
+### `GET /api/v1/day?day=yyyy-mm-dd` → `{"day": Day, "undo": Undo}`
 
 Today without `day`; an earlier day as asked; a later day is today. Built on `todaypage.load`, `webquestions.load`, `held.rows` and the
 gratitude count. No Home, Gym or Coach cards, no body-measure line.
@@ -57,7 +57,7 @@ Day = {
   needs: {
     questions: [Question],                              // today only; every open question, newest first
     not_read:  [{id, received_at, text, tries, needs_you, reading}],   // messages kept but not read yet (today only)
-    review:    [{ref, kind, label, day, reason, at, thought_type, area, type, time, v1, v2, unit}],
+    review:    [{ref, kind, label, day, reason, at, logged_at, thought_type, area, type, v1, v2, unit}],
     checkin:   null | {day, mood, energy, scale: {mood: [5 words], energy: [5 words]}}
   },
   energy:  {totals: {kcal, protein, fat, carbs}, targets: {…same, null if none}, meals: [{meal, label, nutrients}]},
@@ -72,19 +72,30 @@ Day = {
 Row (food)   = {ref: "f<id>", kind: "food", meal, at, time_known, food, food_id, amount, unit, portion_text,
                 nutrients: {kcal, protein, fat, carbs}, usual_meal: null | {id, name}}
 Row (health) = {ref: "m<id>" | "e<id>", kind: "measurement" | "event", type, label, at, time_known, v1, v2, unit, period, needs_review}
-Question     = {id, tool, kind, asked_at, open_until, message, text, read_back, answers: [{reply, label}],
-                free: null | {placeholder, type: "text" | "number", unit}, lookup: null | {name, source, per_100}, refill}
+Question     = {id, tool, kind, asked_at, open_until, message, text, read_back,
+                answers: [{reply, label, style: "primary" | "plain" | "quiet"}],
+                free: null | {placeholder, type: "text" | "number", unit},
+                lookup: null | {name, source: "usda" | "off", per_100: {kcal, protein, fat, carbs}, unit: "g" | "ml"},
+                refill: null | {label: "Correct it" | "Log again", text}}
+Undo         = null | {token, head, expires_at}         // the session's Undo, the same as in the last save's answer
 ```
 
 - `meal`: 1, 2, … by the 2-hour rule; 0 = the day's drinks. `ref` values are stable: the saves take them.
 - `health[].ref` is the entry a correction changes; `null` = nothing logged yet. Twelve hours after the wake-up, Woke up and Bed are
-  for the next sleep: `ref` null, the last time in `last_at` (`header.next_sleep` true).
+  for the next sleep: `ref` null, the last time in `last_at` (`header.next_sleep` true). Bed's `at` is the night's bed time, an entry of
+  the logging day before (since 77). Blood pressure: `v1` is the upper (systolic), `v2` the lower (diastolic) value.
 - `habits[].last_tick` is the tick an untick removes.
-- `Question.answers` are buttons: send the `reply` to `/answer`. `free`: a field whose words go to `/answer`. `refill`: words to put
-  back in the log box ("Correct it", "Log again"). `read_back`: show before the answers.
+- `Question.answers` are buttons: send the `reply` to `/answer`; `style` is how app. draws it: `primary` the main one, `plain`, `quiet`
+  (Skip, No, Cancel). `free`: a field whose words go to `/answer`. `refill`: a button with `label` that puts `text` back in the log box.
+  `read_back`: show before the answers. `lookup.per_100` is per 100 g, or per 100 ml for a drink (`unit`).
+- A question about private entries, or whose `message` names one, has `text` "Not shown here: …" and `message`, `refill` and `read_back`
+  null.
+- `review[].at` is when it happened (ISO; a thought: when it was logged; null when the time is not known), `logged_at` when it was
+  logged (since 77; until 77 `at` was the logged time). The old `time` (hh:mm of an event) is still sent for one deploy.
+- `undo` (since 77): the session's Undo while it lasts, so the Undo bar can stay after a reload.
 - A thought to review comes with `thought_type` and `area`, never its words (`label` null).
 
-### `GET /api/v1/food/day?day=` → `{"food_day": FoodDay}`
+### `GET /api/v1/food/day?day=` → `{"food_day": FoodDay, "undo": Undo}`
 
 ```
 FoodDay = {day, today, past, rows: [Row (food) + note], meals: [{meal, label, nutrients}], totals, targets}
@@ -106,42 +117,71 @@ function takes one, so a re-sent request saves once (`replayed: true`).
 |---|---|---|
 | `/api/v1/log` | `text`, `key` | `logbook.log` (synchronous: it can wait for the AI up to about 40 s; then `held`, the words kept) |
 | `/api/v1/again` | `food_id`, `amount`, `time` (hh:mm, optional = now), `key` | `webfood.again` |
-| `/api/v1/usual` | `meal_id`, `key`; optional `items: [{id, amount}]` (only these, with these amounts) and `time` | `webactions.usual` |
+| `/api/v1/usual` | `meal_id`, `key`; optional `items: [{item_id, amount}]` (only these, with these amounts) and `time` | `webactions.usual` |
 | `/api/v1/water` | `key`, `ml` (optional, 50 to 2000; default 250) | `webfood.water` |
 | `/api/v1/habit` | `name`, `action`: `tick` or `untick`, `ref` (the tick, optional: today's last), `key` | `webactions.habit` |
 | `/api/v1/checkin` | `type`: `mood` or `energy`, `value` 1 to 5, `day` (optional: yesterday while asked), `key` | `webactions.checkin` |
-| `/api/v1/health` | `row` (`bed`, `wake`, `weight`, `sugar`, `bp_morning`, `bp_evening`), `v1`, `v2` or `t` (hh:mm), `ref` (to correct), `confirmed`, `key` | `webactions.health` |
+| `/api/v1/health` | `row` (`bed`, `wake`, `weight`, `sugar`, `bp_morning`, `bp_evening`), `v1` (blood pressure: upper) and `v2` (lower), or `time` (hh:mm, bed and wake), `ref` (to correct), `confirmed`, `key` | `webactions.health` |
 | `/api/v1/answer` | `question_id`, `reply` | `logbook.answer` (no key) |
-| `/api/v1/review` | `act: "ok"` + `ref`, or `act: "all"` + `refs: [...]` (the refs shown) | `webactions.review` |
-| `/api/v1/food/entry` | `ref`, `act`: `save` (`amount`, `unit`, `time`, `food_name`) or `delete`, `confirmed` | `webfood.entry` |
+| `/api/v1/review` | `action: "ok"` + `ref`, or `action: "all"` + `refs: [...]` (the refs shown) | `webactions.review` |
+| `/api/v1/food/entry` | `ref`, `action`: `save` (`amount`, `unit`, `time`, `food_name`) or `delete`, `confirmed` | `webfood.entry` |
 | `/api/v1/food/note` | `ref`, `note` (empty = removed) | `webfood.note` |
 | `/api/v1/undo` | `token` (from the last answer's `undo`) | `webundo.apply` |
+| `/api/v1/held/retry` (77) | `id` (a number: `day.needs.not_read[].id`), `key` | `webheld.retry` (app.'s "Try again": reads it now, like `/log`) |
+| `/api/v1/held/delete` (77) | `id` | `webheld.delete` (app.'s "Delete", with Undo: the message comes back) |
+
+Field names since 77: `action` (was `act` on `/review` and `/food/entry`), `time` (was `t` on `/health`), `items[].item_id` (was
+`items[].id` on `/usual`). The old names still work until deploy 78; send only the new ones.
 
 Every save answers (HTTP 200, also when nothing was saved):
 
 ```
 {
-  v, outcome,            // saved, partly_saved, changed, unchanged, needs_confirmation, needs_choice, held, rejected, cancelled, answered, …
+  v, outcome,            // see the list below
+  tone,                  // "warning" or "ok": draw the answer as a warning (as app. does) or not
   head,                  // one short line to show
   receipt: [lines], notes: [lines], reason,
-  questions: [{id, question}],                 // the full question, with its buttons, is in day.needs.questions
+  questions: [Question],                       // the questions this save opened, in full (as in day.needs.questions)
   read_back,             // a change the logger reads back first …
   confirm: null | {label, no_label},           // … then send the same request again with "confirmed": true
-  result,                // a look-up's answer
+  result,                // a look-up's answer; for a line that logs and asks ("150 g skyr and what did I eat today"), the answer to the ask
+  refill: null | {label, text},                // words to put back in the log box ("Try again" on a message that is not an entry)
   replayed,
-  undo: null | {token, head, expires_at},      // one per session, 15 minutes; POST /api/v1/undo {token}
+  undo: Undo,            // one per session, 15 minutes; POST /api/v1/undo {token}
   day: Day  |  food_day: FoodDay               // the fresh day; body "view": "food" | "day" and "view_day": "yyyy-mm-dd" choose it
 }
 ```
 
+Outcomes (`api.OUTCOMES`):
+
+| outcome | tone | meaning |
+|---|---|---|
+| `saved` | ok | saved (also a private or gratitude line: `head` "Saved privately.") |
+| `partly_saved` | ok | saved what was clear; a question is open |
+| `changed` | ok | an entry was changed or deleted, or an Undo was made |
+| `removed` | ok | a message not read yet was deleted |
+| `answered` | ok | a look-up: the answer is in `result` |
+| `unchanged` | ok | nothing to change (the same value again, an untick with nothing ticked) |
+| `kept` | ok | kept as text (a thought) |
+| `cancelled` | ok | skipped (a "no" to a question) |
+| `held` | warning | not read yet, the words kept; they show in `day.needs.not_read` |
+| `needs_confirmation` | warning | nothing saved yet: answer the question, or send again with `confirmed` |
+| `needs_choice` | warning | nothing saved yet: a question is open |
+| `not_logged` | warning | the words read as a question for the assistant, not an entry |
+| `rejected` | warning | nothing saved; `reason` says why |
+
+Texts in `read_back`, `result` and questions never carry the lines meant for the chat app ("resend with confirmed=true",
+"call add_food again", "Ask the user …"); they are taken out by the door (`reads.plain`).
+
 - **Undo** works as the web app's Undo bar: one record per session, replaced by the next action (not by a re-sent or refused one),
   gone after 15 minutes. A typed message is undone only while it is still the newest one.
 - **Private and gratitude words never appear in any answer.** A line starting `g:`, `gratitude:` or `private:` is saved without the
-  AI and answered with `head` "Saved privately." and no receipt. A look-up or change that names private entries (the logger writes them
+  AI and answered with `head` "Saved privately." and no receipt; so is a line the AI files as private by itself (since 77), with
+  nothing more. A look-up or change that names private entries (the logger writes them
   as `P<id>` or "private entries") is answered without its texts and with `reason` saying to open it in the app; the same holds for an
   open question's text and read-back.
 - Errors inside a save (the AI or the database not answering) are `outcome: "rejected"` with a reason that nothing was saved; a typed
   line's words stay kept (`held`) and appear in `day.needs.not_read`.
 
-Not in the door (on purpose, for now): Home, Gym and Coach, body measurements, the Food catalogue and usual-meal editors, "Try again" or
-"Delete" on a message not read yet, the gratitude list itself (only its count), Ideas and Private.
+Not in the door (on purpose, for now): Home, Gym and Coach, body measurements, the Food catalogue and usual-meal editors, "Look it up"
+(USDA or Open Food Facts) for an unknown food, the gratitude list itself (only its count), Ideas and Private.

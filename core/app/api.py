@@ -1,4 +1,4 @@
-"""The JSON door for the new front end (16.11.2026, deploys 75 and 76; plan in the doc's Current tab, "New front end"; routes
+"""The JSON door for the new front end (16.11.2026, deploys 75, 76 and 77; plan in the doc's Current tab, "New front end"; routes
 and shapes in docs/API.md). Only the front end's own server calls it, from inside Docker: Caddy never forwards /api/ (its
 app. site passes / and /web/* only) and the tunnel's calls carry Cloudflare's headers. Every route goes through one check
 (route below), in this order, and each failure looks the same (404), so the door's existence is not revealed:
@@ -8,7 +8,7 @@ app. site passes / and /web/* only) and the tunnel's calls carry Cloudflare's he
 then, for every route but the sign-in, the owner's session as "Authorization: Bearer <token>" (a web_sessions row of this
 front end, migration 031; a session of app. never works here and the reverse). A session renews like a page view (30 days
 from its last use); the end comes back in the X-Session-Expires header. Every answer is JSON with "v": 1, never cached.
-The reads are reads.py; the saves call the same functions as the live forms (webactions, webfood, logbook, webundo)."""
+The reads are reads.py; the saves call the same functions as the live forms (webactions, webfood, logbook, webundo, webheld)."""
 import hashlib
 import hmac
 import json
@@ -21,11 +21,10 @@ from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-from . import hubtools, logbook, privateline, reads, web, webactions, webentry, webfood, webundo
+from . import hubtools, logbook, privateline, reads, web, webactions, webentry, webfood, webheld, webundo
 from .ai.provider import ProviderError
 from .config import FRONT_TOKEN
 from .db import connect
-from .webentry import readable
 
 log = logging.getLogger("logger.api")
 V = 1
@@ -158,6 +157,14 @@ def text(body: dict, name: str, limit: int, required: bool = False) -> str:
     return str(v)[:limit]
 
 
+def renamed(body: dict, name: str, old: str, limit: int, required: bool = False) -> str:
+    """A field under its name since deploy 77 (action, time, item_id), or its old name (act, t, id), kept for one deploy."""
+    v = text(body, name, limit) or text(body, old, limit)
+    if required and not v:
+        raise Refused(400, "bad_request", f"{name} is missing.")
+    return v
+
+
 def day_param(request: Request):
     """?day=yyyy-mm-dd, or None for today (a day after today is today, as on the pages)."""
     raw = request.query_params.get("day", "")
@@ -199,13 +206,14 @@ def sign_out(_request, _body, session):
 # ---- reads -------------------------------------------------------------------------------------------------------
 
 @route("/day", "GET")
-def day(request, _body, _session):
-    return {"day": reads.day(day_param(request))}
+def day(request, _body, session):
+    """The day, and the session's Undo while it lasts (the same as in the last save's answer: a reload keeps the Undo bar)."""
+    return {"day": reads.day(day_param(request)), "undo": _undo_out(session.get("undo"))}
 
 
 @route("/food/day", "GET")
-def food_day(request, _body, _session):
-    return {"food_day": reads.food_day(day_param(request))}
+def food_day(request, _body, session):
+    return {"food_day": reads.food_day(day_param(request)), "undo": _undo_out(session.get("undo"))}
 
 
 @route("/food/entry", "GET")
@@ -218,8 +226,8 @@ def food_entry(request, _body, _session):
 
 # ---- saves (deploy 76) -------------------------------------------------------------------------------------------
 # Each save calls the same function as the live form (webactions, webfood, logbook, webundo), passes the re-send key where that
-# function takes one, and answers in one shape (saved below): outcome, head, receipt, notes, reason, questions, read_back,
-# confirm, result, replayed, undo, plus the fresh day ("day", Today) or food day ("food_day", the Food page), so a page can
+# function takes one, and answers in one shape (saved below): outcome, tone, head, receipt, notes, reason, questions, read_back,
+# confirm, result, refill, replayed, undo, plus the fresh day ("day", Today) or food day ("food_day", the Food page), so a page can
 # update in place. The body's "view" ("day" or "food") and "view_day" (yyyy-mm-dd; not "day", which the check-in saves to)
 # choose which. The Undo record is kept in the session row, one per session, as the web app keeps one per device.
 
@@ -254,6 +262,21 @@ def _key(body: dict):
     return text(body, "key", 64) or None
 
 
+# Every outcome a save can answer with; a warning is drawn as one on app. (webentry.reply_html), the rest are fine.
+OUTCOMES = ("saved", "partly_saved", "changed", "removed", "answered", "unchanged", "kept", "cancelled",
+            "held", "needs_confirmation", "needs_choice", "not_logged", "rejected")
+WARNINGS = ("rejected", "needs_confirmation", "needs_choice", "not_logged", "held")
+
+
+def _command_text(sub) -> str | None:
+    """A mixed line's look-up or change (logbook: out["command"]) as plain lines: what it did, what it found."""
+    if not sub:
+        return None
+    lines = [webentry._HEAD.get(sub.get("outcome"), sub.get("outcome") or ""), *(str(x) for x in sub.get("receipt") or []),
+             sub.get("result"), reads.plain(sub.get("read_back")), sub.get("reason")]
+    return "\n".join(str(x) for x in lines if x) or None
+
+
 def _undo_out(rec) -> dict | None:
     if not webundo.fresh(rec):
         return None
@@ -262,7 +285,8 @@ def _undo_out(rec) -> dict | None:
 
 
 def saved(session, out: dict, body: dict, view: str = "day", private: bool = False) -> dict:
-    """The one answer of every save. private: the words were a private or gratitude line: no receipt, notes or result."""
+    """The one answer of every save. private: the words were a private or gratitude line: no receipt, notes or result.
+    A save that made a private entry (a label, or the AI filed it so) is answered "Saved privately." and nothing more."""
     replace, new = webundo.settle(out)  # takes the rows before a change out of out (kept for Undo, never sent)
     if replace:
         with connect() as c:
@@ -272,22 +296,31 @@ def saved(session, out: dict, body: dict, view: str = "day", private: bool = Fal
     head = webentry._HEAD["replayed"] if out.get("replayed") else out.get("head") or webentry._HEAD.get(o, o)
     if o == "rejected" and out.get("steps"):  # a change that matched nothing (webentry.reply_html)
         head = "Nothing changed."
-    if private and o == "saved" and not out.get("replayed"):
+    made_private = bool(out.get("private_id") or out.get("private_ids"))
+    if (made_private or private and o == "saved") and not out.get("replayed"):
         head = "Saved privately."
-    reason = out.get("reason") or (out.get("message") if o == "rejected" and not out.get("receipt") else None)
-    texts = [*(out.get("receipt") or []), *(out.get("notes") or []), out.get("result"), out.get("read_back"), reason]
+    reason = out.get("reason") or (reads.plain(out.get("message")) if o == "rejected" and not out.get("receipt") else None)
+    if made_private:
+        private, reason = True, None if o != "rejected" else reason
+    result = "\n\n".join(x for x in (str(out["result"]) if out.get("result") else None, _command_text(out.get("command"))) if x) or None
+    refill = out.get("retry_text") or None  # Try again on a message not read yet: its words go back in the log box
+    texts = [*(out.get("receipt") or []), *(out.get("notes") or []), result, out.get("read_back"), reason, refill]
     if not private and reads.names_private(*texts):  # a look-up or change of private entries typed here: no words (fail closed)
         private, reason = True, reads.HIDDEN
+    if refill and privateline.label(refill):
+        refill = None
     c = out.get("confirm")
-    res = {"outcome": o, "head": head,
+    res = {"outcome": o, "tone": "warning" if o in WARNINGS else "ok", "head": head,
            "receipt": [] if private else [str(x) for x in out.get("receipt") or []],
            "notes": [] if private else [str(x) for x in out.get("notes") or []],
            "reason": reason or None,
-           "questions": [{"id": q["question_id"], "question": q["question"]} for q in out.get("questions") or []],
-           "read_back": readable(out["read_back"]) if out.get("read_back") and not private else None,
+           # the new questions in full (reads.question), never the chat app's wording; also when the page shown is Food
+           "questions": reads.questions([q.get("question_id") or q.get("pending_id") for q in out.get("questions") or []]),
+           "read_back": reads.plain(out["read_back"]) if out.get("read_back") and not private else None,
            # a change the logger read back first: send the same request again with "confirmed": true
            "confirm": {"label": c.get("label", "Yes"), "no_label": c.get("no_label", "No")} if c else None,
-           "result": None if private or not out.get("result") else str(out["result"]),
+           "result": None if private else result,
+           "refill": {"label": "Log again", "text": refill} if refill and not private else None,
            "replayed": bool(out.get("replayed")), "undo": _undo_out(rec)}
     try:
         asked = date.fromisoformat(str(body.get("view_day") or "")[:10]) if body.get("view_day") else None
@@ -318,18 +351,18 @@ def again(_request, body, session):
 
 @route("/usual", "POST")
 def usual(_request, body, session):
-    """A usual meal: every item with its saved amount, now (Today's one tap); or items [{"id", "amount"}] (only those are
-    logged, with these amounts) and time hh:mm, as the meal's form on Today."""
+    """A usual meal: every item with its saved amount, now (Today's one tap); or items [{"item_id", "amount"}] (only those are
+    logged, with these amounts; "id" is item_id's name before deploy 77) and time hh:mm, as the meal's form on Today."""
     meal = text(body, "meal_id", 12, required=True)
     items = body.get("items")
     if items is None:
         f = _form(quick="1")
     else:
         if not isinstance(items, list) or not all(isinstance(i, dict) for i in items):
-            raise Refused(400, "bad_request", "items must be a list of {id, amount}.")
+            raise Refused(400, "bad_request", "items must be a list of {item_id, amount}.")
         fields = {}
         for i in items[:50]:
-            iid = text(i, "id", 12)
+            iid = renamed(i, "item_id", "id", 12)
             fields[f"on_{iid}"] = "1"
             fields[f"g_{iid}"] = text(i, "amount", 20)
         f = _form(time=text(body, "time", 5), **fields)
@@ -378,10 +411,11 @@ def checkin(_request, body, session):
 
 @route("/health", "POST")
 def health(_request, body, session):
-    """A Health card row (row: bed, wake, weight, sugar, bp_morning, bp_evening): v1 (and v2 for blood pressure), or t hh:mm for
-    bed and wake-up; ref = the entry to correct (the card row's ref). confirmed: true after a read-back."""
+    """A Health card row (row: bed, wake, weight, sugar, bp_morning, bp_evening): v1 (blood pressure: v1 upper, v2 lower), or
+    time hh:mm for bed and wake-up ("t" before deploy 77); ref = the entry to correct (the card row's ref). confirmed: true
+    after a read-back."""
     row, ref = text(body, "row", 20, required=True), text(body, "ref", 20)
-    f = _form(t=text(body, "t", 5), v1=text(body, "v1", 20), v2=text(body, "v2", 20), confirmed=body.get("confirmed") is True)
+    f = _form(t=renamed(body, "time", "t", 5), v1=text(body, "v1", 20), v2=text(body, "v2", 20), confirmed=body.get("confirmed") is True)
     return saved(session, _work(lambda: webactions.health(row, ref, f, _key(body))), body)
 
 
@@ -398,8 +432,9 @@ def answer(_request, body, session):
 
 @route("/review", "POST")
 def review(_request, body, session):
-    """"Looks right": act "ok" with ref (one item), or act "all" with refs (the items shown; webactions.review_all)."""
-    act = text(body, "act", 5)
+    """"Looks right": action "ok" with ref (one item), or action "all" with refs (the items shown; webactions.review_all).
+    ("act" is action's name before deploy 77.)"""
+    act = renamed(body, "action", "act", 5)
     if act == "ok":
         ref = text(body, "ref", 20, required=True)
         out = _work(lambda: webactions.review(ref, "ok", Form()))
@@ -409,17 +444,18 @@ def review(_request, body, session):
             raise Refused(400, "bad_request", "refs must be a list of refs.")
         out = _work(lambda: webactions.review("", "all", Form(refs=" ".join(refs)[:webactions.REVIEW_LIMIT * 12])))
     else:
-        raise Refused(400, "bad_request", "act must be ok or all.")
+        raise Refused(400, "bad_request", "action must be ok or all.")
     return saved(session, out, body)
 
 
 @route("/food/entry", "POST")
 def food_entry_save(_request, body, session):
-    """Change (act "save": amount, unit, time hh:mm, food_name) or delete (act "delete") a food entry, made at once with Undo,
-    as on the Food page (webfood.entry). An odd value is read back first: then send it again with "confirmed": true."""
-    act = text(body, "act", 10)
+    """Change (action "save": amount, unit, time hh:mm, food_name) or delete (action "delete") a food entry, made at once with
+    Undo, as on the Food page (webfood.entry). An odd value is read back first: then send it again with "confirmed": true.
+    ("act" is action's name before deploy 77.)"""
+    act = renamed(body, "action", "act", 10)
     if act not in ("save", "delete"):
-        raise Refused(400, "bad_request", "act must be save or delete.")
+        raise Refused(400, "bad_request", "action must be save or delete.")
     f = _form(id=text(body, "ref", 12), act=act, amount=text(body, "amount", 20), unit=text(body, "unit", 40), time=text(body, "time", 5),
               food_name=text(body, "food_name", 200), confirmed=body.get("confirmed") is True, back="/web/food")
     return saved(session, _work(lambda: webfood.entry(f, _key(body))), body, view="food")
@@ -441,3 +477,28 @@ def undo(_request, body, session):
     else:
         out = _work(lambda: webundo.apply(rec))
     return saved(session, out, body)
+
+
+# ---- messages not read yet (deploy 77) ------------------------------------------------------------------------------
+# Try again and Delete on day.needs.not_read, through the functions of app.'s two buttons (webheld.ACTIONS).
+
+def _held_form(body: dict) -> Form:
+    hid = body.get("id")
+    if not isinstance(hid, int) or isinstance(hid, bool) or hid <= 0:
+        raise Refused(400, "bad_request", "id must be the message's id (a number).")
+    return Form(id=str(hid))
+
+
+@route("/held/retry", "POST")
+def held_retry(_request, body, session):
+    """Read a message not read yet now (logbook.read_held, synchronous like /log). Nothing saved: its words come back in
+    refill, for the log box."""
+    f = _held_form(body)
+    return saved(session, _work(lambda: webheld.retry(f, _key(body))), body)
+
+
+@route("/held/delete", "POST")
+def held_delete(_request, body, session):
+    """Delete a message not read yet, with Undo (the message comes back)."""
+    f = _held_form(body)
+    return saved(session, _work(lambda: webheld.delete(f, _key(body))), body)

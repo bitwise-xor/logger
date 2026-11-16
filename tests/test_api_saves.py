@@ -17,7 +17,7 @@ from test_web import web  # noqa: F401 - a signed-in app. session (fixture)
 from test_webfood import eat_on, entry, oats
 from test_webtoday import day, eat, food, raw
 
-KEYS = {"v", "outcome", "head", "receipt", "notes", "reason", "questions", "read_back", "confirm", "result", "replayed", "undo"}
+KEYS = {"v", "outcome", "head", "receipt", "notes", "reason", "questions", "read_back", "confirm", "result", "replayed", "undo", "tone", "refill"}
 SKYR_LINE = "150 g skyr, weight 82.4"  # in test_log's fake answers: 150 g Skyr natural and a weight of 82.4
 
 
@@ -561,7 +561,10 @@ def ask_repeat(sv):
     j = shaped(sv.post("/log", text="40 g radishes", key="an-2"))
     assert j["outcome"] == "needs_confirmation" and len(j["questions"]) == 1 and j["undo"] is None  # a question replaces the Undo, as on app.
     (q,) = j["questions"]
-    assert set(q) == {"id", "question"} and q["question"] == "Log it again (yes) or not (no)?"
+    # the full Question (reads.question), never the chat app's wording
+    assert q == j["day"]["needs"]["questions"][0] and q["text"] == "Log it again?" and "question" not in q
+    assert [(a["reply"], a["style"]) for a in q["answers"]] == [("yes", "primary"), ("no", "plain")]
+    assert q["refill"] == {"label": "Correct it", "text": "40 g radishes"}
     assert j["reason"] and "already logged" in j["reason"] and [x["id"] for x in j["day"]["needs"]["questions"]] == [q["id"]]
     return q["id"]
 
