@@ -620,6 +620,86 @@
   "gratitude": {
    "count": 0,
    "goal": 10
+  },
+  "gym": {
+   "last_workout": "2026-11-16",
+   "day_label": "Day 1 · Push",
+   "days": [
+    {
+     "day": "2026-11-03",
+     "on": true,
+     "today": false
+    },
+    {
+     "day": "2026-11-04",
+     "on": false,
+     "today": false
+    },
+    {
+     "day": "2026-11-05",
+     "on": true,
+     "today": false
+    },
+    {
+     "day": "2026-11-06",
+     "on": false,
+     "today": false
+    },
+    {
+     "day": "2026-11-07",
+     "on": true,
+     "today": false
+    },
+    {
+     "day": "2026-11-08",
+     "on": false,
+     "today": false
+    },
+    {
+     "day": "2026-11-09",
+     "on": false,
+     "today": false
+    },
+    {
+     "day": "2026-11-10",
+     "on": true,
+     "today": false
+    },
+    {
+     "day": "2026-11-11",
+     "on": false,
+     "today": false
+    },
+    {
+     "day": "2026-11-12",
+     "on": true,
+     "today": false
+    },
+    {
+     "day": "2026-11-13",
+     "on": false,
+     "today": false
+    },
+    {
+     "day": "2026-11-14",
+     "on": true,
+     "today": false
+    },
+    {
+     "day": "2026-11-15",
+     "on": false,
+     "today": false
+    },
+    {
+     "day": "2026-11-16",
+     "on": true,
+     "today": true
+    }
+   ],
+   "n14": 7,
+   "last_week": 3,
+   "this_week": 1,
+   "text": "Last week 3 workouts · this week 1 workout"
   }
  },
  "undo": null

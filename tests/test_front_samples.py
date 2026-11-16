@@ -6,7 +6,8 @@ the check-in, health values, habits, chips), reads it through the door (day.json
 water, saved with Undo, and an odd weight correction read back first, with confirm; the stand-in answers every save in this shape),
 the Food day (food.json, step E: GET /food/day of the day and the day before, GET /food/entry, a change and a note), the usual
 meals (usual.json, deploy 86: GET /usual, GET /foods, a change with Undo and a refusal), the scanner, label photo and look-up
-(scan.json, deploy 89), the Health page and body measurements (health.json, deploy 91), the Habits page (habits.json, deploy 93), and
+(scan.json, deploy 89), the Health page and body measurements (health.json, deploy 91), the Habits page (habits.json, deploy 93), the
+Gym (gym.json, deploy 95), and
 - with WRITE_FRONT_SAMPLES=1: writes the answer to the sample file (then look at the diff and commit it);
 - otherwise: checks that the committed sample still has the door's shape (the same keys at every level), so a change of the door
   that the stand-in does not know about fails here.
@@ -481,3 +482,50 @@ def test_the_habits_sample_has_the_doors_shape(four_pm, fake):
     assert sample.keys() == answers.keys()
     gone = differences(sample, answers, "habits")
     assert not gone, "front/tests/samples/habits.json no longer has the door's shape; run this test with WRITE_FRONT_SAMPLES=1:\n" + "\n".join(gone)
+
+
+def test_the_gym_sample_has_the_doors_shape(fake, monkeypatch):
+    """The Gym (deploy 95, for the pages of deploys 96 and 97): an invented three-day split (Push, Pull, Legs; weights, bodyweight and
+    cardio; a removed day and a retired exercise) with eight weeks of workouts and a workout started today with two exercises done.
+    Every read (Activity without watch data and with invented watch data), and the saves without their fresh read: a tick (with
+    Undo), a remove (with Undo), a pick, a refusal, a plan change (itemadd) and a new exercise."""
+    from test_api_gym import invented
+    from test_watch import TOKEN, payload, post as watch_post
+    from test_web import client
+
+    x = invented(plain=True)
+    c, bearer, _ = signed_in()
+    get = lambda path: c.get("/api/v1" + path, headers=bearer).json()  # noqa: E731
+    post = lambda path, **body: c.post("/api/v1" + path, headers=bearer, json=body).json()  # noqa: E731
+    answers = {"gym": get("/gym"), "plan": get("/gym/plan"), "exercises": get("/gym/exercises"), "progress": get(f'/gym/progress?x={x["bench"]}'),
+               "history": get("/gym/history"), "activity_none": get("/gym/activity")}
+    monkeypatch.setenv("WATCH_TOKEN", TOKEN)
+    for back in (1, 0):
+        watch_post(client("log.19hospitalroad.fyi"), payload(day() - timedelta(days=back)))
+    answers["activity"] = get(f"/gym/activity?day={day() - timedelta(days=1)}")
+    g = answers["gym"]["gym"]
+    assert g["done"] == 2 and g["exercises"] and g["other"] and any(r["up_kg"] for r in g["exercises"]) and g["chips"]
+    assert answers["progress"]["gym_progress"]["chart"] and answers["plan"]["gym_plan"]["removed"] and answers["history"]["gym_history"]["workouts"]
+    assert not answers["activity_none"]["gym_activity"]["has_data"] and answers["activity"]["gym_activity"]["sleep"]
+    press = next(r for r in g["exercises"] if r["name"] == "Shoulder press")
+    saves = {"tick": post("/gym/tick", exercise_id=x["press"], **{k: v for k, v in press["values"].items() if v is not None}, key="sample-gym-key-0001"),
+             "remove": post("/gym/remove", set_id=g["exercises"][0]["logged"][-1]["set_id"]),
+             "pick": post("/gym/pick", day_id=x["pull"]),
+             "refused": post("/gym/tick", exercise_id=x["bench"], sets=3, reps=8, key="sample-gym-key-0002"),
+             "itemadd": post("/gym/itemadd", day_id=x["legs"], exercise_id=x["pushup"], sets=3, reps=15),
+             "new": post("/gym/new", name="Rowing machine", kind="cardio", words=["rower"])}
+    views = {"tick": "gym", "remove": "gym", "pick": "gym", "refused": "gym", "itemadd": "gym_plan", "new": "gym_exercises"}
+    for k, a in saves.items():
+        assert views[k] in a and a.pop(views[k]), (k, a)
+    assert saves["tick"]["outcome"] == "saved" and saves["tick"]["undo"] and saves["remove"]["outcome"] == "changed" and saves["remove"]["undo"]
+    assert saves["pick"]["outcome"] == "changed" and saves["refused"]["outcome"] == "rejected" and saves["refused"]["reason"] == "Give the weight in kg."
+    assert saves["itemadd"]["outcome"] == "changed" and saves["new"]["outcome"] == "changed"
+    answers["saves"] = saves
+    path = SAMPLES / "gym.json"
+    if os.environ.get("WRITE_FRONT_SAMPLES") == "1":
+        path.write_text(json.dumps(answers, indent=1, ensure_ascii=False) + "\n")
+        return
+    sample = json.loads(path.read_text())
+    assert sample.keys() == answers.keys()
+    gone = differences(sample, answers, "gym")
+    assert not gone, "front/tests/samples/gym.json no longer has the door's shape; run this test with WRITE_FRONT_SAMPLES=1:\n" + "\n".join(gone)

@@ -8,7 +8,7 @@ import re
 from datetime import date, datetime, timedelta
 from typing import Optional
 
-from . import body as tape, bodypage, foodpage, gratitude, habitspage, healthpage, held, privateline, todaypage, uiprefs, webquestions
+from . import activitypage, body as tape, bodypage, foodpage, gratitude, gym as gymlib, gympage, habitspage, healthpage, held, privateline, todaypage, uiprefs, webquestions
 from .db import connect
 from .rules import BERLIN
 from .webentry import readable
@@ -322,6 +322,7 @@ def day(asked: Optional[date] = None) -> dict:
                     "avoid": h["type_name"] in d["avoid"], "last_tick": f"e{tick[h['type_name']]}" if h["type_name"] in tick else None}
                    for h in habits_shown(d)],
         "gratitude": grat,
+        "gym": None if d["past"] else gym_card(),
     }
 
 
@@ -515,4 +516,165 @@ def habits(show: str = "tracked") -> dict:
         "groups": [{"key": k, "label": v} for k, v in habitspage.GROUPS], "default_group": "practice",
         "limits": {"label_max": habitspage.LABEL_MAX, "target_min": habitspage.TARGET[0], "target_max": habitspage.TARGET[1],
                    "order_max": habitspage.ORDER_MAX},
+    }
+
+
+# ---- Gym (deploy 95, step 2 of the move to logger.) ---------------------------------------------------------------------------------
+
+def gym_card() -> dict:
+    """Today's Gym card (gympage.today_data): the last workout's day, today's day of the split, the last 14 days, this week and last."""
+    t = gympage.today_data()
+    return {"last_workout": iso(t["last"]), "day_label": t["day"],
+            "days": [{"day": iso(x["day"]), "on": x["on"], "today": x["today"]} for x in t["days"]],
+            "n14": t["n14"], "last_week": t["last_week"], "this_week": t["this_week"], "text": gympage.week_text(t)}
+
+
+def _num2(x):
+    return None if x is None else num(round(float(x), 2))
+
+
+def _set(r: dict) -> dict:
+    """A logged row: its id (for a remove), the numbers, and the text app. writes ("3 × 8 at 60 kg")."""
+    return {"set_id": r["id"], "sets": r["sets"], "reps": r["reps"], "kg": num(r["kg"]), "minutes": num(r["minutes"]), "km": num(r["km"]),
+            "text": gymlib.row_text(r)}
+
+
+def _gym_row(ex: dict, d: dict, plan, first: bool) -> dict:
+    r = gympage.row_data(ex, d, plan, first)
+    prev = r["prev"]
+    return {"exercise_id": ex["id"], "name": ex["name"], "kind": ex["kind"], "active": bool(ex["active"]), "done": bool(r["mine"]),
+            "logged": [_set(x) for x in r["mine"]], "values": {k: num(r["vals"][k]) for k in gympage.VALS}, "ready": r["ready"],
+            "text": r["said"], "up_kg": _num2(r["up"]),
+            "last": {"day": iso(prev[0]["day"]), "rows": [_set(x) for x in prev]} if prev else None, "last_text": r["lastline"],
+            "plan": {"item_id": plan["id"], "sets": plan["sets"], "reps": plan["reps"]} if plan else None, "open": r["open"]}
+
+
+def _day_ref(sp: dict, x) -> Optional[dict]:
+    return None if x is None else {"day_id": x["id"], "name": x["name"], "label": gymlib.label(sp["days"], x)}
+
+
+def _gym_forms() -> dict:
+    """What the forms need: the − / + steps and limits per kind (gympage.FIELDS), the plain refusal of numbers, the kinds."""
+    return {"fields": {kind: [{"name": n, "label": lbl, "step": step, "min": lo, "max": hi} for n, lbl, step, lo, hi in f]
+                       for kind, f in gympage.FIELDS.items()},
+            "numbers": gymlib.NUMBERS, "kinds": [{"key": k, "label": v} for k, v in gymlib.KINDS.items()]}
+
+
+def gym() -> dict:
+    """The Workout tab (gympage.load, workout_list, row_data, daypick_data, split_card_data, weeks_data: the same as app.'s tab)."""
+    with connect() as c, c.cursor() as cur:
+        d = gympage.load(cur)
+    sp, w, p = d["split"], gympage.workout_list(d), gympage.daypick_data(d["split"])
+    wk = gympage.weeks_data(d)
+    return {
+        "today": iso(d["today"]), "title": w["title"], "started_at": iso(d["started"]),
+        "done": len({r["exercise_id"] for r in d["now"]}), "status": gympage.status(d),
+        "has_split": bool(sp["days"]), "day": _day_ref(sp, sp["day"]), "free": sp["free"], "picked_by_hand": sp["hand"],
+        "chips": [{"day_id": None if v == "free" else int(v), "label": t, "on": on} for v, t, on in p["chips"]], "why": p["why"],
+        "exercises": [_gym_row(x, d, plan, first) for x, plan, first in w["shown"]],
+        "other": [_gym_row(x, d, plan, first) for x, plan, first in w["rest"]],
+        "empty": None if w["shown"] else w["empty"], "hint": gympage.HINT if w["shown"] or w["rest"] else None,
+        "week_split": [{"day_id": x["day"]["id"], "label": x["label"], "exercises": x["exercises"], "done": iso(x["done"]), "today": x["today"]}
+                       for x in gympage.split_card_data(d)],
+        "weeks": {"good": wk["good"], "weeks": [{"start": iso(r["start"]), "label": r["label"], "n": r["n"],
+                                                 "days": [{"day": iso(c["day"]), "on": c["on"], "today": c["today"], "later": c["later"]} for c in r["days"]]}
+                                                for r in wk["weeks"]]},
+        "retired": [x["name"] for x in d["exercises"] if not x["active"]],
+        **_gym_forms(),
+    }
+
+
+PLAN_LIMITS = {"name_max": 40, "sets_min": 1, "sets_max": 50, "reps_min": 1, "reps_max": 500}
+
+
+def gym_plan() -> dict:
+    """The Plan tab (gympage.load, plan_week, plan_day_data): how the day is picked, this week, a card per active day, the removed days."""
+    with connect() as c, c.cursor() as cur:
+        d = gympage.load(cur)
+        gone = gymlib.days(cur, retired=True)
+    sp = d["split"]
+    days = []
+    for x in sp["days"]:
+        p = gympage.plan_day_data(x, d)
+        days.append({"day_id": x["id"], "name": x["name"], "label": p["label"], "today": p["today"],
+                     "items": [{"item_id": i["item"]["id"], "exercise_id": i["ex"]["id"], "name": i["ex"]["name"], "kind": i["ex"]["kind"],
+                                "active": bool(i["ex"]["active"]), "sets": i["item"]["sets"], "reps": i["item"]["reps"], "text": i["what"]}
+                               for i in p["items"]],
+                     "can_add": [{"exercise_id": e["id"], "name": e["name"]} for e in p["can_add"]]})
+    return {"today": iso(d["today"]), "how": gympage.HOW, "week": gympage.plan_week(sp) or None,
+            "done": [{"day_id": x["id"], "label": gymlib.label(sp["days"], x), "day": iso(sp["done"][x["id"]])} for x in sp["days"] if x["id"] in sp["done"]],
+            "day": _day_ref(sp, sp["day"]), "free": sp["free"], "days": days,
+            "removed": [{"day_id": x["id"], "name": x["name"]} for x in gone], "limits": PLAN_LIMITS}
+
+
+EXERCISE_LIMITS = {"name_max": 60, "words_max": 10, "word_max": 40}
+
+
+def gym_exercises() -> dict:
+    """The Exercises tab (gympage.load, exercise_use, exercise_meta): every exercise in the list's order, active or retired."""
+    with connect() as c, c.cursor() as cur:
+        d = gympage.load(cur)
+        use = gympage.exercise_use(cur)
+    out = []
+    for x in d["exercises"]:
+        u = use.get(x["id"])
+        out.append({"exercise_id": x["id"], "name": x["name"], "kind": x["kind"], "kind_label": gymlib.KINDS[x["kind"]], "words": list(x["words"]),
+                    "active": bool(x["active"]), "workouts": u["n"] if u else 0, "last_day": iso(u["day"]) if u else None,
+                    "use": gympage.use_text(u), "meta": gympage.exercise_meta(x, u)})
+    return {"active": sum(1 for x in d["exercises"] if x["active"]), "exercises": out,
+            "kinds": [{"key": k, "label": v} for k, v in gymlib.KINDS.items()], "limits": EXERCISE_LIMITS}
+
+
+def gym_progress(x=None) -> dict:
+    """The Progress tab of exercise x (gympage.progress: the most recently done one when x is not one done): the chips, the top
+    number, the change, the line under it, the chart as drawChart takes it, the last 6 sessions, workouts per week."""
+    p = gympage.progress({"x": x} if x is not None else {})
+    pw = p["per_week"]
+    out = {"today": iso(p["today"]), "start": iso(p["first"]), "weeks": gympage.WEEKS,
+           "per_week": {"weeks": [{"start": iso(w["start"]), "n": w["n"]} for w in pw["weeks"]], "top": pw["top"], "good": pw["good"]},
+           "exercises": [], "exercise": None, "unit": None, "title": None, "top": None, "top_reps": None, "top_text": None, "change": None,
+           "one_rep_max": None, "sub": None, "chart": None, "recent": []}
+    if p["ex"] is None:
+        return out
+    out.update(exercises=[{"exercise_id": k, "name": nm, "on": on} for k, nm, on in p["chips"]],
+               exercise={"exercise_id": p["ex"]["id"], "name": p["ex"]["name"], "kind": p["ex"]["kind"]}, unit=p["unit"], title=p["title"],
+               top=_num2(p["top"]), top_reps=p["top_reps"], top_text=f'{gympage._plain(p["top"])} {p["unit"]}', change=p["change"],
+               one_rep_max=p["one_rep_max"], sub=p["sub"], chart=p["chart"],
+               recent=[{"day": iso(dd), "text": ", ".join(gymlib.row_text(r) for r in rs), "rows": [_set(r) for r in rs]} for dd, rs in p["recent"]])
+    return out
+
+
+def gym_history() -> dict:
+    """The History tab (gympage.history): the last 60 workouts, newest first."""
+    return {"workouts": [{"workout_id": h["w"]["id"], "anchor": f'w{h["w"]["id"]}', "day": iso(h["w"]["day"]),
+                          "split_day_id": h["w"]["split_id"], "split": h["split"], "started_at": iso(h["start"]), "ended_at": iso(h["end"]),
+                          "when": h["when"],
+                          "exercises": [{"exercise_id": rs[0]["exercise_id"], "name": rs[0]["name"], "kind": rs[0]["kind"],
+                                         "text": ", ".join(gymlib.row_text(r) for r in rs), "rows": [_set(r) for r in rs]} for rs in h["exercises"]]}
+                         for h in gympage.history()]}
+
+
+def gym_activity(asked: Optional[date] = None) -> dict:
+    """The Activity tab (activitypage.load, setup): one calendar day of watch data (a later day is today), or, before any came, the
+    set-up guide. Read only."""
+    a = activitypage.load(asked)
+    if a is None:
+        return {"has_data": False, "setup": activitypage.setup(), "today": None, "day": None, "label": None, "prev_day": None, "next_day": None,
+                "tiles": [], "sleep": None, "workouts": [], "charts": []}
+    day, s = a["day"], a["sleep"]
+    return {
+        "has_data": True, "setup": None, "today": iso(a["today"]), "day": iso(day), "label": a["label"],
+        "prev_day": iso(day - timedelta(days=1)), "next_day": iso(day + timedelta(days=1)) if day < a["today"] else None,
+        "tiles": [{"key": t["key"], "label": t["label"], "value": _num2(t["value"]), "unit": t["unit"], "text": t["text"],
+                   "avg7": _num2(t["avg7"]), "sub": t["sub"] or None} for t in a["tiles"]],
+        "sleep": None if not s else {
+            "hours": _num2(s["asleep"]), "text": s["asleep_text"], "in_bed_from": iso(s["start"]), "in_bed_to": iso(s["end"]), "in_bed": s["in_bed"] or None,
+            "stages": [{"key": x["key"], "label": x["label"], "hours": _num2(x["hours"]), "text": x["text"]} for x in s["stages"]],
+            "stages_text": s["stages_text"],
+            "typed": {"bed_at": iso(s["typed"]["bed_at"]), "wake_at": iso(s["typed"]["wake_at"]), "hours": _num2(s["typed"]["hours"])} if s["typed"] else None,
+            "typed_text": s["typed_text"]},
+        "workouts": [{"name": x["w"]["name"], "start_at": iso(x["w"]["start_at"]), "end_at": iso(x["w"]["end_at"]), "minutes": x["minutes"],
+                      "kcal": _num2(x["w"]["kcal"]), "hr_avg": _num2(x["w"]["hr_avg"]), "km": _num2(x["w"]["km"]), "meta": x["meta"],
+                      "matches": x["matches"]} for x in a["workouts"]],
+        "charts": [{"id": k, "title": title, "chart": a["charts"][k]} for k, _cid, title in activitypage.CHARTS],
     }

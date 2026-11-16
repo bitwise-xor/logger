@@ -84,35 +84,50 @@ def _night(cur, d: date) -> dict | None:
     return {"asleep": st["deep"] + st["core"] + st["rem"] + plain, "stages": st, "start": segs[0]["at"], "end": max(ends) if ends else None}
 
 
-def _chart(cid: str, first: date, label: str, series: list, **opts) -> str:
-    data = {"start": first.isoformat(), "days": 7, "label": label, "series": series, **opts}
+def chart_data(first: date, label: str, series: list, **opts) -> dict:
+    """A 7-day chart as app.js's drawChart takes it (the data-chart attribute)."""
+    return {"start": first.isoformat(), "days": 7, "label": label, "series": series, **opts}
+
+
+def _chart(cid: str, data: dict) -> str:
     return f'<div class="chart" id="{cid}" data-chart="{esc(json.dumps(data, separators=(",", ":")))}"></div>'
 
 
-def _setup() -> str:
+def setup() -> dict:
+    """The set-up guide shown before any watch data has come, as data: each step in parts ({text, code}: code is drawn as code)."""
     ready = "is set on the server" if watch.token() else "is not set on the server yet: add a line WATCH_TOKEN=… (24 or more letters and digits) to /opt/stacks/logger-v2/.env and restart the core"
-    return ('<div class="card"><h2><span>No watch data yet</span></h2><p>The watch data comes from the iPhone app Health Auto Export '
-            '(Premium). Set up two automations of the kind REST API:</p><ol class="steps">'
-            f'<li>Address <code>https://log.19hospitalroad.fyi{watch.PATH}</code>, format JSON, export version 2.</li>'
-            '<li>A header <code>Authorization</code> with the value <code>Bearer</code>, a space and your token. The token '
-            f'{esc(ready)}.</li>'
-            '<li>First automation: Health Metrics with Step Count, Active Energy, Apple Exercise Time, Resting Heart Rate, Heart Rate '
-            'Variability, Walking + Running Distance, Flights Climbed, Sleep Analysis and Heart Rate; Summarize Data on, by hour.</li>'
-            '<li>Second automation: Workouts (no route data needed).</li>'
-            '<li>Sync every 30 minutes; Background App Refresh on. The phone sends only while it is unlocked now and then.</li></ol>'
-            '<p class="small">Each run sends yesterday and today again; the logger keeps every reading once. Nothing goes to the Google Sheet.</p></div>')
+    t = lambda x: {"text": x, "code": False}  # noqa: E731
+    c = lambda x: {"text": x, "code": True}  # noqa: E731
+    return {"title": "No watch data yet", "token_set": bool(watch.token()),
+            "intro": "The watch data comes from the iPhone app Health Auto Export (Premium). Set up two automations of the kind REST API:",
+            "steps": [[t("Address "), c(f"https://log.19hospitalroad.fyi{watch.PATH}"), t(", format JSON, export version 2.")],
+                      [t("A header "), c("Authorization"), t(" with the value "), c("Bearer"), t(f", a space and your token. The token {ready}.")],
+                      [t("First automation: Health Metrics with Step Count, Active Energy, Apple Exercise Time, Resting Heart Rate, Heart Rate "
+                         "Variability, Walking + Running Distance, Flights Climbed, Sleep Analysis and Heart Rate; Summarize Data on, by hour.")],
+                      [t("Second automation: Workouts (no route data needed).")],
+                      [t("Sync every 30 minutes; Background App Refresh on. The phone sends only while it is unlocked now and then.")]],
+            "note": "Each run sends yesterday and today again; the logger keeps every reading once. Nothing goes to the Google Sheet."}
 
 
-def render(csrf: str, q=None) -> str:
+def _setup() -> str:
+    g = setup()
+    steps = "".join("<li>" + "".join(f"<code>{esc(x['text'])}</code>" if x["code"] else esc(x["text"]) for x in st) + "</li>" for st in g["steps"])
+    return (f'<div class="card"><h2><span>{g["title"]}</span></h2><p>{g["intro"]}</p><ol class="steps">{steps}</ol>'
+            f'<p class="small">{g["note"]}</p></div>')
+
+
+CHARTS = (("steps", "c-steps", "Steps"), ("sleep", "c-wsleep", "Sleep"), ("rhr", "c-rhr", "Resting heart rate"))
+
+
+def load(asked=None) -> dict | None:
+    """One calendar day of watch data as data (deploy 95, shared with the JSON door): the day (a later one is today), the tiles, the
+    night before, the watch's workouts with the Logger's workout they match, the three 7-day charts. None before any data came."""
     with connect() as conn, conn.cursor() as cur:
         cur.execute("SELECT EXISTS (SELECT 1 FROM watch_metrics) OR EXISTS (SELECT 1 FROM watch_workouts) AS any")
         if not cur.fetchone()["any"]:
-            return _tabs("activity") + _setup()
+            return None
         today = datetime.now(rules.BERLIN).date()
-        try:
-            day = min(date.fromisoformat(str((q or {}).get("day", ""))), today)
-        except ValueError:
-            day = today
+        day = min(asked, today) if asked else today
         first = day - timedelta(days=6)
         days = _days(cur, first, day)
         night = _night(cur, day)
@@ -127,52 +142,76 @@ def render(csrf: str, q=None) -> str:
         ds = gym.days(cur)
     v = days.get(day, {})
     week = [days.get(first + timedelta(days=i), {}) for i in range(7)]
-    avg7 = lambda k: (lambda xs: sum(xs) / len(xs) if xs else None)([w[k] for w in week if k in w])
+    avg7 = lambda k: (lambda xs: sum(xs) / len(xs) if xs else None)([w[k] for w in week if k in w])  # noqa: E731
     tiles = []
     for k, (label, unit, dec) in {**SUMS, **AVGS}.items():
-        sub = f"7-day avg {_num(avg7(k), dec)}" if k in ("step_count", "resting_heart_rate") and avg7(k) is not None else ""
-        tiles.append(f'<div class="wtile"><span class="small">{label}</span><span class="wv">{_num(v.get(k), dec)}'
-                     f'{" " + unit if unit and k in v else ""}</span><span class="small">{sub}</span></div>')
-    tiles.insert(1, f'<div class="wtile"><span class="small">Sleep</span><span class="wv">{_hm(night and night["asleep"])}</span>'
-                    '<span class="small">night before</span></div>')
+        a = avg7(k) if k in ("step_count", "resting_heart_rate") else None
+        tiles.append({"key": k, "label": label, "value": v.get(k), "unit": unit or None, "text": f'{_num(v.get(k), dec)}{" " + unit if unit and k in v else ""}',
+                      "avg7": a, "sub": f"7-day avg {_num(a, dec)}" if a is not None else ""})
+    tiles.insert(1, {"key": "sleep", "label": "Sleep", "value": night and night["asleep"], "unit": "h", "text": _hm(night and night["asleep"]),
+                     "avg7": None, "sub": "night before"})
     label = "Today" if day == today else "Yesterday" if day == today - timedelta(days=1) else f"{day:%a %d.%m.}"
-    nav = (f'<div class="wday"><a class="iconbtn" href="/web/gym/activity?day={day - timedelta(days=1)}" aria-label="Day before">‹</a>'
-           f'<h2>{label} <span class="small">{day:%d.%m.%Y}</span></h2>'
-           + (f'<a class="iconbtn" href="/web/gym/activity?day={day + timedelta(days=1)}" aria-label="Day after">›</a>' if day < today
-              else '<span class="iconbtn off" aria-hidden="true">›</span>') + "</div>")
+    sleep = None
     if night:
         inbed = (f'in bed {night["start"].astimezone(rules.BERLIN):%H:%M}–{night["end"].astimezone(rules.BERLIN):%H:%M}'
                  if night.get("start") and night.get("end") else "")
-        stages = " · ".join(f'{t} {_hm(night["stages"].get(k))}' for k, t in STAGES if night["stages"].get(k))
+        stages = [{"key": k, "label": t, "hours": night["stages"].get(k), "text": f'{t} {_hm(night["stages"].get(k))}'} for k, t in STAGES if night["stages"].get(k)]
         mine = (f'Typed in the Logger: bed {typed["bed_at"].astimezone(rules.BERLIN):%H:%M}, woke {typed["wake_at"].astimezone(rules.BERLIN):%H:%M}'
                 f' ({_hm(float(typed["hours"]))})' if typed else "Nothing typed in the Logger for this night.")
-        sleep = (f'<div class="card"><h2><span>Sleep, night before</span><span class="small">{inbed}</span></h2>'
-                 f'<p class="gbig"><span class="num">{_hm(night["asleep"])}</span> <span class="small">asleep</span></p>'
-                 f'<p class="small">{stages or "No stages sent."}</p><p class="small">{esc(mine)}</p></div>')
-    else:
-        sleep = '<div class="card"><h2><span>Sleep, night before</span></h2><p class="empty">No sleep from the watch for this night.</p></div>'
+        sleep = {"asleep": night["asleep"], "asleep_text": _hm(night["asleep"]), "start": night.get("start"), "end": night.get("end"), "in_bed": inbed,
+                 "stages": stages, "stages_text": " · ".join(x["text"] for x in stages) or "No stages sent.",
+                 "typed": typed, "typed_text": mine}
     wl = []
     for w in works:
         meta = " · ".join(x for x in (f'{round((w["end_at"] - w["start_at"]).total_seconds() / 60)} min',
                                       f'{_num(float(w["kcal"]))} kcal' if w["kcal"] is not None else "",
                                       f'avg {_num(float(w["hr_avg"]))} bpm' if w["hr_avg"] is not None else "",
                                       f'{_num(float(w["km"]), 1)} km' if w["km"] else "") if x)
-        match = ""
+        match = None
         if logged and abs((logged["started_at"] - w["start_at"]).total_seconds()) < 3 * 3600:
-            split = gym.label(ds, {"id": logged["split_id"], "name": logged["name"]}) if logged["split_id"] else "Free workout"
-            match = f'<span class="small wmatch">Matches {esc(split)} in the Logger</span>'
-        wl.append(f'<div class="hm"><span class="hm-main">{esc(w["name"])}<span class="small">{esc(meta)}</span>{match}</span>'
-                  f'<span class="small">{w["start_at"].astimezone(rules.BERLIN):%H:%M}–{w["end_at"].astimezone(rules.BERLIN):%H:%M}</span></div>')
-    workouts = (f'<div class="card"><h2><span>Workouts the watch recorded</span></h2>'
-                f'{"".join(wl) or "<p class=empty>None on this day.</p>"}</div>')
+            match = gym.label(ds, {"id": logged["split_id"], "name": logged["name"]}) if logged["split_id"] else "Free workout"
+        wl.append({"w": w, "minutes": round((w["end_at"] - w["start_at"]).total_seconds() / 60), "meta": meta, "matches": match})
     steps = [[i, round(w["step_count"]), f'{first + timedelta(days=i):%a %d.%m.}: {_num(w["step_count"])} steps']
              for i, w in enumerate(week) if "step_count" in w]
     slp = [[i, round(n["asleep"], 2), f'{d:%a %d.%m.}: {_hm(n["asleep"])}'] for i, (d, n) in enumerate(nights.items()) if n]
     rhr = [[i, round(w["resting_heart_rate"], 1), f'{first + timedelta(days=i):%a %d.%m.}: {_num(w["resting_heart_rate"])} bpm']
            for i, w in enumerate(week) if "resting_heart_rate" in w]
-    charts = ('<div class="grid2">'
-              f'<div class="card"><h2>Steps</h2>{_chart("c-steps", first, "Steps per day", [{"mark": "bar", "cls": "a", "pts": steps}], min=0)}</div>'
-              f'<div class="card"><h2>Sleep</h2>{_chart("c-wsleep", first, "Sleep in hours", [{"mark": "bar", "cls": "a", "pts": slp}], min=0, unit=" h", lines=[[7, "w", "7 h"]])}</div>'
-              f'<div class="card"><h2>Resting heart rate</h2>{_chart("c-rhr", first, "Resting heart rate in bpm", [{"mark": "line", "cls": "a", "pts": rhr}, {"mark": "dot", "cls": "a", "pts": rhr}])}</div>'
-              "</div>")
-    return _tabs("activity") + f'{nav}<div class="wtiles">{"".join(tiles)}</div>{sleep}{workouts}{charts}'
+    charts = {"steps": chart_data(first, "Steps per day", [{"mark": "bar", "cls": "a", "pts": steps}], min=0),
+              "sleep": chart_data(first, "Sleep in hours", [{"mark": "bar", "cls": "a", "pts": slp}], min=0, unit=" h", lines=[[7, "w", "7 h"]]),
+              "rhr": chart_data(first, "Resting heart rate in bpm", [{"mark": "line", "cls": "a", "pts": rhr}, {"mark": "dot", "cls": "a", "pts": rhr}])}
+    return {"today": today, "day": day, "first": first, "label": label, "tiles": tiles, "sleep": sleep, "workouts": wl, "charts": charts}
+
+
+def render(csrf: str, q=None) -> str:
+    try:
+        asked = date.fromisoformat(str((q or {}).get("day", "")))
+    except ValueError:
+        asked = None
+    a = load(asked)
+    if a is None:
+        return _tabs("activity") + _setup()
+    day, today = a["day"], a["today"]
+    tiles = "".join(f'<div class="wtile"><span class="small">{t["label"]}</span><span class="wv">{t["text"]}</span><span class="small">{t["sub"]}</span></div>'
+                    for t in a["tiles"])
+    nav = (f'<div class="wday"><a class="iconbtn" href="/web/gym/activity?day={day - timedelta(days=1)}" aria-label="Day before">‹</a>'
+           f'<h2>{a["label"]} <span class="small">{day:%d.%m.%Y}</span></h2>'
+           + (f'<a class="iconbtn" href="/web/gym/activity?day={day + timedelta(days=1)}" aria-label="Day after">›</a>' if day < today
+              else '<span class="iconbtn off" aria-hidden="true">›</span>') + "</div>")
+    s = a["sleep"]
+    if s:
+        sleep = (f'<div class="card"><h2><span>Sleep, night before</span><span class="small">{s["in_bed"]}</span></h2>'
+                 f'<p class="gbig"><span class="num">{s["asleep_text"]}</span> <span class="small">asleep</span></p>'
+                 f'<p class="small">{s["stages_text"]}</p><p class="small">{esc(s["typed_text"])}</p></div>')
+    else:
+        sleep = '<div class="card"><h2><span>Sleep, night before</span></h2><p class="empty">No sleep from the watch for this night.</p></div>'
+    wl = []
+    for x in a["workouts"]:
+        w = x["w"]
+        match = f'<span class="small wmatch">Matches {esc(x["matches"])} in the Logger</span>' if x["matches"] else ""
+        wl.append(f'<div class="hm"><span class="hm-main">{esc(w["name"])}<span class="small">{esc(x["meta"])}</span>{match}</span>'
+                  f'<span class="small">{w["start_at"].astimezone(rules.BERLIN):%H:%M}–{w["end_at"].astimezone(rules.BERLIN):%H:%M}</span></div>')
+    workouts = (f'<div class="card"><h2><span>Workouts the watch recorded</span></h2>'
+                f'{"".join(wl) or "<p class=empty>None on this day.</p>"}</div>')
+    charts = ('<div class="grid2">' + "".join(f'<div class="card"><h2>{title}</h2>{_chart(cid, a["charts"][k])}</div>' for k, cid, title in CHARTS)
+              + "</div>")
+    return _tabs("activity") + f'{nav}<div class="wtiles">{tiles}</div>{sleep}{workouts}{charts}'

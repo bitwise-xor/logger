@@ -54,7 +54,7 @@ signed in before counts its own failures; all others share one pool, together wi
 ### `GET /api/v1/day?day=yyyy-mm-dd` → `{"day": Day, "undo": Undo}`
 
 Today without `day`; an earlier day as asked; a later day is today. Built on `todaypage.load`, `webquestions.load`, `held.rows` and the
-gratitude count. No Home, Gym or Coach cards.
+gratitude count. No Home or Coach cards; the Gym card since 95 (`gym`).
 
 ```
 Day = {
@@ -74,7 +74,13 @@ Day = {
   rows:    [Row],                                       // food and health together, in time order, unknown times last
   health:  [{row, label, sub, type, period, unit, ref, v1, v2, at, last_at}],   // the Health card, shown rows in the chosen order
   habits:  [{name, label, done, target, complete, avoid, last_tick}],
-  gratitude: {count, goal}                              // a count only, never words
+  gratitude: {count, goal},                             // a count only, never words
+  gym: null | {last_workout, day_label, days: [{day, on, today}], n14, last_week, this_week, text}
+                                                        // (95) Today's Gym card (gympage.today_data); null for a past day, as app.:
+                                                        // the last workout's day, today's day of the split ("Day 1 · Push", "Free
+                                                        // workout", or null without a split), the last 14 days oldest first, n14
+                                                        // of them with a workout, the weeks' counts and app.'s line
+                                                        // ("Last week 3 workouts · this week none yet")
 }
 Row (food)   = {ref: "f<id>", kind: "food", meal, at, time_known, food, food_id, amount, unit, portion_text,
                 nutrients: {kcal, protein, fat, carbs}, usual_meal: null | {id, name}}
@@ -258,6 +264,127 @@ Habits = {
 - Wake-up and Bedtime are times, not habits: never listed. Hiding and ordering habits on Today and the reminders stay at app.
   (Settings > Today page, Habits): no route here.
 
+### `GET /api/v1/gym` → `{"gym": Workout, "undo": Undo}` (95)
+
+app.'s Gym › Workout tab as data (`gympage.load`, `workout_list`, `row_data`, `daypick_data`, `split_card_data`, `weeks_data`: app.'s tab
+draws the same).
+
+```
+Workout = {
+  today, title,                       // "Day 2 · Pull", "Free workout" or "Today’s workout" (no split)
+  started_at, done, status,           // the first tick's time (null before), exercises done today, app.'s "started 17:05 · 3 done"
+                                      // or "not started: the first tick starts it"
+  has_split, day: null | {day_id, name, label}, free, picked_by_hand,
+  chips: [{day_id, label, on}],       // every active day, then Free workout (day_id null); [] without a split ("No split yet: make
+                                      // one on the Plan tab"); POST /gym/pick with the chip's day_id
+  why,                                // the line under the chips ("Your 2nd workout this week: the first day not done yet. …"), null without a split
+  exercises: [GymRow],                // app.'s order: the day's exercises in the plan's order (a retired one only when done today),
+                                      // then others done today; without a day (Free workout, no split) every active exercise
+  other: [GymRow],                    // the rest, under "Other exercises (n)" (closed)
+  empty, hint,                        // the line when exercises is [] ("No exercises on this day yet: add them on the Plan tab."),
+                                      // the hint under the list (null when there is nothing)
+  week_split: [{day_id, label, exercises, done, today}],   // "This week’s split": exercises as one line, done the date this week (or null)
+  weeks: {good, weeks: [{start, label, n, days: [{day, on, today, later}]}]},   // the last 4 weeks, Monday first; good: weeks with 2+
+  retired: [names],                   // "+ Add exercise": a retired one of the same name comes back with its history
+  fields: {weights|bodyweight|cardio: [{name, label, step, min, max}]},   // the − / + of each kind (gympage.FIELDS)
+  numbers,                            // gym.NUMBERS, the refusal of a number out of range
+  kinds: [{key, label}]               // weights "Weights", bodyweight "Bodyweight", cardio "Machine cardio"
+}
+GymRow = {exercise_id, name, kind, active,
+  done, logged: [Set],                // today's rows; done: the circle is ticked (a tap = POST /gym/remove {exercise_id}: all of them)
+  values: {sets, reps, kg, minutes, km},   // the numbers the editor opens with and the circle logs: today's last row, else the last
+                                      // session's heaviest, else the plan's sets × reps (first time), else 3 × 8, 3 × 10 or 20 min
+  ready,                              // values are complete: one tap logs them (POST /gym/tick with them); else "set the numbers first"
+  text,                               // the line under the name: today's rows, or the numbers the circle logs, or "first time: set the numbers"
+  up_kg,                              // weights done today heavier than the last session: the difference ("+2.5 kg"), else null
+  last: null | {day, rows: [Set]}, last_text,   // "Last Tue 04.11.: 3 × 8 at 60 kg" or "Not done before · plan 3 × 10"
+  plan: null | {item_id, sets, reps}, // on today's day of the split (sets, reps null: no plan numbers)
+  open}                               // the editor starts opened: an exercise never done without complete numbers (on a day of
+                                      // the split only the first such one; in "other" never)
+Set = {set_id, sets, reps, kg, minutes, km, text}   // a logged row; text "3 × 8 at 60 kg", "3 × 12", "25 min · 3.2 km"
+```
+
+### `GET /api/v1/gym/plan` → `{"gym_plan": Plan, "undo": Undo}` (95)
+
+```
+Plan = {
+  today, how,                         // "How the day is picked" (app.'s paragraph)
+  week,                               // "This week: Day 1 · Push on Mon done. Today: Day 2 · Pull." (null without a split)
+  done: [{day_id, label, day}],       // the days done this week (before today) and the date
+  day: null | {day_id, name, label}, free,
+  days: [{day_id, name, label, today,                 // the active days in order (Day 1, Day 2, …)
+          items: [{item_id, exercise_id, name, kind, active, sets, reps, text}],   // text "Weights · plan 3 × 10", "… · retired";
+                                                                                   // cardio has no plan numbers (set when logged)
+          can_add: [{exercise_id, name}]}],           // the active exercises not on the day ("+ Add exercise")
+  removed: [{day_id, name}],          // "Removed days", Bring back
+  limits: {name_max: 40, sets_min: 1, sets_max: 50, reps_min: 1, reps_max: 500}
+}
+```
+
+### `GET /api/v1/gym/exercises` → `{"gym_exercises": Exercises, "undo": Undo}` (95)
+
+```
+Exercises = {
+  active,                             // "n active"
+  exercises: [{exercise_id, name, kind, kind_label, words, active, workouts, last_day, use, meta}],
+                                      // the list's order, retired ones too (active false: "Bring back"); use "12 workouts, last 04.11."
+                                      // or "not done yet"; meta app.'s whole line "Weights · also: bench · 12 workouts, last 04.11."
+  kinds: [{key, label}], limits: {name_max: 60, words_max: 10, word_max: 40}
+}
+```
+
+### `GET /api/v1/gym/progress?x=<exercise id>` → `{"gym_progress": Progress, "undo": Undo}` (95)
+
+app.'s Progress tab (`gympage.progress`, `per_week`). `x` an exercise done at least once; without it, or an exercise never done,
+the most recently done one (as app.); `x` not digits is 400 `bad_request` ("x must be an exercise's id.").
+
+```
+Progress = {
+  today, start, weeks: 8,             // the chart's 8 weeks: start .. today
+  per_week: {weeks: [{start, n}], top, good},   // workouts per week, oldest first (the Mondays); top: the bars' top (3 at least);
+                                      // good: weeks with 2+ ("5 of 8 weeks with 2+"). app. draws it as an SVG; here the data
+  exercises: [{exercise_id, name, on}],         // the chips: every exercise done, the most recently done first
+  exercise: null | {exercise_id, name, kind},   // null: nothing logged yet ("Nothing to show yet: tick exercises on the Workout tab")
+  unit, title,                        // kg "top weight", reps "most reps in a set", min "longest session"
+  top, top_reps, top_text,            // the last session's best: the heaviest set (and its reps), the most reps, the longest; "62.5 kg"
+  change,                             // "+5 kg since 22.09.", "−2 reps since …", "same as …", "one session so far", "no sessions in the last 8 weeks"
+  one_rep_max,                        // weights: the estimated 1-rep max (kg, whole), else null
+  sub,                                // "Top set 62.5 kg × 8 · estimated 1-rep max ≈ 79 kg" or "Last session Tue 04.11."
+  chart: null | Chart.chart,          // as drawChart takes it: series line and dot, pts [day index, value, "Tue 04.11.: 3 × 8 at 60 kg"],
+                                      // decimals 1; null: no session in the 8 weeks ("No sessions in the last 8 weeks.")
+  recent: [{day, text, rows: [Set]}]  // the last 6 sessions, newest first
+}
+```
+
+### `GET /api/v1/gym/history` → `{"gym_history": {"workouts": [...]}, "undo": Undo}` (95)
+
+The last 60 workouts, newest first (`gympage.history`): `{workout_id, anchor, day, split_day_id, split, started_at, ended_at, when,
+exercises: [{exercise_id, name, kind, text, rows: [Set]}]}`. `anchor` "w<id>" (app.'s card id: a search result links to it); `split` the
+day's name or "Free workout"; `ended_at` the last tick (there is no Finish button); `when` "17:05–18:10" or "17:05"; `text` the
+exercise's rows as one line.
+
+### `GET /api/v1/gym/activity?day=yyyy-mm-dd` → `{"gym_activity": Activity, "undo": Undo}` (95)
+
+app.'s Activity tab, read only (`activitypage.load`, `setup`): one calendar day of the watch's data (today without `day`; a later day is
+today; not a date: 400 "day must be yyyy-mm-dd."). app. shows the Activity tab once any watch data has come.
+
+```
+Activity = {
+  has_data,                           // false: no watch data at all yet; then only setup, the rest null or []
+  setup: null | {title, token_set, intro, steps: [[{text, code}]], note},   // the set-up guide's words; code: drawn as code
+  today, day, label,                  // "Today", "Yesterday" or "Mon 16.11."
+  prev_day, next_day,                 // the arrows (next_day null on today)
+  tiles: [{key, label, value, unit, text, avg7, sub}],   // steps, sleep (the night before, hours), active energy, exercise
+                                      // minutes, distance, floors, resting heart rate, heart rate variability; text "2 000", "100 kcal",
+                                      // "7 h 15 min", "–" without a value; sub "7-day avg 2 000" (steps, resting heart rate), "night before"
+  sleep: null | {hours, text, in_bed_from, in_bed_to, in_bed, stages: [{key, label, hours, text}], stages_text,
+                 typed: null | {bed_at, wake_at, hours}, typed_text},   // the night before; typed: the times typed in the Logger
+  workouts: [{name, start_at, end_at, minutes, kcal, hr_avg, km, meta, matches}],   // matches: the Logger's workout of that day
+                                      // ("Day 2 · Pull", "Free workout") when it started within 3 hours, else null
+  charts: [{id, title, chart}]        // steps, sleep, rhr: 7 days ending on day, as drawChart takes them
+}
+```
+
 ## The label photo: `POST /api/v1/food/label` (89)
 
 One to three photos of ONE package (the name and the nutrition table often need two), read together in one AI call
@@ -311,6 +438,7 @@ function takes one, so a re-sent request saves once (`replayed: true`).
 | `/api/v1/body/skip` (91) | | `webactions.body_skip` ("Not today": the due line hidden until the next health day; no Undo) |
 | `/api/v1/habit/day` (93) | `name`, `day` (yyyy-mm-dd), `key`; `show` for the fresh read | `webactions.habit_day` (a square of the calendar) |
 | `/api/v1/habits/manage` (93) | `action`: `track`, `retire`, `restore`, `edit`, `delete` or `new`, and its fields (below), `key`; `show` for the fresh read | `webhabits.ACTIONS[action]` |
+| `/api/v1/gym/<action>` (95) | `action` in the path: `tick`, `remove`, `pick`, `new`, `rename`, `active`, `daynew`, `dayedit`, `dayactive`, `itemadd`, `itemset`, `itemmove`, `itemremove`; its fields (below), `key`; `view` for another fresh read | `gym.ACTIONS[action]` (app.'s `/web/gym/<action>`) |
 | `/api/v1/lookup` (89) | `text` (a name, or a barcode of 8 to 14 digits), optional `question_id` (an open food question it answers; without `text` the question's word is looked up) | `webfood.look_up` → `logbook.food_lookup` (no key: it saves nothing) |
 
 The usual-meal saves (86): the front end sends `confirmed: true` and the change is made at once, with Undo (without it a change or
@@ -394,6 +522,42 @@ The Habits page's saves (93), each like app.'s form:
 - The answer carries the fresh read: `view: "habits"` (default of both routes: `habits` as `GET /habits` with the body's `show`).
   `POST /habit` (Today's button) answers with it too when sent `"view": "habits"`.
 
+The Gym's saves (95), each like app.'s form of the same name:
+
+- Fields (numbers as JSON numbers, ids as numbers; a wrong kind of field is 400 `bad_request`):
+  `tick`: `exercise_id`, `sets`, `reps`, `kg`, `minutes`, `km` (numbers or null; send the row's `values`), `key`;
+  `remove`: `set_id` (one row of today) or `exercise_id` (all of today's rows of it), not both;
+  `pick`: `day_id` (a day of the split, or null = Free workout; required);
+  `new`: `name` (up to 60), `kind` (`weights`, `bodyweight`, `cardio`), `words` (optional list of up to 10 words of up to 40 characters,
+  no commas), `today` (true from the Workout tab: it also goes on today's day of the split);
+  `rename`: `exercise_id`, `name`; `active`: `exercise_id`, `on` (false = Retire, true = Bring back);
+  `daynew`: `name` (up to 40); `dayedit`: `day_id`, `name`; `dayactive`: `day_id`, `on` (false = Remove this day, true = Bring back);
+  `itemadd`: `day_id`, `exercise_id`, `sets`, `reps` (both or neither); `itemset`: `item_id`, `sets`, `reps` (both null = no plan
+  numbers); `itemmove`: `item_id`, `dir` (`up` or `down`); `itemremove`: `item_id`.
+- Refusals are `rejected` with app.'s plain `reason` and change nothing: a number out of range or not whole (`gym.NUMBERS`: "Numbers
+  only: sets 1 to 50, reps 1 to 500, kg 0 to 1000, minutes up to 600, km up to 200."), "Give the weight in kg." (weights), "Give sets
+  and reps.", "Give the minutes." (cardio), "Unknown exercise.", "Unknown day." (also a removed day for `pick`), "That is not in
+  today's workout." (a row of another day), "… is already in your list.", "A retired exercise is called …", "It is called … already.",
+  "Pick weights, bodyweight or machine cardio.", "… is already a day of your split.", "… is already on …", "Give both sets and reps, or
+  neither.", "Numbers only: sets 1 to 50, reps 1 to 500.", "Pick a day and one of your exercises." (a retired exercise or a removed
+  day), "That is not on a day any more.". A name too long is 400 `bad_request`.
+- A tick logs the exercise into today's workout; the first tick of the logging day starts the workout (with today's day of the split)
+  and ticks the habit "gym" once. A second tick of the same exercise is another row. Removing the last row of the day also takes the
+  workout and the day's gym tick away. `pick` moves today's workout, once started, to the day picked.
+- `key`: only `tick` takes one (app.'s rule): a re-sent key answers the first answer (`replayed: true`) and logs nothing twice; the same
+  key with other numbers is refused ("This form was already used."). The other actions take none: `new` and `daynew` sent twice are
+  refused the second time (the name is there), `remove` sent twice finds nothing the second time, the others are the same twice.
+- **Undo** (`POST /undo`), where app. has it (`gym_undo`): **a tick** (the row it made deleted; the workout too if this tick started
+  it, and the gym tick if this tick made it); **a remove** (the rows put back with the same ids, and with the last row the workout and
+  the gym tick); **`itemremove`** (the exercise back on its day, same id, place and plan numbers). Every other action has no Undo (as
+  on app.): the answer's `undo` is null and the session's earlier Undo goes; a refusal leaves it. Send `"view": "gym"` (or
+  `"gym_plan"`) with the undo for the tab's fresh read.
+- The answer carries the tab's fresh read: `tick`, `remove`, `pick` and `new` with `today: true` → `gym` (the Workout tab); `new`
+  without it, `rename`, `active` → `gym_exercises`; `daynew`, `dayedit`, `dayactive`, `itemadd`, `itemset`, `itemmove`, `itemremove`
+  → `gym_plan`. The body's `view` chooses another (also `day`).
+- Not here (as at app.): the starter split (`python -m app.gymseed`), a finish button (the last tick ends a workout), the watch's data
+  (it comes from the phone).
+
 Field names since 77: `action` (was `act` on `/review` and `/food/entry`), `time` (was `t` on `/health`), `items[].item_id` (was
 `items[].id` on `/usual`). Since deploy 78 only the new names work: a field sent under its old name counts as missing.
 
@@ -413,8 +577,11 @@ Every save answers (HTTP 200, also when nothing was saved):
   replayed,
   undo: Undo,            // one per session, 15 minutes; POST /api/v1/undo {token}
   day: Day  |  food_day: FoodDay  |  usual: [Usual]  |  health: Health  |  body: Body  |  habits: Habits
+       |  gym: Workout  |  gym_plan: Plan  |  gym_exercises: Exercises
                                                        // the fresh read; body "view": "day" | "food" | "usual" (86) | "health" |
-                                                       // "body" (91) | "habits" (93, with "show") and "view_day": "yyyy-mm-dd" choose it;
+                                                       // "body" (91) | "habits" (93, with "show") | "gym" | "gym_plan" |
+                                                       // "gym_exercises" (95) and "view_day": "yyyy-mm-dd" choose it;
+                                                       // /gym/<action> defaults to its tab (see the Gym's saves);
                                                        // /habit/day and /habits/manage default to "habits"; /usual/meal and
                                                        // /usual/new default to "usual", /usual/from_meal and /food/* to "food",
                                                        // /health/day to "health" (with "range", "all"), /body to "body" (its day),
@@ -453,5 +620,5 @@ Texts in `read_back`, `result` and questions never carry the lines meant for the
 - Errors inside a save (the AI or the database not answering) are `outcome: "rejected"` with a reason that nothing was saved; a typed
   line's words stay kept (`held`) and appear in `day.needs.not_read`.
 
-Not in the door (on purpose, for now): Home, Gym and Coach, the body settings (interval, hidden measures, height: read in
+Not in the door (on purpose, for now): Home and Coach, the body settings (interval, hidden measures, height: read in
 `GET /body`, changed at app.), the Food catalogue editor, the gratitude list itself (only its count), Ideas and Private.

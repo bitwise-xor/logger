@@ -2,7 +2,7 @@
 the private guard on questions and on lines the AI files as private, one name per field (the old names gone since deploy 78), Undo on a
 reload, a mixed line's look-up in result, answer styles and refill buttons, the outcome's tone, no chat lines in read-backs, and
 Try again / Delete on a message not read yet; the usual-meal editor's shapes (deploy 86); the scanner's, label photo's and look-up's
-shapes (deploy 89); the Health page's and body measurements' shapes (deploy 91); the Habits page's shapes (deploy 93). Every name, food, number and sentence is invented."""
+shapes (deploy 89); the Health page's and body measurements' shapes (deploy 91); the Habits page's shapes (deploy 93); the Gym's shapes (deploy 95). Every name, food, number and sentence is invented."""
 from datetime import datetime
 
 import pytest
@@ -381,3 +381,67 @@ def test_the_habits_shapes(sv, fake):
     assert set(j) == KEYS | {"habits"} and j["undo"] is None
     j = sv.post("/habits/manage", action="delete", name="zz_walk")
     assert set(j) == KEYS | {"habits"} and j["outcome"] == "rejected"
+
+
+# ---- 12. the Gym (deploy 95) -------------------------------------------------------------------------------------------------------
+
+SET = {"set_id", "sets", "reps", "kg", "minutes", "km", "text"}
+
+
+def test_the_gym_shapes(sv, fake, monkeypatch):
+    from test_api_gym import invented
+    from test_watch import TOKEN, payload, post
+    from test_web import client
+
+    x = invented()
+    j = get(sv, "/gym")
+    assert set(j) == {"v", "gym", "undo"}
+    g = j["gym"]
+    assert set(g) == {"today", "title", "started_at", "done", "status", "has_split", "day", "free", "picked_by_hand", "chips", "why", "exercises",
+                      "other", "empty", "hint", "week_split", "weeks", "retired", "fields", "numbers", "kinds"}
+    assert set(g["day"]) == {"day_id", "name", "label"} and all(set(c) == {"day_id", "label", "on"} for c in g["chips"])
+    for r in g["exercises"] + g["other"]:
+        assert set(r) == {"exercise_id", "name", "kind", "active", "done", "logged", "values", "ready", "text", "up_kg", "last", "last_text", "plan", "open"}
+        assert set(r["values"]) == {"sets", "reps", "kg", "minutes", "km"} and all(set(s) == SET for s in r["logged"])
+        assert r["last"] is None or (set(r["last"]) == {"day", "rows"} and all(set(s) == SET for s in r["last"]["rows"]))
+        assert r["plan"] is None or set(r["plan"]) == {"item_id", "sets", "reps"}
+    assert all(set(s) == {"day_id", "label", "exercises", "done", "today"} for s in g["week_split"])
+    assert set(g["weeks"]) == {"good", "weeks"} and all(set(w) == {"start", "label", "n", "days"} for w in g["weeks"]["weeks"])
+    assert all(set(d) == {"day", "on", "today", "later"} for w in g["weeks"]["weeks"] for d in w["days"])
+    assert set(g["fields"]) == {"weights", "bodyweight", "cardio"} and all(set(f) == {"name", "label", "step", "min", "max"} for fs in g["fields"].values() for f in fs)
+    p = get(sv, "/gym/plan")["gym_plan"]
+    assert set(p) == {"today", "how", "week", "done", "day", "free", "days", "removed", "limits"}
+    assert all(set(d) == {"day_id", "name", "label", "today", "items", "can_add"} for d in p["days"])
+    assert all(set(i) == {"item_id", "exercise_id", "name", "kind", "active", "sets", "reps", "text"} for d in p["days"] for i in d["items"])
+    assert all(set(e) == {"exercise_id", "name"} for d in p["days"] for e in d["can_add"]) and all(set(d) == {"day_id", "label", "day"} for d in p["done"])
+    e = get(sv, "/gym/exercises")["gym_exercises"]
+    assert set(e) == {"active", "exercises", "kinds", "limits"}
+    assert all(set(x_) == {"exercise_id", "name", "kind", "kind_label", "words", "active", "workouts", "last_day", "use", "meta"} for x_ in e["exercises"])
+    pr = get(sv, f'/gym/progress?x={x["bench"]}')["gym_progress"]
+    assert set(pr) == {"today", "start", "weeks", "per_week", "exercises", "exercise", "unit", "title", "top", "top_reps", "top_text", "change",
+                       "one_rep_max", "sub", "chart", "recent"}
+    assert set(pr["per_week"]) == {"weeks", "top", "good"} and all(set(w) == {"start", "n"} for w in pr["per_week"]["weeks"])
+    assert {"start", "days", "label", "series", "decimals"} == set(pr["chart"]) and all(set(r) == {"day", "text", "rows"} for r in pr["recent"])
+    assert set(get(sv, "/gym/progress?x=999999")["gym_progress"]) == set(pr)
+    h = get(sv, "/gym/history")["gym_history"]
+    assert set(h) == {"workouts"}
+    assert all(set(w) == {"workout_id", "anchor", "day", "split_day_id", "split", "started_at", "ended_at", "when", "exercises"} for w in h["workouts"])
+    assert all(set(x_) == {"exercise_id", "name", "kind", "text", "rows"} for w in h["workouts"] for x_ in w["exercises"])
+    keys = {"has_data", "setup", "today", "day", "label", "prev_day", "next_day", "tiles", "sleep", "workouts", "charts"}
+    a = get(sv, "/gym/activity")["gym_activity"]
+    assert set(a) == keys and set(a["setup"]) == {"title", "token_set", "intro", "steps", "note"}
+    assert all(set(part) == {"text", "code"} for st in a["setup"]["steps"] for part in st)
+    monkeypatch.setenv("WATCH_TOKEN", TOKEN)
+    post(client("log.19hospitalroad.fyi"), payload(day()))
+    a = get(sv, "/gym/activity")["gym_activity"]
+    assert set(a) == keys and all(set(t) == {"key", "label", "value", "unit", "text", "avg7", "sub"} for t in a["tiles"])
+    assert set(a["sleep"]) == {"hours", "text", "in_bed_from", "in_bed_to", "in_bed", "stages", "stages_text", "typed", "typed_text"}
+    assert all(set(s) == {"key", "label", "hours", "text"} for s in a["sleep"]["stages"])
+    assert all(set(w) == {"name", "start_at", "end_at", "minutes", "kcal", "hr_avg", "km", "meta", "matches"} for w in a["workouts"])
+    assert all(set(c) == {"id", "title", "chart"} for c in a["charts"])
+    card = get(sv, "/day")["day"]["gym"]
+    assert set(card) == {"last_workout", "day_label", "days", "n14", "last_week", "this_week", "text"} and all(set(d) == {"day", "on", "today"} for d in card["days"])
+    j = sv.post("/gym/tick", exercise_id=x["press"], sets=3, reps=10, kg=30, key="shape-gym-1")
+    assert set(j) == KEYS | {"gym"} and set(j["gym"]) == set(g)
+    assert set(sv.post("/gym/itemremove", item_id=p["days"][0]["items"][0]["item_id"])) == KEYS | {"gym_plan"}
+    assert set(sv.post("/gym/active", exercise_id=x["row"], on=False)) == KEYS | {"gym_exercises"}

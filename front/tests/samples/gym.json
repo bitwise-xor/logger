@@ -1,0 +1,3022 @@
+{
+ "gym": {
+  "v": 1,
+  "gym": {
+   "today": "2026-11-16",
+   "title": "Day 1 · Push",
+   "started_at": "2026-11-16T18:21:29.690804+01:00",
+   "done": 2,
+   "status": "started 18:21 · 2 done",
+   "has_split": true,
+   "day": {
+    "day_id": 1,
+    "name": "Push",
+    "label": "Day 1 · Push"
+   },
+   "free": false,
+   "picked_by_hand": false,
+   "chips": [
+    {
+     "day_id": 1,
+     "label": "Day 1 · Push",
+     "on": true
+    },
+    {
+     "day_id": 2,
+     "label": "Day 2 · Pull",
+     "on": false
+    },
+    {
+     "day_id": 3,
+     "label": "Day 3 · Legs",
+     "on": false
+    },
+    {
+     "day_id": null,
+     "label": "Free workout",
+     "on": false
+    }
+   ],
+   "why": "Today’s day. Tap another day to switch.",
+   "exercises": [
+    {
+     "exercise_id": 1,
+     "name": "Bench press",
+     "kind": "weights",
+     "active": true,
+     "done": true,
+     "logged": [
+      {
+       "set_id": 60,
+       "sets": 3,
+       "reps": 8,
+       "kg": 67.5,
+       "minutes": null,
+       "km": null,
+       "text": "3 × 8 at 67.5 kg"
+      },
+      {
+       "set_id": 62,
+       "sets": 1,
+       "reps": 6,
+       "kg": 70,
+       "minutes": null,
+       "km": null,
+       "text": "1 × 6 at 70 kg"
+      }
+     ],
+     "values": {
+      "sets": 1,
+      "reps": 6,
+      "kg": 70,
+      "minutes": null,
+      "km": null
+     },
+     "ready": true,
+     "text": "3 × 8 at 67.5 kg, 1 × 6 at 70 kg",
+     "up_kg": 5,
+     "last": {
+      "day": "2026-11-15",
+      "rows": [
+       {
+        "set_id": 55,
+        "sets": 3,
+        "reps": 8,
+        "kg": 65,
+        "minutes": null,
+        "km": null,
+        "text": "3 × 8 at 65 kg"
+       }
+      ]
+     },
+     "last_text": "Last Sun 15.11.: 3 × 8 at 65 kg",
+     "plan": {
+      "item_id": 1,
+      "sets": 3,
+      "reps": 8
+     },
+     "open": false
+    },
+    {
+     "exercise_id": 2,
+     "name": "Shoulder press",
+     "kind": "weights",
+     "active": true,
+     "done": false,
+     "logged": [],
+     "values": {
+      "sets": 3,
+      "reps": 10,
+      "kg": 45,
+      "minutes": null,
+      "km": null
+     },
+     "ready": true,
+     "text": "3 × 10 at 45 kg",
+     "up_kg": null,
+     "last": {
+      "day": "2026-11-15",
+      "rows": [
+       {
+        "set_id": 56,
+        "sets": 3,
+        "reps": 10,
+        "kg": 45,
+        "minutes": null,
+        "km": null,
+        "text": "3 × 10 at 45 kg"
+       }
+      ]
+     },
+     "last_text": "Last Sun 15.11.: 3 × 10 at 45 kg",
+     "plan": {
+      "item_id": 2,
+      "sets": 3,
+      "reps": 10
+     },
+     "open": false
+    },
+    {
+     "exercise_id": 6,
+     "name": "Push-up",
+     "kind": "bodyweight",
+     "active": true,
+     "done": false,
+     "logged": [],
+     "values": {
+      "sets": 3,
+      "reps": 15,
+      "kg": null,
+      "minutes": null,
+      "km": null
+     },
+     "ready": true,
+     "text": "3 × 15",
+     "up_kg": null,
+     "last": {
+      "day": "2026-11-15",
+      "rows": [
+       {
+        "set_id": 57,
+        "sets": 3,
+        "reps": 15,
+        "kg": null,
+        "minutes": null,
+        "km": null,
+        "text": "3 × 15"
+       }
+      ]
+     },
+     "last_text": "Last Sun 15.11.: 3 × 15",
+     "plan": {
+      "item_id": 3,
+      "sets": null,
+      "reps": null
+     },
+     "open": false
+    },
+    {
+     "exercise_id": 8,
+     "name": "Exercise bike",
+     "kind": "cardio",
+     "active": true,
+     "done": true,
+     "logged": [
+      {
+       "set_id": 61,
+       "sets": null,
+       "reps": null,
+       "kg": null,
+       "minutes": 20,
+       "km": null,
+       "text": "20 min"
+      }
+     ],
+     "values": {
+      "sets": null,
+      "reps": null,
+      "kg": null,
+      "minutes": 20,
+      "km": null
+     },
+     "ready": true,
+     "text": "20 min",
+     "up_kg": null,
+     "last": {
+      "day": "2026-11-15",
+      "rows": [
+       {
+        "set_id": 58,
+        "sets": null,
+        "reps": null,
+        "kg": null,
+        "minutes": 17,
+        "km": null,
+        "text": "17 min"
+       }
+      ]
+     },
+     "last_text": "Last Sun 15.11.: 17 min",
+     "plan": {
+      "item_id": 4,
+      "sets": null,
+      "reps": null
+     },
+     "open": false
+    }
+   ],
+   "other": [
+    {
+     "exercise_id": 3,
+     "name": "Seated row",
+     "kind": "weights",
+     "active": true,
+     "done": false,
+     "logged": [],
+     "values": {
+      "sets": 3,
+      "reps": 10,
+      "kg": 52.5,
+      "minutes": null,
+      "km": null
+     },
+     "ready": true,
+     "text": "3 × 10 at 52.5 kg",
+     "up_kg": null,
+     "last": {
+      "day": "2026-11-09",
+      "rows": [
+       {
+        "set_id": 50,
+        "sets": 3,
+        "reps": 10,
+        "kg": 52.5,
+        "minutes": null,
+        "km": null,
+        "text": "3 × 10 at 52.5 kg"
+       }
+      ]
+     },
+     "last_text": "Last Mon 09.11.: 3 × 10 at 52.5 kg",
+     "plan": null,
+     "open": false
+    },
+    {
+     "exercise_id": 4,
+     "name": "Leg press",
+     "kind": "weights",
+     "active": true,
+     "done": false,
+     "logged": [],
+     "values": {
+      "sets": 3,
+      "reps": 8,
+      "kg": 72.5,
+      "minutes": null,
+      "km": null
+     },
+     "ready": true,
+     "text": "3 × 8 at 72.5 kg",
+     "up_kg": null,
+     "last": {
+      "day": "2026-11-12",
+      "rows": [
+       {
+        "set_id": 53,
+        "sets": 3,
+        "reps": 8,
+        "kg": 72.5,
+        "minutes": null,
+        "km": null,
+        "text": "3 × 8 at 72.5 kg"
+       }
+      ]
+     },
+     "last_text": "Last Thu 12.11.: 3 × 8 at 72.5 kg",
+     "plan": null,
+     "open": false
+    },
+    {
+     "exercise_id": 5,
+     "name": "Pull-up",
+     "kind": "bodyweight",
+     "active": true,
+     "done": false,
+     "logged": [],
+     "values": {
+      "sets": 3,
+      "reps": 5,
+      "kg": null,
+      "minutes": null,
+      "km": null
+     },
+     "ready": true,
+     "text": "3 × 5",
+     "up_kg": null,
+     "last": {
+      "day": "2026-11-09",
+      "rows": [
+       {
+        "set_id": 51,
+        "sets": 3,
+        "reps": 5,
+        "kg": null,
+        "minutes": null,
+        "km": null,
+        "text": "3 × 5"
+       }
+      ]
+     },
+     "last_text": "Last Mon 09.11.: 3 × 5",
+     "plan": null,
+     "open": false
+    },
+    {
+     "exercise_id": 7,
+     "name": "Walking lunge",
+     "kind": "bodyweight",
+     "active": true,
+     "done": false,
+     "logged": [],
+     "values": {
+      "sets": 3,
+      "reps": 10,
+      "kg": null,
+      "minutes": null,
+      "km": null
+     },
+     "ready": true,
+     "text": "3 × 10",
+     "up_kg": null,
+     "last": null,
+     "last_text": "Not done before",
+     "plan": null,
+     "open": false
+    }
+   ],
+   "empty": null,
+   "hint": "Tap the circle to log the numbers shown, tap the name to change them. Undo is in the bar above.",
+   "week_split": [
+    {
+     "day_id": 1,
+     "label": "Day 1 · Push",
+     "exercises": "Bench press, Shoulder press, Push-up, Exercise bike",
+     "done": null,
+     "today": true
+    },
+    {
+     "day_id": 2,
+     "label": "Day 2 · Pull",
+     "exercises": "Seated row, Pull-up, Exercise bike",
+     "done": null,
+     "today": false
+    },
+    {
+     "day_id": 3,
+     "label": "Day 3 · Legs",
+     "exercises": "Leg press, Walking lunge, Exercise bike",
+     "done": null,
+     "today": false
+    }
+   ],
+   "weeks": {
+    "good": 3,
+    "weeks": [
+     {
+      "start": "2026-10-26",
+      "label": "26.10.",
+      "n": 2,
+      "days": [
+       {
+        "day": "2026-10-26",
+        "on": false,
+        "today": false,
+        "later": false
+       },
+       {
+        "day": "2026-10-27",
+        "on": false,
+        "today": false,
+        "later": false
+       },
+       {
+        "day": "2026-10-28",
+        "on": true,
+        "today": false,
+        "later": false
+       },
+       {
+        "day": "2026-10-29",
+        "on": false,
+        "today": false,
+        "later": false
+       },
+       {
+        "day": "2026-10-30",
+        "on": false,
+        "today": false,
+        "later": false
+       },
+       {
+        "day": "2026-10-31",
+        "on": true,
+        "today": false,
+        "later": false
+       },
+       {
+        "day": "2026-11-01",
+        "on": false,
+        "today": false,
+        "later": false
+       }
+      ]
+     },
+     {
+      "start": "2026-11-02",
+      "label": "02.11.",
+      "n": 2,
+      "days": [
+       {
+        "day": "2026-11-02",
+        "on": false,
+        "today": false,
+        "later": false
+       },
+       {
+        "day": "2026-11-03",
+        "on": true,
+        "today": false,
+        "later": false
+       },
+       {
+        "day": "2026-11-04",
+        "on": false,
+        "today": false,
+        "later": false
+       },
+       {
+        "day": "2026-11-05",
+        "on": false,
+        "today": false,
+        "later": false
+       },
+       {
+        "day": "2026-11-06",
+        "on": true,
+        "today": false,
+        "later": false
+       },
+       {
+        "day": "2026-11-07",
+        "on": false,
+        "today": false,
+        "later": false
+       },
+       {
+        "day": "2026-11-08",
+        "on": false,
+        "today": false,
+        "later": false
+       }
+      ]
+     },
+     {
+      "start": "2026-11-09",
+      "label": "Last week",
+      "n": 3,
+      "days": [
+       {
+        "day": "2026-11-09",
+        "on": true,
+        "today": false,
+        "later": false
+       },
+       {
+        "day": "2026-11-10",
+        "on": false,
+        "today": false,
+        "later": false
+       },
+       {
+        "day": "2026-11-11",
+        "on": false,
+        "today": false,
+        "later": false
+       },
+       {
+        "day": "2026-11-12",
+        "on": true,
+        "today": false,
+        "later": false
+       },
+       {
+        "day": "2026-11-13",
+        "on": false,
+        "today": false,
+        "later": false
+       },
+       {
+        "day": "2026-11-14",
+        "on": false,
+        "today": false,
+        "later": false
+       },
+       {
+        "day": "2026-11-15",
+        "on": true,
+        "today": false,
+        "later": false
+       }
+      ]
+     },
+     {
+      "start": "2026-11-16",
+      "label": "This week",
+      "n": 1,
+      "days": [
+       {
+        "day": "2026-11-16",
+        "on": true,
+        "today": true,
+        "later": false
+       },
+       {
+        "day": "2026-11-17",
+        "on": false,
+        "today": false,
+        "later": true
+       },
+       {
+        "day": "2026-11-18",
+        "on": false,
+        "today": false,
+        "later": true
+       },
+       {
+        "day": "2026-11-19",
+        "on": false,
+        "today": false,
+        "later": true
+       },
+       {
+        "day": "2026-11-20",
+        "on": false,
+        "today": false,
+        "later": true
+       },
+       {
+        "day": "2026-11-21",
+        "on": false,
+        "today": false,
+        "later": true
+       },
+       {
+        "day": "2026-11-22",
+        "on": false,
+        "today": false,
+        "later": true
+       }
+      ]
+     }
+    ]
+   },
+   "retired": [
+    "Biceps curl"
+   ],
+   "fields": {
+    "weights": [
+     {
+      "name": "sets",
+      "label": "Sets",
+      "step": 1,
+      "min": 1,
+      "max": 50
+     },
+     {
+      "name": "reps",
+      "label": "Reps",
+      "step": 1,
+      "min": 1,
+      "max": 500
+     },
+     {
+      "name": "kg",
+      "label": "kg",
+      "step": 2.5,
+      "min": 0,
+      "max": 1000
+     }
+    ],
+    "bodyweight": [
+     {
+      "name": "sets",
+      "label": "Sets",
+      "step": 1,
+      "min": 1,
+      "max": 50
+     },
+     {
+      "name": "reps",
+      "label": "Reps",
+      "step": 1,
+      "min": 1,
+      "max": 500
+     }
+    ],
+    "cardio": [
+     {
+      "name": "minutes",
+      "label": "Minutes",
+      "step": 1,
+      "min": 1,
+      "max": 600
+     },
+     {
+      "name": "km",
+      "label": "km",
+      "step": 0.1,
+      "min": 0,
+      "max": 200
+     }
+    ]
+   },
+   "numbers": "Numbers only: sets 1 to 50, reps 1 to 500, kg 0 to 1000, minutes up to 600, km up to 200.",
+   "kinds": [
+    {
+     "key": "weights",
+     "label": "Weights"
+    },
+    {
+     "key": "bodyweight",
+     "label": "Bodyweight"
+    },
+    {
+     "key": "cardio",
+     "label": "Machine cardio"
+    }
+   ]
+  },
+  "undo": null
+ },
+ "plan": {
+  "v": 1,
+  "gym_plan": {
+   "today": "2026-11-16",
+   "how": "Each workout takes the first day not done yet this week. Monday starts at Day 1 again; once every day is done, Day 1 comes again. On the Workout tab you can switch the day or pick Free workout.",
+   "week": "Today: Day 1 · Push.",
+   "done": [],
+   "day": {
+    "day_id": 1,
+    "name": "Push",
+    "label": "Day 1 · Push"
+   },
+   "free": false,
+   "days": [
+    {
+     "day_id": 1,
+     "name": "Push",
+     "label": "Day 1 · Push",
+     "today": true,
+     "items": [
+      {
+       "item_id": 1,
+       "exercise_id": 1,
+       "name": "Bench press",
+       "kind": "weights",
+       "active": true,
+       "sets": 3,
+       "reps": 8,
+       "text": "Weights · plan 3 × 8"
+      },
+      {
+       "item_id": 2,
+       "exercise_id": 2,
+       "name": "Shoulder press",
+       "kind": "weights",
+       "active": true,
+       "sets": 3,
+       "reps": 10,
+       "text": "Weights · plan 3 × 10"
+      },
+      {
+       "item_id": 3,
+       "exercise_id": 6,
+       "name": "Push-up",
+       "kind": "bodyweight",
+       "active": true,
+       "sets": null,
+       "reps": null,
+       "text": "Bodyweight"
+      },
+      {
+       "item_id": 4,
+       "exercise_id": 8,
+       "name": "Exercise bike",
+       "kind": "cardio",
+       "active": true,
+       "sets": null,
+       "reps": null,
+       "text": "Machine cardio"
+      }
+     ],
+     "can_add": [
+      {
+       "exercise_id": 3,
+       "name": "Seated row"
+      },
+      {
+       "exercise_id": 4,
+       "name": "Leg press"
+      },
+      {
+       "exercise_id": 5,
+       "name": "Pull-up"
+      },
+      {
+       "exercise_id": 7,
+       "name": "Walking lunge"
+      }
+     ]
+    },
+    {
+     "day_id": 2,
+     "name": "Pull",
+     "label": "Day 2 · Pull",
+     "today": false,
+     "items": [
+      {
+       "item_id": 5,
+       "exercise_id": 3,
+       "name": "Seated row",
+       "kind": "weights",
+       "active": true,
+       "sets": 3,
+       "reps": 10,
+       "text": "Weights · plan 3 × 10"
+      },
+      {
+       "item_id": 6,
+       "exercise_id": 5,
+       "name": "Pull-up",
+       "kind": "bodyweight",
+       "active": true,
+       "sets": 3,
+       "reps": 8,
+       "text": "Bodyweight · plan 3 × 8"
+      },
+      {
+       "item_id": 7,
+       "exercise_id": 8,
+       "name": "Exercise bike",
+       "kind": "cardio",
+       "active": true,
+       "sets": null,
+       "reps": null,
+       "text": "Machine cardio"
+      }
+     ],
+     "can_add": [
+      {
+       "exercise_id": 1,
+       "name": "Bench press"
+      },
+      {
+       "exercise_id": 2,
+       "name": "Shoulder press"
+      },
+      {
+       "exercise_id": 4,
+       "name": "Leg press"
+      },
+      {
+       "exercise_id": 6,
+       "name": "Push-up"
+      },
+      {
+       "exercise_id": 7,
+       "name": "Walking lunge"
+      }
+     ]
+    },
+    {
+     "day_id": 3,
+     "name": "Legs",
+     "label": "Day 3 · Legs",
+     "today": false,
+     "items": [
+      {
+       "item_id": 8,
+       "exercise_id": 4,
+       "name": "Leg press",
+       "kind": "weights",
+       "active": true,
+       "sets": 3,
+       "reps": 8,
+       "text": "Weights · plan 3 × 8"
+      },
+      {
+       "item_id": 9,
+       "exercise_id": 7,
+       "name": "Walking lunge",
+       "kind": "bodyweight",
+       "active": true,
+       "sets": 3,
+       "reps": 12,
+       "text": "Bodyweight · plan 3 × 12"
+      },
+      {
+       "item_id": 10,
+       "exercise_id": 8,
+       "name": "Exercise bike",
+       "kind": "cardio",
+       "active": true,
+       "sets": null,
+       "reps": null,
+       "text": "Machine cardio"
+      }
+     ],
+     "can_add": [
+      {
+       "exercise_id": 1,
+       "name": "Bench press"
+      },
+      {
+       "exercise_id": 2,
+       "name": "Shoulder press"
+      },
+      {
+       "exercise_id": 3,
+       "name": "Seated row"
+      },
+      {
+       "exercise_id": 5,
+       "name": "Pull-up"
+      },
+      {
+       "exercise_id": 6,
+       "name": "Push-up"
+      }
+     ]
+    }
+   ],
+   "removed": [
+    {
+     "day_id": 4,
+     "name": "Arms"
+    }
+   ],
+   "limits": {
+    "name_max": 40,
+    "sets_min": 1,
+    "sets_max": 50,
+    "reps_min": 1,
+    "reps_max": 500
+   }
+  },
+  "undo": null
+ },
+ "exercises": {
+  "v": 1,
+  "gym_exercises": {
+   "active": 8,
+   "exercises": [
+    {
+     "exercise_id": 1,
+     "name": "Bench press",
+     "kind": "weights",
+     "kind_label": "Weights",
+     "words": [
+      "flat bench"
+     ],
+     "active": true,
+     "workouts": 8,
+     "last_day": "2026-11-16",
+     "use": "8 workouts, last 16.11.",
+     "meta": "Weights · also: flat bench · 8 workouts, last 16.11."
+    },
+    {
+     "exercise_id": 2,
+     "name": "Shoulder press",
+     "kind": "weights",
+     "kind_label": "Weights",
+     "words": [],
+     "active": true,
+     "workouts": 7,
+     "last_day": "2026-11-15",
+     "use": "7 workouts, last 15.11.",
+     "meta": "Weights · 7 workouts, last 15.11."
+    },
+    {
+     "exercise_id": 3,
+     "name": "Seated row",
+     "kind": "weights",
+     "kind_label": "Weights",
+     "words": [],
+     "active": true,
+     "workouts": 6,
+     "last_day": "2026-11-09",
+     "use": "6 workouts, last 09.11.",
+     "meta": "Weights · 6 workouts, last 09.11."
+    },
+    {
+     "exercise_id": 4,
+     "name": "Leg press",
+     "kind": "weights",
+     "kind_label": "Weights",
+     "words": [],
+     "active": true,
+     "workouts": 6,
+     "last_day": "2026-11-12",
+     "use": "6 workouts, last 12.11.",
+     "meta": "Weights · 6 workouts, last 12.11."
+    },
+    {
+     "exercise_id": 5,
+     "name": "Pull-up",
+     "kind": "bodyweight",
+     "kind_label": "Bodyweight",
+     "words": [],
+     "active": true,
+     "workouts": 6,
+     "last_day": "2026-11-09",
+     "use": "6 workouts, last 09.11.",
+     "meta": "Bodyweight · 6 workouts, last 09.11."
+    },
+    {
+     "exercise_id": 6,
+     "name": "Push-up",
+     "kind": "bodyweight",
+     "kind_label": "Bodyweight",
+     "words": [],
+     "active": true,
+     "workouts": 7,
+     "last_day": "2026-11-15",
+     "use": "7 workouts, last 15.11.",
+     "meta": "Bodyweight · 7 workouts, last 15.11."
+    },
+    {
+     "exercise_id": 7,
+     "name": "Walking lunge",
+     "kind": "bodyweight",
+     "kind_label": "Bodyweight",
+     "words": [],
+     "active": true,
+     "workouts": 0,
+     "last_day": null,
+     "use": "not done yet",
+     "meta": "Bodyweight · not done yet"
+    },
+    {
+     "exercise_id": 8,
+     "name": "Exercise bike",
+     "kind": "cardio",
+     "kind_label": "Machine cardio",
+     "words": [],
+     "active": true,
+     "workouts": 20,
+     "last_day": "2026-11-16",
+     "use": "20 workouts, last 16.11.",
+     "meta": "Machine cardio · 20 workouts, last 16.11."
+    },
+    {
+     "exercise_id": 9,
+     "name": "Biceps curl",
+     "kind": "weights",
+     "kind_label": "Weights",
+     "words": [],
+     "active": false,
+     "workouts": 1,
+     "last_day": "2026-08-18",
+     "use": "1 workout, last 18.08.",
+     "meta": "Weights · 1 workout, last 18.08."
+    }
+   ],
+   "kinds": [
+    {
+     "key": "weights",
+     "label": "Weights"
+    },
+    {
+     "key": "bodyweight",
+     "label": "Bodyweight"
+    },
+    {
+     "key": "cardio",
+     "label": "Machine cardio"
+    }
+   ],
+   "limits": {
+    "name_max": 60,
+    "words_max": 10,
+    "word_max": 40
+   }
+  },
+  "undo": null
+ },
+ "progress": {
+  "v": 1,
+  "gym_progress": {
+   "today": "2026-11-16",
+   "start": "2026-09-22",
+   "weeks": 8,
+   "per_week": {
+    "weeks": [
+     {
+      "start": "2026-09-28",
+      "n": 3
+     },
+     {
+      "start": "2026-10-05",
+      "n": 2
+     },
+     {
+      "start": "2026-10-12",
+      "n": 2
+     },
+     {
+      "start": "2026-10-19",
+      "n": 3
+     },
+     {
+      "start": "2026-10-26",
+      "n": 2
+     },
+     {
+      "start": "2026-11-02",
+      "n": 2
+     },
+     {
+      "start": "2026-11-09",
+      "n": 3
+     },
+     {
+      "start": "2026-11-16",
+      "n": 1
+     }
+    ],
+    "top": 3,
+    "good": 7
+   },
+   "exercises": [
+    {
+     "exercise_id": 1,
+     "name": "Bench press",
+     "on": true
+    },
+    {
+     "exercise_id": 8,
+     "name": "Exercise bike",
+     "on": false
+    },
+    {
+     "exercise_id": 2,
+     "name": "Shoulder press",
+     "on": false
+    },
+    {
+     "exercise_id": 6,
+     "name": "Push-up",
+     "on": false
+    },
+    {
+     "exercise_id": 4,
+     "name": "Leg press",
+     "on": false
+    },
+    {
+     "exercise_id": 3,
+     "name": "Seated row",
+     "on": false
+    },
+    {
+     "exercise_id": 5,
+     "name": "Pull-up",
+     "on": false
+    },
+    {
+     "exercise_id": 9,
+     "name": "Biceps curl",
+     "on": false
+    }
+   ],
+   "exercise": {
+    "exercise_id": 1,
+    "name": "Bench press",
+    "kind": "weights"
+   },
+   "unit": "kg",
+   "title": "top weight",
+   "top": 70,
+   "top_reps": 6,
+   "top_text": "70 kg",
+   "change": "+20 kg since 22.09.",
+   "one_rep_max": 84,
+   "sub": "Top set 70 kg × 6 · estimated 1-rep max ≈ 84 kg",
+   "chart": {
+    "start": "2026-09-22",
+    "days": 56,
+    "label": "Bench press: top weight in kg",
+    "decimals": 1,
+    "series": [
+     {
+      "mark": "line",
+      "cls": "a",
+      "pts": [
+       [
+        0,
+        50.0,
+        "Tue 22.09.: 3 × 8 at 50 kg"
+       ],
+       [
+        9,
+        52.5,
+        "Thu 01.10.: 3 × 8 at 52.5 kg"
+       ],
+       [
+        18,
+        55.0,
+        "Sat 10.10.: 3 × 8 at 55 kg"
+       ],
+       [
+        27,
+        57.5,
+        "Mon 19.10.: 3 × 8 at 57.5 kg"
+       ],
+       [
+        36,
+        60.0,
+        "Wed 28.10.: 3 × 8 at 60 kg"
+       ],
+       [
+        45,
+        62.5,
+        "Fri 06.11.: 3 × 8 at 62.5 kg"
+       ],
+       [
+        54,
+        65.0,
+        "Sun 15.11.: 3 × 8 at 65 kg"
+       ],
+       [
+        55,
+        70.0,
+        "Mon 16.11.: 1 × 6 at 70 kg"
+       ]
+      ]
+     },
+     {
+      "mark": "dot",
+      "cls": "a",
+      "pts": [
+       [
+        0,
+        50.0,
+        "Tue 22.09.: 3 × 8 at 50 kg"
+       ],
+       [
+        9,
+        52.5,
+        "Thu 01.10.: 3 × 8 at 52.5 kg"
+       ],
+       [
+        18,
+        55.0,
+        "Sat 10.10.: 3 × 8 at 55 kg"
+       ],
+       [
+        27,
+        57.5,
+        "Mon 19.10.: 3 × 8 at 57.5 kg"
+       ],
+       [
+        36,
+        60.0,
+        "Wed 28.10.: 3 × 8 at 60 kg"
+       ],
+       [
+        45,
+        62.5,
+        "Fri 06.11.: 3 × 8 at 62.5 kg"
+       ],
+       [
+        54,
+        65.0,
+        "Sun 15.11.: 3 × 8 at 65 kg"
+       ],
+       [
+        55,
+        70.0,
+        "Mon 16.11.: 1 × 6 at 70 kg"
+       ]
+      ]
+     }
+    ]
+   },
+   "recent": [
+    {
+     "day": "2026-11-16",
+     "text": "3 × 8 at 67.5 kg, 1 × 6 at 70 kg",
+     "rows": [
+      {
+       "set_id": 60,
+       "sets": 3,
+       "reps": 8,
+       "kg": 67.5,
+       "minutes": null,
+       "km": null,
+       "text": "3 × 8 at 67.5 kg"
+      },
+      {
+       "set_id": 62,
+       "sets": 1,
+       "reps": 6,
+       "kg": 70,
+       "minutes": null,
+       "km": null,
+       "text": "1 × 6 at 70 kg"
+      }
+     ]
+    },
+    {
+     "day": "2026-11-15",
+     "text": "3 × 8 at 65 kg",
+     "rows": [
+      {
+       "set_id": 55,
+       "sets": 3,
+       "reps": 8,
+       "kg": 65,
+       "minutes": null,
+       "km": null,
+       "text": "3 × 8 at 65 kg"
+      }
+     ]
+    },
+    {
+     "day": "2026-11-06",
+     "text": "3 × 8 at 62.5 kg",
+     "rows": [
+      {
+       "set_id": 46,
+       "sets": 3,
+       "reps": 8,
+       "kg": 62.5,
+       "minutes": null,
+       "km": null,
+       "text": "3 × 8 at 62.5 kg"
+      }
+     ]
+    },
+    {
+     "day": "2026-10-28",
+     "text": "3 × 8 at 60 kg",
+     "rows": [
+      {
+       "set_id": 37,
+       "sets": 3,
+       "reps": 8,
+       "kg": 60,
+       "minutes": null,
+       "km": null,
+       "text": "3 × 8 at 60 kg"
+      }
+     ]
+    },
+    {
+     "day": "2026-10-19",
+     "text": "3 × 8 at 57.5 kg",
+     "rows": [
+      {
+       "set_id": 28,
+       "sets": 3,
+       "reps": 8,
+       "kg": 57.5,
+       "minutes": null,
+       "km": null,
+       "text": "3 × 8 at 57.5 kg"
+      }
+     ]
+    },
+    {
+     "day": "2026-10-10",
+     "text": "3 × 8 at 55 kg",
+     "rows": [
+      {
+       "set_id": 19,
+       "sets": 3,
+       "reps": 8,
+       "kg": 55,
+       "minutes": null,
+       "km": null,
+       "text": "3 × 8 at 55 kg"
+      }
+     ]
+    }
+   ]
+  },
+  "undo": null
+ },
+ "history": {
+  "v": 1,
+  "gym_history": {
+   "workouts": [
+    {
+     "workout_id": 21,
+     "anchor": "w21",
+     "day": "2026-11-16",
+     "split_day_id": 1,
+     "split": "Push",
+     "started_at": "2026-11-16T18:21:29.690804+01:00",
+     "ended_at": "2026-11-16T19:21:29.689864+01:00",
+     "when": "18:21–19:21",
+     "exercises": [
+      {
+       "exercise_id": 1,
+       "name": "Bench press",
+       "kind": "weights",
+       "text": "3 × 8 at 67.5 kg, 1 × 6 at 70 kg",
+       "rows": [
+        {
+         "set_id": 60,
+         "sets": 3,
+         "reps": 8,
+         "kg": 67.5,
+         "minutes": null,
+         "km": null,
+         "text": "3 × 8 at 67.5 kg"
+        },
+        {
+         "set_id": 62,
+         "sets": 1,
+         "reps": 6,
+         "kg": 70,
+         "minutes": null,
+         "km": null,
+         "text": "1 × 6 at 70 kg"
+        }
+       ]
+      },
+      {
+       "exercise_id": 8,
+       "name": "Exercise bike",
+       "kind": "cardio",
+       "text": "20 min",
+       "rows": [
+        {
+         "set_id": 61,
+         "sets": null,
+         "reps": null,
+         "kg": null,
+         "minutes": 20,
+         "km": null,
+         "text": "20 min"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "workout_id": 19,
+     "anchor": "w19",
+     "day": "2026-11-15",
+     "split_day_id": 1,
+     "split": "Push",
+     "started_at": "2026-11-15T19:01:29.675678+01:00",
+     "ended_at": "2026-11-15T19:31:29.680163+01:00",
+     "when": "19:01–19:31",
+     "exercises": [
+      {
+       "exercise_id": 1,
+       "name": "Bench press",
+       "kind": "weights",
+       "text": "3 × 8 at 65 kg",
+       "rows": [
+        {
+         "set_id": 55,
+         "sets": 3,
+         "reps": 8,
+         "kg": 65,
+         "minutes": null,
+         "km": null,
+         "text": "3 × 8 at 65 kg"
+        }
+       ]
+      },
+      {
+       "exercise_id": 2,
+       "name": "Shoulder press",
+       "kind": "weights",
+       "text": "3 × 10 at 45 kg",
+       "rows": [
+        {
+         "set_id": 56,
+         "sets": 3,
+         "reps": 10,
+         "kg": 45,
+         "minutes": null,
+         "km": null,
+         "text": "3 × 10 at 45 kg"
+        }
+       ]
+      },
+      {
+       "exercise_id": 6,
+       "name": "Push-up",
+       "kind": "bodyweight",
+       "text": "3 × 15",
+       "rows": [
+        {
+         "set_id": 57,
+         "sets": 3,
+         "reps": 15,
+         "kg": null,
+         "minutes": null,
+         "km": null,
+         "text": "3 × 15"
+        }
+       ]
+      },
+      {
+       "exercise_id": 8,
+       "name": "Exercise bike",
+       "kind": "cardio",
+       "text": "17 min",
+       "rows": [
+        {
+         "set_id": 58,
+         "sets": null,
+         "reps": null,
+         "kg": null,
+         "minutes": 17,
+         "km": null,
+         "text": "17 min"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "workout_id": 18,
+     "anchor": "w18",
+     "day": "2026-11-12",
+     "split_day_id": 3,
+     "split": "Legs",
+     "started_at": "2026-11-12T19:01:29.672501+01:00",
+     "ended_at": "2026-11-12T19:11:29.674540+01:00",
+     "when": "19:01–19:11",
+     "exercises": [
+      {
+       "exercise_id": 4,
+       "name": "Leg press",
+       "kind": "weights",
+       "text": "3 × 8 at 72.5 kg",
+       "rows": [
+        {
+         "set_id": 53,
+         "sets": 3,
+         "reps": 8,
+         "kg": 72.5,
+         "minutes": null,
+         "km": null,
+         "text": "3 × 8 at 72.5 kg"
+        }
+       ]
+      },
+      {
+       "exercise_id": 8,
+       "name": "Exercise bike",
+       "kind": "cardio",
+       "text": "26 min",
+       "rows": [
+        {
+         "set_id": 54,
+         "sets": null,
+         "reps": null,
+         "kg": null,
+         "minutes": 26,
+         "km": null,
+         "text": "26 min"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "workout_id": 17,
+     "anchor": "w17",
+     "day": "2026-11-09",
+     "split_day_id": 2,
+     "split": "Pull",
+     "started_at": "2026-11-09T19:01:29.667998+01:00",
+     "ended_at": "2026-11-09T19:21:29.671536+01:00",
+     "when": "19:01–19:21",
+     "exercises": [
+      {
+       "exercise_id": 3,
+       "name": "Seated row",
+       "kind": "weights",
+       "text": "3 × 10 at 52.5 kg",
+       "rows": [
+        {
+         "set_id": 50,
+         "sets": 3,
+         "reps": 10,
+         "kg": 52.5,
+         "minutes": null,
+         "km": null,
+         "text": "3 × 10 at 52.5 kg"
+        }
+       ]
+      },
+      {
+       "exercise_id": 5,
+       "name": "Pull-up",
+       "kind": "bodyweight",
+       "text": "3 × 5",
+       "rows": [
+        {
+         "set_id": 51,
+         "sets": 3,
+         "reps": 5,
+         "kg": null,
+         "minutes": null,
+         "km": null,
+         "text": "3 × 5"
+        }
+       ]
+      },
+      {
+       "exercise_id": 8,
+       "name": "Exercise bike",
+       "kind": "cardio",
+       "text": "20 min",
+       "rows": [
+        {
+         "set_id": 52,
+         "sets": null,
+         "reps": null,
+         "kg": null,
+         "minutes": 20,
+         "km": null,
+         "text": "20 min"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "workout_id": 16,
+     "anchor": "w16",
+     "day": "2026-11-06",
+     "split_day_id": 1,
+     "split": "Push",
+     "started_at": "2026-11-06T19:01:29.662313+01:00",
+     "ended_at": "2026-11-06T19:31:29.666950+01:00",
+     "when": "19:01–19:31",
+     "exercises": [
+      {
+       "exercise_id": 1,
+       "name": "Bench press",
+       "kind": "weights",
+       "text": "3 × 8 at 62.5 kg",
+       "rows": [
+        {
+         "set_id": 46,
+         "sets": 3,
+         "reps": 8,
+         "kg": 62.5,
+         "minutes": null,
+         "km": null,
+         "text": "3 × 8 at 62.5 kg"
+        }
+       ]
+      },
+      {
+       "exercise_id": 2,
+       "name": "Shoulder press",
+       "kind": "weights",
+       "text": "3 × 10 at 42.5 kg",
+       "rows": [
+        {
+         "set_id": 47,
+         "sets": 3,
+         "reps": 10,
+         "kg": 42.5,
+         "minutes": null,
+         "km": null,
+         "text": "3 × 10 at 42.5 kg"
+        }
+       ]
+      },
+      {
+       "exercise_id": 6,
+       "name": "Push-up",
+       "kind": "bodyweight",
+       "text": "3 × 15",
+       "rows": [
+        {
+         "set_id": 48,
+         "sets": 3,
+         "reps": 15,
+         "kg": null,
+         "minutes": null,
+         "km": null,
+         "text": "3 × 15"
+        }
+       ]
+      },
+      {
+       "exercise_id": 8,
+       "name": "Exercise bike",
+       "kind": "cardio",
+       "text": "18 min",
+       "rows": [
+        {
+         "set_id": 49,
+         "sets": null,
+         "reps": null,
+         "kg": null,
+         "minutes": 18,
+         "km": null,
+         "text": "18 min"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "workout_id": 15,
+     "anchor": "w15",
+     "day": "2026-11-03",
+     "split_day_id": 3,
+     "split": "Legs",
+     "started_at": "2026-11-03T19:01:29.658883+01:00",
+     "ended_at": "2026-11-03T19:11:29.661294+01:00",
+     "when": "19:01–19:11",
+     "exercises": [
+      {
+       "exercise_id": 4,
+       "name": "Leg press",
+       "kind": "weights",
+       "text": "3 × 8 at 70 kg",
+       "rows": [
+        {
+         "set_id": 44,
+         "sets": 3,
+         "reps": 8,
+         "kg": 70,
+         "minutes": null,
+         "km": null,
+         "text": "3 × 8 at 70 kg"
+        }
+       ]
+      },
+      {
+       "exercise_id": 8,
+       "name": "Exercise bike",
+       "kind": "cardio",
+       "text": "27 min",
+       "rows": [
+        {
+         "set_id": 45,
+         "sets": null,
+         "reps": null,
+         "kg": null,
+         "minutes": 27,
+         "km": null,
+         "text": "27 min"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "workout_id": 14,
+     "anchor": "w14",
+     "day": "2026-10-31",
+     "split_day_id": 2,
+     "split": "Pull",
+     "started_at": "2026-10-31T19:01:29.654774+01:00",
+     "ended_at": "2026-10-31T19:21:29.657727+01:00",
+     "when": "19:01–19:21",
+     "exercises": [
+      {
+       "exercise_id": 3,
+       "name": "Seated row",
+       "kind": "weights",
+       "text": "3 × 10 at 50 kg",
+       "rows": [
+        {
+         "set_id": 41,
+         "sets": 3,
+         "reps": 10,
+         "kg": 50,
+         "minutes": null,
+         "km": null,
+         "text": "3 × 10 at 50 kg"
+        }
+       ]
+      },
+      {
+       "exercise_id": 5,
+       "name": "Pull-up",
+       "kind": "bodyweight",
+       "text": "3 × 5",
+       "rows": [
+        {
+         "set_id": 42,
+         "sets": 3,
+         "reps": 5,
+         "kg": null,
+         "minutes": null,
+         "km": null,
+         "text": "3 × 5"
+        }
+       ]
+      },
+      {
+       "exercise_id": 8,
+       "name": "Exercise bike",
+       "kind": "cardio",
+       "text": "21 min",
+       "rows": [
+        {
+         "set_id": 43,
+         "sets": null,
+         "reps": null,
+         "kg": null,
+         "minutes": 21,
+         "km": null,
+         "text": "21 min"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "workout_id": 13,
+     "anchor": "w13",
+     "day": "2026-10-28",
+     "split_day_id": 1,
+     "split": "Push",
+     "started_at": "2026-10-28T19:01:29.649471+01:00",
+     "ended_at": "2026-10-28T19:31:29.653675+01:00",
+     "when": "19:01–19:31",
+     "exercises": [
+      {
+       "exercise_id": 1,
+       "name": "Bench press",
+       "kind": "weights",
+       "text": "3 × 8 at 60 kg",
+       "rows": [
+        {
+         "set_id": 37,
+         "sets": 3,
+         "reps": 8,
+         "kg": 60,
+         "minutes": null,
+         "km": null,
+         "text": "3 × 8 at 60 kg"
+        }
+       ]
+      },
+      {
+       "exercise_id": 2,
+       "name": "Shoulder press",
+       "kind": "weights",
+       "text": "3 × 10 at 40 kg",
+       "rows": [
+        {
+         "set_id": 38,
+         "sets": 3,
+         "reps": 10,
+         "kg": 40,
+         "minutes": null,
+         "km": null,
+         "text": "3 × 10 at 40 kg"
+        }
+       ]
+      },
+      {
+       "exercise_id": 6,
+       "name": "Push-up",
+       "kind": "bodyweight",
+       "text": "3 × 15",
+       "rows": [
+        {
+         "set_id": 39,
+         "sets": 3,
+         "reps": 15,
+         "kg": null,
+         "minutes": null,
+         "km": null,
+         "text": "3 × 15"
+        }
+       ]
+      },
+      {
+       "exercise_id": 8,
+       "name": "Exercise bike",
+       "kind": "cardio",
+       "text": "15 min",
+       "rows": [
+        {
+         "set_id": 40,
+         "sets": null,
+         "reps": null,
+         "kg": null,
+         "minutes": 15,
+         "km": null,
+         "text": "15 min"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "workout_id": 12,
+     "anchor": "w12",
+     "day": "2026-10-25",
+     "split_day_id": 3,
+     "split": "Legs",
+     "started_at": "2026-10-25T19:01:29.646027+01:00",
+     "ended_at": "2026-10-25T19:11:29.648379+01:00",
+     "when": "19:01–19:11",
+     "exercises": [
+      {
+       "exercise_id": 4,
+       "name": "Leg press",
+       "kind": "weights",
+       "text": "3 × 8 at 67.5 kg",
+       "rows": [
+        {
+         "set_id": 35,
+         "sets": 3,
+         "reps": 8,
+         "kg": 67.5,
+         "minutes": null,
+         "km": null,
+         "text": "3 × 8 at 67.5 kg"
+        }
+       ]
+      },
+      {
+       "exercise_id": 8,
+       "name": "Exercise bike",
+       "kind": "cardio",
+       "text": "28 min",
+       "rows": [
+        {
+         "set_id": 36,
+         "sets": null,
+         "reps": null,
+         "kg": null,
+         "minutes": 28,
+         "km": null,
+         "text": "28 min"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "workout_id": 11,
+     "anchor": "w11",
+     "day": "2026-10-22",
+     "split_day_id": 2,
+     "split": "Pull",
+     "started_at": "2026-10-22T20:01:29.641327+02:00",
+     "ended_at": "2026-10-22T20:21:29.644802+02:00",
+     "when": "20:01–20:21",
+     "exercises": [
+      {
+       "exercise_id": 3,
+       "name": "Seated row",
+       "kind": "weights",
+       "text": "3 × 10 at 47.5 kg",
+       "rows": [
+        {
+         "set_id": 32,
+         "sets": 3,
+         "reps": 10,
+         "kg": 47.5,
+         "minutes": null,
+         "km": null,
+         "text": "3 × 10 at 47.5 kg"
+        }
+       ]
+      },
+      {
+       "exercise_id": 5,
+       "name": "Pull-up",
+       "kind": "bodyweight",
+       "text": "3 × 5",
+       "rows": [
+        {
+         "set_id": 33,
+         "sets": 3,
+         "reps": 5,
+         "kg": null,
+         "minutes": null,
+         "km": null,
+         "text": "3 × 5"
+        }
+       ]
+      },
+      {
+       "exercise_id": 8,
+       "name": "Exercise bike",
+       "kind": "cardio",
+       "text": "22 min",
+       "rows": [
+        {
+         "set_id": 34,
+         "sets": null,
+         "reps": null,
+         "kg": null,
+         "minutes": 22,
+         "km": null,
+         "text": "22 min"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "workout_id": 10,
+     "anchor": "w10",
+     "day": "2026-10-19",
+     "split_day_id": 1,
+     "split": "Push",
+     "started_at": "2026-10-19T20:01:29.635337+02:00",
+     "ended_at": "2026-10-19T20:31:29.640137+02:00",
+     "when": "20:01–20:31",
+     "exercises": [
+      {
+       "exercise_id": 1,
+       "name": "Bench press",
+       "kind": "weights",
+       "text": "3 × 8 at 57.5 kg",
+       "rows": [
+        {
+         "set_id": 28,
+         "sets": 3,
+         "reps": 8,
+         "kg": 57.5,
+         "minutes": null,
+         "km": null,
+         "text": "3 × 8 at 57.5 kg"
+        }
+       ]
+      },
+      {
+       "exercise_id": 2,
+       "name": "Shoulder press",
+       "kind": "weights",
+       "text": "3 × 10 at 37.5 kg",
+       "rows": [
+        {
+         "set_id": 29,
+         "sets": 3,
+         "reps": 10,
+         "kg": 37.5,
+         "minutes": null,
+         "km": null,
+         "text": "3 × 10 at 37.5 kg"
+        }
+       ]
+      },
+      {
+       "exercise_id": 6,
+       "name": "Push-up",
+       "kind": "bodyweight",
+       "text": "3 × 15",
+       "rows": [
+        {
+         "set_id": 30,
+         "sets": 3,
+         "reps": 15,
+         "kg": null,
+         "minutes": null,
+         "km": null,
+         "text": "3 × 15"
+        }
+       ]
+      },
+      {
+       "exercise_id": 8,
+       "name": "Exercise bike",
+       "kind": "cardio",
+       "text": "16 min",
+       "rows": [
+        {
+         "set_id": 31,
+         "sets": null,
+         "reps": null,
+         "kg": null,
+         "minutes": 16,
+         "km": null,
+         "text": "16 min"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "workout_id": 9,
+     "anchor": "w9",
+     "day": "2026-10-16",
+     "split_day_id": 3,
+     "split": "Legs",
+     "started_at": "2026-10-16T20:01:29.632052+02:00",
+     "ended_at": "2026-10-16T20:11:29.634396+02:00",
+     "when": "20:01–20:11",
+     "exercises": [
+      {
+       "exercise_id": 4,
+       "name": "Leg press",
+       "kind": "weights",
+       "text": "3 × 8 at 65 kg",
+       "rows": [
+        {
+         "set_id": 26,
+         "sets": 3,
+         "reps": 8,
+         "kg": 65,
+         "minutes": null,
+         "km": null,
+         "text": "3 × 8 at 65 kg"
+        }
+       ]
+      },
+      {
+       "exercise_id": 8,
+       "name": "Exercise bike",
+       "kind": "cardio",
+       "text": "25 min",
+       "rows": [
+        {
+         "set_id": 27,
+         "sets": null,
+         "reps": null,
+         "kg": null,
+         "minutes": 25,
+         "km": null,
+         "text": "25 min"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "workout_id": 8,
+     "anchor": "w8",
+     "day": "2026-10-13",
+     "split_day_id": 2,
+     "split": "Pull",
+     "started_at": "2026-10-13T20:01:29.626878+02:00",
+     "ended_at": "2026-10-13T20:21:29.630649+02:00",
+     "when": "20:01–20:21",
+     "exercises": [
+      {
+       "exercise_id": 3,
+       "name": "Seated row",
+       "kind": "weights",
+       "text": "3 × 10 at 45 kg",
+       "rows": [
+        {
+         "set_id": 23,
+         "sets": 3,
+         "reps": 10,
+         "kg": 45,
+         "minutes": null,
+         "km": null,
+         "text": "3 × 10 at 45 kg"
+        }
+       ]
+      },
+      {
+       "exercise_id": 5,
+       "name": "Pull-up",
+       "kind": "bodyweight",
+       "text": "3 × 5",
+       "rows": [
+        {
+         "set_id": 24,
+         "sets": 3,
+         "reps": 5,
+         "kg": null,
+         "minutes": null,
+         "km": null,
+         "text": "3 × 5"
+        }
+       ]
+      },
+      {
+       "exercise_id": 8,
+       "name": "Exercise bike",
+       "kind": "cardio",
+       "text": "23 min",
+       "rows": [
+        {
+         "set_id": 25,
+         "sets": null,
+         "reps": null,
+         "kg": null,
+         "minutes": 23,
+         "km": null,
+         "text": "23 min"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "workout_id": 7,
+     "anchor": "w7",
+     "day": "2026-10-10",
+     "split_day_id": 1,
+     "split": "Push",
+     "started_at": "2026-10-10T20:01:29.621458+02:00",
+     "ended_at": "2026-10-10T20:31:29.625882+02:00",
+     "when": "20:01–20:31",
+     "exercises": [
+      {
+       "exercise_id": 1,
+       "name": "Bench press",
+       "kind": "weights",
+       "text": "3 × 8 at 55 kg",
+       "rows": [
+        {
+         "set_id": 19,
+         "sets": 3,
+         "reps": 8,
+         "kg": 55,
+         "minutes": null,
+         "km": null,
+         "text": "3 × 8 at 55 kg"
+        }
+       ]
+      },
+      {
+       "exercise_id": 2,
+       "name": "Shoulder press",
+       "kind": "weights",
+       "text": "3 × 10 at 35 kg",
+       "rows": [
+        {
+         "set_id": 20,
+         "sets": 3,
+         "reps": 10,
+         "kg": 35,
+         "minutes": null,
+         "km": null,
+         "text": "3 × 10 at 35 kg"
+        }
+       ]
+      },
+      {
+       "exercise_id": 6,
+       "name": "Push-up",
+       "kind": "bodyweight",
+       "text": "3 × 15",
+       "rows": [
+        {
+         "set_id": 21,
+         "sets": 3,
+         "reps": 15,
+         "kg": null,
+         "minutes": null,
+         "km": null,
+         "text": "3 × 15"
+        }
+       ]
+      },
+      {
+       "exercise_id": 8,
+       "name": "Exercise bike",
+       "kind": "cardio",
+       "text": "17 min",
+       "rows": [
+        {
+         "set_id": 22,
+         "sets": null,
+         "reps": null,
+         "kg": null,
+         "minutes": 17,
+         "km": null,
+         "text": "17 min"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "workout_id": 6,
+     "anchor": "w6",
+     "day": "2026-10-07",
+     "split_day_id": 3,
+     "split": "Legs",
+     "started_at": "2026-10-07T20:01:29.618327+02:00",
+     "ended_at": "2026-10-07T20:11:29.620490+02:00",
+     "when": "20:01–20:11",
+     "exercises": [
+      {
+       "exercise_id": 4,
+       "name": "Leg press",
+       "kind": "weights",
+       "text": "3 × 8 at 62.5 kg",
+       "rows": [
+        {
+         "set_id": 17,
+         "sets": 3,
+         "reps": 8,
+         "kg": 62.5,
+         "minutes": null,
+         "km": null,
+         "text": "3 × 8 at 62.5 kg"
+        }
+       ]
+      },
+      {
+       "exercise_id": 8,
+       "name": "Exercise bike",
+       "kind": "cardio",
+       "text": "26 min",
+       "rows": [
+        {
+         "set_id": 18,
+         "sets": null,
+         "reps": null,
+         "kg": null,
+         "minutes": 26,
+         "km": null,
+         "text": "26 min"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "workout_id": 5,
+     "anchor": "w5",
+     "day": "2026-10-04",
+     "split_day_id": 2,
+     "split": "Pull",
+     "started_at": "2026-10-04T20:01:29.613780+02:00",
+     "ended_at": "2026-10-04T20:21:29.617302+02:00",
+     "when": "20:01–20:21",
+     "exercises": [
+      {
+       "exercise_id": 3,
+       "name": "Seated row",
+       "kind": "weights",
+       "text": "3 × 10 at 42.5 kg",
+       "rows": [
+        {
+         "set_id": 14,
+         "sets": 3,
+         "reps": 10,
+         "kg": 42.5,
+         "minutes": null,
+         "km": null,
+         "text": "3 × 10 at 42.5 kg"
+        }
+       ]
+      },
+      {
+       "exercise_id": 5,
+       "name": "Pull-up",
+       "kind": "bodyweight",
+       "text": "3 × 5",
+       "rows": [
+        {
+         "set_id": 15,
+         "sets": 3,
+         "reps": 5,
+         "kg": null,
+         "minutes": null,
+         "km": null,
+         "text": "3 × 5"
+        }
+       ]
+      },
+      {
+       "exercise_id": 8,
+       "name": "Exercise bike",
+       "kind": "cardio",
+       "text": "20 min",
+       "rows": [
+        {
+         "set_id": 16,
+         "sets": null,
+         "reps": null,
+         "kg": null,
+         "minutes": 20,
+         "km": null,
+         "text": "20 min"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "workout_id": 4,
+     "anchor": "w4",
+     "day": "2026-10-01",
+     "split_day_id": 1,
+     "split": "Push",
+     "started_at": "2026-10-01T20:01:29.607668+02:00",
+     "ended_at": "2026-10-01T20:31:29.612797+02:00",
+     "when": "20:01–20:31",
+     "exercises": [
+      {
+       "exercise_id": 1,
+       "name": "Bench press",
+       "kind": "weights",
+       "text": "3 × 8 at 52.5 kg",
+       "rows": [
+        {
+         "set_id": 10,
+         "sets": 3,
+         "reps": 8,
+         "kg": 52.5,
+         "minutes": null,
+         "km": null,
+         "text": "3 × 8 at 52.5 kg"
+        }
+       ]
+      },
+      {
+       "exercise_id": 2,
+       "name": "Shoulder press",
+       "kind": "weights",
+       "text": "3 × 10 at 32.5 kg",
+       "rows": [
+        {
+         "set_id": 11,
+         "sets": 3,
+         "reps": 10,
+         "kg": 32.5,
+         "minutes": null,
+         "km": null,
+         "text": "3 × 10 at 32.5 kg"
+        }
+       ]
+      },
+      {
+       "exercise_id": 6,
+       "name": "Push-up",
+       "kind": "bodyweight",
+       "text": "3 × 15",
+       "rows": [
+        {
+         "set_id": 12,
+         "sets": 3,
+         "reps": 15,
+         "kg": null,
+         "minutes": null,
+         "km": null,
+         "text": "3 × 15"
+        }
+       ]
+      },
+      {
+       "exercise_id": 8,
+       "name": "Exercise bike",
+       "kind": "cardio",
+       "text": "18 min",
+       "rows": [
+        {
+         "set_id": 13,
+         "sets": null,
+         "reps": null,
+         "kg": null,
+         "minutes": 18,
+         "km": null,
+         "text": "18 min"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "workout_id": 3,
+     "anchor": "w3",
+     "day": "2026-09-28",
+     "split_day_id": 3,
+     "split": "Legs",
+     "started_at": "2026-09-28T20:01:29.604160+02:00",
+     "ended_at": "2026-09-28T20:11:29.606399+02:00",
+     "when": "20:01–20:11",
+     "exercises": [
+      {
+       "exercise_id": 4,
+       "name": "Leg press",
+       "kind": "weights",
+       "text": "3 × 8 at 60 kg",
+       "rows": [
+        {
+         "set_id": 8,
+         "sets": 3,
+         "reps": 8,
+         "kg": 60,
+         "minutes": null,
+         "km": null,
+         "text": "3 × 8 at 60 kg"
+        }
+       ]
+      },
+      {
+       "exercise_id": 8,
+       "name": "Exercise bike",
+       "kind": "cardio",
+       "text": "27 min",
+       "rows": [
+        {
+         "set_id": 9,
+         "sets": null,
+         "reps": null,
+         "kg": null,
+         "minutes": 27,
+         "km": null,
+         "text": "27 min"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "workout_id": 2,
+     "anchor": "w2",
+     "day": "2026-09-25",
+     "split_day_id": 2,
+     "split": "Pull",
+     "started_at": "2026-09-25T20:01:29.598773+02:00",
+     "ended_at": "2026-09-25T20:21:29.603193+02:00",
+     "when": "20:01–20:21",
+     "exercises": [
+      {
+       "exercise_id": 3,
+       "name": "Seated row",
+       "kind": "weights",
+       "text": "3 × 10 at 40 kg",
+       "rows": [
+        {
+         "set_id": 5,
+         "sets": 3,
+         "reps": 10,
+         "kg": 40,
+         "minutes": null,
+         "km": null,
+         "text": "3 × 10 at 40 kg"
+        }
+       ]
+      },
+      {
+       "exercise_id": 5,
+       "name": "Pull-up",
+       "kind": "bodyweight",
+       "text": "3 × 5",
+       "rows": [
+        {
+         "set_id": 6,
+         "sets": 3,
+         "reps": 5,
+         "kg": null,
+         "minutes": null,
+         "km": null,
+         "text": "3 × 5"
+        }
+       ]
+      },
+      {
+       "exercise_id": 8,
+       "name": "Exercise bike",
+       "kind": "cardio",
+       "text": "21 min",
+       "rows": [
+        {
+         "set_id": 7,
+         "sets": null,
+         "reps": null,
+         "kg": null,
+         "minutes": 21,
+         "km": null,
+         "text": "21 min"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "workout_id": 1,
+     "anchor": "w1",
+     "day": "2026-09-22",
+     "split_day_id": 1,
+     "split": "Push",
+     "started_at": "2026-09-22T20:01:29.589942+02:00",
+     "ended_at": "2026-09-22T20:31:29.597770+02:00",
+     "when": "20:01–20:31",
+     "exercises": [
+      {
+       "exercise_id": 1,
+       "name": "Bench press",
+       "kind": "weights",
+       "text": "3 × 8 at 50 kg",
+       "rows": [
+        {
+         "set_id": 1,
+         "sets": 3,
+         "reps": 8,
+         "kg": 50,
+         "minutes": null,
+         "km": null,
+         "text": "3 × 8 at 50 kg"
+        }
+       ]
+      },
+      {
+       "exercise_id": 2,
+       "name": "Shoulder press",
+       "kind": "weights",
+       "text": "3 × 10 at 30 kg",
+       "rows": [
+        {
+         "set_id": 2,
+         "sets": 3,
+         "reps": 10,
+         "kg": 30,
+         "minutes": null,
+         "km": null,
+         "text": "3 × 10 at 30 kg"
+        }
+       ]
+      },
+      {
+       "exercise_id": 6,
+       "name": "Push-up",
+       "kind": "bodyweight",
+       "text": "3 × 15",
+       "rows": [
+        {
+         "set_id": 3,
+         "sets": 3,
+         "reps": 15,
+         "kg": null,
+         "minutes": null,
+         "km": null,
+         "text": "3 × 15"
+        }
+       ]
+      },
+      {
+       "exercise_id": 8,
+       "name": "Exercise bike",
+       "kind": "cardio",
+       "text": "15 min",
+       "rows": [
+        {
+         "set_id": 4,
+         "sets": null,
+         "reps": null,
+         "kg": null,
+         "minutes": 15,
+         "km": null,
+         "text": "15 min"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "workout_id": 20,
+     "anchor": "w20",
+     "day": "2026-08-18",
+     "split_day_id": 4,
+     "split": "Arms",
+     "started_at": "2026-08-18T20:01:29.681743+02:00",
+     "ended_at": "2026-08-18T20:01:29.683056+02:00",
+     "when": "20:01",
+     "exercises": [
+      {
+       "exercise_id": 9,
+       "name": "Biceps curl",
+       "kind": "weights",
+       "text": "3 × 12 at 10 kg",
+       "rows": [
+        {
+         "set_id": 59,
+         "sets": 3,
+         "reps": 12,
+         "kg": 10,
+         "minutes": null,
+         "km": null,
+         "text": "3 × 12 at 10 kg"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  "undo": null
+ },
+ "activity_none": {
+  "v": 1,
+  "gym_activity": {
+   "has_data": false,
+   "setup": {
+    "title": "No watch data yet",
+    "token_set": false,
+    "intro": "The watch data comes from the iPhone app Health Auto Export (Premium). Set up two automations of the kind REST API:",
+    "steps": [
+     [
+      {
+       "text": "Address ",
+       "code": false
+      },
+      {
+       "text": "https://log.19hospitalroad.fyi/watch/health",
+       "code": true
+      },
+      {
+       "text": ", format JSON, export version 2.",
+       "code": false
+      }
+     ],
+     [
+      {
+       "text": "A header ",
+       "code": false
+      },
+      {
+       "text": "Authorization",
+       "code": true
+      },
+      {
+       "text": " with the value ",
+       "code": false
+      },
+      {
+       "text": "Bearer",
+       "code": true
+      },
+      {
+       "text": ", a space and your token. The token is not set on the server yet: add a line WATCH_TOKEN=… (24 or more letters and digits) to /opt/stacks/logger-v2/.env and restart the core.",
+       "code": false
+      }
+     ],
+     [
+      {
+       "text": "First automation: Health Metrics with Step Count, Active Energy, Apple Exercise Time, Resting Heart Rate, Heart Rate Variability, Walking + Running Distance, Flights Climbed, Sleep Analysis and Heart Rate; Summarize Data on, by hour.",
+       "code": false
+      }
+     ],
+     [
+      {
+       "text": "Second automation: Workouts (no route data needed).",
+       "code": false
+      }
+     ],
+     [
+      {
+       "text": "Sync every 30 minutes; Background App Refresh on. The phone sends only while it is unlocked now and then.",
+       "code": false
+      }
+     ]
+    ],
+    "note": "Each run sends yesterday and today again; the logger keeps every reading once. Nothing goes to the Google Sheet."
+   },
+   "today": null,
+   "day": null,
+   "label": null,
+   "prev_day": null,
+   "next_day": null,
+   "tiles": [],
+   "sleep": null,
+   "workouts": [],
+   "charts": []
+  },
+  "undo": null
+ },
+ "activity": {
+  "v": 1,
+  "gym_activity": {
+   "has_data": true,
+   "setup": null,
+   "today": "2026-11-16",
+   "day": "2026-11-15",
+   "label": "Yesterday",
+   "prev_day": "2026-11-14",
+   "next_day": "2026-11-16",
+   "tiles": [
+    {
+     "key": "step_count",
+     "label": "Steps",
+     "value": 2000,
+     "unit": null,
+     "text": "2 000",
+     "avg7": 2000,
+     "sub": "7-day avg 2 000"
+    },
+    {
+     "key": "sleep",
+     "label": "Sleep",
+     "value": 7.25,
+     "unit": "h",
+     "text": "7 h 15 min",
+     "avg7": null,
+     "sub": "night before"
+    },
+    {
+     "key": "active_energy",
+     "label": "Active energy",
+     "value": 100,
+     "unit": "kcal",
+     "text": "100 kcal",
+     "avg7": null,
+     "sub": null
+    },
+    {
+     "key": "apple_exercise_time",
+     "label": "Exercise",
+     "value": null,
+     "unit": "min",
+     "text": "–",
+     "avg7": null,
+     "sub": null
+    },
+    {
+     "key": "walking_running_distance",
+     "label": "Distance",
+     "value": 1.61,
+     "unit": "km",
+     "text": "1.6 km",
+     "avg7": null,
+     "sub": null
+    },
+    {
+     "key": "flights_climbed",
+     "label": "Floors climbed",
+     "value": null,
+     "unit": null,
+     "text": "–",
+     "avg7": null,
+     "sub": null
+    },
+    {
+     "key": "resting_heart_rate",
+     "label": "Resting heart rate",
+     "value": 58,
+     "unit": "bpm",
+     "text": "58 bpm",
+     "avg7": 58,
+     "sub": "7-day avg 58"
+    },
+    {
+     "key": "heart_rate_variability",
+     "label": "Heart rate variability",
+     "value": null,
+     "unit": "ms",
+     "text": "–",
+     "avg7": null,
+     "sub": null
+    }
+   ],
+   "sleep": {
+    "hours": 7.25,
+    "text": "7 h 15 min",
+    "in_bed_from": "2026-11-14T22:15:00+01:00",
+    "in_bed_to": "2026-11-15T06:45:00+01:00",
+    "in_bed": "in bed 22:15–06:45",
+    "stages": [
+     {
+      "key": "deep",
+      "label": "Deep",
+      "hours": 1,
+      "text": "Deep 1 h 00 min"
+     },
+     {
+      "key": "core",
+      "label": "Core",
+      "hours": 4.5,
+      "text": "Core 4 h 30 min"
+     },
+     {
+      "key": "rem",
+      "label": "REM",
+      "hours": 1.75,
+      "text": "REM 1 h 45 min"
+     },
+     {
+      "key": "awake",
+      "label": "Awake",
+      "hours": 0.4,
+      "text": "Awake 0 h 24 min"
+     }
+    ],
+    "stages_text": "Deep 1 h 00 min · Core 4 h 30 min · REM 1 h 45 min · Awake 0 h 24 min",
+    "typed": null,
+    "typed_text": "Nothing typed in the Logger for this night."
+   },
+   "workouts": [],
+   "charts": [
+    {
+     "id": "steps",
+     "title": "Steps",
+     "chart": {
+      "start": "2026-11-09",
+      "days": 7,
+      "label": "Steps per day",
+      "series": [
+       {
+        "mark": "bar",
+        "cls": "a",
+        "pts": [
+         [
+          6,
+          2000,
+          "Sun 15.11.: 2 000 steps"
+         ]
+        ]
+       }
+      ],
+      "min": 0
+     }
+    },
+    {
+     "id": "sleep",
+     "title": "Sleep",
+     "chart": {
+      "start": "2026-11-09",
+      "days": 7,
+      "label": "Sleep in hours",
+      "series": [
+       {
+        "mark": "bar",
+        "cls": "a",
+        "pts": [
+         [
+          6,
+          7.25,
+          "Sun 15.11.: 7 h 15 min"
+         ]
+        ]
+       }
+      ],
+      "min": 0,
+      "unit": " h",
+      "lines": [
+       [
+        7,
+        "w",
+        "7 h"
+       ]
+      ]
+     }
+    },
+    {
+     "id": "rhr",
+     "title": "Resting heart rate",
+     "chart": {
+      "start": "2026-11-09",
+      "days": 7,
+      "label": "Resting heart rate in bpm",
+      "series": [
+       {
+        "mark": "line",
+        "cls": "a",
+        "pts": [
+         [
+          6,
+          58.0,
+          "Sun 15.11.: 58 bpm"
+         ]
+        ]
+       },
+       {
+        "mark": "dot",
+        "cls": "a",
+        "pts": [
+         [
+          6,
+          58.0,
+          "Sun 15.11.: 58 bpm"
+         ]
+        ]
+       }
+      ]
+     }
+    }
+   ]
+  },
+  "undo": null
+ },
+ "saves": {
+  "tick": {
+   "v": 1,
+   "outcome": "saved",
+   "tone": "ok",
+   "head": "Saved: Shoulder press 3 × 10 at 45 kg",
+   "receipt": [],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": {
+    "token": "T4v0N4V_gRMyUTvZ",
+    "head": "Saved: Shoulder press 3 × 10 at 45 kg",
+    "expires_at": "2026-11-16T18:16:29.870061+00:00"
+   }
+  },
+  "remove": {
+   "v": 1,
+   "outcome": "changed",
+   "tone": "ok",
+   "head": "Removed: Bench press 1 × 6 at 70 kg",
+   "receipt": [],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": {
+    "token": "Ms9AztlEM9jrLkb8",
+    "head": "Removed: Bench press 1 × 6 at 70 kg",
+    "expires_at": "2026-11-16T18:16:29.891282+00:00"
+   }
+  },
+  "pick": {
+   "v": 1,
+   "outcome": "changed",
+   "tone": "ok",
+   "head": "Today: Day 2 · Pull.",
+   "receipt": [],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": null
+  },
+  "refused": {
+   "v": 1,
+   "outcome": "rejected",
+   "tone": "warning",
+   "head": "Nothing saved.",
+   "receipt": [],
+   "notes": [],
+   "reason": "Give the weight in kg.",
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": null
+  },
+  "itemadd": {
+   "v": 1,
+   "outcome": "changed",
+   "tone": "ok",
+   "head": "Added Push-up to Legs.",
+   "receipt": [],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": null
+  },
+  "new": {
+   "v": 1,
+   "outcome": "changed",
+   "tone": "ok",
+   "head": "Added Rowing machine (machine cardio).",
+   "receipt": [],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": null
+  }
+ }
+}

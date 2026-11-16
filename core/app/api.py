@@ -8,7 +8,7 @@ app. site passes / and /web/* only) and the tunnel's calls carry Cloudflare's he
 then, for every route but the sign-in, the owner's session as "Authorization: Bearer <token>" (a web_sessions row of this
 front end, migration 031; a session of app. never works here and the reverse). A session renews like a page view (30 days
 from its last use); the end comes back in the X-Session-Expires header. Every answer is JSON with "v": 1, never cached.
-The reads are reads.py; the saves call the same functions as the live forms (webactions, webfood, logbook, webundo, webheld)."""
+The reads are reads.py; the saves call the same functions as the live forms (webactions, webfood, logbook, webundo, webheld, gym)."""
 import hashlib
 import hmac
 import json
@@ -21,7 +21,7 @@ from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-from . import body as tape, habitspage, healthpage, hubtools, labelread, logbook, privateline, reads, web, webactions, webentry, webfood, webhabits, webheld, webundo
+from . import body as tape, gym, gympage, habitspage, healthpage, hubtools, labelread, logbook, privateline, reads, web, webactions, webentry, webfood, webhabits, webheld, webundo
 from .ai.provider import ProviderError
 from .config import FRONT_TOKEN
 from .db import connect
@@ -409,6 +409,8 @@ def saved(session, out: dict, body: dict, view: str = "day", private: bool = Fal
         res["body"] = reads.body(asked, _range(body.get("range"), strict=False))
     elif shown == "habits":  # the Habits page (deploy 93), as GET /habits with the body's show (tracked when not given or unknown)
         res["habits"] = reads.habits(body.get("show") if isinstance(body.get("show"), str) else "tracked")
+    elif shown in GYM_VIEWS:  # the Gym's Workout, Plan or Exercises tab (deploy 95), as its GET
+        res[shown] = GYM_VIEWS[shown]()
     else:
         res["day"] = reads.day(asked)
     return res
@@ -916,3 +918,149 @@ def habits_manage(_request, body, session):
         f["confirmed"] = "1"
     form, key = Form(f), _key(body)
     return saved(session, _work(lambda: webhabits.ACTIONS[action](form, key, session)), body, view="habits")
+
+
+# ---- Gym (deploy 95) ---------------------------------------------------------------------------------------------------------------
+# app.'s Gym section (gympage, activitypage), through the same functions: the six tabs as data (the Progress chart as drawChart takes
+# it, workouts per week as data, Activity read only) and every form of gym.ACTIONS, with typed fields. Undo where app. has one
+# (gym_undo: tick, remove, itemremove). The answer brings back the tab the save belongs to (view "gym", "gym_plan", "gym_exercises").
+
+GYM_VIEWS = {"gym": reads.gym, "gym_plan": reads.gym_plan, "gym_exercises": reads.gym_exercises}
+
+
+@route("/gym", "GET")
+def gym_read(_request, _body, session):
+    """The Workout tab: today's day and list, the day chips, this week's split, the last 4 weeks; and the session's Undo."""
+    return {"gym": reads.gym(), "undo": _undo_out(session.get("undo"))}
+
+
+@route("/gym/plan", "GET")
+def gym_plan_read(_request, _body, session):
+    return {"gym_plan": reads.gym_plan(), "undo": _undo_out(session.get("undo"))}
+
+
+@route("/gym/exercises", "GET")
+def gym_exercises_read(_request, _body, session):
+    return {"gym_exercises": reads.gym_exercises(), "undo": _undo_out(session.get("undo"))}
+
+
+@route("/gym/progress", "GET")
+def gym_progress_read(request, _body, session):
+    """?x=<exercise id>: one exercise's progress (an exercise never done, or none given: the most recently done one, as app.)."""
+    x = request.query_params.get("x", "")
+    if x and not re.fullmatch(r"\d{1,12}", x):
+        raise Refused(400, "bad_request", "x must be an exercise's id.")
+    return {"gym_progress": reads.gym_progress(x or None), "undo": _undo_out(session.get("undo"))}
+
+
+@route("/gym/history", "GET")
+def gym_history_read(_request, _body, session):
+    return {"gym_history": reads.gym_history(), "undo": _undo_out(session.get("undo"))}
+
+
+@route("/gym/activity", "GET")
+def gym_activity_read(request, _body, session):
+    """?day=yyyy-mm-dd (today when not given; a later day is today): the watch's data of that day, read only."""
+    return {"gym_activity": reads.gym_activity(day_param(request)), "undo": _undo_out(session.get("undo"))}
+
+
+def _gnum(body: dict, name: str) -> str:
+    """A number of a gym form as the form's text; null or left out = not given ("")."""
+    return _number(name, body.get(name))
+
+
+def _on(body: dict) -> str:
+    v = body.get("on")
+    if not isinstance(v, bool):
+        raise Refused(400, "bad_request", "on must be true or false.")
+    return "1" if v else "0"
+
+
+def _gname(body: dict, most: int) -> str:
+    """A name with its spaces tidied (as gym._name), at most so many characters (the forms' maxlength)."""
+    v = body.get("name")
+    if v is not None and not isinstance(v, str):
+        raise Refused(400, "bad_request", "name must be text.")
+    name = " ".join((v or "").split())
+    if len(name) > most:
+        raise Refused(400, "bad_request", f"name must be {most} characters or fewer.")
+    return name
+
+
+def _words(body: dict) -> str:
+    """An exercise's other words: a list of up to 10 words of up to 40 characters, without commas (app.'s form joins them with commas)."""
+    v = body.get("words")
+    if v is None:
+        return ""
+    lim = reads.EXERCISE_LIMITS
+    if (not isinstance(v, list) or len(v) > lim["words_max"]
+            or not all(isinstance(w, str) and "," not in w and len(" ".join(w.split())) <= lim["word_max"] for w in v)):
+        raise Refused(400, "bad_request", f'words must be a list of up to {lim["words_max"]} words of up to {lim["word_max"]} characters, without commas.')
+    return ", ".join(v)
+
+
+def _gym_tick(body):
+    return {"exercise": str(_int(body, "exercise_id")), **{k: _gnum(body, k) for k in gympage.VALS}}
+
+
+def _gym_remove(body):
+    has_set, has_ex = body.get("set_id") is not None, body.get("exercise_id") is not None
+    if has_set == has_ex:
+        raise Refused(400, "bad_request", "Send set_id (one row) or exercise_id (all of today's rows of it).")
+    return {"set": str(_int(body, "set_id"))} if has_set else {"exercise": str(_int(body, "exercise_id"))}
+
+
+def _gym_pick(body):
+    if "day_id" not in body:
+        raise Refused(400, "bad_request", "day_id is missing (null = Free workout).")
+    return {"split": "free" if body["day_id"] is None else str(_int(body, "day_id"))}
+
+
+def _gym_new(body):
+    today = body.get("today", False)
+    if not isinstance(today, bool):
+        raise Refused(400, "bad_request", "today must be true or false.")
+    return {"name": _gname(body, reads.EXERCISE_LIMITS["name_max"]), "kind": text(body, "kind", 20), "words": _words(body), "today": "1" if today else ""}
+
+
+def _gym_move(body):
+    if body.get("dir") not in ("up", "down"):
+        raise Refused(400, "bad_request", "dir must be up or down.")
+    return {"item": str(_int(body, "item_id")), "dir": body["dir"]}
+
+
+DAY_NAME = reads.PLAN_LIMITS["name_max"]
+GYM_FORMS = {  # action -> (the form's fields from the body, the tab the answer brings back)
+    "tick": (_gym_tick, "gym"),
+    "remove": (_gym_remove, "gym"),
+    "pick": (_gym_pick, "gym"),
+    "new": (_gym_new, None),  # "gym" when sent from the Workout tab (today: true), else "gym_exercises"
+    "rename": (lambda b: {"exercise": str(_int(b, "exercise_id")), "name": _gname(b, reads.EXERCISE_LIMITS["name_max"])}, "gym_exercises"),
+    "active": (lambda b: {"exercise": str(_int(b, "exercise_id")), "on": _on(b)}, "gym_exercises"),
+    "daynew": (lambda b: {"name": _gname(b, DAY_NAME)}, "gym_plan"),
+    "dayedit": (lambda b: {"day": str(_int(b, "day_id")), "name": _gname(b, DAY_NAME)}, "gym_plan"),
+    "dayactive": (lambda b: {"day": str(_int(b, "day_id")), "on": _on(b)}, "gym_plan"),
+    "itemadd": (lambda b: {"day": str(_int(b, "day_id")), "exercise": str(_int(b, "exercise_id")), "sets": _gnum(b, "sets"), "reps": _gnum(b, "reps")},
+                "gym_plan"),
+    "itemset": (lambda b: {"item": str(_int(b, "item_id")), "sets": _gnum(b, "sets"), "reps": _gnum(b, "reps")}, "gym_plan"),
+    "itemmove": (_gym_move, "gym_plan"),
+    "itemremove": (lambda b: {"item": str(_int(b, "item_id"))}, "gym_plan"),
+}
+assert set(GYM_FORMS) == set(gym.ACTIONS)
+
+
+def _gym_route(action: str):
+    fields, view = GYM_FORMS[action]
+    fn = gym.ACTIONS[action]
+
+    def handler(_request, body, session):
+        f = Form({k: v for k, v in fields(body).items() if v != ""})
+        shown = view or ("gym" if f.get("today") == "1" else "gym_exercises")
+        return saved(session, _work(lambda: fn(f, _key(body), session)), body, view=shown)
+    handler.__name__ = f"gym_{action}"
+    handler.__doc__ = f"app.'s /web/gym/{action} (gym.ACTIONS[{action!r}]); see docs/API.md."
+    return handler
+
+
+for _action in GYM_FORMS:
+    route(f"/gym/{_action}", "POST")(_gym_route(_action))
