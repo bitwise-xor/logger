@@ -52,7 +52,7 @@ def test_bad_input_makes_no_usual_meal(web, fake):
         assert "Nothing saved." in page.text, form
     assert meals() == []
     act(web, "/web/food/usualcreate", name="same", kind="meal", food_0="Test oats", g_0="60")
-    assert "already exists" in act(web, "/web/food/usualcreate", name="SAME", kind="meal", food_0="Test oats", g_0="30").text
+    assert 'There is already a usual meal called &quot;same&quot;' in act(web, "/web/food/usualcreate", name="SAME", kind="meal", food_0="Test oats", g_0="30").text
     assert len(meals()) == 1
 
 

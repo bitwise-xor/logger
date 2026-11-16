@@ -3,11 +3,15 @@ change function (commands._run_changes, v1's checks): the first Save shows v1's 
 button, and the Yes makes it (decided 26.10.2026). Notes, words, barcodes and "Looks right" are saved with Save, like
 the Health card. Copying a meal is logged like a typed message with a ready parser answer (no AI call); a new usual
 meal is made by v1's own code for "save as usual meal" (v1_log._prepare_food and _create_recipe)."""
+import hashlib
+import json
 import re
 from datetime import datetime, timedelta
 from typing import Optional
 
-from . import commands, foodpage, logbook, record, todaypage, v1_log
+from psycopg.types.json import Jsonb
+
+from . import commands, foodpage, logbook, record, todaypage, v1_log, webundo
 from .db import connect
 from .todaypage import _plain
 from .v1_log import ReadBack, RecipeDef, RecipeItem, Reject
@@ -199,11 +203,52 @@ def copy(form, key: Optional[str]) -> dict:
     return logbook.log(text, key, _pred(food=items), channel=logbook.WEB)
 
 
+# ---- usual meals: making, changing and deleting them (with Undo since deploy 86) ---------------------------------------
+# Each of the three saves below answers with "usual_undo" when it changed something (webundo: the meal and its items as they
+# were, the past entries' links of a deleted one, or a new meal to remove again) and a new one with its "meal_id". A key (the
+# JSON door sends one per Save) saves once: a re-send gets the first answer back (idempotency_keys, as gym.py and home.py).
+
+def _usual_once(key: Optional[str], form, fn) -> dict:
+    if not key:
+        return fn()
+    fields = {k: str(v) for k, v in form.items() if k not in ("csrf", "confirmed", "key", "back")}
+    req = hashlib.sha256(json.dumps([fn.__name__, fields], sort_keys=True).encode()).hexdigest()
+    with connect() as conn, conn.cursor() as cur:
+        cur.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))", (key,))  # a second send with this key waits here
+        seen = cur.execute("SELECT request_hash, response FROM idempotency_keys WHERE key = %s", (key,)).fetchone()
+        if seen:
+            return {**seen["response"], "replayed": True} if seen["request_hash"] == req else _rejected("This form was already used.")
+        out = fn()
+        if out.get("outcome") == "changed":
+            cur.execute("INSERT INTO idempotency_keys (key, tool, request_hash, response) VALUES (%s, 'usual', %s, %s)", (key, req, Jsonb(out)))
+    return out
+
+
+def _name_taken(cur, name: str, other_than: Optional[int] = None) -> Optional[dict]:
+    """A refusal when another usual meal already has this name (names are unique, in any case: "Bowl" and "bowl" are one name);
+    until deploy 86 a rename to a used name was a database error ("Something went wrong")."""
+    cur.execute("SELECT name FROM usual_meals WHERE lower(name) = lower(%s) AND id IS DISTINCT FROM %s", (name, other_than))
+    hit = cur.fetchone()
+    return _rejected(f'There is already a usual meal called "{hit["name"]}". Pick another name.') if hit else None
+
+
+def _made(cur, prep: dict, out: dict) -> dict:
+    """A new usual meal's answer with its id, and Undo = remove it again."""
+    uid = cur.execute("SELECT id FROM usual_meals WHERE name = %s", (prep["recipes"][0]["name"],)).fetchone()["id"]
+    return {**out, "meal_id": uid, "usual_undo": {"remove": uid}}
+
+
 def usual_new(form, key: Optional[str]) -> dict:
     """A logged meal saved as a usual meal, by v1's own code for "save as usual meal"."""
+    return _usual_once(key, form, lambda: _usual_new(form))
+
+
+def _usual_new(form) -> dict:
     name = " ".join(str(form.get("name", "")).split())[:60]
     meal = str(form.get("meal", ""))
-    if len(name) < 2 or not meal.isdigit() or meal == "0":
+    if not meal.isdigit() or meal == "0":
+        return _rejected("Pick a meal: the day's drinks cannot be saved as a usual meal.")
+    if len(name) < 2:
         return _rejected("Give the usual meal a name.")
     now = datetime.now(BERLIN)
     with connect() as conn, conn.cursor() as cur:
@@ -211,6 +256,9 @@ def usual_new(form, key: Optional[str]) -> dict:
         day = foodpage.parse_day(form.get("day"), None)
         if not day or not today - timedelta(days=366) <= day <= today:
             return _rejected("Unknown day.")
+        taken = _name_taken(cur, name)
+        if taken:
+            return taken
         try:
             prep = v1_log._prepare_food(cur, [], [], [RecipeDef(name=name, kind="usual", from_meal=f"{day:%d.%m.%Y} {meal}")],
                                         None, True, None, now, [])
@@ -222,8 +270,9 @@ def usual_new(form, key: Optional[str]) -> dict:
             msg = str(e).replace("READ BACK, nothing saved (nothing else in this message was saved either):", "Not saved:").strip()
             return _rejected(msg)
         logbook._audit(cur, "web_change", "changed", {"what": "usual new"}, logbook.WEB)
-    n = len(prep["recipes"][0]["items"]) if prep["recipes"] else 0
-    return {"outcome": "changed", "head": f'Saved "{name}" as a usual meal ({n} items). It shows on Today and under Food › Usual meals.'}
+        n = len(prep["recipes"][0]["items"])
+        return _made(cur, prep, {"outcome": "changed",
+                                 "head": f'Saved "{name}" as a usual meal ({n} items). It shows on Today and under Food › Usual meals.'})
 
 
 def food_id(cur, text: str) -> Optional[int]:
@@ -243,12 +292,19 @@ NEW_ROWS = 8
 
 def usual_create(form, key: Optional[str]) -> dict:
     """A new usual meal or usual drink made from foods typed or picked by name and grams (no logged meal needed)."""
+    return _usual_once(key, form, lambda: _usual_create(form))
+
+
+def _usual_create(form) -> dict:
     name = " ".join(str(form.get("name", "")).split())[:60]
     if len(name) < 2:
         return _rejected("Give the usual meal a name.")
     drink = form.get("kind") == "drink"
     items, now = [], datetime.now(BERLIN)
     with connect() as conn, conn.cursor() as cur:
+        taken = _name_taken(cur, name)
+        if taken:
+            return taken
         for k in range(NEW_ROWS):
             typed, g_text = str(form.get(f"food_{k}", "")).strip(), str(form.get(f"g_{k}", "")).strip()
             if not typed and not g_text:
@@ -271,8 +327,8 @@ def usual_create(form, key: Optional[str]) -> dict:
             conn.rollback()
             return _rejected(str(e).replace("READ BACK, nothing saved (nothing else in this message was saved either):", "Not saved:").strip())
         logbook._audit(cur, "web_change", "changed", {"what": "usual new from foods", "drink": drink}, logbook.WEB)
-    return {"outcome": "changed", "head": f'Saved "{name}" as a usual {"drink" if drink else "meal"} ({len(items)} item{"" if len(items) == 1 else "s"}). '
-                                          'It shows on Today and in the list below.'}
+        return _made(cur, prep, {"outcome": "changed", "head": f'Saved "{name}" as a usual {"drink" if drink else "meal"} '
+                                 f'({len(items)} item{"" if len(items) == 1 else "s"}). It shows on Today and in the list below.'})
 
 
 # ---- the catalogue ---------------------------------------------------------------------------------
@@ -397,6 +453,21 @@ def lookup(form, key: Optional[str]) -> dict:
 
 
 def usual_meal(form, key: Optional[str]) -> dict:
+    """A usual meal changed (name, foods, amounts, their order) or deleted: the change is shown first and the Yes makes it
+    (app.), or made at once with "confirmed" (the JSON door), with Undo either way."""
+    return _usual_once(key, form, lambda: _usual_meal(form))
+
+
+def _usual_changed(ref: str, steps: list[dict], what: str, ok: str, form, label: str = "Yes, change", shown: Optional[str] = None) -> dict:
+    """_ask_first, and after the Yes the meal as it was kept for Undo (with the past entries' links when it is deleted)."""
+    if form.get("confirmed") != "1":
+        return _ask_first(steps, what, ok, form, "/web/food/usualmeal", label, shown)
+    before = webundo.usual_snapshot(int(ref[1:]))
+    out = _change(steps, what, ok)
+    return {**out, "usual_undo": before} if out["outcome"] == "changed" and before else out
+
+
+def _usual_meal(form) -> dict:
     ref = str(form.get("id", ""))
     if not re.fullmatch(r"U\d{1,9}", ref):
         return _rejected("Unknown usual meal.")
@@ -407,8 +478,8 @@ def usual_meal(form, key: Optional[str]) -> dict:
     if not u:
         return _rejected("That usual meal is not there any more.")
     if form.get("act") == "delete":
-        return _ask_first([{"action": "change", "args": {"id": ref, "delete": True}}], "usual delete",
-                          f'Deleted the usual meal "{u["name"]}". Past meals keep their values.', form, "/web/food/usualmeal", "Yes, delete")
+        return _usual_changed(ref, [{"action": "change", "args": {"id": ref, "delete": True}}], "usual delete",
+                              f'Deleted the usual meal "{u["name"]}". Past meals keep their values.', form, "Yes, delete")
     rows = form.get("rows", "")
     if not str(rows).isdigit() or int(rows) > MAX_ROWS:
         return _rejected("Unknown usual meal.")
@@ -452,6 +523,16 @@ def usual_meal(form, key: Optional[str]) -> dict:
     name = " ".join(str(form.get("name", "")).split())[:60]
     if len(name) < 2:
         return _rejected("Give the usual meal a name.")
+    with connect() as c, c.cursor() as cur:
+        taken = _name_taken(cur, name, u["id"])
+        # a food sent by its number (the JSON door; an unchanged row of app.) must be an active food of the catalogue
+        cur.execute("SELECT id FROM foods WHERE id = ANY(%s) AND active", ([f for f, _ in items],))
+        known = {r["id"] for r in cur.fetchall()}
+    if taken:
+        return taken
+    lost = next((f for f, _ in items if f not in known), None)
+    if lost is not None:
+        return _rejected(f"Pick each food from the catalogue (N{lost} is not in it, or it is hidden).")
     fields: dict = {}
     if name != u["name"]:
         fields["name"] = name
@@ -471,9 +552,9 @@ def usual_meal(form, key: Optional[str]) -> dict:
     lines += [f"{names.get(fid, f'N{fid}')} {format(g, 'g')} added" for fid, g in items if fid not in before]
     if "items" in fields and not lines:
         lines.append("new order of the foods")
-    return _ask_first([{"action": "change", "args": {"id": ref, "fields": fields}}], "usual meal",
-                      f'Changed the usual meal "{name}".', form, "/web/food/usualmeal",
-                      shown=f'Change the usual meal "{u["name"]}":\n' + "\n".join(f"- {x}" for x in lines))
+    return _usual_changed(ref, [{"action": "change", "args": {"id": ref, "fields": fields}}], "usual meal",
+                          f'Changed the usual meal "{name}".', form,
+                          shown=f'Change the usual meal "{u["name"]}":\n' + "\n".join(f"- {x}" for x in lines))
 
 
 # ---- a food from a label photo (31.10.2026) ---------------------------------------------------------

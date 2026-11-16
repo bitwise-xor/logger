@@ -4,7 +4,8 @@ The front end's stand-in door (front/tests/standin/door.mjs) answers with these 
 on the real door's shapes. This test builds a full invented day (meals, drinks, questions, a message not read yet, items to review,
 the check-in, health values, habits, chips), reads it through the door (day.json) and makes two saves on it (save.json: a glass of
 water, saved with Undo, and an odd weight correction read back first, with confirm; the stand-in answers every save in this shape),
-the Food day (food.json, step E: GET /food/day of the day and the day before, GET /food/entry, a change and a note), and
+the Food day (food.json, step E: GET /food/day of the day and the day before, GET /food/entry, a change and a note), the usual
+meals (usual.json, deploy 86: GET /usual, GET /foods, a change with Undo and a refusal), and
 - with WRITE_FRONT_SAMPLES=1: writes the answer to the sample file (then look at the diff and commit it);
 - otherwise: checks that the committed sample still has the door's shape (the same keys at every level), so a change of the door
   that the stand-in does not know about fails here.
@@ -231,3 +232,36 @@ def test_the_food_sample_has_the_doors_shape(four_pm, fake):
     assert sample.keys() == answers.keys()
     gone = differences(sample, answers, "food")
     assert not gone, "front/tests/samples/food.json no longer has the door's shape; run this test with WRITE_FRONT_SAMPLES=1:\n" + "\n".join(gone)
+
+
+def test_the_usual_sample_has_the_doors_shape(four_pm, fake):
+    """The usual-meal editor (deploy 86, for step 87): GET /usual of the full day's usual meal and a drink, a food search
+    (GET /foods?q=), and two answers without their list: a change saved at once with Undo, and a refusal (a name another
+    usual meal has)."""
+    full_day()
+    milk = food("Milk", 46, 3.4, 1.5, 4.8, True)
+    cocoa = owner_sql("INSERT INTO usual_meals (name, is_drink) VALUES ('Cocoa', true) RETURNING id")[0]["id"]
+    owner_sql("INSERT INTO usual_meal_items (meal_id, food_id, grams, sort_order) VALUES (%s, %s, 250, 1)", cocoa, milk)
+    c, bearer, _ = signed_in()
+    get = lambda path: c.get("/api/v1" + path, headers=bearer).json()  # noqa: E731
+    post = lambda path, **body: c.post("/api/v1" + path, headers=bearer, json=body).json()  # noqa: E731
+    answers = {"usual": get("/usual"), "foods": get("/foods?q=oat")}
+    bowl = next(u for u in answers["usual"]["usual"] if u["name"] == "Usual breakfast")
+    rows = [{"food_id": i["food_id"], "amount": i["amount"]} for i in bowl["items"]]
+    saved = post("/usual/meal", meal_id=bowl["meal_id"], action="save", name="Usual breakfast", items=[{**rows[0], "amount": 80}, rows[1]],
+                 confirmed=True, key="sample-usual-key-0001")
+    refused = post("/usual/meal", meal_id=bowl["meal_id"], action="save", name="Cocoa", items=rows, confirmed=True, key="sample-usual-key-0002")
+    for a in (saved, refused):
+        assert len(a.pop("usual")) == 2, a
+    answers["saves"] = {"changed": saved, "rejected": refused}
+    assert [u["name"] for u in answers["usual"]["usual"]] == ["Cocoa", "Usual breakfast"] and answers["usual"]["usual"][0]["drink"]
+    assert [f["name"] for f in answers["foods"]["foods"]] == ["Oats with milk and banana", "Oats"]  # most eaten first, as the Catalogue
+    assert saved["outcome"] == "changed" and saved["undo"] and refused["outcome"] == "rejected" and refused["reason"]
+    path = SAMPLES / "usual.json"
+    if os.environ.get("WRITE_FRONT_SAMPLES") == "1":
+        path.write_text(json.dumps(answers, indent=1, ensure_ascii=False) + "\n")
+        return
+    sample = json.loads(path.read_text())
+    assert sample.keys() == answers.keys()
+    gone = differences(sample, answers, "usual")
+    assert not gone, "front/tests/samples/usual.json no longer has the door's shape; run this test with WRITE_FRONT_SAMPLES=1:\n" + "\n".join(gone)

@@ -1,9 +1,10 @@
 # The JSON door `/api/v1` (for the new front end)
 
 Since deploys 75 and 76 (16.11.2026); deploy 77 (16.11.2026) made the changes of the door's review (marked "since 77");
-deploy 78 removed the old field names that 77 kept for one deploy. The front end that calls it: `front/` (`front/README.md`).
+deploy 78 removed the old field names that 77 kept for one deploy; deploy 86 added the usual-meal editor. The front end that calls it: `front/` (`front/README.md`).
 Code: `core/app/api.py` (the door, the saves), `core/app/reads.py` (the reads).
-Tests: `tests/test_api_door.py`, `tests/test_api_reads.py`, `tests/test_api_saves.py`, `tests/test_api_shape.py` (77).
+Tests: `tests/test_api_door.py`, `tests/test_api_reads.py`, `tests/test_api_saves.py`, `tests/test_api_shape.py` (77),
+`tests/test_api_usual.py` (86).
 
 The door is for one caller only: the new front end's own server, from inside Docker. The browser never calls it.
 The live web app at `app.` does not use it and did not change.
@@ -113,6 +114,22 @@ Built on `foodpage._day_rows`.
 `{ref, day, food_id, food, amount, unit, at, time_known, note, units: [{unit, in_basis}]}`. `units`: the food's own unit first
 (`in_basis` 1), then its other units with how much of the base unit one is ("slice", 35). Unknown: 404 `no_entry`.
 
+### `GET /api/v1/usual` → `{"usual": [Usual], "undo": Undo}` (86)
+
+Every usual meal and drink by name, also those hidden from Today's chips (`reads.usual`, the query of app.'s Usual meals tab):
+
+```
+Usual = {meal_id, name, drink, nutrients: {kcal, protein, fat, carbs},
+         items: [{item_id, food_id, food, amount, unit, nutrients}]}      // chips.usual's shape plus drink and food_id
+```
+
+Items in their order; `amount` in the food's `unit` (g, or ml for a drink).
+
+### `GET /api/v1/foods?q=` → `{"foods": [{food_id, name, unit, drink, per_100: {kcal, protein, fat, carbs}}]}` (86)
+
+Up to 20 active foods for the words (the Catalogue's search: name, one of its words, N number or barcode), most eaten first; no
+`q` = the 20 most eaten. To pick a food for a usual meal; `per_100` is per 100 g, or per 100 ml (`unit`).
+
 ## Saves (`POST`)
 
 Each calls the same function as the live form and passes `key` (a new random string per action, the same on a re-send) where that
@@ -134,6 +151,17 @@ function takes one, so a re-sent request saves once (`replayed: true`).
 | `/api/v1/undo` | `token` (from the last answer's `undo`) | `webundo.apply` |
 | `/api/v1/held/retry` (77) | `id` (a number: `day.needs.not_read[].id`), `key` | `webheld.retry` (app.'s "Try again": reads it now, like `/log`) |
 | `/api/v1/held/delete` (77) | `id` | `webheld.delete` (app.'s "Delete", with Undo: the message comes back) |
+| `/api/v1/usual/meal` (86) | `meal_id`, `action`: `save` (`name`, `items: [{food_id, amount}]`: the whole list, in order, up to 40) or `delete`, `confirmed`, `key` | `webfood.usual_meal` |
+| `/api/v1/usual/new` (86) | `name`, `drink` (true or false, default false), `items: [{food_id, amount}]` (1 to 8), `key` | `webfood.usual_create` |
+| `/api/v1/usual/from_meal` (86) | `day` (yyyy-mm-dd), `meal` (1, 2, …; 0, the drinks, is refused), `name`, `key` | `webfood.usual_new` |
+
+The usual-meal saves (86): the front end sends `confirmed: true` and the change is made at once, with Undo (without it a change or
+delete is read back first, as on app.: `needs_confirmation` with `read_back` and `confirm`). Amounts above 0 and at most 5000 (g or ml); a
+name of 2 to 60 characters that no other usual meal has, in any case ("There is already a usual meal called …"); foods active in
+the catalogue. Each refusal is `rejected` with a plain `reason` and changes nothing. A `key` saves once: a re-send gets the first
+answer with `replayed: true`; the same key with another body is refused ("This form was already used."). Undo puts the meal back as
+it was (name, foods, amounts, the same item ids), after a delete also the past entries' link to it (`Row.usual_meal`); a new one is
+removed again. app.'s Usual meals tab got the same Undo bar.
 
 Field names since 77: `action` (was `act` on `/review` and `/food/entry`), `time` (was `t` on `/health`), `items[].item_id` (was
 `items[].id` on `/usual`). Since deploy 78 only the new names work: a field sent under its old name counts as missing.
@@ -153,7 +181,9 @@ Every save answers (HTTP 200, also when nothing was saved):
   refill: null | {label, text},                // words to put back in the log box ("Try again" on a message that is not an entry)
   replayed,
   undo: Undo,            // one per session, 15 minutes; POST /api/v1/undo {token}
-  day: Day  |  food_day: FoodDay               // the fresh day; body "view": "food" | "day" and "view_day": "yyyy-mm-dd" choose it
+  day: Day  |  food_day: FoodDay  |  usual: [Usual]   // the fresh read; body "view": "day" | "food" | "usual" (86) and
+                                                       // "view_day": "yyyy-mm-dd" choose it; /usual/meal and /usual/new default to
+                                                       // "usual", /usual/from_meal and /food/* to "food", the rest to "day"
 }
 ```
 
@@ -188,5 +218,5 @@ Texts in `read_back`, `result` and questions never carry the lines meant for the
 - Errors inside a save (the AI or the database not answering) are `outcome: "rejected"` with a reason that nothing was saved; a typed
   line's words stay kept (`held`) and appear in `day.needs.not_read`.
 
-Not in the door (on purpose, for now): Home, Gym and Coach, body measurements, the Food catalogue and usual-meal editors, "Look it up"
+Not in the door (on purpose, for now): Home, Gym and Coach, body measurements, the Food catalogue editor, "Look it up"
 (USDA or Open Food Facts) for an unknown food, the gratitude list itself (only its count), Ideas and Private.

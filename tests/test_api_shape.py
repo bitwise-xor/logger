@@ -1,7 +1,7 @@
 """The door's shape after the review of 16.11.2026 (deploy 77): the night's bed time on the Health card, a save's questions in full,
 the private guard on questions and on lines the AI files as private, one name per field (the old names gone since deploy 78), Undo on a
 reload, a mixed line's look-up in result, answer styles and refill buttons, the outcome's tone, no chat lines in read-backs, and
-Try again / Delete on a message not read yet. Every name, food, number and sentence is invented."""
+Try again / Delete on a message not read yet; the usual-meal editor's shapes (deploy 86). Every name, food, number and sentence is invented."""
 from datetime import datetime
 
 import pytest
@@ -259,3 +259,22 @@ def test_a_bad_message_id_is_a_bad_request(sv, bad):
     for path in ("/held/retry", "/held/delete"):
         r = sv.raw(path, id=bad)
         assert r.status_code == 400 and r.json()["error"] == "bad_request"
+
+
+# ---- 8. the usual-meal editor (deploy 86) -------------------------------------------------------------------------------------
+
+def test_the_usual_meal_shapes(sv, fake):
+    oats, skyr = food("Test oats", 380, 13, 7, 60), food("Test skyr", 63, 11, 0.2, 4)
+    meal = {"meal_id", "name", "drink", "nutrients", "items"}
+    item = {"item_id", "food_id", "food", "amount", "unit", "nutrients"}
+    j = sv.post("/usual/new", name="Test box", items=[{"food_id": oats, "amount": 60}, {"food_id": skyr, "amount": 150}], key="shape-u1")
+    assert set(j) == {"v", "outcome", "head", "receipt", "notes", "reason", "questions", "read_back", "confirm", "result", "replayed",
+                      "undo", "tone", "refill", "usual"}
+    [m] = j["usual"]
+    assert set(m) == meal and all(set(i) == item for i in m["items"]) and set(m["nutrients"]) == {"kcal", "protein", "fat", "carbs"}
+    listed = get(sv, "/usual")
+    assert set(listed) == {"v", "usual", "undo"} and listed["usual"] == j["usual"] and got_undo(listed)
+    [f] = get(sv, "/foods?q=skyr")["foods"]
+    assert set(f) == {"food_id", "name", "unit", "drink", "per_100"} and set(f["per_100"]) == {"kcal", "protein", "fat", "carbs"}
+    asked = sv.post("/usual/meal", meal_id=m["meal_id"], action="save", name="Test box", items=[{"food_id": oats, "amount": 70}], view="day")
+    assert asked["outcome"] == "needs_confirmation" and "day" in asked and "usual" not in asked  # view chooses the fresh read

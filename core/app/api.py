@@ -208,6 +208,18 @@ def food_day(request, _body, session):
     return {"food_day": reads.food_day(day_param(request)), "undo": _undo_out(session.get("undo"))}
 
 
+@route("/usual", "GET")
+def usual_list(_request, _body, session):
+    """Every usual meal and drink with its foods (deploy 86, the usual-meal editor), and the session's Undo."""
+    return {"usual": reads.usual(), "undo": _undo_out(session.get("undo"))}
+
+
+@route("/foods", "GET")
+def foods(request, _body, _session):
+    """Up to 20 active foods for ?q= (the Catalogue's search), to pick a food for a usual meal."""
+    return {"foods": reads.foods(request.query_params.get("q", ""))}
+
+
 @route("/food/entry", "GET")
 def food_entry(request, _body, _session):
     e = reads.food_entry(request.query_params.get("ref", "")[:12])
@@ -318,8 +330,11 @@ def saved(session, out: dict, body: dict, view: str = "day", private: bool = Fal
         asked = date.fromisoformat(str(body.get("view_day") or "")[:10]) if body.get("view_day") else None
     except ValueError:
         asked = None
-    if (body.get("view") or view) == "food":
+    shown = body.get("view") or view
+    if shown == "food":
         res["food_day"] = reads.food_day(asked)
+    elif shown == "usual":  # the usual-meal editor (deploy 86): every usual meal, as GET /usual
+        res["usual"] = reads.usual()
     else:
         res["day"] = reads.day(asked)
     return res
@@ -492,3 +507,71 @@ def held_delete(_request, body, session):
     """Delete a message not read yet, with Undo (the message comes back)."""
     f = _held_form(body)
     return saved(session, _work(lambda: webheld.delete(f, _key(body))), body)
+
+
+# ---- usual meals (deploy 86) ------------------------------------------------------------------------------------------
+# The editor of app.'s Food › Usual meals: change or delete one (webfood.usual_meal), make one from foods (webfood.usual_create)
+# or from a logged meal (webfood.usual_new). The front end saves at once ("confirmed": true) with Undo; a key saves once.
+
+MAX_ITEMS = 40  # webfood.MAX_ROWS: the most foods a usual meal's editor sends
+
+
+def _int(body: dict, name: str, low: int = 1) -> int:
+    v = body.get(name)
+    if not isinstance(v, int) or isinstance(v, bool) or not low <= v < 10**9:
+        raise Refused(400, "bad_request", f"{name} must be a number.")
+    return v
+
+
+def _items(body: dict, most: int) -> list:
+    """items: [{food_id, amount}] as the form's numbered rows (food_k, g_k), in this order."""
+    items = body.get("items")
+    if not isinstance(items, list) or not all(isinstance(i, dict) for i in items):
+        raise Refused(400, "bad_request", "items must be a list of {food_id, amount}.")
+    if len(items) > most:
+        raise Refused(400, "bad_request", f"At most {most} foods.")
+    rows = []
+    for i in items:
+        amount = i.get("amount")
+        if not isinstance(amount, (int, float)) or isinstance(amount, bool):
+            raise Refused(400, "bad_request", "Each food needs its amount as a number.")
+        rows.append((_int(i, "food_id"), amount))
+    return rows
+
+
+@route("/usual/meal", "POST")
+def usual_meal(_request, body, session):
+    """Change a usual meal (action "save": name and the whole list of items, in order) or delete it (action "delete").
+    "confirmed": true makes it at once with Undo (the front end's way); without it the change is read back first, as on app."""
+    act = text(body, "action", 10)
+    if act not in ("save", "delete"):
+        raise Refused(400, "bad_request", "action must be save or delete.")
+    fields = {"id": f"U{_int(body, 'meal_id')}", "act": act, "confirmed": body.get("confirmed") is True}
+    if act == "save":
+        rows = _items(body, MAX_ITEMS)
+        fields.update(name=text(body, "name", 200), rows=str(len(rows)))
+        for k, (fid, amount) in enumerate(rows):
+            fields[f"food_{k}"], fields[f"g_{k}"] = str(fid), str(amount)
+    f = _form(**fields)
+    return saved(session, _work(lambda: webfood.usual_meal(f, _key(body))), body, view="usual")
+
+
+@route("/usual/new", "POST")
+def usual_new(_request, body, session):
+    """A new usual meal or drink from foods: name, drink (true or false), items [{food_id, amount}], 1 to 8 (as app.)."""
+    rows = _items(body, webfood.NEW_ROWS)
+    drink = body.get("drink", False)
+    if not isinstance(drink, bool):
+        raise Refused(400, "bad_request", "drink must be true or false.")
+    fields = {"name": text(body, "name", 200), "kind": "drink" if drink else "meal"}
+    for k, (fid, amount) in enumerate(rows):
+        fields[f"food_{k}"], fields[f"g_{k}"] = f"N{fid}", str(amount)
+    f = _form(**fields)
+    return saved(session, _work(lambda: webfood.usual_create(f, _key(body))), body, view="usual")
+
+
+@route("/usual/from_meal", "POST")
+def usual_from_meal(_request, body, session):
+    """A logged meal saved as a usual meal: day (yyyy-mm-dd), meal (1, 2, ...; not 0, the drinks), name. Answers with the Food day."""
+    f = _form(day=text(body, "day", 10, required=True), meal=str(_int(body, "meal", 0)), name=text(body, "name", 200))
+    return saved(session, _work(lambda: webfood.usual_new(f, _key(body))), body, view="food")

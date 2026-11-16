@@ -356,3 +356,50 @@ def food_entry(ref: str) -> Optional[dict]:
     return {"ref": ref, "day": iso(e["day"]), "food_id": e["food_id"], "food": e["name"], "amount": num(e["amount"]), "unit": e["basis"],
             "at": iso(e["eaten_at"]) if e["time_known"] else None, "time_known": bool(e["time_known"]), "note": e["note"],
             "units": [{"unit": e["basis"], "in_basis": 1}] + [{"unit": u["unit"], "in_basis": num(u["grams"])} for u in units]}
+
+
+# ---- usual meals and the food search (deploy 86, the usual-meal editor at logger.) ----------------------------------------
+
+def usual_rows(cur) -> dict:
+    """(id, name, is_drink) -> the usual meal's items (food, grams, per-100 values) in their order, every usual meal by name; a
+    meal without items has an empty list. The query of app.'s Usual meals tab (foodpage._usual_meals reads it here)."""
+    cur.execute("""SELECT u.id, u.name, u.is_drink, i.id AS item, i.grams, f.id AS food_id, f.name AS food, f.basis,
+                          f.kcal, f.protein, f.fat, f.carbs
+                   FROM usual_meals u LEFT JOIN usual_meal_items i ON i.meal_id = u.id LEFT JOIN foods f ON f.id = i.food_id
+                   ORDER BY lower(u.name), u.id, i.sort_order, i.id""")
+    meals: dict = {}
+    for r in cur.fetchall():
+        meals.setdefault((r["id"], r["name"], r["is_drink"]), [])
+        if r["item"]:
+            meals[(r["id"], r["name"], r["is_drink"])].append(r)
+    return meals
+
+
+def _per(i: dict) -> dict:
+    return {k: num(round(float(i[k] or 0) * float(i["grams"]) / 100, 1)) for k, _l, _u in todaypage.MACROS}
+
+
+def usual() -> list:
+    """Every usual meal and drink (also those hidden from Today's chips), by name: chips.usual's shape plus drink and each
+    item's food_id."""
+    with connect() as c, c.cursor() as cur:
+        meals = usual_rows(cur)
+    out = []
+    for (meal_id, name, drink), items in meals.items():
+        its = [{"item_id": i["item"], "food_id": i["food_id"], "food": i["food"], "amount": num(i["grams"]), "unit": i["basis"],
+                "nutrients": _per(i)} for i in items]
+        out.append({"meal_id": meal_id, "name": name, "drink": bool(drink), "items": its,
+                    "nutrients": {k: num(round(sum(float(x["nutrients"][k]) for x in its), 1)) for k, _l, _u in todaypage.MACROS}})
+    return out
+
+
+FOODS_LIMIT = 20
+
+
+def foods(q: str) -> list:
+    """Up to 20 active foods for a search (the Catalogue's: name, word, N number or barcode; most eaten first; no words = the
+    most eaten), each with its unit and values per 100 g or ml, to pick a food for a usual meal."""
+    with connect() as c, c.cursor() as cur:
+        rows = foodpage._food_list(cur, str(q or "")[:60], "all")[:FOODS_LIMIT]
+    return [{"food_id": r["id"], "name": r["name"], "unit": r["basis"], "drink": bool(r["is_drink"]),
+             "per_100": {k: num(r[k]) for k in ("kcal", "protein", "fat", "carbs")}} for r in rows]

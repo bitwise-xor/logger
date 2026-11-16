@@ -339,15 +339,9 @@ def _food_detail(cur, csrf: str, fid: int, back: str, close: str = "") -> str:
 
 
 def _usual_meals(cur, csrf: str, um, back: str) -> str:
-    cur.execute("""SELECT u.id, u.name, i.id AS item, i.grams, f.id AS food_id, f.name AS food, f.basis, f.kcal, f.protein
-                   FROM usual_meals u LEFT JOIN usual_meal_items i ON i.meal_id = u.id LEFT JOIN foods f ON f.id = i.food_id
-                   ORDER BY lower(u.name), i.sort_order, i.id""")
-    meals: dict = {}
-    for r in cur.fetchall():
-        meals.setdefault((r["id"], r["name"]), []).append(r)
+    from .reads import usual_rows  # here: reads imports this module (the query is shared with the JSON door since deploy 86)
     out = []
-    for (uid, name), items in meals.items():
-        items = [i for i in items if i["item"]]
+    for (uid, name, _drink), items in usual_rows(cur).items():
         kcal = sum(float(i["kcal"] or 0) * float(i["grams"]) / 100 for i in items)
         prot = sum(float(i["protein"] or 0) * float(i["grams"]) / 100 for i in items)
         open_ = um == f"U{uid}"

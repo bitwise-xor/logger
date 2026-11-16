@@ -124,7 +124,7 @@ def test_saving_a_meal_as_a_usual_meal(web, fake):
     assert [(r["name"], float(r["grams"])) for r in owner_sql("""SELECT f.name, i.grams FROM usual_meal_items i JOIN foods f ON f.id = i.food_id
                                                                  ORDER BY i.sort_order""")] == [("Test oats", 60), ("Test skyr", 150)]
     again = act(web, "/web/food/usualnew", day=d.isoformat(), meal="1", name="Test Breakfast")
-    assert "already exists" in again.text and n("SELECT count(*) AS n FROM usual_meals") == 1
+    assert "There is already a usual meal called &quot;test breakfast&quot;" in again.text and n("SELECT count(*) AS n FROM usual_meals") == 1
 
 
 def test_the_date_range_with_day_totals_and_average(web):
