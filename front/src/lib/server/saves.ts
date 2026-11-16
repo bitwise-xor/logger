@@ -14,6 +14,7 @@
 import type { Door } from './door.js';
 import { DoorError } from './door.js';
 import { problemOf, problemText, type ProblemKind } from '../problems.js';
+import { labeladdBody } from '../scan.js';
 
 /** The form's fields: what `FormData` offers (and a plain test double). */
 export interface Fields {
@@ -65,7 +66,12 @@ export const SAVES = {
   // A typed line, as many lines as the box holds (each can be its own entry); 4000 characters as app.'s box (webentry.MAX_TEXT).
   log: { path: '/log', keyed: true, body: (f) => ({ text: str(f, 'text', 4000) }), timeoutMs: 60_000 },
   water: { path: '/water', keyed: true, body: (f) => ({ ml: int(f, 'ml') }) },
-  again: { path: '/again', keyed: true, body: (f) => ({ food_id: str(f, 'food_id', 12), amount: str(f, 'amount', 20) }) },
+  // an Again chip; the scan sheet's "Log" (deploy 90) also sends the time (hh:mm)
+  again: {
+    path: '/again',
+    keyed: true,
+    body: (f) => ({ food_id: str(f, 'food_id', 12), amount: str(f, 'amount', 20), time: str(f, 'time', 5) }),
+  },
   usual: { path: '/usual', keyed: true, body: (f) => ({ meal_id: str(f, 'meal_id', 12) }) },
   habit: {
     path: '/habit',
@@ -140,6 +146,17 @@ export const SAVES = {
     path: '/usual/from_meal',
     keyed: true,
     body: (f) => ({ day: str(f, 'day', 10), meal: int(f, 'meal'), name: str(f, 'name', 200) ?? '' }),
+  },
+  // The scan sheet (deploy 90): the checked values of a label photo or of Open Food Facts as a new food, logged at once with an
+  // amount (Undo takes back the entry only); a key saves once (src/lib/scan.ts makes the body).
+  labeladd: { path: '/food/labeladd', keyed: true, body: (f) => labeladdBody(f) },
+  // "Look it up" on a food question under Needs you: the words typed in its field, or none (the door then looks up the question's
+  // word); the food found is read back as a question (Yes through /answer). An AI call picks the best fit: up to 60 s.
+  lookup: {
+    path: '/lookup',
+    keyed: false,
+    body: (f) => ({ text: str(f, 'text', 200), question_id: str(f, 'question_id', 64) }),
+    timeoutMs: 60_000,
   },
 } satisfies Record<string, Save>;
 

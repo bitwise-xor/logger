@@ -44,7 +44,7 @@
 </header>
 
 <!-- Without the day (the door off, the core down) there is nothing to log into: the box waits for the page to load again. -->
-{#if day}<LogBox appUrl={data.appUrl} />{/if}
+{#if day}<LogBox />{/if}
 
 {#if !day}
   <ProblemCard kind={data.problem ?? 'trouble'} appHref="{data.appUrl}/web/" />

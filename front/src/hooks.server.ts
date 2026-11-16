@@ -8,6 +8,8 @@ export const handle: Handle = async ({ event, resolve }) => {
   response.headers.set('X-Content-Type-Options', 'nosniff');
   response.headers.set('Referrer-Policy', 'same-origin');
   response.headers.set('X-Frame-Options', 'DENY');
+  // The scan sheet's camera and the logging box's microphone (deploy 90): this origin only, nothing else asks for them.
+  response.headers.set('Permissions-Policy', 'camera=(self), microphone=(self)');
   // Nothing of a signed-in page is kept by the browser or anything in between.
   if (!response.headers.has('Cache-Control')) response.headers.set('Cache-Control', 'no-store');
   return response;

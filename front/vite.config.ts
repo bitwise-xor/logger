@@ -12,14 +12,17 @@ export default defineConfig({
       // the origin of every form post against ORIGIN (compose.yaml).
       adapter: adapter({ out: 'build' }),
       // Sent as a header on every page; nonces for SvelteKit's own scripts. Nothing else may be inline: the theme
-      // script is static/theme.js for that reason.
+      // script is static/theme.js for that reason (and the barcode reader is static/zxing.min.js, loaded on first use).
       csp: {
         mode: 'auto',
         directives: {
           'default-src': ['self'],
           'script-src': ['self'],
           'style-src': ['self', 'unsafe-inline'],
-          'img-src': ['self', 'data:'],
+          // blob: the scan sheet's label photos, shown as thumbnails before they are sent (deploy 90)
+          'img-src': ['self', 'data:', 'blob:'],
+          // the camera's picture (a stream; zxing falls back to a blob: address in old browsers)
+          'media-src': ['self', 'blob:'],
           'font-src': ['self'],
           'connect-src': ['self'],
           'form-action': ['self'],

@@ -18,6 +18,14 @@
 // whole list; delete), /usual/new and /usual/from_meal, checked as webfood checks them (a name of 2 to 60 characters no other
 // usual meal has, in any case; foods of the catalogue; amounts above 0 and at most 5000; 1 to 8 foods for a new one; not the
 // drinks), answering with the list for view "usual" (from_meal: the food day). Undo puts the list back too.
+// Deploy 90: the scan sheet's routes, from tests/samples/scan.json (real answers of the door): GET /foods/barcode (the sample's
+// code is the sample's food, Oats; a code added through /food/labeladd is that food; any other is food null), GET /foods/off (the
+// sample's unknown code 4000000000000 is not in Open Food Facts; any other code is the sample's oat drink), POST /food/label
+// (multipart, 1 to 3 photos checked as the door checks them; one photo reads the table only, name null; two or three the whole
+// label; after POST /standin/label-unreadable the next read fails with the sample's reason), POST /food/labeladd (checked as
+// webfood.label_add: a new catalogue food, logged with an amount, with Undo of the entry; keyed) and POST /lookup (the sample's
+// read-back as a "lookup_confirm" question under Needs you, Yes/No through /answer). A typed line with "mystery" in it asks the
+// door's food question ("Which food is …?", tool "log", kind "food"), where the page offers "Look it up".
 // Usage: node tests/standin/door.mjs [port]  (FRONT_TOKEN from the environment). POST /standin/reset starts the day again,
 // POST /standin/drop-sessions signs every session out (for the re-send after a sign-in), POST /standin/ai-down and
 // /standin/ai-up make /log hold its lines or read them again.
@@ -38,13 +46,15 @@ const SAVE = read('save.json');
 const LOG = read('log.json');
 const FOOD = read('food.json');
 const USUAL = read('usual.json');
+const SCAN = read('scan.json');
 const READ_MS = 1200; // the AI's moment: long enough to see the "being read" row
 
 let state; // { day, usual, undo: {token, head, expires_at} | null, before: {day, usual} before the last save (for Undo), keys: Map, lines: Map, aiDown }
 let ids = 9000;
 let mode = 'up'; // 'up' | 'core-down' | 'door-off' (step F)
 function reset() {
-  state = { day: read('day.json').day, usual: usualStart(), undo: null, before: null, keys: new Map(), lines: new Map(), aiDown: false };
+  state = { day: read('day.json').day, usual: usualStart(), undo: null, before: null, keys: new Map(), lines: new Map(), aiDown: false,
+    scanned: new Map([[SCAN.barcode.code, SCAN.barcode.food]]), labelFail: false };
   // the notes of the food sample's rows (the same invented day), kept on the rows so an Undo puts them back too
   const notes = new Map(FOOD.food_day.food_day.rows.map((r) => [r.ref, r.note]));
   for (const r of state.day.rows) if (r.kind === 'food') r.note = notes.get(r.ref) ?? null;
@@ -298,6 +308,14 @@ function logLine(b) {
     d.needs.questions.unshift(q);
     return { answer: { ...LOG.confirm, read_back: `Preview, nothing changed yet:\n${q.read_back}`, questions: [q] }, day: d, undo: false };
   }
+  if (/mystery/i.test(words)) {
+    // the door's food question of a typed line (reads.question, tool "log", kind "food"): not in the catalogue, no candidates
+    const word = words.replace(/^\d+(?:[.,]\d+)?\s*(g|ml)\s+/i, '');
+    const q = ask({ ...LOG.question.questions[0], tool: 'log', kind: 'food', text: `Which food is "${word}"?`, read_back: null, refill: null,
+      answers: [{ reply: 'skip', label: 'Skip', style: 'quiet' }], free: { placeholder: 'Another food: name or N number', type: 'text', unit: null } }, words, null);
+    d.needs.questions.unshift(q);
+    return { answer: { ...LOG.question, head: 'Nothing saved yet: please answer.', read_back: null, reason: `Which food is "${word}"?`, questions: [q] }, day: d, undo: false };
+  }
   const said = state.lines.get(words.toLowerCase());
   if (said) {
     const q = ask(LOG.question.questions[0], words, `same message already logged at ${said}`);
@@ -328,8 +346,12 @@ function save(path, b) {
     d.water.ml += ml;
     eat(d, 'Water', 4, ml, 'ml', ZERO, true);
   } else if (path === '/again') {
-    const chip = d.chips.again.find((c) => String(c.food_id) === String(b.food_id));
+    // an Again chip's food, or a scanned one (deploy 90: the sample's, or one added from a label)
+    const scannedFood = [...state.scanned.values()].find((f) => String(f.food_id) === String(b.food_id));
+    const chip = d.chips.again.find((c) => String(c.food_id) === String(b.food_id)) ??
+      (scannedFood && { food_id: scannedFood.food_id, name: scannedFood.name, unit: scannedFood.unit });
     if (!chip) return { outcome: 'rejected', head: 'Nothing saved.', reason: 'Unknown food.' };
+    if (b.time !== undefined && !/^\d\d:\d\d$/.test(b.time)) return { outcome: 'rejected', head: 'Nothing saved.', reason: 'Give the time as hh:mm.' };
     const k = Number(b.amount) / 100;
     eat(d, chip.name, chip.food_id, Number(b.amount), chip.unit, { kcal: Math.round(120 * k), protein: +(5 * k).toFixed(1), fat: +(3 * k).toFixed(1), carbs: +(15 * k).toFixed(1) }, chip.unit === 'ml');
   } else if (path === '/usual') {
@@ -389,19 +411,103 @@ function save(path, b) {
   return { outcome, head, undo: state.undo, tone: 'ok' };
 }
 
-const KEYED = ['/log', '/water', '/again', '/usual', '/habit', '/checkin', '/health', '/held/retry', '/held/delete', '/usual/meal', '/usual/new', '/usual/from_meal'];
+// ---- the scan sheet (deploy 90) ------------------------------------------------------------------------------------------------
+
+const codeOf = (url) => {
+  const c = String(url.searchParams.get('code') ?? '').replace(/[\s-]/g, '');
+  return /^\d{8,14}$/.test(c) ? c : null;
+};
+const PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+
+/** POST /food/label: the photos checked as the door checks them, then read: [status, body]. */
+async function labelRead(buf, type) {
+  let form;
+  try {
+    form = await new Response(buf, { headers: { 'content-type': type } }).formData();
+  } catch {
+    return [400, { error: 'bad_request', message: 'Send the photos as multipart/form-data, in the field photo.' }];
+  }
+  const photos = form.getAll('photo').filter((p) => typeof p !== 'string');
+  if (!photos.length) return [400, { error: 'bad_request', message: 'No photo came with the request.' }];
+  if (photos.length > 3) return [400, { error: 'bad_request', message: 'At most 3 photos.' }];
+  if (photos.some((p) => !PHOTO_TYPES.includes(p.type))) return [400, { error: SCAN.label_refused.error, message: SCAN.label_refused.message }];
+  if (photos.some((p) => p.size === 0)) return [400, { error: 'bad_request', message: 'A photo is empty.' }];
+  if (photos.some((p) => p.size > 8 * 1024 * 1024)) return [413, { error: 'too_large', message: 'A photo is too large: at most 8 MB each, 3 photos.' }];
+  await new Promise((r) => setTimeout(r, READ_MS));
+  if (state.labelFail) {
+    state.labelFail = false;
+    return [200, { ...SCAN.label_unreadable }];
+  }
+  // one photo: the table only (the name is on the front); two or three: the whole label
+  if (photos.length === 1) return [200, { ...SCAN.label, name: null, brand: null, note: 'The name is not on this photo: add a photo of the front, or type it.' }];
+  return [200, { ...SCAN.label }];
+}
+
+/** POST /food/labeladd, checked as webfood.label_add: a new food of the catalogue, logged at once with an amount. */
+function labelAdd(b) {
+  const name = String(b.name ?? '').trim().replace(/\s+/g, ' ');
+  if (name.length < 2 || name.length > 120) return rejected('Give the food a name (2 to 120 characters).');
+  for (const k of ['kcal', 'protein', 'fat', 'carbs']) {
+    if (typeof b[k] !== 'number') return rejected(`Give ${k} per 100 ${b.basis === 'ml' ? 'ml' : 'g'}.`);
+  }
+  if (b.protein + b.fat + b.carbs > 100) return rejected('Protein, fat and carbs come to more than 100 g per 100: check the values.');
+  const unit = b.basis === 'ml' ? 'ml' : 'g';
+  const food = { food_id: ++ids, name, unit, amount: 100 };
+  CATALOGUE.set(food.food_id, { food_id: food.food_id, name, unit, drink: unit === 'ml', per_100: { kcal: b.kcal, protein: b.protein, fat: b.fat, carbs: b.carbs } });
+  state.scanned.set(b.barcode && /^\d{8,14}$/.test(b.barcode) ? b.barcode : `no-code-${food.food_id}`, food);
+  if (b.amount === undefined) {
+    return { outcome: 'changed', head: `Added ${name} to your catalogue. Scan it again or find it in the Again chips to log it.` };
+  }
+  if (typeof b.amount !== 'number' || !(b.amount > 0 && b.amount <= 5000)) {
+    return { outcome: 'rejected', head: `Added ${name} to your catalogue, not logged.`, reason: 'Give the amount as a number above 0 and at most 5000.' };
+  }
+  const d = structuredClone(state.day);
+  eat(d, name, food.food_id, b.amount, unit, ofFood(food.food_id, b.amount), unit === 'ml');
+  if (b.time) d.rows.at(-1).at = `${d.day}T${b.time}:00+01:00`;
+  const row = d.rows.at(-1);
+  const head = `Added ${name} to your catalogue. Logged it.`;
+  state.before = { day: state.day, usual: state.usual };
+  state.day = d;
+  state.undo = { token: randomBytes(12).toString('base64url'), head, expires_at: new Date(Date.now() + 15 * 60_000).toISOString() };
+  const k = row.nutrients;
+  return { ...SCAN.saves.labeladd, head, undo: state.undo,
+    receipt: [`+ ${row.ref} ${name} ${b.amount} ${unit} | ${k.kcal} kcal, P ${k.protein} | ${ddmm(d.day)} meal ${row.meal} ${b.time ?? hm()}`] };
+}
+
+/** POST /lookup: the sample's read-back as a question under Needs you (Yes or No through /answer). */
+function lookUp(b) {
+  const q0 = b.question_id ? state.day.needs.questions.find((q) => q.id === b.question_id) : null;
+  if (b.question_id && !q0) return rejected('That question is closed.');
+  const word = String(b.text ?? '').trim() || (q0 ? (/"(.+)"/.exec(q0.text)?.[1] ?? '') : '');
+  if (!word) return rejected('Give a name or a barcode to look up.');
+  const d = structuredClone(state.day);
+  const sample = SCAN.saves.lookup;
+  const q = ask(sample.questions[0], null, sample.questions[0].read_back);
+  d.needs.questions.unshift(q);
+  state.day = d;
+  return { ...sample, questions: [q] };
+}
+
+const KEYED = ['/food/labeladd', '/log', '/water', '/again', '/usual', '/habit', '/checkin', '/health', '/held/retry', '/held/delete', '/usual/meal', '/usual/new', '/usual/from_meal'];
 
 reset();
 
 createServer(async (req, res) => {
-  let raw = '';
-  for await (const chunk of req) raw += chunk;
+  const chunks = [];
+  for await (const chunk of req) chunks.push(chunk);
+  const buf = Buffer.concat(chunks);
+  const multipart = /^multipart\/form-data/.test(req.headers['content-type'] ?? '');
+  const raw = multipart ? '' : buf.toString('utf8');
   const seen = Object.keys(req.headers).sort().join(' ');
-  console.log(`${req.method} ${req.url}  headers: ${seen}${raw && req.url !== '/api/v1/session' ? `  body: ${raw}` : ''}`);
+  console.log(`${req.method} ${req.url}  headers: ${seen}${raw && req.url !== '/api/v1/session' ? `  body: ${raw}` : ''}${multipart ? `  multipart: ${buf.length} bytes` : ''}`);
   if (req.url === '/standin/reset' && req.method === 'POST') {
     reset();
     mode = 'up';
     return send(res, 200, { outcome: 'reset' });
+  }
+  if (req.url === '/standin/label-unreadable' && req.method === 'POST') {
+    state.labelFail = true; // the next label read fails, as when the table is cut off
+    return send(res, 200, { outcome: 'label-unreadable' });
   }
   if (['/standin/ai-down', '/standin/ai-up'].includes(req.url) && req.method === 'POST') {
     state.aiDown = req.url.endsWith('down');
@@ -446,6 +552,19 @@ createServer(async (req, res) => {
     return entry ? send(res, 200, { entry }, signedIn) : send(res, 404, { error: 'no_entry', message: 'No such entry.' }, signedIn);
   }
   if (url.pathname === '/api/v1/usual' && req.method === 'GET') return send(res, 200, { usual: state.usual, undo: undo() }, signedIn);
+  if ((url.pathname === '/api/v1/foods/barcode' || url.pathname === '/api/v1/foods/off') && req.method === 'GET') {
+    const code = codeOf(url);
+    if (!code) return send(res, 400, { error: 'bad_request', message: 'A barcode is 8 to 14 digits.' }, signedIn);
+    if (url.pathname.endsWith('/barcode')) return send(res, 200, { code, food: state.scanned.get(code) ?? null }, signedIn);
+    const { v: _v, ...off } = code === SCAN.barcode_none.code ? SCAN.off_none : SCAN.off;
+    return send(res, 200, off, signedIn);
+  }
+  if (url.pathname === '/api/v1/food/label' && req.method === 'POST') {
+    if (!multipart) return send(res, 400, { error: 'bad_request', message: 'Send the photos as multipart/form-data, in the field photo.' }, signedIn);
+    const [status, out] = await labelRead(buf, req.headers['content-type']);
+    const { v: _v, ...rest } = out;
+    return send(res, status, rest, signedIn);
+  }
   if (url.pathname === '/api/v1/foods' && req.method === 'GET') return send(res, 200, { foods: foods(url.searchParams.get('q')) }, signedIn);
   // A save's fresh read: the Food day or the usual meals when the body asks for it (view "food" with view_day, "usual"), else
   // Today; as the core, /usual/meal and /usual/new default to the usual meals and /usual/from_meal to the Food day.
@@ -481,7 +600,7 @@ createServer(async (req, res) => {
       if (body.key && !['rejected', 'needs_confirmation', 'held'].includes(answer.outcome)) state.keys.set(body.key, answer);
       return send(res, 200, { ...answer, ...fresh() }, signedIn);
     }
-    const out = path.startsWith('/usual/') ? usualSave(path, body) : save(path, body);
+    const out = path.startsWith('/usual/') ? usualSave(path, body) : path === '/food/labeladd' ? labelAdd(body) : path === '/lookup' ? lookUp(body) : save(path, body);
     if (!out) return send(res, 404, { error: 'not_found', message: 'Not found.' });
     const answer = { ...base, ...out, tone: out.tone ?? (['saved', 'changed', 'removed', 'unchanged', 'cancelled'].includes(out.outcome) ? 'ok' : 'warning') };
     if (KEYED.includes(path) && body.key && answer.outcome !== 'rejected' && answer.outcome !== 'needs_confirmation') state.keys.set(body.key, answer);

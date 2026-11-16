@@ -28,6 +28,8 @@ export interface CallOptions {
   session?: string | null;
   /** Sent as JSON. */
   body?: Record<string, unknown>;
+  /** Sent as multipart/form-data instead (deploy 90: the label photos for POST /food/label); fetch sets its boundary. */
+  form?: FormData;
   query?: Record<string, string | undefined>;
   timeoutMs?: number;
 }
@@ -73,8 +75,10 @@ export async function call<T>(
   // Built here and nowhere else: these are the only headers the core ever gets from this app.
   const headers: Record<string, string> = { 'X-Front-Token': config.token, Accept: 'application/json' };
   if (options.session) headers.Authorization = `Bearer ${options.session}`;
-  let body: string | undefined;
-  if (options.body !== undefined) {
+  let body: string | FormData | undefined;
+  if (options.form !== undefined) {
+    body = options.form;
+  } else if (options.body !== undefined) {
     headers['Content-Type'] = 'application/json';
     body = JSON.stringify(options.body);
   }
@@ -118,6 +122,9 @@ export function makeDoor(config: DoorConfig) {
     post: <T>(path: string, session: string | null, body: Record<string, unknown>, timeoutMs?: number) =>
       call<T>(config, 'POST', path, { session, body, timeoutMs }),
     del: <T>(path: string, session: string | null) => call<T>(config, 'DELETE', path, { session }),
+    /** A multipart POST (deploy 90: the label photos, read by the AI, so it passes its own time). */
+    postForm: <T>(path: string, session: string | null, form: FormData, timeoutMs?: number) =>
+      call<T>(config, 'POST', path, { session, form, timeoutMs }),
   };
 }
 

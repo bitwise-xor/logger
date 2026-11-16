@@ -134,4 +134,18 @@ describe('the door client', () => {
     expect(net.seen[0]!.init.method).toBe('DELETE');
     expect(net.seen[0]!.headers.Authorization).toBe(`Bearer ${SESSION}`);
   });
+
+  it('sends the label photos as multipart, with no JSON content type, and its own time (deploy 90)', async () => {
+    const net = fake(200, { v: 1, ok: true });
+    const form = new FormData();
+    form.append('photo', new Blob([new Uint8Array([255, 216, 255])], { type: 'image/jpeg' }), 'label.jpg');
+    form.append('photo', new Blob([new Uint8Array([255, 216, 255])], { type: 'image/jpeg' }), 'label.jpg');
+    const r = await makeDoor({ url: URL_, token: TOKEN, fetch: net.fetch }).postForm('/food/label', SESSION, form, 60_000);
+    expect(r.body).toEqual({ v: 1, ok: true });
+    const seen = net.seen[0]!;
+    expect(seen.url.pathname).toBe('/api/v1/food/label');
+    expect(seen.init.method).toBe('POST');
+    expect(seen.init.body).toBe(form);
+    expect(seen.headers).toEqual({ 'X-Front-Token': TOKEN, Accept: 'application/json', Authorization: `Bearer ${SESSION}` });
+  });
 });

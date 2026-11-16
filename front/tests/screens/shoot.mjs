@@ -18,6 +18,11 @@
 // added through the search, renamed, saved in place with Undo (and undone), a name another meal has refused with the edits kept,
 // a meal deleted and brought back, a new usual drink; on the Food day "Save as usual meal" on each meal but the drinks (a used
 // name refused, then saved); and Today's "Edit" by the usual chips.
+// Deploy 90: the scan sheet from the logging box's Scan (no camera in the test browser: the digits are typed, the photos are tiny
+// images made here): a known food logged with its amount and time, then undone; an unknown code looked up on Open Food Facts
+// (a miss, then a hit) and added from the form; label photos added (up to three), removed, a failed read keeping them, two read
+// together and added with an amount; "Look it up" on a food question read back and answered Yes; the microphone absent without
+// speech support, and with a stand-in one its words in the box. The sheet covers the whole phone and nothing covers it.
 // Every check throws on a failure, so the script ends with an error.
 // Usage: node tests/screens/shoot.mjs <base url> <out dir> <stand-in url>
 import assert from 'node:assert/strict';
@@ -31,6 +36,7 @@ const FOOD = JSON.parse(readFileSync(new URL('../samples/food.json', import.meta
 const foodDay = FOOD.food_day.food_day;
 const foodBefore = FOOD.before.food_day;
 const USUAL = JSON.parse(readFileSync(new URL('../samples/usual.json', import.meta.url), 'utf8')).usual.usual;
+const SCAN = JSON.parse(readFileSync(new URL('../samples/scan.json', import.meta.url), 'utf8'));
 
 // What the page must show, worked out here from the sample on its own (not with the page's code).
 const even = (x) => {
@@ -216,7 +222,7 @@ async function checkLogBox(page, name, theme) {
     const card = await page.locator('[data-card="chips"]').boundingBox();
     assert.ok(form.y + form.height < card.y, 'PC: the box is above the cards');
   }
-  assert.equal(await page.getByRole('link', { name: 'Barcode and label: full app' }).count(), 1, 'the link to the full app');
+  assert.equal(await page.getByRole('link', { name: 'Barcode and label: full app' }).count(), 0, 'no link to the full app any more (deploy 90)');
   const rest = await box.boundingBox();
   assert.ok(rest.height >= 43 && rest.height <= 46, `the box is one line tall at rest (${rest.height} px)`);
   // it grows by itself when the words do not fit one line, and is one line again when sent or emptied
@@ -717,6 +723,214 @@ async function checkProblems(page, name, theme) {
   assert.equal(new URL(page.url()).origin, new URL(base).origin, 'a next to another site is not followed');
 }
 
+/** A tiny picture made in the browser (there is no camera in the test browser): a label photo to upload. */
+async function tinyImage(page, colour) {
+  const url = await page.evaluate((c) => {
+    const k = document.createElement('canvas');
+    [k.width, k.height] = [48, 32];
+    const g = k.getContext('2d');
+    g.fillStyle = c;
+    g.fillRect(0, 0, 48, 32);
+    g.fillStyle = '#fff';
+    g.fillRect(6, 6, 20, 4);
+    return k.toDataURL('image/png');
+  }, colour);
+  return { name: `label-${colour.slice(1)}.png`, mimeType: 'image/png', buffer: Buffer.from(url.split(',')[1], 'base64') };
+}
+
+/** Deploy 90: the scan sheet, "Look it up" on a question, the microphone. */
+async function checkScan(page, name, theme) {
+  await standinPost('/standin/reset');
+  const res = await page.goto(`${base}/`);
+  await page.locator('[data-kcal-left]').waitFor();
+  const h = res.headers();
+  assert.equal(h['permissions-policy'], 'camera=(self), microphone=(self)', 'the camera and the microphone for this origin only');
+  assert.match(h['content-security-policy'], /img-src 'self' data: blob:/, 'the thumbnails (blob:) are allowed');
+  assert.match(h['content-security-policy'], /script-src 'self'/, 'scripts stay this app\'s own');
+  await page.evaluate(() => (window.__noReload = true));
+  const bar = page.locator('[data-bar]');
+  const head = bar.locator('[data-bar-head]');
+  const sheet = page.locator('dialog[data-scan]');
+  const msg = sheet.locator('[data-scan-msg]');
+  const shot = (what) => page.screenshot({ path: `${out}/${what}-${name}-${theme}.png` });
+  const scan = async (code) => {
+    if (!(await sheet.isVisible())) {
+      await page.getByRole('button', { name: 'Scan', exact: true }).click();
+      await sheet.waitFor();
+    }
+    await sheet.locator('#scan-code').fill(code);
+    await sheet.getByRole('button', { name: 'Find' }).click();
+  };
+  // the sheet covers the phone, sits above the tab bar and the box, and its main button is not covered by anything
+  const onTop = async (what, button) => {
+    const box = await sheet.boundingBox();
+    const vp = page.viewportSize();
+    if (vp.width < 760) assert.ok(box.y <= 0.5 && Math.abs(box.height - vp.height) < 2, `${what}: the sheet is full height on phones`);
+    else assert.ok(box.y >= 0 && box.y + box.height <= vp.height, `${what}: the sheet fits the screen`);
+    await button.scrollIntoViewIfNeeded();
+    const b = await button.boundingBox();
+    const hit = await page.evaluate(([x, y]) => !!document.elementFromPoint(x, y)?.closest('dialog[data-scan]'), [b.x + b.width / 2, b.y + b.height / 2]);
+    assert.ok(hit, `${what}: nothing covers the sheet's button`);
+    await checkWidth(page, `scan sheet, ${what}`);
+  };
+
+  // no microphone without speech support (the test contexts take it away); the link to the full app is gone
+  assert.equal(await page.locator('[data-mic]').count(), 0, 'no microphone without speech support');
+  assert.equal(await page.getByRole('link', { name: 'Barcode and label: full app' }).count(), 0, 'no link to the full app');
+
+  // a known food by its digits (wrong digits first): its name and last amount, − and +, a time, Log -> the row, then Undo
+  await scan('12');
+  await msg.getByText('A barcode is 8 to 14 digits.').waitFor();
+  assert.ok(/camera|type the digits|8 to 14/.test(await text(msg)), 'no camera here: the sheet says to type');
+  await scan(SCAN.barcode.code);
+  const found = sheet.locator('[data-scan-found]');
+  await found.getByText(SCAN.barcode.food.name).waitFor();
+  const amount = found.locator('#scan-amount');
+  assert.equal(await amount.inputValue(), String(SCAN.barcode.food.amount), 'the last amount');
+  await found.getByRole('button', { name: 'More' }).click();
+  assert.equal(await amount.inputValue(), String(SCAN.barcode.food.amount + 25), '+');
+  await found.getByRole('button', { name: 'Less' }).click();
+  assert.equal(await amount.inputValue(), String(SCAN.barcode.food.amount), '−');
+  await amount.fill('45');
+  await found.locator('#scan-time').fill('08:30');
+  await onTop('a known food', found.getByRole('button', { name: 'Log' }));
+  await shot('scan-found');
+  await found.getByRole('button', { name: 'Log' }).click();
+  await sheet.waitFor({ state: 'hidden' });
+  await page.locator('[data-fresh]', { hasText: SCAN.barcode.food.name }).getByText('45 g').waitFor();
+  assert.equal(await text(head), 'Saved.', 'scanned food: saved');
+  await bar.getByRole('button', { name: 'Undo' }).click();
+  await page.locator('[data-row]', { hasText: SCAN.barcode.food.name }).filter({ hasText: '45 g' }).waitFor({ state: 'detached' });
+
+  // an unknown code that Open Food Facts does not know: why, and the label photo next
+  await scan(SCAN.barcode_none.code);
+  const unknown = sheet.locator('[data-scan-unknown]');
+  await unknown.getByText('Not in your catalogue yet.').waitFor();
+  await onTop('an unknown code', unknown.getByRole('button', { name: 'Look it up on Open Food Facts' }));
+  await shot('scan-unknown');
+  await unknown.getByRole('button', { name: 'Look it up on Open Food Facts' }).click();
+  await msg.getByText(SCAN.off_none.reason, { exact: false }).waitFor();
+  await unknown.getByText('Photo of the label').waitFor();
+
+  // an unknown code that it knows: the form, filled; Add to my foods (no amount) adds it, and scanned again it is found
+  const offCode = '4012345678901';
+  await scan(offCode);
+  await sheet.getByRole('button', { name: 'Look it up on Open Food Facts' }).click();
+  const lform = sheet.locator('[data-label-form]');
+  await lform.waitFor();
+  const offName = `${SCAN.off.name} (${SCAN.off.brand})`;
+  assert.equal(await lform.locator('[name=name]').inputValue(), offName, 'OFF: the name with the brand');
+  assert.equal(await lform.locator('[name=basis]').inputValue(), SCAN.off.basis, 'OFF: per 100 ml');
+  for (const [k, v] of Object.entries(SCAN.off.values)) assert.equal(await lform.locator(`[name=${k}]`).inputValue(), v === null ? '' : String(v), `OFF: ${k}`);
+  assert.ok((await text(lform.locator('[data-label-note]'))).startsWith(SCAN.off.note), 'OFF: its note');
+  await onTop('the Open Food Facts form', lform.getByRole('button', { name: 'Add to my foods' }));
+  await shot('scan-off-form');
+  await lform.getByRole('button', { name: 'Add to my foods' }).click();
+  await sheet.waitFor({ state: 'hidden' });
+  assert.match(await text(head), new RegExp(`^Added ${offName.replace(/[()]/g, '\\$&')} to your catalogue\\. Scan it again`), 'OFF: added, not logged');
+  await scan(offCode);
+  await sheet.locator('[data-scan-found]').getByText(offName).waitFor();
+  await sheet.getByRole('button', { name: 'Close' }).click();
+  await sheet.waitFor({ state: 'hidden' });
+
+  // label photos: one, a second, a third (no more), one removed; a failed read keeps them; two read together, added with an amount
+  await page.getByRole('button', { name: 'Scan', exact: true }).click();
+  await sheet.locator('[data-photo-pick] input').first().setInputFiles(await tinyImage(page, '#2a6f97'));
+  const photos = sheet.locator('[data-scan-photos]');
+  await photos.locator('[data-photo]').first().waitFor();
+  if (name === 'phone' && theme === 'dark') {
+    // one photo only: the table, without the name (the stand-in's rule): the form says so, the name is typed
+    await photos.getByRole('button', { name: 'Read the label' }).click();
+    await lform.waitFor();
+    assert.equal(await lform.locator('[name=name]').inputValue(), '', 'one photo: no name');
+    await lform.getByText('The name is not on this photo').waitFor();
+    await sheet.getByRole('button', { name: 'Close' }).click();
+    await page.getByRole('button', { name: 'Scan', exact: true }).click();
+    await sheet.locator('[data-photo-pick] input').first().setInputFiles(await tinyImage(page, '#2a6f97'));
+  }
+  if (name === 'phone' && theme === 'dark') {
+    // too large: a photo the browser cannot make smaller (not a picture) is sent as it is; over 8 MB it is refused at once, and
+    // three of 5 MB are refused by this app's server (over BODY_SIZE_LIMIT, 13 MB), both in plain words, the photos kept
+    const junk = (mb, n) => ({ name: `big-${n}.jpg`, mimeType: 'image/jpeg', buffer: Buffer.alloc(mb * 1024 * 1024, n) });
+    await photos.locator('[data-photo-pick] input').setInputFiles(junk(9, 1));
+    await msg.getByText('This photo is too large').waitFor();
+    assert.equal(await photos.locator('[data-photo]').count(), 1, 'a photo over 8 MB is not added');
+    await photos.getByRole('button', { name: 'Remove photo 1' }).click();
+    await page.getByRole('button', { name: 'Scan', exact: true }).waitFor();
+    await sheet.locator('[data-photo-pick] input').first().setInputFiles([junk(5, 2), junk(5, 3), junk(5, 4)]);
+    await photos.locator('[data-photo]').nth(2).waitFor();
+    await photos.getByRole('button', { name: 'Read the label' }).click();
+    await photos.locator('[data-scan-problem]').getByText('too large together', { exact: false }).waitFor();
+    assert.equal(await photos.locator('[data-photo]').count(), 3, 'too large together: the photos are kept');
+    await shot('scan-too-large');
+    for (const k of [3, 2, 1]) await photos.getByRole('button', { name: `Remove photo ${k}` }).click();
+    await sheet.locator('[data-photo-pick] input').first().setInputFiles(await tinyImage(page, '#2a6f97'));
+    await photos.locator('[data-photo]').first().waitFor();
+  }
+  await photos.locator('[data-photo-pick] input').setInputFiles(await tinyImage(page, '#97502a'));
+  await photos.locator('[data-photo]').nth(1).waitFor();
+  await photos.locator('[data-photo-pick] input').setInputFiles(await tinyImage(page, '#4a972a'));
+  await photos.locator('[data-photo]').nth(2).waitFor();
+  assert.equal(await photos.locator('[data-photo-pick]').count(), 0, 'three photos: no "+ Add a photo"');
+  await photos.getByRole('button', { name: 'Remove photo 3' }).click();
+  assert.equal(await photos.locator('[data-photo]').count(), 2, 'a photo removed');
+  assert.ok(await photos.locator('img').first().evaluate((i) => i.complete && i.naturalWidth > 0 && i.src.startsWith('blob:')), 'the thumbnail shows (blob:)');
+  await onTop('two photos', photos.getByRole('button', { name: 'Read the label' }));
+  await shot('scan-photos');
+  await standinPost('/standin/label-unreadable');
+  await photos.getByRole('button', { name: 'Read the label' }).click();
+  await photos.locator('[data-scan-problem]').getByText(SCAN.label_unreadable.reason, { exact: false }).waitFor();
+  assert.equal(await photos.locator('[data-photo]').count(), 2, 'a failed read keeps the photos');
+  await onTop('a failed read', photos.getByRole('button', { name: 'Read the label' }));
+  await shot('scan-read-failed');
+  await photos.getByRole('button', { name: 'Read the label' }).click();
+  await lform.waitFor();
+  const labelName = `${SCAN.label.name} (${SCAN.label.brand})`;
+  assert.equal(await lform.locator('[name=name]').inputValue(), labelName, 'label: the name with the brand');
+  for (const [k, v] of Object.entries(SCAN.label.values)) assert.equal(await lform.locator(`[name=${k}]`).inputValue(), String(v), `label: ${k}`);
+  await lform.locator('[name=amount]').fill('45');
+  await lform.locator('[name=time]').fill('08:30');
+  await onTop('the label form', lform.getByRole('button', { name: 'Add to my foods' }));
+  await shot('scan-label-form');
+  await lform.getByRole('button', { name: 'Add to my foods' }).click();
+  await sheet.waitFor({ state: 'hidden' });
+  await page.locator('[data-fresh]', { hasText: labelName }).getByText('45 g').waitFor();
+  assert.equal(await text(head), `Added ${labelName} to your catalogue. Logged it.`, 'label: added and logged');
+  await bar.getByRole('button', { name: 'Undo' }).waitFor();
+  await shot('scan-added');
+
+  // "Look it up" on a food question of a typed line: the food found is read back as a question; Yes answers it
+  const box = page.locator('#log-text');
+  await box.fill('100 g mystery bar');
+  await box.press('Enter');
+  await page.locator('[data-reading]').first().waitFor({ state: 'detached' });
+  const needs = page.locator('[data-card="needs"]');
+  const q = needs.getByText('Which food is "mystery bar"?').locator('..');
+  await q.getByRole('button', { name: 'Look it up' }).click();
+  const read = SCAN.saves.lookup.questions[0];
+  await needs.getByText(read.text).waitFor();
+  assert.ok((await text(needs)).includes(read.read_back), 'look-up: the read-back on its card');
+  assert.equal(await text(head), SCAN.saves.lookup.head, 'look-up: the head');
+  await needs.getByText(read.text).scrollIntoViewIfNeeded();
+  await checkWidth(page, 'look it up, read back');
+  await shot('lookup-readback');
+  await needs.getByText(read.text).locator('..').getByRole('button', { name: 'Yes' }).click();
+  await needs.getByText(read.text).waitFor({ state: 'detached' });
+  assert.equal(await text(head), 'Saved.', 'look-up: Yes saved');
+  assert.ok(await page.evaluate(() => window.__noReload === true), 'no reload while scanning');
+
+  // the microphone where the browser can (a stand-in recogniser): its words land in the box, after what is there
+  await page.evaluate(() => sessionStorage.setItem('test-speech', '1'));
+  await page.reload();
+  await page.locator('[data-mic]').waitFor();
+  await checkWidth(page, 'today, with the microphone');
+  if (name === 'phone') await shot('today-mic');
+  await box.fill('coffee and');
+  await page.locator('[data-mic]').click();
+  await page.waitForFunction(() => document.querySelector('#log-text').value === 'coffee and 40 g radishes');
+  await box.fill('');
+}
+
 /** No sideways scroll, and on phones and tablets every button, field and link that stands alone at least 44 px tall. */
 async function checkWidth(page, what) {
   const sideways = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
@@ -744,6 +958,27 @@ const sizes = { phone: { width: 390, height: 844 }, tablet: { width: 800, height
 for (const theme of ['dark', 'light']) {
   for (const [name, viewport] of Object.entries(sizes)) {
     const context = await browser.newContext({ viewport, deviceScaleFactor: name === 'phone' ? 2 : 1 });
+    // no speech recognition unless a check asks for a stand-in one (deploy 90): the microphone button shows only where it is
+    await context.addInitScript(() => {
+      delete window.SpeechRecognition;
+      delete window.webkitSpeechRecognition;
+      try {
+        if (sessionStorage.getItem('test-speech') !== '1') return;
+      } catch {
+        return; // about:blank has no storage
+      }
+      window.SpeechRecognition = class {
+        start() {
+          setTimeout(() => {
+            this.onresult?.({ results: [[{ transcript: '40 g radishes' }]] });
+            this.onend?.();
+          }, 50);
+        }
+        stop() {
+          this.onend?.();
+        }
+      };
+    });
     if (theme === 'light') await context.addInitScript(() => localStorage.setItem('logger-theme', 'light'));
     const page = await context.newPage();
     await standinPost('/standin/reset');
@@ -767,6 +1002,8 @@ for (const theme of ['dark', 'light']) {
     console.log(`food day ${name} ${theme}: checks passed`);
     await checkUsual(page, name, theme);
     console.log(`usual meals ${name} ${theme}: checks passed`);
+    await checkScan(page, name, theme);
+    console.log(`scan sheet, look it up, microphone ${name} ${theme}: checks passed`);
     await checkProblems(page, name, theme);
     console.log(`core down, door off, next ${name} ${theme}: checks passed`);
     if (name === 'phone' && theme === 'dark') {

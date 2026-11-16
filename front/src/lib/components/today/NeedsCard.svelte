@@ -1,6 +1,6 @@
 <script lang="ts">
   import { dayOf, hm } from '#lib/format.js';
-  import { needsCount, reviewText, type Answer, type Day } from '#lib/day.js';
+  import { needsCount, reviewText, type Answer, type Day, type Question } from '#lib/day.js';
   import { getToday } from '#lib/today.svelte.js';
 
   let { day, appUrl }: { day: Day; appUrl: string } = $props();
@@ -26,6 +26,17 @@
     quiet: 'border-0 bg-transparent text-text underline-offset-2 hover:underline',
   };
   const btn = 'min-h-11 cursor-pointer rounded-lg px-4 font-medium disabled:cursor-default disabled:opacity-60 desktop:min-h-9';
+
+  // "Look it up" (deploy 90), where app. shows it (webquestions.py: a food question of a typed line, tool "log", kind "food"): the
+  // words in the field, or none (the door then looks up the question's word), go to /lookup; the food found is read back as a
+  // new question under Needs you, answered with Yes or No as any other.
+  const canLookUp = (q: Question) => q.tool === 'log' && q.kind === 'food';
+  function lookUp(q: Question, event: MouseEvent) {
+    const input = (event.currentTarget as HTMLButtonElement).form?.elements.namedItem('reply') as HTMLInputElement | null;
+    void today.tap('lookup', `q:${q.id}`, { question_id: q.id, text: input?.value ?? '' }).then((a) => {
+      if (a && a.tone === 'ok' && input) input.value = '';
+    });
+  }
 </script>
 
 {#if count === 0}
@@ -49,7 +60,7 @@
         {/if}
         {#if q.free}
           <!-- Typed words go to /answer as the reply. -->
-          <form method="POST" action="?/answer" class="m-0 flex gap-2" data-reset onsubmit={today.submit('answer', `q:${q.id}`)}>
+          <form method="POST" action="?/answer" class="m-0 flex flex-wrap gap-2" data-reset onsubmit={today.submit('answer', `q:${q.id}`)}>
             <input type="hidden" name="question_id" value={q.id} />
             <input
               name="reply"
@@ -59,10 +70,17 @@
               placeholder={q.free.placeholder}
               aria-label={q.free.placeholder}
               required
-              class="h-11 min-w-0 flex-1 rounded-lg border border-line bg-panel px-3 text-base text-text desktop:h-9 desktop:text-sm"
+              class="h-11 min-w-0 flex-1 basis-40 rounded-lg border border-line bg-panel px-3 text-base text-text desktop:h-9 desktop:text-sm"
             />
             {#if q.free.unit}<span class="self-center text-[13px] text-muted">{q.free.unit}</span>{/if}
-            <button type="submit" class="{btn} {STYLE.plain}" disabled={today.busy[`q:${q.id}`]}>Send</button>
+            <span class="flex gap-2">
+              <button type="submit" class="{btn} {STYLE.plain}" disabled={today.busy[`q:${q.id}`]}>Send</button>
+              {#if canLookUp(q)}
+                <button type="button" class="{btn} {STYLE.plain}" disabled={today.busy[`q:${q.id}`]} onclick={(e) => lookUp(q, e)} data-lookup
+                  >{today.busy[`q:${q.id}`] ? 'Looking…' : 'Look it up'}</button
+                >
+              {/if}
+            </span>
           </form>
         {/if}
         <form method="POST" action="?/answer" class="m-0 flex flex-wrap gap-2" onsubmit={today.submit('answer', `q:${q.id}`)}>

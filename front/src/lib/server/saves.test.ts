@@ -260,3 +260,60 @@ describe('the usual meals (deploy 87)', () => {
     expect(seen.map((x) => x.path)).toEqual(['/api/v1/usual/meal', '/api/v1/usual/new', '/api/v1/usual/from_meal']);
   });
 });
+
+describe('the scan sheet’s saves (deploy 90)', () => {
+  it('logs a scanned food as an Again chip, with its time', () => {
+    expect(bodyFor('again', form({ food_id: '10', amount: '45', time: '08:30', key: KEY }), undefined)).toEqual({
+      food_id: '10',
+      amount: '45',
+      time: '08:30',
+      key: KEY,
+      view: 'day',
+    });
+  });
+
+  it('adds a label food: numbers per 100, the optional ones null, keyed; logged with an amount', () => {
+    const f = form({
+      name: ' Crunchy granola (Testmarke) ', basis: 'g', source: 'label', barcode: '4012345678901',
+      kcal: '452', protein: '9,5', fat: '17.8', sat_fat: '', carbs: '61.2', sugar_total: '19', fibre: '', salt_g: '0.3',
+      amount: '45', time: '08:30', key: KEY,
+    });
+    expect(bodyFor('labeladd', f, undefined)).toEqual({
+      name: 'Crunchy granola (Testmarke)', basis: 'g', source: 'label', barcode: '4012345678901',
+      kcal: 452, protein: 9.5, fat: 17.8, sat_fat: null, carbs: 61.2, sugar_total: 19, fibre: null, salt_g: 0.3,
+      amount: 45, time: '08:30', key: KEY, view: 'day',
+    });
+    expect(SAVES.labeladd).toMatchObject({ path: '/food/labeladd', keyed: true });
+  });
+
+  it('adds without logging when no amount is given (no time either), and from Open Food Facts', () => {
+    const body = bodyFor('labeladd', form({
+      name: 'Oat drink (Samplemarke)', basis: 'ml', source: 'off', barcode: '', kcal: '46', protein: '1', fat: '1.5', carbs: '6.6',
+      amount: '', time: '08:30', key: KEY,
+    }), undefined);
+    expect(body).toEqual({
+      name: 'Oat drink (Samplemarke)', basis: 'ml', source: 'off', kcal: 46, protein: 1, fat: 1.5, carbs: 6.6,
+      sat_fat: null, sugar_total: null, fibre: null, salt_g: null, key: KEY, view: 'day',
+    });
+  });
+
+  it('looks a food up for a question, with or without words, waiting up to 60 s; no key', () => {
+    expect(bodyFor('lookup', form({ question_id: 'p1a2b3c4', text: ' oat drink ' }), undefined)).toEqual({
+      question_id: 'p1a2b3c4',
+      text: 'oat drink',
+      view: 'day',
+    });
+    expect(bodyFor('lookup', form({ question_id: 'p1a2b3c4', text: '' }), undefined)).toEqual({ question_id: 'p1a2b3c4', view: 'day' });
+    expect(SAVES.lookup).toMatchObject({ path: '/lookup', keyed: false, timeoutMs: 60_000 });
+  });
+
+  it('are Today’s, and go to the door’s routes', async () => {
+    expect(TODAY_SAVES).toContain('labeladd');
+    expect(TODAY_SAVES).toContain('lookup');
+    const { door, seen } = net();
+    await runSave(door, SESSION, 'labeladd', form({ name: 'Granola', kcal: '1', protein: '1', fat: '1', carbs: '1', key: KEY }));
+    await runSave(door, SESSION, 'lookup', form({ question_id: 'p1' }));
+    expect(seen.map((x) => x.path)).toEqual(['/api/v1/food/labeladd', '/api/v1/lookup']);
+  });
+});
+

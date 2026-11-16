@@ -8,7 +8,7 @@ skeleton, the sign-in and an empty Today. Step B (deploy 79): Today read-only fr
 (deploy 80): the taps save in place (water, Again and usual chips, habits, check-in, review, Health card, question buttons,
 Try again / Delete for a message not read yet, Undo). Step D (deploy 81): the logging box. Step E (deploy 84): the Food day.
 Step F (deploy 85): polish (plain messages when the core is down or the door is off, back to your page after a sign-in, phone,
-tablet and PC width). Then the trial runs (below). Deploy 87: the Usual meals page. Deploy 88: Today shows each food's and meal's macros, a pie of the day's kcal from protein, carbs and fat in the Energy card (app.'s macro colours, `--macro-*` in `app.css`), a one-line logging box that grows, and two habits per row.
+tablet and PC width). Then the trial runs (below). Deploy 87: the Usual meals page. Deploy 88: Today shows each food's and meal's macros, a pie of the day's kcal from protein, carbs and fat in the Energy card (app.'s macro colours, `--macro-*` in `app.css`), a one-line logging box that grows, and two habits per row. Deploy 90: scan, label photo, look-up and voice in the logging box (step 1a of the move to `logger.`, below).
 
 ## How it fits
 
@@ -32,7 +32,7 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   answer's fresh day on screen (a new row gets a blue edge) and its head, tone, read-back (Yes = the same tap with
   `confirmed`) and Undo in the answer bar (`components/today/AnswerBar.svelte`; after a reload from GET /day's `undo`).
 - The logging box (step D): `src/lib/components/today/LogBox.svelte`, above the tab bar on phones and at the top on the PC,
-  text only (Enter sends, Shift+Enter is a new line; "Barcode and label: full app" links to app.). A line goes to the form
+  text (Enter sends, Shift+Enter is a new line; since deploy 90 also Scan and the microphone, below). A line goes to the form
   action `log` (the door's `/log`, keyed, 60 s); `Today.log` shows a blue "being read" row meanwhile (a private or gratitude
   line as "Private line", never its words), then the answer as for a tap: the receipt with Undo, a held line or a question
   under Needs you, a look-up's `result`, "Saved privately." and nothing else. A typed line's read-back is a question under
@@ -49,6 +49,20 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   `food_note` (`saves.ts`, `view: "food"` with the day shown), an odd value read back first (Yes = `confirmed`), Undo in the
   answer bar. The answer bar and the taps on their way are shared with Today (`src/lib/answers.svelte.ts`; the Food day's state
   is `src/lib/foodday.svelte.ts`). The logging box stays on Today ("+ Add food" leads to it); usual meals open in app.
+- The scan sheet (deploy 90, the move's step 1a; the door's routes came with deploy 89): "Scan" in the logging box opens
+  `src/lib/components/today/ScanSheet.svelte`, a dialog (full height on phones, above the tab bar and the box). The back camera
+  reads EAN-13, EAN-8, UPC-A and UPC-E with app.'s zxing file (`static/zxing.min.js`, Apache 2.0, loaded on first use), or the
+  digits are typed (8 to 14). A food of the catalogue: its last amount (− and +), a time, "Log" = the `again` save. Not in it:
+  "Look it up on Open Food Facts" or "Photo of the label" (one to three photos of one package, made smaller in the browser as
+  app.'s `shrink`: 1600 px, JPEG 0.85; thumbnails, each removable; read together; a failed read keeps them). Either fills a form
+  to check (name, per 100 g or ml, kcal, protein, fat, carbs, the optional four, the reader's note, an amount and time to log it
+  now); "Add to my foods" = the `labeladd` save (keyed; nothing is saved before it). The browser asks this app's routes
+  `src/routes/(app)/scan/barcode`, `/off` and `/label` (`src/lib/server/scan.ts`: the photos checked as the door checks them,
+  then passed on as multipart by `door.postForm`, 60 s; never kept); `BODY_SIZE_LIMIT` is 13 MB (`compose.yaml`). The rules are
+  `src/lib/scan.ts`, the browser parts `src/lib/camera.ts`. "Look it up" sits on a food question of a typed line under Needs
+  you (tool `log`, kind `food`, where app. shows it): the `lookup` save, read back as a new question answered with Yes or No.
+  The microphone shows only where the browser has speech recognition; its words go into the box. Headers: `Permissions-Policy:
+  camera=(self), microphone=(self)`, and the CSP allows `blob:` for images and media (the thumbnails, the camera).
 - When the door cannot be asked (step F): `src/lib/problems.ts` tells three cases apart and words them for a page, a save and the
   sign-in. The door off (its 404 `not_found` to everything, or no `FRONT_TOKEN` here): app. still works, so the message links
   there. The core down (no answer: `unreachable`): app. is the same core, so it says to try again in a minute, with no link.
@@ -89,7 +103,9 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   amount over 2000 g is read back first: a stand-in rule, to try the confirm). Deploy 87: `GET /usual` is
   `tests/samples/usual.json`'s list and three more meals made from the samples' foods, `GET /foods?q=` a catalogue of the
   samples' foods with `per_100`, and `/usual/meal`, `/usual/new` and `/usual/from_meal` change the list as the core would (its
-  checks and words), with Undo. Step F: POST `/standin/core-down` (every
+  checks and words), with Undo. Deploy 90: the scan routes from `tests/samples/scan.json` (`door.mjs` says which code and how many
+  photos give which answer; POST `/standin/label-unreadable` fails the next read; a typed line with "mystery" asks a food
+  question, to try "Look it up"). Step F: POST `/standin/core-down` (every
   door call gets no answer), `/standin/door-off` (every door call answers 404 `not_found`) and `/standin/up` (or `/standin/reset`). `tests/test_front_samples.py` checks on every Python run that the samples still have the
   door's shape; after a change of the door, write it again with
   `WRITE_FRONT_SAMPLES=1 .venv/bin/python -m pytest -q tests/test_front_samples.py` and commit the diff.

@@ -44,9 +44,11 @@ export const KEYED = new Set([
   'log', 'water', 'again', 'usual', 'habit', 'checkin', 'health', 'held_retry', 'held_delete',
   // the usual meals (deploy 87): the Usual meals page's and the Food day's "Save as usual meal"
   'usual_meal', 'usual_new', 'usual_from_meal',
+  // the scan sheet's new food (deploy 90)
+  'labeladd',
 ]);
-/** The actions the AI reads (up to about 40 s): their answer is never dropped for a tap made while they were read. */
-export const SLOW = new Set(['log', 'held_retry']);
+/** The actions the AI reads (up to about 40 s; the look-up since deploy 90): their answer is never dropped for a tap made while they were read. */
+export const SLOW = new Set(['log', 'held_retry', 'lookup']);
 export const RESEND_ITEM = 'logger-resend';
 export const RESEND_MS = 10 * 60_000;
 

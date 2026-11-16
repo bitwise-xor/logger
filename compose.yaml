@@ -63,6 +63,9 @@ services:
       DOOR_URL: http://logger-v2-core:8000
       FRONT_TOKEN: ${FRONT_TOKEN:-}  # the same token as the core's; empty = the door is off and the sign-in says so
       NODE_OPTIONS: --max-old-space-size=192
+      # the scan sheet's label photos (deploy 90): up to three, made smaller in the browser (a few hundred KB each); the server's
+      # default of 512 KB would refuse them, so 13 MB (one photo not made smaller still passes; the door takes 8 MB each)
+      BODY_SIZE_LIMIT: 13M
     read_only: true
     tmpfs:
       - /tmp

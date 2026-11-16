@@ -1,10 +1,59 @@
 <script lang="ts">
   import AnswerBar from '#lib/components/today/AnswerBar.svelte';
+  import ScanSheet from '#lib/components/today/ScanSheet.svelte';
   import { getToday } from '#lib/today.svelte.js';
   import { afterNavigate } from '$app/navigation';
+  import { onMount } from 'svelte';
 
-  let { appUrl }: { appUrl: string } = $props();
   const today = getToday();
+  let sheet = $state<ScanSheet | null>(null);
+
+  // Voice (deploy 90, as app.'s microphone): only where the browser can turn speech into text; the words land in the box, to
+  // check and send as usual. The browser asks for the microphone itself (compose: the page allows it for this origin only).
+  type Recognition = {
+    lang: string;
+    interimResults: boolean;
+    continuous: boolean;
+    onresult: ((e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
+    onerror: ((e: { error: string }) => void) | null;
+    onend: (() => void) | null;
+    start(): void;
+    stop(): void;
+  };
+  let Speech = $state<(new () => Recognition) | null>(null);
+  let listening = $state<Recognition | null>(null);
+  let micNote = $state('');
+  onMount(() => {
+    const w = window as unknown as { SpeechRecognition?: new () => Recognition; webkitSpeechRecognition?: new () => Recognition };
+    Speech = w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
+  });
+
+  function speak() {
+    if (listening) return listening.stop();
+    if (!Speech) return;
+    const rec = new Speech();
+    rec.lang = navigator.language || 'en-US';
+    rec.interimResults = true;
+    rec.continuous = false;
+    const before = today.box ? today.box.replace(/\s*$/, ' ') : '';
+    micNote = '';
+    rec.onresult = (e) => {
+      today.box = before + Array.from(e.results, (r) => r[0]?.transcript ?? '').join('');
+    };
+    rec.onerror = (e) => {
+      micNote = e.error === 'not-allowed' || e.error === 'service-not-allowed' ? 'The microphone is not allowed for this app.' : 'No speech heard.';
+    };
+    rec.onend = () => {
+      listening = null;
+      field?.focus();
+    };
+    listening = rec;
+    try {
+      rec.start();
+    } catch {
+      listening = null;
+    }
+  }
 
   let field = $state<HTMLTextAreaElement | null>(null);
   let form = $state<HTMLFormElement | null>(null);
@@ -51,7 +100,8 @@
   }
 </script>
 
-<!-- The logging box (step D, deploy 81): text only (the plan: no "Reads as", Voice, Barcode or Label here). Phones: above the tab
+<!-- The logging box (step D, deploy 81); since deploy 90 with Scan (barcode, label photo: ScanSheet.svelte) and, where the browser
+     can, the microphone. Phones: above the tab
      bar, with the lines being read and the answer bar above it. The PC: at the top of the page, the lines being read under it;
      the answer bar sits at the bottom right. -->
 <div
@@ -96,14 +146,43 @@
         onkeydown={keydown}
         class="min-h-11 min-w-0 flex-1 resize-none rounded-lg border border-line bg-panel px-3 py-[9px] text-base leading-6 text-text placeholder:text-muted focus-visible:border-blue focus-visible:outline-none tablet:text-sm"
       ></textarea>
+      {#if Speech}
+        <button
+          type="button"
+          aria-label={listening ? 'Stop listening' : 'Speak'}
+          aria-pressed={!!listening}
+          title={micNote || (listening ? 'Listening… tap to stop' : 'Speak: the words go into the box')}
+          class="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-lg border p-0 {listening
+            ? 'border-blue bg-blue-bg text-blue'
+            : 'border-line bg-panel text-text'}"
+          onclick={speak}
+          data-mic
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+            ><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0M12 18v3"></path></svg
+          >
+        </button>
+      {/if}
+      <button
+        type="button"
+        aria-label="Scan"
+        title="Scan a barcode or a label"
+        class="flex h-11 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-line bg-panel px-2.5 text-text desktop:px-3"
+        onclick={() => sheet?.open()}
+        data-scan-open
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"
+          ><path d="M4 7V5h3M17 5h3v2M20 17v2h-3M7 19H4v-2M8 9v6M11 9v6M14 9v6M17 9v6"></path></svg
+        >
+        <span class="hidden font-medium tablet:inline">Scan</span>
+      </button>
       <button
         type="submit"
         class="h-11 shrink-0 cursor-pointer rounded-lg border-0 bg-text px-[18px] font-medium text-bg">Log</button
       >
     </div>
-    <p class="m-0 text-xs text-muted">
-      <span class="hidden desktop:inline">Enter logs, Shift and Enter starts a new line. Each line can be its own entry. </span>
-      <a href="{appUrl}/web/" class="text-muted underline-offset-2 hover:underline">Barcode and label: full app</a>
-    </p>
+    {#if micNote}<p class="m-0 text-xs text-amber" data-mic-note>{micNote}</p>{/if}
+    <p class="m-0 hidden text-xs text-muted desktop:block">Enter logs, Shift and Enter starts a new line. Each line can be its own entry.</p>
   </form>
 </div>
+<ScanSheet bind:this={sheet} />
