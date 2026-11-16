@@ -57,13 +57,13 @@ describe('Now', () => {
     expect(pickHref(30, 2)).toBe('/home/pick?min=30&n=2');
   });
 
-  it('has the tabs Now · Zones · History; Zones and History open app.’s pages until deploy 100', () => {
-    expect(TABS.map((t) => [t.label, t.href, t.app])).toEqual([
-      ['Now', '/home', null],
-      ['Zones', null, '/web/home/zones'],
-      ['History', null, '/web/home/history'],
+  it('has the tabs Now · Zones · History, all pages of this app since deploy 100', () => {
+    expect(TABS.map((t) => [t.label, t.href])).toEqual([
+      ['Now', '/home'],
+      ['Zones', '/home/zones'],
+      ['History', '/home/history'],
     ]);
-    expect(choreHref('https://app.example', 3)).toBe('https://app.example/web/home/chore?id=3');
+    expect(choreHref(3)).toBe('/home/chore?id=3');
   });
 
   it('writes a row as app. does, in the door’s words', () => {

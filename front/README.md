@@ -8,7 +8,7 @@ skeleton, the sign-in and an empty Today. Step B (deploy 79): Today read-only fr
 (deploy 80): the taps save in place (water, Again and usual chips, habits, check-in, review, Health card, question buttons,
 Try again / Delete for a message not read yet, Undo). Step D (deploy 81): the logging box. Step E (deploy 84): the Food day.
 Step F (deploy 85): polish (plain messages when the core is down or the door is off, back to your page after a sign-in, phone,
-tablet and PC width). Then the trial runs (below). Deploy 87: the Usual meals page. Deploy 88: Today shows each food's and meal's macros, a pie of the day's kcal from protein, carbs and fat in the Energy card (app.'s macro colours, `--macro-*` in `app.css`), a one-line logging box that grows, and two habits per row. Deploy 90: scan, label photo, look-up and voice in the logging box (step 1a of the move to `logger.`, below). Deploy 92: the Health page with body measurements (step 1b, below). Deploy 94: the Habits page (step 1c, below). Deploy 96: the Gym's Workout page, the Gym card on Today and the Spaces menu (step 2, below). Deploy 97: Gym's other five parts (below). Deploy 99: Home's Now and Pick pages with the timer, the Home card on Today and Home in the Spaces menu (step 3, below).
+tablet and PC width). Then the trial runs (below). Deploy 87: the Usual meals page. Deploy 88: Today shows each food's and meal's macros, a pie of the day's kcal from protein, carbs and fat in the Energy card (app.'s macro colours, `--macro-*` in `app.css`), a one-line logging box that grows, and two habits per row. Deploy 90: scan, label photo, look-up and voice in the logging box (step 1a of the move to `logger.`, below). Deploy 92: the Health page with body measurements (step 1b, below). Deploy 94: the Habits page (step 1c, below). Deploy 96: the Gym's Workout page, the Gym card on Today and the Spaces menu (step 2, below). Deploy 97: Gym's other five parts (below). Deploy 99: Home's Now and Pick pages with the timer, the Home card on Today and Home in the Spaces menu (step 3, below). Deploy 100: Home's other four pages (Zones, History, a chore's page, Edit zones).
 
 ## How it fits
 
@@ -127,7 +127,7 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   `/standin/slow` slows every gym save); `SHOOT_ONLY=gymparts` runs only these checks.
 - Home's first pages (deploy 99, the move's step 3; the door's routes came with deploy 98): `src/routes/(app)/home` (Now, `?min=`) and
   `/home/pick` (`?min=&n=`), from Today's Home card, the More page and the PC rail. Now: the title with the tabs Now · Zones · History
-  (Zones and History, "Show all N chores" and a chore's name open app.'s pages until deploy 100), then in app.'s order the timer card
+  (all three are pages of this app since deploy 100), then in app.'s order the timer card
   when a timer is open ("N:SS left" counting each second, "(paused)", "time is up", "Open the timer"), "How much time have you got?"
   (the chips are links to `?min=`; "Pick a job for me"), "This week", "Longest since last done" (six rows: the tick circle, "Chore ·
   Zone", "age · interval" in the door's words, minutes; "N hidden for today") and "Recently done"; from 1100 px This week and Recently
@@ -149,6 +149,34 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   components: `components/home/`. The stand-in answers `/home`, `/home/pick`, `Day.home` and the Pick and tick saves from
   `tests/samples/home.json` (POST `/standin/home-running`, `/standin/home-ending`, `/standin/home-paused`, `/standin/home-closed`,
   `/standin/home-empty`); `SHOOT_ONLY=home` runs only these checks.
+- Home's other four pages (deploy 100, step 3's last page deploy): `/home/zones`, `/home/history?n=`, `/home/chore?id=` and `/home/edit`, from the tabs
+  (the Zones tab is lit on Zones, Edit zones and, as a link back, a chore's page), "Show all N chores" and a chore's name (on Now, in a zone card, on
+  a whole-flat chore's head); no mark for the full app is left on Home except the Storage zone's "sorting jobs in Todoist ›" (app.'s page). **Zones**
+  (`ZonesPage` in `homezones.svelte.ts`, `components/home/StartCard`, `FlatCard`, `ZoneCard`): "Edit zones"; "When did you last do these?" (only when the
+  door lists jobs: per job its label and interval and the chips This week, This month, Longer ago, Don't know = `home_startpoint`, keyed, Undo; the row
+  leaves at once and comes back if refused; "N more jobs after these."); "Whole flat": per chore its name (its page), the per-zone line, "All done"
+  (`home_alldone`, keyed, Undo; "All done ✓" once every zone is done today, a second tap takes it back) and tiles four to a row, tinted as the door
+  says, a tap = `home_tick` (a second tap takes it back); a card per zone, folded or open as the door says (kept across saves), "N chores · oldest ...",
+  rows as on Now (interval first, then the age), "no recurring chores". A tile and the same pair's row are one tap (both show it at once). From
+  1100 px the starting points and Whole flat in the left column and the zone cards beside them. **History** (`HistoryPage`): "+ Add one done earlier"
+  (a select of the door's jobs, a date between `earlier_days` ago and yesterday, `home_earlier`, keyed, Undo; a refusal next to the form), "Ticked lately"
+  with "last N", a heading per day, rows with time (blank for a dated one), label, how and × (`home_remove`, no key, Undo; the row leaves at once),
+  "Show more" (`?n=`) while the door says there is more, "Nothing ticked yet". **A chore's page**: "‹ Zones", name, meta, steps, how-to, "Edit" (to
+  `/home/edit#chore-ID`, that chore's form open), "Last done" with "(starting point)" and "usually every N days", per zone for a whole-flat chore;
+  an unknown or missing id says "That chore is not in the list." on the page (readGym's `missing`: the door's 404 `no_entry` or 400). Nothing saves
+  there. **Edit zones** (`EditPage` in `homeedit.svelte.ts`, `components/home/edit/`): "Weekly goal" (`home_goalset`), "Whole flat", a card per zone
+  (retired ones too, greyed, "· retired"), a chore opens its form (name, Where, every N days, minutes, steps one per line, how-to, other words =
+  `home_choreedit`), "Retire" / "Bring back" (`home_choreactive`, `home_zoneactive` with "History stays."), "Per zone" for an active whole-flat chore
+  (`home_chorezones`: the whole table, a zone left unticked is off, blank = the chore's own), "Rename or change the zone" (`home_zoneedit`),
+  "+ New chore", "+ New zone" (`home_chorenew`, `home_zonenew`). None of these has Undo or a key; the forms are not checked by the browser
+  (`novalidate`): the door's refusals (a name in use, a number out of range, ...) are said next to the form in the door's words and what was typed
+  stays; only what the door would answer with a plain 400 is checked first (a number that is not whole, too many or too long lines or words:
+  `choreProblem`, `zoneProblem` in `homeparts.ts`, with the limits of the read). Numbers are kept as typed text. No Home save is ever sent again by
+  the page (`mayResend` refuses every `home_` action; `NEVER_RESENT` lists the keyed ones). Also: on Pick the three buttons of a timer no longer wrap
+  at 390 px ("Stop timer" on its own row). Plain rules and the saves' fields: `src/lib/homeparts.ts`; saves in `saves.ts` (`ZONES_SAVES`,
+  `HISTORY_SAVES`, `EDIT_SAVES`). The stand-in now keeps Home's zones and chores as Edit zones' sample has them and changes them as the core would
+  (the pairs are worked out from them; History from the sample's rows): POST `/standin/home-many` (70 more history rows), `/standin/home-nohistory`,
+  `/standin/home-bare` (two zones with no chore, one of them Storage); `SHOOT_ONLY=homeparts` runs only these checks.
 - The Spaces menu (deploy 96): `src/lib/places.ts` says where a page belongs. The PC rail: Today, Trends, Library, then "Spaces"
   (Gym, Health, Habits, Home since deploy 99; the one you are in highlighted), then More. Phones and tablets keep four tabs; More is the page `/more`
   (`src/routes/(app)/more`): the Spaces as a list (Medical greyed, "soon"; Home since deploy 99), then one line that the rest is in the full app.

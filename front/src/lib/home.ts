@@ -1,7 +1,6 @@
 /**
  * Home's first pages (deploy 99; the door's routes came with deploy 98): the door's shapes for Now (GET /home), Pick (GET
- * /home/pick) and Today's Home card (Day.home), and what the pages make of them: the time chips, the tabs (Zones and History open
- * app.'s pages until deploy 100), a row's lines and its tick, the timer's clock and what shows in each of its states, "Job i of N",
+ * /home/pick) and Today's Home card (Day.home), and what the pages make of them: the time chips, the tabs, a row's lines and its tick, the timer's clock and what shows in each of its states, "Job i of N",
  * the earlier day's limits, the card's lines, and the fields of each save. The words are the door's (age_text, interval_text, label,
  * text, titles) wherever it gives them; ages are plain text, never red. Plain TypeScript, so the tests need no browser.
  */
@@ -122,15 +121,15 @@ export const chipsOf = (now: Pick_<Now, 'minutes' | 'minutes_options'>) =>
 /** "Pick a job for me" and the card's "15 minutes": the Pick page for a time; n: the n-th job ("Another job", "Also fits"). */
 export const pickHref = (minutes: number, n?: number | null) => `/home/pick?min=${minutes}${n === undefined || n === null ? '' : `&n=${n}`}`;
 
-/** The tabs under the title: Now here; Zones and History open app.'s pages until deploy 100 (as Gym's parts did in deploy 96). */
+/** The tabs under the title: all three are pages of this app since deploy 100 (the Zones tab is lit on Zones, a chore's page and Edit zones). */
 export const TABS = [
-  { key: 'now', label: 'Now', href: '/home', app: null },
-  { key: 'zones', label: 'Zones', href: null, app: '/web/home/zones' },
-  { key: 'history', label: 'History', href: null, app: '/web/home/history' },
+  { key: 'now', label: 'Now', href: '/home' },
+  { key: 'zones', label: 'Zones', href: '/home/zones' },
+  { key: 'history', label: 'History', href: '/home/history' },
 ] as const;
 
-/** A chore's own page, at app. until deploy 100. */
-export const choreHref = (appUrl: string, choreId: number) => `${appUrl}/web/home/chore?id=${choreId}`;
+/** A chore's own page. */
+export const choreHref = (choreId: number) => `/home/chore?id=${choreId}`;
 
 /** A row's small line (app.'s _row): "3 weeks ago · weekly". */
 export const rowMeta = (r: Pick_<HomeRow, 'age_text' | 'interval_text'>) => `${r.age_text} · ${r.interval_text}`;

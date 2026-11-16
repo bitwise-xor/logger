@@ -9,6 +9,7 @@ import type { Habits } from './habits.js';
 import type { GymCard, Workout } from './gym.js';
 import type { Exercises, Plan } from './gymplan.js';
 import type { HomeCard, HomePick, Now } from './home.js';
+import type { Edit, History, Zones } from './homeparts.js';
 import type { Usual } from './usual.js';
 
 // ---- the door's shapes (docs/API.md; front/tests/samples/day.json is a real answer) ----------------------------------------
@@ -462,6 +463,10 @@ export interface SaveAnswer {
   /** A save of Home's Now page (deploy 99): the Now read ("view": "home"); of the Pick page: "home_pick". */
   home?: Now;
   home_pick?: HomePick;
+  /** Deploy 100: Zones ("view": "home_zones"), History (with "view_limit"), Edit zones ("home_edit"). */
+  home_zones?: Zones;
+  home_history?: History;
+  home_edit?: Edit;
 }
 
 /** The rows a save added (in the fresh day, not in the one shown before): they get a blue edge (the mockup). */

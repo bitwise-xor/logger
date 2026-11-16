@@ -2328,8 +2328,9 @@ async function checkHome(page, name, theme) {
   // Now, against the sample
   assert.equal(await text(page.locator('h1')), 'Home');
   assert.deepEqual(await page.locator('[data-tab]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-tab'), e.getAttribute('href').replace(/^https?:\/\/[^/]+/, ''), e.getAttribute('aria-current')])), [
-    ['now', '/home', 'page'], ['zones', '/web/home/zones', null], ['history', '/web/home/history', null],
+    ['now', '/home', 'page'], ['zones', '/home/zones', null], ['history', '/home/history', null],
   ]);
+  assert.equal(await page.locator('[data-tab] >> text=↗').count() + (await page.locator('[data-tabs]').getByText('full app').count()), 0, 'no full-app marks on the tabs (deploy 100)');
   assert.deepEqual(await page.locator('[data-chip]').evaluateAll((els) => els.map((e) => [e.textContent.trim(), e.getAttribute('href'), e.getAttribute('aria-current')])),
     N.minutes_options.map((o) => [o.label, `/home?min=${o.minutes}`, o.minutes === N.minutes ? 'true' : null]));
   assert.equal(await page.locator('[data-pick]').getAttribute('href'), `/home/pick?min=${N.minutes}`);
@@ -2343,10 +2344,10 @@ async function checkHome(page, name, theme) {
     assert.equal(await text(row(r.chore_id, r.zone_id).locator('[data-hmeta]')), `${r.age_text} · ${r.interval_text}`);
     assert.equal(await text(row(r.chore_id, r.zone_id).locator('[data-hmin]')), `${r.minutes} min`);
     assert.equal(await row(r.chore_id, r.zone_id).locator('[data-tick]').getAttribute('aria-pressed'), String(r.done_today));
-    assert.match(await row(r.chore_id, r.zone_id).locator('[data-hlink]').getAttribute('href'), new RegExp(`/web/home/chore\\?id=${r.chore_id}$`));
+    assert.equal(await row(r.chore_id, r.zone_id).locator('[data-hlink]').getAttribute('href'), `/home/chore?id=${r.chore_id}`, 'a chore opens its page here, not at app.');
   }
-  assert.equal((await text(page.locator('[data-show-all]'))).replace('↗', ''), `Show all ${N.count} chores`);
-  assert.match(await page.locator('[data-show-all]').getAttribute('href'), /\/web\/home\/zones$/);
+  assert.equal(await text(page.locator('[data-show-all]')), `Show all ${N.count} chores`, 'no arrow');
+  assert.equal(await page.locator('[data-show-all]').getAttribute('href'), '/home/zones');
   assert.equal(await page.locator('[data-hidden]').count(), 0);
   assert.deepEqual(await page.locator('[data-recent]').evaluateAll((els) => els.map((e) => e.textContent.replace(/\s+/g, ' ').trim())), N.recent.map((e) => `${e.label} ${e.when}`));
   const [tm, wk, rw, rc] = await Promise.all(['time', 'week', 'rows', 'recent'].map((k) => page.locator(`[data-card="${k}"]`).boundingBox()));
@@ -2468,6 +2469,22 @@ async function checkHome(page, name, theme) {
   assert.equal(await text(page.locator('[data-btn="stop"]')), 'Stop timer');
   assert.equal(await text(page.locator('[data-btn="pause"]')), 'Pause');
   assert.match(await page.locator('[data-btn="done"]').getAttribute('class'), /bg-text/, 'Done is the main button');
+  // deploy 100: no label of the three buttons wraps (at 390 px "Stop timer" has a row of its own), each 44 px tall on phones and tablets
+  const lines = await page.locator('[data-buttons] [data-btn]').evaluateAll((els) =>
+    els.map((e) => {
+      const r = document.createRange();
+      r.selectNodeContents(e);
+      return [e.getAttribute('data-btn'), r.getClientRects().length, Math.round(e.getBoundingClientRect().height)];
+    }),
+  );
+  for (const [b, n, h] of lines) {
+    assert.equal(n, 1, `${name}: the label of ${b} is on one line`);
+    if (!pc) assert.ok(h >= 44, `${name}: ${b} is 44 px tall (${h})`);
+  }
+  if (name === 'phone') {
+    const [bd, bn, bs] = await Promise.all(['done', 'next', 'stop'].map((k) => page.locator(`[data-btn="${k}"]`).boundingBox()));
+    assert.ok(Math.abs(bd.y - bn.y) < 2 && bs.y > bd.y + bd.height - 1 && Math.abs(bs.width - (bd.width + bn.width + 8)) < 2, 'phone: Done and Done, next job side by side, Stop timer on its own row');
+  }
   assert.equal(await page.locator('[data-card="earlier"]').count(), 0);
   assert.equal(await page.locator('[data-card="also"]').count(), 0);
   await page.screenshot({ path: `${out}/home-pick-running-${name}-${theme}.png`, fullPage: true });
@@ -2577,6 +2594,478 @@ async function checkHome(page, name, theme) {
   await page.goto(`${base}/`);
 }
 
+/**
+ * Home's other four pages (deploy 100): Zones (starting points, Whole flat with its tiles and All done, a card per zone, the ticks), History
+ * (×, + Add one done earlier, Show more, nothing ticked), a chore's page (a zone chore, a whole-flat chore, an unknown one) and Edit zones
+ * (the goal, the chore and zone forms, Per zone, Retire and Bring back, the new chore and zone, the refusals next to their forms, no Undo),
+ * all against the stand-in, which changes the data as the core would.
+ */
+async function checkHomeParts(page, name, theme) {
+  await standinPost('/standin/reset');
+  const Z = HOME.zones.home_zones;
+  const HI = HOME.history.home_history;
+  const E = HOME.edit.home_edit;
+  const pc = name === 'pc';
+  const bar = page.locator('[data-bar]');
+  const headIs = async (want) => {
+    await page.locator('[data-bar-head]', { hasText: want }).first().waitFor();
+    assert.equal(await text(page.locator('[data-bar-head]')), want, 'the answer bar');
+  };
+  const undoBtn = () => bar.getByRole('button', { name: 'Undo' });
+  const tabOn = async (tab) => assert.equal(await page.locator('[data-tab][aria-current="page"]').getAttribute('data-tab'), tab, `the ${tab} tab is lit`);
+  const fold = (id) => page.locator(`[data-zone="${id}"]`);
+  const tile = (c, z) => page.locator(`[data-tile="${c}:${z}"]`);
+  const ticked = (c, z) => page.locator(`[data-zone] [data-hrow="${c}:${z}"]`).first().getAttribute('data-done');
+  const shot = (n) => page.screenshot({ path: `${out}/homeparts-${n}-${name}-${theme}.png`, fullPage: true });
+
+  // ---- Zones, against the sample -----------------------------------------------------------------------------------------------
+  await page.goto(`${base}/home`);
+  await page.locator('[data-card="rows"]').waitFor();
+  await page.locator('[data-tab="zones"]').click();
+  await page.waitForURL(/\/home\/zones$/);
+  await page.locator('[data-card="flat"]').waitFor();
+  await page.evaluate(() => (window.__noReload = true));
+  await tabOn('zones');
+  assert.equal(await page.locator('[data-edit-link]').getAttribute('href'), '/home/edit');
+  assert.equal(await text(page.locator('[data-edit-link]')), 'Edit zones');
+  const start = page.locator('[data-card="start"]');
+  assert.equal(await text(start.locator('h2')), 'When did you last do these?');
+  assert.deepEqual(await start.locator('[data-start-title]').allTextContents(), Z.start.jobs.map((j) => `${j.name} · ${j.where}`));
+  for (const j of Z.start.jobs) {
+    const row = page.locator(`[data-start="${j.pairs.map(([c, z]) => `${c}-${z}`).join(',')}"]`);
+    assert.equal(await text(row), `${j.name} · ${j.where} ${j.interval_text} ${Z.start.answers.map((a) => a.label).join('')}`);
+    assert.deepEqual(await row.locator('[data-chip]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-chip'), e.textContent.trim()])), Z.start.answers.map((a) => [a.ago, a.label]));
+  }
+  assert.equal(await page.locator('[data-more]').count(), 0, 'no "more jobs" line when the door says none');
+  assert.match(await text(start), /A rough answer is enough: it gives the job a starting point\. It is not a session and not under Recently done\./);
+  assert.equal(await text(page.locator('[data-card="flat"] h2')), 'Whole flat');
+  for (const f of Z.flat) {
+    const card = page.locator(`[data-flat="${f.chore_id}"]`);
+    assert.equal(await text(card.locator('[data-flat-link]')), f.name);
+    assert.equal(await card.locator('[data-flat-link]').getAttribute('href'), `/home/chore?id=${f.chore_id}`);
+    assert.equal(await text(card.locator('[data-flat-line]')), `· ${f.per_zone.text}`);
+    assert.equal(await text(card.locator('[data-alldone]')), f.all_done_today ? 'All done ✓' : 'All done');
+    assert.deepEqual(await card.locator('[data-tile]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-tile'), e.querySelector('[data-tile-short]').textContent.trim(), e.querySelector('[data-tile-age]').textContent.trim(), e.getAttribute('data-tinted')])),
+      f.tiles.map((t) => [`${t.chore_id}:${t.zone_id}`, t.short, t.age_short, String(t.tinted)]));
+  }
+  assert.deepEqual(await page.locator('[data-zone] [data-zone-name]').allTextContents(), Z.zones.map((z) => z.name));
+  for (const z of Z.zones) {
+    assert.equal(await text(fold(z.zone_id).locator('[data-zone-summary]')), `${z.count} chores · oldest ${z.oldest_text}`);
+    assert.equal(await fold(z.zone_id).getAttribute('data-open'), String(z.open), 'open or folded as the door says');
+    assert.deepEqual(await fold(z.zone_id).locator('[data-hrow]').evaluateAll((els) => els.map((e) => e.getAttribute('data-hrow'))), z.chores.map((r) => `${r.chore_id}:${r.zone_id}`));
+    for (const r of z.chores) {
+      const row = fold(z.zone_id).locator(`[data-hrow="${r.chore_id}:${r.zone_id}"]`);
+      assert.equal(await text(row.locator('[data-hlabel]')), r.name);
+      assert.equal(await text(row.locator('[data-hmeta]')), `${r.interval_text} · ${r.age_text}`);
+      assert.equal(await text(row.locator('[data-hmin]')), `${r.minutes} min`);
+      assert.equal(await row.locator('[data-hlink]').getAttribute('href'), `/home/chore?id=${r.chore_id}`);
+    }
+  }
+  assert.equal(await page.locator('[data-todoist]').count(), 0);
+  const bad = await page.evaluate(() => /overdue/i.test(document.body.innerText));
+  assert.equal(bad, false, 'no "overdue" anywhere');
+  const [mid, zn] = await Promise.all(['[data-col="middle"]', '[data-col="zones"]'].map((q) => page.locator(q).boundingBox()));
+  if (pc) assert.ok(zn.x > mid.x + mid.width - 1 && Math.abs(zn.y - mid.y) < 2 && Math.abs(zn.width - mid.width) < 2, 'pc: starting points and Whole flat in the middle, the zone cards beside them');
+  else assert.ok(zn.y > mid.y + mid.height - 1 && Math.abs(zn.x - mid.x) < 2, `${name}: one column`);
+  assert.equal(await page.locator('[data-tile]').first().evaluate((e) => getComputedStyle(e).color !== '' && e.getBoundingClientRect().height >= 44), true, 'a tile is 44 px tall');
+  if (!pc) {
+    const w = await page.locator('[data-tiles]').first().evaluate((e) => [...e.children].map((c) => Math.round(c.getBoundingClientRect().y)));
+    assert.equal(new Set(w.slice(0, 4)).size, 1, 'four tiles in a row');
+  }
+  await shot('zones');
+  await checkWidth(page, 'home zones');
+
+  // a starting point: the row leaves at once, Undo brings the job back
+  await page.locator(`[data-start="7-2"] [data-chip="week"]`).click();
+  assert.equal(await page.locator(`[data-start="7-2"]`).count(), 0, 'the row left at once');
+  await headIs('Starting point: Fresh towels · Bathroom');
+  assert.equal(await undoBtn().count(), 1);
+  assert.deepEqual(await start.locator('[data-start-title]').allTextContents(), ['Vacuum · 2 zones', 'Dust · Kitchen']);
+  await undoBtn().click();
+  await headIs('Undone: the tick is gone.');
+  assert.deepEqual(await start.locator('[data-start-title]').allTextContents(), Z.start.jobs.map((j) => `${j.name} · ${j.where}`));
+  await page.locator(`[data-start="2-2,2-3"] [data-chip="unknown"]`).click();
+  await headIs('Left as not logged yet: Vacuum · 2 zones');
+  assert.deepEqual(await start.locator('[data-start-title]').allTextContents(), ['Fresh towels · Bathroom', 'Dust · Kitchen']);
+  await undoBtn().click();
+  await headIs('Undone: the job is back on the card.');
+  await page.locator(`[data-start="7-2"] [data-chip="month"]`).click();
+  await headIs('Starting point: Fresh towels · Bathroom');
+  await page.locator(`[data-start="1-1"] [data-chip="longer"]`).click();
+  await headIs('Starting point: Dust · Kitchen');
+  await page.locator(`[data-start="2-2,2-3"] [data-chip="week"]`).click();
+  await headIs('Starting point: Vacuum · 2 zones');
+  assert.equal(await page.locator('[data-card="start"]').count(), 0, 'no card when no job is left');
+  assert.equal(await text(tile(2, 2).locator('[data-tile-age]')), '3 days', 'the starting point shows on the tile');
+
+  // All done: the label and the tiles at once, a second tap takes it back, each with Undo
+  await page.locator('[data-alldone="2"]').click();
+  assert.equal(await text(page.locator('[data-alldone="2"]')), 'All done ✓');
+  await headIs('Saved: Vacuum · whole flat');
+  assert.equal(await undoBtn().count(), 1);
+  assert.equal(await page.locator('[data-alldone="2"]').getAttribute('aria-pressed'), 'true');
+  for (const z of [1, 2, 3]) {
+    assert.equal(await text(tile(2, z).locator('[data-tile-age]')), 'today');
+    assert.equal(await tile(2, z).getAttribute('data-tinted'), 'true');
+  }
+  assert.equal(await ticked(2, 1), 'true', 'the same pair in its zone card is ticked');
+  await shot('zones-acted');
+  await page.locator('[data-alldone="2"]').click();
+  await headIs('Ticked off: Vacuum · whole flat');
+  assert.equal(await text(page.locator('[data-alldone="2"]')), 'All done');
+  assert.equal(await ticked(2, 1), 'false');
+  await undoBtn().click();
+  await headIs('Undone: Vacuum · whole flat is done again.');
+  assert.equal(await text(page.locator('[data-alldone="2"]')), 'All done ✓');
+  // a tile: ticks that zone (the row of its card too), a second tap takes it back, Undo
+  await tile(1, 1).click();
+  assert.equal(await tile(1, 1).getAttribute('data-tinted'), 'true', 'tinted at once');
+  await headIs('Saved: Dust · Kitchen');
+  assert.equal(await ticked(1, 1), 'true');
+  assert.equal(await page.locator('[data-zone="1"] [data-hrow="1:1"] [data-ring]').getAttribute('data-ring'), 'fresh', 'the blue edge');
+  await tile(1, 1).click();
+  await headIs('Ticked off: Dust · Kitchen');
+  assert.equal(await ticked(1, 1), 'false');
+  await undoBtn().click();
+  await headIs('Undone: Dust · Kitchen is done again.');
+  // a row's circle in a zone card; folding a card keeps its place across a save
+  await fold(2).locator('[data-fold]').click();
+  assert.equal(await fold(2).getAttribute('data-open'), 'false');
+  await fold(1).locator('[data-hrow="3:1"] [data-tick]').click();
+  await headIs('Saved: Wipe the stove · Kitchen');
+  assert.equal(await fold(2).getAttribute('data-open'), 'false', 'a folded card stays folded after a save');
+  assert.equal(await fold(1).getAttribute('data-open'), 'true');
+  assert.equal(await tile(3, 1).count(), 0);
+  assert.ok(await page.evaluate(() => window.__noReload), 'no reload on Zones');
+  await fold(2).locator('[data-fold]').click();
+  assert.equal(await fold(2).getAttribute('data-open'), 'true');
+  await page.screenshot({ path: `${out}/homeparts-zones-end-${name}-${theme}.png`, fullPage: true });
+  await standinPost('/standin/reset');
+
+  // ---- History -----------------------------------------------------------------------------------------------------------------
+  await page.goto(`${base}/home/zones`);
+  await page.locator('[data-tab="history"]').click();
+  await page.waitForURL(/\/home\/history$/);
+  await page.locator('[data-card="history"]').waitFor();
+  await tabOn('history');
+  assert.equal(await text(page.locator('[data-card="history"] h2')), 'Ticked lately');
+  assert.equal(await text(page.locator('[data-count]')), `last ${HI.count}`);
+  assert.deepEqual(await page.locator('[data-day]').allTextContents(), HI.days.map((d) => d.label));
+  for (const d of HI.days) {
+    for (const e of d.rows) {
+      const row = page.locator(`[data-hist="${e.ids.join(',')}"]`);
+      assert.equal(await text(row.locator('[data-time]')), e.dated ? '' : e.time, 'a dated row has no time');
+      assert.equal(await text(row.locator('[data-label]')), e.label);
+      assert.equal(await text(row.locator('[data-how]')), e.how);
+      assert.equal(await row.locator('[data-remove]').getAttribute('aria-label'), `Remove ${e.label}`);
+    }
+  }
+  assert.equal(await page.locator('[data-more]').count(), 0, 'no Show more while the door says none');
+  await shot('history');
+  await checkWidth(page, 'home history');
+  // + Add one done earlier
+  await page.locator('[data-earlier-open]').click();
+  assert.deepEqual(await page.locator('[data-earlier-job] option').allTextContents(), HI.jobs.map((j) => j.label));
+  assert.equal(await text(page.locator('[data-earlier-form]')), `Job ${HI.jobs.map((j) => j.label).join('')} Done on Save It gets 12:00 on that day.`);
+  assert.equal(await page.locator('[data-earlier-date]').getAttribute('max'), '2026-11-15');
+  assert.equal(await page.locator('[data-earlier-date]').getAttribute('min'), '2025-11-16');
+  await page.locator('[data-earlier-date]').fill('2026-11-16');
+  await page.locator('[data-earlier-save]').click();
+  await page.locator('[data-earlier-form] [data-err]').waitFor();
+  assert.equal(await text(page.locator('[data-earlier-form] [data-err]')), 'Pick a day before today, in the last year.');
+  assert.equal(await page.locator('[data-earlier-date]').inputValue(), '2026-11-16', 'what was typed stays');
+  assert.equal(await bar.count(), 0, 'said next to the form, not in the bar');
+  await page.locator('[data-earlier-date]').fill('2026-11-02');
+  await page.locator('[data-earlier-save]').click();
+  await headIs('Saved: Clean the fridge · Kitchen on 02.11.');
+  assert.equal(await undoBtn().count(), 1);
+  assert.equal(await page.locator('[data-earlier-form]').count(), 0, 'the form closes');
+  const added = page.locator('[data-day="2026-11-02"] + [data-day-rows] [data-hist]');
+  assert.equal(await text(added.locator('[data-label]')), 'Clean the fridge · Kitchen');
+  assert.equal(await text(added.locator('[data-how]')), 'earlier');
+  assert.equal(await text(added.locator('[data-time]')), '');
+  assert.equal(await text(page.locator('[data-count]')), `last ${HI.count + 1}`);
+  await shot('history-earlier');
+  await undoBtn().click();
+  await headIs('Undone: the tick is gone.');
+  assert.equal(await page.locator('[data-day="2026-11-02"]').count(), 0);
+  // × : the row leaves at once, Undo puts it back
+  const sink = HI.days[0].rows[0];
+  await page.locator(`[data-remove="${sink.ids.join(',')}"]`).click();
+  assert.equal(await page.locator(`[data-hist="${sink.ids.join(',')}"]`).count(), 0, 'the row left at once');
+  await headIs(`Removed: ${sink.label}`);
+  assert.equal(await undoBtn().count(), 1);
+  assert.equal(await text(page.locator('[data-count]')), `last ${HI.count - 1}`);
+  assert.equal(await page.locator('[data-day="2026-11-16"]').count(), 0, 'a day without rows has no heading');
+  await shot('history-removed');
+  await undoBtn().click();
+  await headIs(`Undone: ${sink.label} is back in the history.`);
+  assert.equal(await text(page.locator(`[data-hist="${sink.ids.join(',')}"] [data-label]`)), sink.label);
+  assert.equal(await text(page.locator('[data-count]')), `last ${HI.count}`);
+  // Show more while the door says there is more; nothing ticked yet
+  await standinPost('/standin/home-many');
+  await page.goto(`${base}/home/history`);
+  await page.locator('[data-card="history"]').waitFor();
+  assert.equal(await text(page.locator('[data-count]')), 'last 60');
+  assert.equal(await page.locator('[data-more]').getAttribute('href'), '/home/history?n=120');
+  await page.locator('[data-more]').click();
+  await page.waitForURL(/\/home\/history\?n=120$/);
+  await page.locator('[data-count]', { hasText: 'last 78' }).waitFor();
+  assert.equal(await page.locator('[data-more]').count(), 0);
+  await page.locator(`[data-remove]`).first().click();
+  await page.locator('[data-count]', { hasText: 'last 77' }).waitFor();
+  assert.match(page.url(), /n=120/, 'the page keeps its limit');
+  await standinPost('/standin/reset');
+  await standinPost('/standin/home-nohistory');
+  await page.goto(`${base}/home/history`);
+  assert.equal(await text(page.locator('[data-empty]')), 'Nothing ticked yet.');
+  assert.equal(await page.locator('[data-earlier-open]').count(), 1, 'the + Add one done earlier is still there');
+  await standinPost('/standin/reset');
+
+  // ---- a chore's page ----------------------------------------------------------------------------------------------------------
+  const C = HOME.chore.home_chore;
+  await page.goto(`${base}/home/zones`);
+  await page.locator('[data-flat-link]').first().waitFor();
+  await page.locator('[data-zone="1"] [data-hlink]').nth(1).click();
+  await page.waitForURL(/\/home\/chore\?id=3$/);
+  await page.locator('[data-card="chore"]').waitFor();
+  assert.equal(await text(page.locator('[data-back]')), '‹ Zones');
+  assert.equal(await page.locator('[data-back]').getAttribute('href'), '/home/zones');
+  assert.equal(await text(page.locator('[data-name]')), C.name);
+  assert.equal(await text(page.locator('[data-meta]')), C.meta);
+  assert.deepEqual(await page.locator('[data-steps] li').allTextContents(), C.steps);
+  assert.equal(await page.locator('[data-howto]').count(), 0);
+  assert.equal(await page.locator('[data-edit]').getAttribute('href'), '/home/edit#chore-3');
+  assert.equal(await text(page.locator('[data-card="last"] h2')), 'Last done');
+  assert.equal(await text(page.locator('[data-dates]')), C.last_text);
+  assert.equal(await text(page.locator('[data-usually]')), C.usually);
+  assert.equal(await page.locator('[data-zones]').count(), 0);
+  await shot('chore');
+  await checkWidth(page, 'home chore');
+  // a whole-flat chore: per zone
+  const F = HOME.chore_flat.home_chore;
+  await page.goto(`${base}/home/chore?id=2`);
+  await page.locator('[data-card="chore"]').waitFor();
+  assert.equal(await text(page.locator('[data-meta]')), F.meta);
+  assert.equal(await page.locator('[data-steps]').count(), 0);
+  assert.deepEqual(await page.locator('[data-zone]').evaluateAll((els) => els.map((e) => [e.querySelector('[data-zone-name]').textContent.trim(), e.querySelector('[data-zone-extra]').textContent.trim(), e.querySelector('[data-zone-dates]').textContent.trim()])),
+    F.zones.map((z) => [z.zone, [z.text, z.usually].filter(Boolean).join(' · '), z.last_text]));
+  await shot('chore-flat');
+  await checkWidth(page, 'home chore whole flat');
+  // Edit leads to Edit zones with this chore's form open
+  await page.locator('[data-edit]').click();
+  await page.waitForURL(/\/home\/edit#chore-2$/);
+  await page.locator('[data-chore-form="c:2"]').waitFor();
+  assert.equal(await page.locator('[data-chore-form="c:2"] [data-f="name"]').inputValue(), 'Vacuum');
+  // an unknown chore says so on the page, not as an error page
+  for (const q of ['?id=99', '', '?id=abc']) {
+    const r = await page.goto(`${base}/home/chore${q}`);
+    assert.equal(r.status(), 200, `a chore that is not there: ${q}`);
+    await page.locator('[data-card="gone"]').waitFor();
+    assert.equal(await text(page.locator('[data-empty]')), 'That chore is not in the list.');
+    assert.equal(await text(page.locator('[data-back]')), '‹ Zones');
+  }
+  await shot('chore-gone');
+  await checkWidth(page, 'home chore gone');
+
+  // ---- Edit zones --------------------------------------------------------------------------------------------------------------
+  await page.goto(`${base}/home/zones`);
+  await page.locator('[data-edit-link]').click();
+  await page.waitForURL(/\/home\/edit$/);
+  await page.locator('[data-card="goal"]').waitFor();
+  await tabOn('zones');
+  assert.equal(await text(page.locator('[data-back]')), '‹ Zones');
+  assert.equal(await page.locator('[data-goal]').inputValue(), String(E.goal));
+  assert.equal(await text(page.locator('[data-card="goal"]')), 'Weekly goal Sessions a week Save A session is a day with a job done or a timer run out.');
+  assert.equal(await text(page.locator('[data-card="flat"] h2')), 'Whole flat');
+  assert.deepEqual(await page.locator('[data-card="flat"] [data-echore-name]').allTextContents(), E.flat.map((c) => c.name));
+  assert.deepEqual(await page.locator('[data-ezone-title]').allTextContents(), E.zones.map((z) => (z.active ? z.name : `${z.name} · retired`)));
+  assert.deepEqual(await page.locator('[data-ezone-count]').allTextContents(), E.zones.map((z) => `${z.count} chore${z.count === 1 ? '' : 's'}`));
+  for (const c of [...E.flat, ...E.zones.flatMap((z) => z.chores)]) {
+    const row = page.locator(`[data-echore="${c.chore_id}"]`);
+    assert.equal(await text(row.locator('[data-echore-meta]')), c.meta);
+    assert.equal(await text(row.locator('[data-active-btn]')), c.active ? 'Retire' : 'Bring back');
+    assert.equal(await row.getAttribute('data-active'), String(c.active));
+    assert.equal(await row.locator('[data-echore-name]').evaluate((e) => (e.closest('button').className.includes('opacity-60') ? 'grey' : 'full')), c.active ? 'full' : 'grey', 'a retired chore is greyed');
+  }
+  assert.match(await text(page.locator('[data-ezone="4"]')), /Attic · retired/);
+  assert.equal(await text(page.locator('[data-active-btn="z:4"]')), 'Bring back');
+  assert.equal(await text(page.locator('[data-active-btn="z:1"]')), 'Retire this zone');
+  assert.match(await text(page.locator('[data-ezone="1"]')), /History stays\./);
+  assert.equal(await page.locator('[data-chore-form]').count(), 0, 'every form is closed');
+  await shot('edit');
+  await checkWidth(page, 'home edit');
+  // a chore's form (the Wipe the stove) and the Per zone table (Vacuum)
+  const stove = E.zones[0].chores[0];
+  await page.locator('[data-toggle="c:3"]').click();
+  const cf = page.locator('[data-chore-form="c:3"]');
+  assert.equal(await cf.locator('[data-f="name"]').inputValue(), stove.name);
+  assert.equal(await cf.locator('[data-f="zone"]').inputValue(), '1');
+  assert.deepEqual(await cf.locator('[data-f="zone"] option').allTextContents(), ['Whole flat (each zone on its own)', 'Kitchen', 'Bathroom', 'Hallway']);
+  assert.equal(await cf.locator('[data-f="days"]').inputValue(), String(stove.interval));
+  assert.equal(await cf.locator('[data-f="minutes"]').inputValue(), String(stove.minutes));
+  assert.equal(await cf.locator('[data-f="steps"]').inputValue(), stove.steps.join('\n'));
+  assert.equal(await cf.locator('[data-f="howto"]').inputValue(), '');
+  assert.equal(await page.locator('[data-pz-toggle="3"]').count(), 0, 'no Per zone for a chore of one zone');
+  await page.locator('[data-toggle="c:2"]').click();
+  await page.locator('[data-pz-toggle="2"]').click();
+  const pz = page.locator('[data-pz-form="2"]');
+  assert.deepEqual(await pz.locator('[data-pz-row]').evaluateAll((els) => els.map((e) => [e.querySelector('[data-pz-on]').checked, e.querySelector('[data-pz-days]').value, e.querySelector('[data-pz-min]').value, e.querySelector('[data-pz-days]').placeholder, e.querySelector('[data-pz-min]').placeholder])),
+    E.flat[1].per_zone.map((z) => [z.on, z.days === null ? '' : String(z.days), z.minutes === null ? '' : String(z.minutes), '7', '10']));
+  assert.match(await text(pz), /Blank = the chore’s \(weekly, 10 min\)\. Untick a zone where it is not done\./);
+  await shot('edit-forms');
+  await checkWidth(page, 'home edit, forms open');
+  // the goal: Save (no Undo); a refusal next to it, the typed number stays
+  await page.locator('[data-goal]').fill('5');
+  await page.locator('[data-goal-save]').click();
+  await headIs('Weekly goal: 5 sessions.');
+  assert.equal(await undoBtn().count(), 0, 'no Undo on Edit zones');
+  assert.equal(await page.locator('[data-chore-form="c:3"]').count(), 1, 'a save of another form leaves the open ones');
+  await page.locator('[data-goal]').fill('9');
+  await page.locator('[data-goal-save]').click();
+  await page.locator('[data-card="goal"] [data-err]').waitFor();
+  assert.equal(await text(page.locator('[data-card="goal"] [data-err]')), 'The weekly goal is 1 to 7 sessions.');
+  assert.equal(await page.locator('[data-goal]').inputValue(), '9');
+  // a chore's form: a refusal (days out of range) next to it, what was typed stays; then saved
+  await cf.locator('[data-f="days"]').fill('800');
+  await cf.locator('[data-f="name"]').fill('Wipe the stove and hob');
+  await cf.locator('[data-save]').click();
+  await cf.locator('[data-err]').waitFor();
+  assert.equal(await text(cf.locator('[data-err]')), 'The interval is 1 to 730 days and the time 1 to 240 minutes.');
+  assert.equal(await cf.locator('[data-f="days"]').inputValue(), '800');
+  assert.equal(await cf.locator('[data-f="name"]').inputValue(), 'Wipe the stove and hob', 'what was typed stays');
+  await page.screenshot({ path: `${out}/homeparts-edit-refusal-${name}-${theme}.png`, fullPage: true });
+  await checkWidth(page, 'home edit, a refusal');
+  await cf.locator('[data-f="days"]').fill('14');
+  await cf.locator('[data-save]').click();
+  await headIs('Saved Wipe the stove and hob (every 2 weeks).');
+  assert.equal(await page.locator('[data-chore-form="c:3"]').count(), 0, 'the form closes once saved');
+  assert.equal(await text(page.locator('[data-echore="3"] [data-echore-name]')), 'Wipe the stove and hob');
+  assert.equal(await text(page.locator('[data-echore="3"] [data-echore-meta]')), 'every 2 weeks · 15 min');
+  assert.equal(await undoBtn().count(), 0);
+  // not whole numbers: said by the page in the door's words (the door would answer 400)
+  await page.locator('[data-toggle="c:3"]').click();
+  await cf.locator('[data-f="days"]').fill('');
+  await cf.locator('[data-save]').click();
+  assert.equal(await text(cf.locator('[data-err]')), 'Give the interval in whole days and the minutes as a whole number.');
+  await page.locator('[data-toggle="c:3"]').click();
+  // Retire and Bring back a chore: said in the bar, greyed, the button turns
+  await page.locator('[data-active-btn="c:3"]').click();
+  await headIs('Wipe the stove and hob is retired; its history stays.');
+  assert.equal(await text(page.locator('[data-echore="3"] [data-active-btn]')), 'Bring back');
+  assert.match(await text(page.locator('[data-echore="3"] [data-echore-meta]')), /retired$/);
+  await page.locator('[data-active-btn="c:3"]').click();
+  await headIs('Wipe the stove and hob is back.');
+  assert.equal(await text(page.locator('[data-echore="3"] [data-active-btn]')), 'Retire');
+  // Per zone: all off is refused next to the table; then Hallway off, Bathroom every 4 days
+  assert.equal(await pz.count(), 1, 'Vacuum’s Per zone table is still open');
+  for (const z of [1, 2, 3]) await page.locator(`[data-pz-form="2"] [data-pz-on="${z}"]`).evaluate((e) => e.click());
+  await pz.locator('[data-save]').click();
+  await pz.locator('[data-err]').waitFor();
+  assert.equal(await text(pz.locator('[data-err]')), 'Vacuum needs at least one zone. Retire it instead.');
+  await page.locator('[data-pz-form="2"] [data-pz-on="1"]').evaluate((e) => e.click());
+  await page.locator('[data-pz-form="2"] [data-pz-on="2"]').evaluate((e) => e.click());
+  await page.locator('[data-pz-form="2"] [data-pz-days="2"]').fill('4');
+  await pz.locator('[data-save]').click();
+  await headIs('Saved Vacuum per zone.');
+  assert.equal(await page.locator('[data-pz-form]').count(), 0);
+  // a zone: a name already in use is refused next to its form, then renamed; Retire this zone and Bring back
+  await page.locator('[data-toggle="z:4"]').click();
+  const zf = page.locator('[data-zone-form="z:4"]');
+  assert.equal(await zf.locator('[data-f="name"]').inputValue(), 'Attic');
+  assert.equal(await zf.locator('[data-f="short"]').inputValue(), 'Attic');
+  await zf.locator('[data-f="name"]').fill('kitchen');
+  await zf.locator('[data-save]').click();
+  await zf.locator('[data-err]').waitFor();
+  assert.equal(await text(zf.locator('[data-err]')), 'Another zone has that name.');
+  assert.equal(await zf.locator('[data-f="name"]').inputValue(), 'kitchen', 'what was typed stays');
+  await zf.locator('[data-f="name"]').fill('Loft');
+  await zf.locator('[data-save]').click();
+  await headIs('Saved the zone Loft.');
+  assert.equal(await text(page.locator('[data-ezone="4"] [data-ezone-title]')), 'Loft · retired');
+  await page.locator('[data-active-btn="z:3"]').click();
+  await headIs('Hallway is retired; its history stays.');
+  assert.equal(await text(page.locator('[data-ezone="3"] [data-ezone-title]')), 'Hallway · retired');
+  assert.equal(await text(page.locator('[data-active-btn="z:3"]')), 'Bring back');
+  await page.locator('[data-active-btn="z:3"]').click();
+  await headIs('Hallway is back.');
+  assert.equal(await text(page.locator('[data-ezone="3"] [data-ezone-title]')), 'Hallway');
+  // + New chore: the door's refusal (no name) next to the form, then added to a zone; + New zone: in use, brought back, new
+  await page.locator('[data-new-chore]').click();
+  const nf = page.locator('[data-chore-form="newchore"]');
+  assert.equal(await nf.locator('[data-f="minutes"]').inputValue(), '15');
+  assert.equal(await nf.locator('[data-f="zone"]').inputValue(), 'flat');
+  assert.deepEqual(await nf.locator('[data-f="zone"] option').allTextContents(), ['Whole flat (each zone on its own)', 'Kitchen', 'Bathroom', 'Hallway'], 'a retired zone is not offered for a new chore');
+  await nf.locator('[data-f="days"]').fill('90');
+  await nf.locator('[data-save]').click();
+  await nf.locator('[data-err]').waitFor();
+  assert.equal(await text(nf.locator('[data-err]')), "Type the chore's name.");
+  await nf.locator('[data-f="name"]').fill('Clean the oven');
+  await nf.locator('[data-f="zone"]').selectOption('1');
+  await nf.locator('[data-f="steps"]').fill('Racks\nGlass');
+  await nf.locator('[data-f="words"]').fill('oven, stove');
+  await nf.locator('[data-save]').click();
+  await headIs('Added Clean the oven (every 3 months).');
+  assert.equal(await page.locator('[data-chore-form="newchore"]').count(), 0);
+  assert.equal(await text(page.locator('[data-ezone="1"] [data-echore="9"] [data-echore-meta]')), 'every 3 months · 15 min');
+  assert.equal(await text(page.locator('[data-ezone="1"] [data-ezone-count]')), '3 chores');
+  await page.locator('[data-new-zone]').click();
+  const nz = page.locator('[data-zone-form="newzone"]');
+  assert.match(await text(nz), /A retired zone of the same name comes back with its history\./);
+  await nz.locator('[data-f="name"]').fill('kitchen');
+  await nz.locator('[data-save]').click();
+  await nz.locator('[data-err]').waitFor();
+  assert.equal(await text(nz.locator('[data-err]')), 'Kitchen is already in your list.');
+  await nz.locator('[data-f="name"]').fill('Loft');
+  await nz.locator('[data-save]').click();
+  await headIs('Loft is back in your list.');
+  assert.equal(await text(page.locator('[data-ezone="4"] [data-ezone-title]')), 'Loft');
+  await page.locator('[data-new-zone]').click();
+  await nz.locator('[data-f="name"]').fill('Storage');
+  await nz.locator('[data-f="spots"]').fill('Boxes\nShelves');
+  await nz.locator('[data-save]').click();
+  await headIs('Added the zone Storage.');
+  assert.equal(await text(page.locator('[data-ezone="5"] [data-ezone-title]')), 'Storage');
+  assert.equal(await undoBtn().count(), 0, 'no Undo anywhere on Edit zones');
+  await page.screenshot({ path: `${out}/homeparts-edit-end-${name}-${theme}.png`, fullPage: true });
+  await checkWidth(page, 'home edit, after the saves');
+  // the changes are on Zones: the per-zone line, the new chore in Kitchen, the Storage zone with its link to app., Loft with no chores
+  await page.goto(`${base}/home/zones`);
+  await page.locator('[data-card="flat"]').waitFor();
+  assert.equal(await text(page.locator('[data-flat="2"] [data-flat-line]')), '· weekly; Kit every 3 days; Bath every 4 days; not in Hall');
+  assert.equal(await text(page.locator('[data-flat="2"] [data-alldone]')), 'All done');
+  assert.equal(await page.locator('[data-zone="1"] [data-hrow="9:1"]').count(), 1, 'the new chore is in its zone card');
+  assert.equal(await text(page.locator('[data-zone="1"] [data-zone-summary]')), '5 chores · oldest not yet');
+  // a new zone gets the whole-flat chores (as the core does): Storage, folded, with its link to the sorting jobs in Todoist (at app.)
+  assert.equal(await text(page.locator('[data-zone="5"] [data-zone-summary]')), '2 chores · oldest not yet');
+  assert.equal(await fold(5).getAttribute('data-open'), 'false');
+  await fold(5).locator('[data-fold]').click();
+  assert.match(await fold(5).locator('[data-todoist]').getAttribute('href'), /\/web\/ideas\/todoist$/);
+  assert.equal(await text(fold(5).locator('[data-todoist]')), 'sorting jobs in Todoist ›');
+  assert.equal(await text(page.locator('[data-zone="4"] [data-zone-summary]')), '2 chores · oldest not yet');
+  await shot('zones-after-edit');
+  await checkWidth(page, 'home zones after the edits');
+  await standinPost('/standin/reset');
+  // a zone with no chore at all says so; the Storage zone with none opens app.'s sorting jobs (the one link of Home that still leaves)
+  await standinPost('/standin/home-bare');
+  await page.goto(`${base}/home/zones`);
+  await page.locator('[data-card="flat"]').waitFor();
+  assert.equal(await text(page.locator('[data-zone="5"]')), 'Balcony, no recurring chores');
+  assert.equal(await page.locator('[data-zone="5"] [data-hrow]').count(), 0);
+  assert.equal(await text(page.locator('[data-zone="6"]')), 'Storage, sorting jobs in Todoist ›');
+  assert.match(await page.locator('[data-zone="6"]').getAttribute('href'), /\/web\/ideas\/todoist$/);
+  await shot('zones-bare');
+  await checkWidth(page, 'home zones, zones without chores');
+  await standinPost('/standin/reset');
+  // a chore's page opens Edit at its chore with the form open (the hash), also on arriving fresh
+  await page.goto(`${base}/home/edit#chore-4`);
+  await page.locator('[data-chore-form="c:4"]').waitFor();
+  assert.equal(await page.locator('[data-chore-form="c:4"] [data-f="name"]').inputValue(), 'Clean the fridge');
+  assert.equal(await page.locator('[data-chore-form]').count(), 1, 'only that chore’s form is open');
+  await standinPost('/standin/reset');
+  await page.goto(`${base}/`);
+}
+
 async function checkWidth(page, what) {
   const sideways = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   assert.ok(sideways <= 0, `${what}: no sideways scroll (${sideways} px too wide)`);
@@ -2680,6 +3169,10 @@ for (const theme of ['dark', 'light']) {
     if (only('home')) {
       await checkHome(page, name, theme);
       console.log(`home now, pick, timer, today's home card ${name} ${theme}: checks passed`);
+    }
+    if (only('homeparts')) {
+      await checkHomeParts(page, name, theme);
+      console.log(`home zones, history, a chore, edit zones ${name} ${theme}: checks passed`);
     }
     if (only('problems')) {
       await checkProblems(page, name, theme);

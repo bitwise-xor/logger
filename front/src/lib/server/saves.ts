@@ -18,6 +18,7 @@ import { labeladdBody } from '../scan.js';
 import { bodyValues, healthValues } from '../health.js';
 import { SHOWS } from '../habits.js';
 import { VALS, wordsOf } from '../gym.js';
+import { linesOf, wordsOfText } from '../homeparts.js';
 
 /** The form's fields: what `FormData` offers (and a plain test double). */
 export interface Fields {
@@ -235,6 +236,21 @@ export const SAVES = {
   home_picknext: { path: '/home/picknext', keyed: true, body: (f) => ({ pairs: pairsOf(f), timer_id: int(f, 'timer_id') }) },
   home_skip: { path: '/home/skip', keyed: false, body: (f) => ({ pairs: pairsOf(f) }) },
   home_earlier: { path: '/home/earlier', keyed: true, body: (f) => ({ pairs: pairsOf(f), when: whenOf(f) }) },
+  // Home's other four pages (deploy 100). Zones: "All done" on a whole-flat chore and a starting point's chips (both keyed, both with
+  // Undo; the tile and the row's tick are home_tick). History: the × on a row (no key; its ids as numbers, Undo puts them back) and
+  // "+ Add one done earlier" (home_earlier). Edit zones: the weekly goal, the zone and chore forms, Retire and Bring back and the Per
+  // zone table: none takes a key, none has Undo. Each answers with its page's read (view "home_zones", "home_history", "home_edit").
+  home_alldone: { path: '/home/alldone', keyed: true, body: (f) => ({ chore_id: int(f, 'chore_id') }) },
+  home_startpoint: { path: '/home/startpoint', keyed: true, body: (f) => ({ pairs: pairsOf(f), ago: str(f, 'ago', 10) }) },
+  home_remove: { path: '/home/remove', keyed: false, body: (f) => ({ ids: idsOf(f) }) },
+  home_goalset: { path: '/home/goalset', keyed: false, body: (f) => ({ goal: int(f, 'goal') }) },
+  home_zonenew: { path: '/home/zonenew', keyed: false, body: (f) => zoneBody(f) },
+  home_zoneedit: { path: '/home/zoneedit', keyed: false, body: (f) => ({ zone_id: int(f, 'zone_id'), ...zoneBody(f) }) },
+  home_zoneactive: { path: '/home/zoneactive', keyed: false, body: (f) => ({ zone_id: int(f, 'zone_id'), on: f.get('on') === '1' }) },
+  home_chorenew: { path: '/home/chorenew', keyed: false, body: (f) => choreBody(f) },
+  home_choreedit: { path: '/home/choreedit', keyed: false, body: (f) => ({ chore_id: int(f, 'chore_id'), ...choreBody(f) }) },
+  home_choreactive: { path: '/home/choreactive', keyed: false, body: (f) => ({ chore_id: int(f, 'chore_id'), on: f.get('on') === '1' }) },
+  home_chorezones: { path: '/home/chorezones', keyed: false, body: (f) => ({ chore_id: int(f, 'chore_id'), zones: zonesOf(f) }) },
 } satisfies Record<string, Save>;
 
 /** A job's pairs: the form's "3-1,7-2" (app.'s own format) as the door's [[3, 1], [7, 2]] (1 to 12); anything else is left out. */
@@ -249,6 +265,49 @@ function whenOf(f: Fields): number | string | undefined {
   const t = str(f, 'when', 10);
   if (t === undefined) return undefined;
   return /^[1-7]$/.test(t) ? Number(t) : t;
+}
+
+/** A history entry's ids as the door's numbers: "7,9" (1 to 20); anything else is left out. */
+function idsOf(f: Fields): number[] | undefined {
+  const t = str(f, 'ids', 300);
+  if (!t || !/^\d{1,12}(,\d{1,12}){0,19}$/.test(t)) return undefined;
+  return t.split(',').map(Number);
+}
+
+const raw = (f: Fields, name: string): string => {
+  const v = f.get(name);
+  return typeof v === 'string' ? v : '';
+};
+
+/** A zone form's body: its name and tile label as typed, its spots a line each and its words with commas as lists (docs/API.md `zonenew`). */
+function zoneBody(f: Fields): Body {
+  return { name: str(f, 'name', 200) ?? '', short: str(f, 'short', 200) ?? '', spots: linesOf(raw(f, 'spots')), words: wordsOfText(raw(f, 'words')) };
+}
+
+/** A chore form's body (`chorenew`, `choreedit`): the zone is a zone's id, or null for the whole flat ("flat"); minutes empty = null (the door: 15). */
+function choreBody(f: Fields): Body {
+  const zone = str(f, 'zone_id', 12);
+  const minutes = str(f, 'minutes', 12);
+  return {
+    name: str(f, 'name', 200) ?? '',
+    zone_id: zone === 'flat' ? null : zone !== undefined && /^\d{1,12}$/.test(zone) ? Number(zone) : undefined,
+    days: int(f, 'days'),
+    minutes: minutes === undefined ? null : /^\d{1,12}$/.test(minutes) ? Number(minutes) : minutes,
+    steps: linesOf(raw(f, 'steps')),
+    howto: str(f, 'howto', 400) ?? null,
+    words: wordsOfText(raw(f, 'words')),
+  };
+}
+
+/** The Per zone table: the zones listed in `zone_ids`, each with on (ticked), days and minutes (blank = null = the chore's own). */
+function zonesOf(f: Fields): Body[] | undefined {
+  const ids = f.getAll('zone_ids').slice(0, 100);
+  if (!ids.every((id) => typeof id === 'string' && /^\d{1,12}$/.test(id))) return undefined;
+  const whole = (name: string): number | string | null => {
+    const t = str(f, name, 12);
+    return t === undefined ? null : /^\d{1,12}$/.test(t) ? Number(t) : t;
+  };
+  return ids.map((id) => ({ zone_id: Number(id), on: f.get(`on_${id}`) === '1', days: whole(`days_${id}`), minutes: whole(`min_${id}`) }));
 }
 
 /**
@@ -311,13 +370,19 @@ const GYM_ONLY: SaveName[] = [...GYM_SAVES, ...PLAN_SAVES, ...EXERCISES_SAVES];
 export const HOME_SAVES: SaveName[] = ['home_tick', 'undo'];
 /** The Pick page's (deploy 99, src/routes/(app)/home/pick): the timer, Done, Done next job, Not today, Done it earlier?, Undo. */
 export const PICK_SAVES: SaveName[] = ['home_start', 'home_pause', 'home_resume', 'home_stop', 'home_pickdone', 'home_picknext', 'home_skip', 'home_earlier', 'undo'];
-const HOME_ONLY: SaveName[] = [...HOME_SAVES, ...PICK_SAVES];
+/** Zones' (deploy 100, src/routes/(app)/home/zones): the tick of a tile or a row, All done, a starting point's chips, Undo. */
+export const ZONES_SAVES: SaveName[] = ['home_tick', 'home_alldone', 'home_startpoint', 'undo'];
+/** History's (deploy 100, src/routes/(app)/home/history): the × of a row, + Add one done earlier, Undo. */
+export const HISTORY_SAVES: SaveName[] = ['home_remove', 'home_earlier', 'undo'];
+/** Edit zones' (deploy 100, src/routes/(app)/home/edit): the goal, the zone and chore forms, Retire and Bring back, the Per zone table. No Undo exists for them. */
+export const EDIT_SAVES: SaveName[] = ['home_goalset', 'home_zonenew', 'home_zoneedit', 'home_zoneactive', 'home_chorenew', 'home_choreedit', 'home_choreactive', 'home_chorezones'];
+const HOME_ONLY: SaveName[] = [...HOME_SAVES, ...PICK_SAVES, ...ZONES_SAVES, ...HISTORY_SAVES, ...EDIT_SAVES];
 export const TODAY_SAVES: SaveName[] = SAVE_NAMES.filter(
   (n) =>
     n === 'undo' ||
     (!FOOD_SAVES.includes(n) && !USUAL_SAVES.includes(n) && !HEALTH_SAVES.includes(n) && !HABITS_ONLY.includes(n) && !GYM_ONLY.includes(n) && !HOME_ONLY.includes(n)),
 );
-export type View = 'day' | 'food' | 'usual' | 'health' | 'body' | 'habits' | 'gym' | 'gym_plan' | 'gym_exercises' | 'home' | 'home_pick';
+export type View = 'day' | 'food' | 'usual' | 'health' | 'body' | 'habits' | 'gym' | 'gym_plan' | 'gym_exercises' | 'home' | 'home_pick' | 'home_zones' | 'home_history' | 'home_chore' | 'home_edit';
 
 /** A key as the browser makes them (src/lib/saver.ts): a random UUID or base64url; anything else is replaced. */
 const KEY = /^[A-Za-z0-9_-]{16,64}$/;
@@ -350,6 +415,15 @@ export function bodyFor(
     if (min && /^\d{1,3}$/.test(min)) body.view_min = Number(min);
     const n = str(f, 'view_n', 4);
     if (view === 'home_pick' && n && /^\d{1,4}$/.test(n)) body.view_n = Number(n);
+  }
+  // History's fresh read (deploy 100): how many rows it shows (?n=, 60 to 600); a chore's page: the chore.
+  if (view === 'home_history') {
+    const limit = str(f, 'view_limit', 4);
+    if (limit && /^\d{1,4}$/.test(limit)) body.view_limit = Number(limit);
+  }
+  if (view === 'home_chore') {
+    const id = str(f, 'view_id', 12);
+    if (id && /^\d{1,12}$/.test(id)) body.view_id = Number(id);
   }
   if (save.keyed) {
     const key = str(f, 'key', 64);

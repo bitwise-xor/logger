@@ -13,6 +13,8 @@ export interface Read<T> {
   read: T | null;
   undo: Undo | null;
   problem: ProblemKind | null;
+  /** The thing asked for is not there (the door's 404 `no_entry`, or a 400 for an id that is no id): a chore's page says so on the page (deploy 100). */
+  missing?: boolean;
 }
 
 /** `key` is the read's name in the answer (`gym_plan`, `gym_exercises`, `gym_progress`, `gym_history`, `gym_activity`). */
@@ -35,6 +37,8 @@ export async function readGym<T>(
       endSession(cookies);
       redirect(303, loginHref(url.pathname + url.search));
     }
+    const e = (error ?? {}) as { code?: unknown };
+    if (e.code === 'no_entry' || e.code === 'bad_request') return { read: null, undo: null, problem: null, missing: true };
     return { read: null, undo: null, problem };
   }
 }

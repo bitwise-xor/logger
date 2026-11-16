@@ -1,12 +1,20 @@
 <script lang="ts">
   import { choreHref, pairKey, rowMeta, tickLabel, type HomeRow } from '#lib/home.js';
-  import { getNowPage } from '#lib/homepage.svelte.js';
+  import { zoneRowMeta } from '#lib/homeparts.js';
 
-  // One chore of "Longest since last done" (app.'s _row): the tick circle saves in place (filled at once with the blue edge; a
-  // second tap takes the tick back, as the door's tick toggles a pair done today), "Chore · Zone" (the chore's page, at app.
-  // until deploy 100), "age · interval" in the door's words (plain, never red), the minutes in this zone.
-  let { row, appUrl }: { row: HomeRow; appUrl: string } = $props();
-  const page = getNowPage();
+  /** What a page of Home must offer for the tick circle: Now's page, and Zones' page for the zone cards. */
+  interface TickPage {
+    done(r: HomeRow): boolean;
+    tick(r: HomeRow): Promise<void>;
+    busy: Record<string, boolean>;
+    changed: string | null;
+  }
+
+  // One chore row (app.'s _row): the tick circle saves in place (filled at once with the blue edge; a second tap takes the tick back,
+  // as the door's tick toggles a pair done today), the chore's page, "age · interval" in the door's words (plain, never red) and the
+  // minutes in this zone. On Now the name is "Chore · Zone" with the age first; in a zone card (`zone`) it is the chore's name alone
+  // with the interval first (app.'s zone_first and plain_name).
+  let { row, page, zone = false }: { row: HomeRow; page: TickPage; zone?: boolean } = $props();
 
   const key = $derived(pairKey(row));
   const done = $derived(page.done(row));
@@ -36,14 +44,9 @@
       >
     </span>
   </button>
-  <a
-    href={choreHref(appUrl, row.chore_id)}
-    title="The chore's page, in the full app"
-    class="group flex min-h-11 min-w-0 flex-1 flex-col justify-center py-1.5 text-text no-underline"
-    data-hlink
-  >
-    <span class="font-medium break-words group-hover:underline" data-hlabel>{row.label}</span>
-    <span class="text-[13px] text-muted" data-hmeta>{rowMeta(row)}</span>
+  <a href={choreHref(row.chore_id)} class="group flex min-h-11 min-w-0 flex-1 flex-col justify-center py-1.5 text-text no-underline" data-hlink>
+    <span class="font-medium break-words group-hover:underline" data-hlabel>{zone ? row.name : row.label}</span>
+    <span class="text-[13px] text-muted" data-hmeta>{zone ? zoneRowMeta(row) : rowMeta(row)}</span>
   </a>
   <span class="num shrink-0 text-[13px] text-muted" data-hmin>{row.minutes} min</span>
 </div>

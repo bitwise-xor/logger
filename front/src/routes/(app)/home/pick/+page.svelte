@@ -120,7 +120,9 @@
       </section>
 
       <div class="flex flex-col gap-1.5" data-buttons>
-        <div class="grid auto-cols-fr grid-flow-col gap-2 text-[15px] [&>*]:px-2 desktop:text-base">
+        <!-- Without a timer: Done, Another job, Not today in one row. With one: Done and "Done, next job" side by side and "Stop
+             timer" on a row of its own on phones, so no label wraps (deploy 100); the three in one row from 1100 px. -->
+        <div class="grid gap-2 text-[15px] desktop:text-base {v.state === 'none' ? 'auto-cols-fr grid-flow-col [&>*]:px-2' : 'grid-cols-2 desktop:auto-cols-fr desktop:grid-flow-col desktop:grid-cols-none [&>*]:px-2'}">
           {#if v.state === 'none'}
             <button type="button" class={ghost} disabled={!!page.busy.done} onclick={() => page.done()} data-btn="done">Done</button>
             {#if anotherHref(p)}<a href={anotherHref(p)} class={ghost} data-btn="another">Another job</a>{/if}
@@ -128,7 +130,13 @@
           {:else}
             <button type="button" class={primary} disabled={!!page.busy.done} onclick={() => page.done()} data-btn="done">Done</button>
             {#if v.next}<button type="button" class={ghost} disabled={!!page.busy.next} onclick={() => page.next()} data-btn="next">Done, next job</button>{/if}
-            <button type="button" class={ghost} disabled={!!page.busy.stop} onclick={() => page.stop()} data-btn="stop">{v.stop}</button>
+            <button
+              type="button"
+              class="{ghost} {v.next ? 'col-span-2 desktop:col-span-1' : ''}"
+              disabled={!!page.busy.stop}
+              onclick={() => page.stop()}
+              data-btn="stop">{v.stop}</button
+            >
           {/if}
         </div>
         {#if errAt(['done', 'next', 'stop', 'skip'])}<p class="m-0 text-[13px] text-amber" data-err>{errAt(['done', 'next', 'stop', 'skip'])}</p>{/if}

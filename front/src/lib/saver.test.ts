@@ -292,6 +292,42 @@ describe('the saver', () => {
     expect(mayResend('home_anything_new')).toBe(false);
   });
 
+  // Deploy 100: Zones, History and Edit zones; All done and a starting point are keyed (a new key per tap) and still never re-sent
+  it('gives All done and a starting point a key and the rest of the Zones, History and Edit saves none, and re-sends none of them', async () => {
+    const n = fakeNet();
+    const store = memory();
+    let k = 0;
+    const s = new Saver({ ...n, storage: store, newKey: () => `home-key-${++k}`, page: '/home/zones' });
+    const taps: [string, Record<string, string | string[]>, boolean][] = [
+      ['home_alldone', { chore_id: '2' }, true],
+      ['home_startpoint', { pairs: '2-2,2-3', ago: 'week' }, true],
+      ['home_remove', { ids: '7' }, false],
+      ['home_earlier', { pairs: '5-2', when: '2026-11-02' }, true],
+      ['home_goalset', { goal: '4' }, false],
+      ['home_zonenew', { name: 'Balcony' }, false],
+      ['home_zoneedit', { zone_id: '2', name: 'Bath' }, false],
+      ['home_zoneactive', { zone_id: '2', on: '0' }, false],
+      ['home_chorenew', { name: 'Oven', zone_id: '1', days: '90' }, false],
+      ['home_choreedit', { chore_id: '3', name: 'Oven', zone_id: '1', days: '90' }, false],
+      ['home_choreactive', { chore_id: '3', on: '0' }, false],
+      ['home_chorezones', { chore_id: '2', zone_ids: ['1', '2'] }, false],
+    ];
+    let keys = 0;
+    for (const [i, [action, fields, keyed]] of taps.entries()) {
+      const r = s.send(action, { ...fields });
+      await tick();
+      expect(n.calls[i]!.url).toBe(`/home/zones?/${action}`);
+      if (keyed) expect(n.calls[i]!.fields.key, action).toEqual([`home-key-${++keys}`]);
+      else expect(n.calls[i]!.fields, action).not.toHaveProperty('key');
+      n.calls[i]!.answer({ type: 'failure', status: 401, data: { signedOut: true } });
+      expect(await r).toEqual({ kind: 'signed_out' });
+      expect(store.m.has(RESEND_ITEM), action).toBe(false);
+      expect(mayResend(action), action).toBe(false);
+    }
+    expect(await s.resend()).toBeNull();
+    expect(n.calls).toHaveLength(taps.length);
+  });
+
   it('does not send a kept Home tap again, even one kept before this rule (an old tab)', async () => {
     const n = fakeNet();
     const store = memory();

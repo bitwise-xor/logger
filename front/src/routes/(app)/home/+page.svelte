@@ -16,7 +16,7 @@
 
   // Home's Now page (deploy 99, step 3 of the move to logger.): app.'s Now tab in the new look, the tick circle saving in place. In
   // app.'s order: the timer card (when one is open), the time card, This week, "Longest since last done" (six rows, "Show all N
-  // chores" at app.'s Zones until deploy 100, "N hidden for today"), Recently done. One column on phones and tablets; from 1100 px
+  // chores" leads to Zones, "N hidden for today"), Recently done. One column on phones and tablets; from 1100 px
   // the timer, the time and the list in the middle and This week and Recently done in a right column of 340 px (the mockup's
   // screen 9). No Home save is sent again by the page (saver.ts), so no resend on mount.
   const page = setNowPage(untrack(() => new NowPage(data.now, data.undo, data.min)));
@@ -36,7 +36,7 @@
 
 <svelte:head><title>Home · Logger</title></svelte:head>
 
-<HomeHeader appUrl={data.appUrl} />
+<HomeHeader />
 
 {#if !now}
   <ProblemCard kind={data.problem ?? 'trouble'} appHref="{data.appUrl}/web/home" />
@@ -44,7 +44,7 @@
   <section class="flex flex-col gap-1 rounded-card border border-line bg-panel p-3 desktop:max-w-[640px] desktop:p-3.5" data-card="empty">
     <h2 class="m-0 text-[15px] font-semibold">Home</h2>
     <p class="m-0 text-muted" data-empty>No zones or chores yet.</p>
-    <p class="m-0 text-[13px] text-muted">Add them on <a href="{data.appUrl}/web/home/edit">Edit zones</a> (in the full app).</p>
+    <p class="m-0 text-[13px] text-muted">Add them on <a href="/home/edit">Edit zones</a>.</p>
   </section>
 {:else}
   <!-- Phones and tablets: one column in app.'s order (order-*). The PC: the timer, the time and the list in the middle, This week
@@ -64,15 +64,14 @@
         </div>
         <div class="flex flex-col" data-list="rows">
           {#each page.rows as row (row.chore_id)}
-            <ChoreRow {row} appUrl={data.appUrl} />
+            <ChoreRow {row} {page} />
           {/each}
         </div>
         {#if more}
           <a
-            href="{data.appUrl}/web/home/zones"
-            title="Zones, in the full app"
-            class="mt-1 inline-flex min-h-11 items-center gap-1 self-start rounded-lg border border-line px-3.5 text-sm font-medium text-text no-underline hover:bg-panel2 desktop:min-h-9"
-            data-show-all>{more}<span aria-hidden="true" class="text-xs text-muted">↗</span></a
+            href="/home/zones"
+            class="mt-1 inline-flex min-h-11 items-center self-start rounded-lg border border-line px-3.5 text-sm font-medium text-text no-underline hover:bg-panel2 desktop:min-h-9"
+            data-show-all>{more}</a
           >
         {/if}
         {#if hidden}<p class="m-0 py-1.5 text-[13px] text-muted" data-hidden>{hidden}</p>{/if}

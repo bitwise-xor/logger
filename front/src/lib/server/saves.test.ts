@@ -2,7 +2,7 @@
 // day asked for, and a gone session told apart from other problems.
 import { describe, expect, it } from 'vitest';
 import { makeDoor, type Fetch } from './door.js';
-import { bodyFor, EXERCISES_SAVES, FOOD_SAVES, GYM_SAVES, HABITS_SAVES, HEALTH_SAVES, HOME_SAVES, PICK_SAVES, PLAN_SAVES, runSave, SAVE_NAMES, SAVES, TODAY_SAVES, USUAL_SAVES } from './saves.js';
+import { bodyFor, EXERCISES_SAVES, FOOD_SAVES, GYM_SAVES, HABITS_SAVES, HEALTH_SAVES, EDIT_SAVES, HISTORY_SAVES, HOME_SAVES, PICK_SAVES, PLAN_SAVES, runSave, SAVE_NAMES, SAVES, TODAY_SAVES, USUAL_SAVES, ZONES_SAVES } from './saves.js';
 
 const TOKEN = 'f'.repeat(40);
 const SESSION = 's'.repeat(43);
@@ -191,7 +191,7 @@ describe('the Food day saves (step E)', () => {
     expect(TODAY_SAVES).not.toContain('usual_meal');
     expect(TODAY_SAVES).toContain('usual');
     expect(TODAY_SAVES).toContain('undo');
-    expect(new Set([...TODAY_SAVES, ...FOOD_SAVES, ...USUAL_SAVES, ...HEALTH_SAVES, ...HABITS_SAVES, ...GYM_SAVES, ...PLAN_SAVES, ...EXERCISES_SAVES, ...HOME_SAVES, ...PICK_SAVES])).toEqual(new Set(SAVE_NAMES));
+    expect(new Set([...TODAY_SAVES, ...FOOD_SAVES, ...USUAL_SAVES, ...HEALTH_SAVES, ...HABITS_SAVES, ...GYM_SAVES, ...PLAN_SAVES, ...EXERCISES_SAVES, ...HOME_SAVES, ...PICK_SAVES, ...ZONES_SAVES, ...HISTORY_SAVES, ...EDIT_SAVES])).toEqual(new Set(SAVE_NAMES));
   });
 });
 
@@ -664,5 +664,131 @@ describe('Home’s Now and Pick pages (deploy 99)', () => {
     await runSave(door, SESSION, 'undo', form({ token: 'xxr8bM8hNQ71ey7c', view_min: '15' }), undefined, 'home');
     expect(seen.map((x) => x.path)).toEqual([...HOME.map((n) => `/api/v1/home/${n.slice(5)}`), '/api/v1/undo']);
     expect(seen.at(-1)!.body).toEqual({ token: 'xxr8bM8hNQ71ey7c', view: 'home', view_min: 15 });
+  });
+});
+
+describe('Home’s Zones, History and Edit zones pages (deploy 100)', () => {
+  const ZONES = ['home_tick', 'home_alldone', 'home_startpoint'] as const;
+  const EDIT = ['home_goalset', 'home_zonenew', 'home_zoneedit', 'home_zoneactive', 'home_chorenew', 'home_choreedit', 'home_choreactive', 'home_chorezones'] as const;
+
+  it('offers each page its saves, and keeps them off Today', () => {
+    expect(ZONES_SAVES).toEqual([...ZONES, 'undo']);
+    expect(HISTORY_SAVES).toEqual(['home_remove', 'home_earlier', 'undo']);
+    expect(EDIT_SAVES).toEqual(EDIT);
+    expect(EDIT_SAVES).not.toContain('undo'); // none of Edit zones' saves has an Undo
+    for (const n of [...ZONES, 'home_remove', ...EDIT]) expect(TODAY_SAVES).not.toContain(n);
+  });
+
+  it('keys only tick, All done, a starting point and Done earlier (the door’s home._once)', () => {
+    const all = [...ZONES, 'home_remove', 'home_earlier', ...EDIT] as const;
+    expect(all.filter((n) => SAVES[n].keyed)).toEqual(['home_tick', 'home_alldone', 'home_startpoint', 'home_earlier']);
+    for (const n of all) {
+      const b = bodyFor(n, form({ key: KEY, chore_id: '3', zone_id: '1', pairs: '3-1', ago: 'week', ids: '7', when: '1', goal: '3' }), undefined, undefined, 'home_zones');
+      if (SAVES[n].keyed) expect(b.key, n).toBe(KEY);
+      else expect(b, n).not.toHaveProperty('key');
+    }
+  });
+
+  it('sends All done, a starting point and a remove with their door fields and the page’s read', () => {
+    expect(bodyFor('home_alldone', form({ chore_id: '2', key: KEY }), undefined, undefined, 'home_zones')).toEqual({ chore_id: 2, key: KEY, view: 'home_zones' });
+    expect(bodyFor('home_tick', form({ chore_id: '4', zone_id: '1', key: KEY }), undefined, undefined, 'home_zones')).toEqual({ chore_id: 4, zone_id: 1, key: KEY, view: 'home_zones' });
+    expect(bodyFor('home_startpoint', form({ pairs: '2-2,2-3', ago: 'unknown', key: KEY }), undefined, undefined, 'home_zones')).toEqual({
+      pairs: [[2, 2], [2, 3]],
+      ago: 'unknown',
+      key: KEY,
+      view: 'home_zones',
+    });
+    expect(bodyFor('home_remove', form({ ids: '7,9', view_limit: '120' }), undefined, undefined, 'home_history')).toEqual({ ids: [7, 9], view: 'home_history', view_limit: 120 });
+    expect(bodyFor('home_remove', form({ ids: '7;drop' }), undefined, undefined, 'home_history')).toEqual({ view: 'home_history' });
+    expect(bodyFor('home_remove', form({ ids: Array.from({ length: 21 }, (_, i) => i + 1).join(',') }), undefined, undefined, 'home_history')).not.toHaveProperty('ids');
+    expect(bodyFor('home_earlier', form({ pairs: '5-2', when: '2026-11-02', key: KEY, view_limit: 'many' }), undefined, undefined, 'home_history')).toEqual({
+      pairs: [[5, 2]],
+      when: '2026-11-02',
+      key: KEY,
+      view: 'home_history',
+    });
+  });
+
+  it('sends the goal and Retire or Bring back as numbers and true or false', () => {
+    expect(bodyFor('home_goalset', form({ goal: '4' }), undefined, undefined, 'home_edit')).toEqual({ goal: 4, view: 'home_edit' });
+    expect(bodyFor('home_choreactive', form({ chore_id: '3', on: '0' }), undefined, undefined, 'home_edit')).toEqual({ chore_id: 3, on: false, view: 'home_edit' });
+    expect(bodyFor('home_choreactive', form({ chore_id: '3', on: '1' }), undefined, undefined, 'home_edit')).toEqual({ chore_id: 3, on: true, view: 'home_edit' });
+    expect(bodyFor('home_zoneactive', form({ zone_id: '4', on: '1' }), undefined, undefined, 'home_edit')).toEqual({ zone_id: 4, on: true, view: 'home_edit' });
+  });
+
+  it('sends a zone form with its spots a line each and its words as a list', () => {
+    const f = form({ name: 'Balcony', short: '', spots: 'Table\n\n  Plants  \r\nFloor', words: 'terrace, , Outdoor ' });
+    expect(bodyFor('home_zonenew', f, undefined, undefined, 'home_edit')).toEqual({
+      name: 'Balcony',
+      short: '',
+      spots: ['Table', 'Plants', 'Floor'],
+      words: ['terrace', 'Outdoor'],
+      view: 'home_edit',
+    });
+    expect(bodyFor('home_zoneedit', form({ zone_id: '2', name: 'Bath', short: 'B', spots: '', words: '' }), undefined, undefined, 'home_edit')).toEqual({
+      zone_id: 2,
+      name: 'Bath',
+      short: 'B',
+      spots: [],
+      words: [],
+      view: 'home_edit',
+    });
+  });
+
+  it('sends a chore form with the zone as a number or null for the whole flat, and blank minutes as null', () => {
+    const base = { name: ' Clean the oven ', days: '90', minutes: '30', steps: 'Racks\nGlass', howto: 'Cold oven.', words: 'oven, stove' };
+    expect(bodyFor('home_chorenew', form({ ...base, zone_id: '1' }), undefined, undefined, 'home_edit')).toEqual({
+      name: 'Clean the oven',
+      zone_id: 1,
+      days: 90,
+      minutes: 30,
+      steps: ['Racks', 'Glass'],
+      howto: 'Cold oven.',
+      words: ['oven', 'stove'],
+      view: 'home_edit',
+    });
+    expect(bodyFor('home_choreedit', form({ ...base, chore_id: '8', zone_id: 'flat', minutes: '', howto: '', steps: '', words: '' }), undefined, undefined, 'home_edit')).toEqual({
+      chore_id: 8,
+      name: 'Clean the oven',
+      zone_id: null,
+      days: 90,
+      minutes: null,
+      steps: [],
+      howto: null,
+      words: [],
+      view: 'home_edit',
+    });
+    // days that are no number are left out: the door then says 400 (the page says it first)
+    expect(bodyFor('home_chorenew', form({ ...base, zone_id: '1', days: '7.5' }), undefined, undefined, 'home_edit')).not.toHaveProperty('days');
+    // no zone chosen: left out (the door: zone_id is missing)
+    expect(bodyFor('home_chorenew', form({ ...base, zone_id: 'x;1' }), undefined, undefined, 'home_edit')).not.toHaveProperty('zone_id');
+  });
+
+  it('sends the Per zone table as a list of zones: a zone unticked is off, blank days and minutes are null', () => {
+    const f = form({ chore_id: '2', zone_ids: ['1', '2', '3'], on_1: '1', days_1: '3', min_1: '', on_2: '1', days_2: '', min_2: '5', days_3: '', min_3: '' });
+    expect(bodyFor('home_chorezones', f, undefined, undefined, 'home_edit')).toEqual({
+      chore_id: 2,
+      zones: [
+        { zone_id: 1, on: true, days: 3, minutes: null },
+        { zone_id: 2, on: true, days: null, minutes: 5 },
+        { zone_id: 3, on: false, days: null, minutes: null },
+      ],
+      view: 'home_edit',
+    });
+    expect(bodyFor('home_chorezones', form({ chore_id: '2', zone_ids: ['1;x'] }), undefined, undefined, 'home_edit')).not.toHaveProperty('zones');
+  });
+
+  it('each goes to its /home/<action>, and Undo on History asks for its page’s read with its limit', async () => {
+    const { door, seen } = net(200, { v: 1, outcome: 'saved', head: 'Saved.', home_zones: {} });
+    const fields = { chore_id: '3', zone_id: '1', pairs: '3-1', ago: 'week', ids: '7', when: '1', goal: '3', name: 'x', zone_ids: ['1'], key: KEY };
+    const names = [...ZONES, 'home_remove', ...EDIT] as const;
+    for (const n of names) await runSave(door, SESSION, n, form(fields), undefined, 'home_zones');
+    await runSave(door, SESSION, 'undo', form({ token: 'xxr8bM8hNQ71ey7c', view_limit: '180' }), undefined, 'home_history');
+    expect(seen.map((x) => x.path)).toEqual([...names.map((n) => `/api/v1/home/${n.slice(5)}`), '/api/v1/undo']);
+    expect(seen.at(-1)!.body).toEqual({ token: 'xxr8bM8hNQ71ey7c', view: 'home_history', view_limit: 180 });
+  });
+
+  it('asks a chore’s page for its chore', () => {
+    expect(bodyFor('undo', form({ token: 'xxr8bM8hNQ71ey7c', view_id: '3' }), undefined, undefined, 'home_chore')).toEqual({ token: 'xxr8bM8hNQ71ey7c', view: 'home_chore', view_id: 3 });
   });
 });

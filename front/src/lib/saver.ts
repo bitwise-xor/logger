@@ -54,6 +54,8 @@ export const KEYED = new Set([
   'gym_tick',
   // Home (deploy 99): the saves the door keys (home._once): a tick, Done and "Done, next job" on Pick, a job done earlier
   'home_tick', 'home_pickdone', 'home_picknext', 'home_earlier',
+  // Deploy 100: All done and a starting point's chips (the door keys both: home._once)
+  'home_alldone', 'home_startpoint',
 ]);
 /**
  * A keyed action that is never sent again by the page (deploy 94): a day tick of the Habits page. Its message carries the time
@@ -67,8 +69,9 @@ export const KEYED = new Set([
  * Deploy 99: no Home save is ever sent again by the page either (`home_`), keyed or not: the timer's start, pause, resume, stop and
  * "Not today" take no key at the door, a tick toggles, and a job is marked done only by a tap seen to work, never behind your back;
  * a tap that met a gone session is not kept (after the sign-in it is tapped again by hand).
+ * Deploy 100: the same for Zones, History and Edit zones (All done, a starting point, ×, the forms): no Home save is re-sent.
  */
-export const NEVER_RESENT = new Set(['habit_day', 'gym_tick', 'home_tick', 'home_pickdone', 'home_picknext', 'home_earlier']);
+export const NEVER_RESENT = new Set(['habit_day', 'gym_tick', 'home_tick', 'home_pickdone', 'home_picknext', 'home_earlier', 'home_alldone', 'home_startpoint']);
 export const mayResend = (action: string) =>
   KEYED.has(action) && !NEVER_RESENT.has(action) && !action.startsWith('gym_') && !action.startsWith('home_');
 /** The actions the AI reads (up to about 40 s; the look-up since deploy 90): their answer is never dropped for a tap made while they were read. */

@@ -68,6 +68,11 @@
 // tick, pickdone, picknext, skip and earlier. POST /standin/home-running (a timer of 15 minutes on the first job), /standin/home-ending
 // (one with 6 seconds left), /standin/home-paused (7:05 left, paused), /standin/home-closed (the open timer closed elsewhere),
 // /standin/home-empty (no zones or chores); /standin/slow slows Home's saves too.
+// Deploy 100: GET /home/zones, /home/history?n=, /home/chore?id= and /home/edit worked out from the same pairs and the sample's zones, chores
+// and history as they stand, and the saves of those pages as the core makes them (home.py): alldone, startpoint (week, month, longer,
+// unknown), remove, goalset, zonenew, zoneedit, zoneactive, chorenew, choreedit, choreactive, chorezones, with the core's checks and
+// refusals (a zone name in use, a number out of range, a whole-flat chore needing a zone); keys replay (alldone, startpoint, earlier), Undo
+// of alldone, startpoint, remove and earlier; the Edit forms have none.
 import { createServer } from 'node:http';
 import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
@@ -1366,15 +1371,74 @@ function hmAge(days) {
 }
 const hmNoon = (ago) => `${shiftIso(HM_TODAY, -ago)}T12:00:00+01:00`;
 
-/** The pairs of the Zones sample (every chore in every zone it is done in), each with the days ago it was done (0 = today). */
+/** home.interval_text and age_short (the door's words). */
+function hmInterval(days) {
+  if (days === 1) return 'daily';
+  if (days === 7) return 'weekly';
+  if (days === 30) return 'monthly';
+  if (days === 365) return 'yearly';
+  if (days === 730) return 'every 2 years';
+  if (days % 30 === 0 && days <= 360) return `every ${days / 30} months`;
+  if (days % 7 === 0) return `every ${days / 7} weeks`;
+  return `every ${days} days`;
+}
+function hmAgeShort(days) {
+  if (days === null) return 'not yet';
+  if (days <= 0) return 'today';
+  if (days < 14) return days > 1 ? `${days} days` : '1 day';
+  if (days < 56) return `${Math.floor(days / 7)} wk`;
+  if (days < 365) return `${Math.floor(days / 30)} mo`;
+  return `${Math.floor(days / 365)} yr`;
+}
+const hmAgo = (day) => Math.round((Date.parse(`${HM_TODAY}T12:00:00Z`) - Date.parse(`${day}T12:00:00Z`)) / 86400_000);
+
+/** The zones and chores of Edit zones' sample (every zone and chore, retired ones too), as the stand-in keeps them; the pairs come from them. */
 function homeStart() {
+  const cfg = {
+    goal: HM_EDIT.goal,
+    zones: HM_EDIT.zones.map(({ chores: _c, count: _n, ...z }) => ({ ...z })),
+    chores: [...HM_EDIT.flat, ...HM_EDIT.zones.flatMap((z) => z.chores)].map((c) => ({
+      chore_id: c.chore_id, name: c.name, zone_id: c.zone_id, active: c.active, interval: c.interval, minutes: c.minutes, steps: [...c.steps], howto: c.howto, words: [...c.words],
+      off: (c.per_zone ?? []).filter((p) => !p.on).map((p) => p.zone_id),
+      days: Object.fromEntries((c.per_zone ?? []).filter((p) => p.days !== null).map((p) => [p.zone_id, p.days])),
+      mins: Object.fromEntries((c.per_zone ?? []).filter((p) => p.minutes !== null).map((p) => [p.zone_id, p.minutes])),
+    })),
+    nextZone: 5, nextChore: 9,
+  };
+  // every done row of the History sample, by the pair it belongs to (newest first), and the History entries themselves
+  const recent = HM.history.home_history.days.flatMap((d) => structuredClone(d.rows));
+  const gone = {};
+  for (const e of recent) {
+    e.zones.forEach((zn, i) => {
+      const z = cfg.zones.find((x) => x.name === zn);
+      (gone[hmKey(e.chore_id, z.zone_id)] ??= []).push({ ago: hmAgo(e.day), at: e.at, id: e.ids[i] ?? e.ids[0] });
+    });
+  }
+  const h = { pairs: [], gone, cfg, unknown: [], skips: new Set(), recent, week: structuredClone(HM_NOW.week), timer: null, timerIds: 0, doneIds: 100, empty: false };
+  hmSync(h);
+  return h;
+}
+/** Every active chore in every zone it is done in, in a zone's place order (Dust first, own chores, then the other whole-flat ones); a pair keeps its done rows. */
+function hmSync(h) {
+  const cfg = h.cfg;
+  const prev = new Map(Object.entries(h.gone));
+  for (const p of h.pairs) prev.set(hmKey(p.chore_id, p.zone_id), p.done);
+  const place = (c) => (c.zone_id === null ? (c.name.toLowerCase().startsWith('dust') ? 0 : 2) : 1);
   const pairs = [];
-  for (const z of HM.zones.home_zones.zones) {
-    for (const c of z.chores) {
-      pairs.push({ ...c, done: c.age === null ? [] : [{ ago: c.age, at: c.done_at }] });
+  for (const z of cfg.zones.filter((x) => x.active)) {
+    const mine = cfg.chores.filter((c) => c.active && (c.zone_id === z.zone_id || (c.zone_id === null && !c.off.includes(z.zone_id))));
+    mine.sort((a, b) => place(a) - place(b) || a.chore_id - b.chore_id);
+    for (const c of mine) {
+      const flat = c.zone_id === null;
+      const interval = flat ? (c.days[z.zone_id] ?? c.interval) : c.interval;
+      const key = hmKey(c.chore_id, z.zone_id);
+      pairs.push({ chore_id: c.chore_id, zone_id: z.zone_id, name: c.name, zone: z.name, short: z.short, label: `${c.name} · ${z.name}`, flat, interval,
+        interval_text: hmInterval(interval), minutes: flat ? (c.mins[z.zone_id] ?? c.minutes) : c.minutes, done: prev.get(key) ?? [] });
+      prev.delete(key);
     }
   }
-  return { pairs, skips: new Set(), recent: structuredClone(HM_NOW.recent), week: structuredClone(HM_NOW.week), timer: null, timerIds: 0, doneIds: 100, empty: false };
+  h.pairs = pairs;
+  h.gone = Object.fromEntries(prev);
 }
 const hmKey = (c, z) => `${c}:${z}`;
 const hmPair = (c, z) => state.home.pairs.find((p) => p.chore_id === c && p.zone_id === z);
@@ -1511,13 +1575,14 @@ function hmStamp(pairs, source, ago = 0) {
   const at = ago === 0 ? new Date().toISOString() : hmNoon(ago);
   const ids = [];
   for (const [c, z] of pairs) {
-    hmPair(c, z).done.push({ ago, at });
-    ids.push(++state.home.doneIds);
+    const id = ++state.home.doneIds;
+    hmPair(c, z).done.push({ ago, at, id });
+    ids.push(id);
   }
   const ps = pairs.map(([c, z]) => hmPair(c, z));
   const day = shiftIso(HM_TODAY, -ago);
   state.home.recent.unshift({ ids, chore_id: ps[0].chore_id, chore: ps[0].name, zones: ps.map((p) => p.zone), flat: ps[0].flat,
-    label: ps.length > 1 ? `${ps[0].name} · ${ps.length} zones` : ps[0].label, at, day, dated: ago > 0, source, how: ago > 0 ? 'earlier' : source === 'pick' ? 'timer' : 'ticked',
+    label: ps.length > 1 ? `${ps[0].name} · ${ps.length} zones` : ps[0].label, at, day, dated: ago > 0, source, how: source === 'start' ? 'starting point' : ago > 0 ? 'earlier' : source === 'pick' ? 'timer' : 'ticked',
     time: ago > 0 ? null : hm(), when: ago > 0 ? ddmm(day) : `${ddmm(day)} ${hm()}` });
   state.home.recent.sort((a, b) => (a.at < b.at ? 1 : -1));
 }
@@ -1624,12 +1689,308 @@ function homeAction(action, b) {
     hmStamp(pairs, 'web', ago);
     return [200, homeSave(before, { outcome: 'saved', head: `Saved: ${said} on ${ddmm(shiftIso(HM_TODAY, -ago))}`.slice(0, 160) }, 'Undone: the tick is gone.')];
   }
-  return [404, { error: 'not_found', message: 'Not found.' }];
+  return homeMore(action, b) ?? [404, { error: 'not_found', message: 'Not found.' }];
 }
-/** The read a Home save answers with when the body names none (docs/API.md): tick and pickdone Now, the others Pick. */
-const homeView = (action) => (['tick', 'pickdone'].includes(action) ? 'home' : 'home_pick');
+// ---- Home's other four pages (deploy 100): Zones, History, a chore's page and Edit zones ------------------------------------------
 
-const KEYED = ['/gym/tick', '/health/day', '/home/tick', '/home/pickdone', '/home/picknext', '/home/earlier', '/body', '/food/labeladd', '/log', '/water', '/again', '/usual', '/habit', '/checkin', '/health', '/held/retry', '/held/delete', '/usual/meal', '/usual/new', '/usual/from_meal'];
+const hmActiveZones = () => state.home.cfg.zones.filter((z) => z.active);
+const hmRank = (r) => (r.age === null ? 1.5 : r.age / r.interval);
+
+/** GET /home/zones as the door answers (homepage.zones_data, start_data, flat_data, zone_data, per_zone_data). */
+function hmZonesOut() {
+  const h = state.home;
+  const answers = HM.zones.home_zones.start.answers;
+  if (h.empty) return { today: HM_TODAY, empty: true, start: { jobs: [], more: 0, answers }, flat: [], zones: [] };
+  const rows = hmRows();
+  const never = rows.filter((r) => r.age === null && !h.unknown.includes(hmKey(r.chore_id, r.zone_id)));
+  const byChore = new Map();
+  for (const r of never) byChore.set(r.chore_id, [...(byChore.get(r.chore_id) ?? []), r]);
+  const jobs = [...byChore.values()];
+  const start = {
+    jobs: jobs.slice(0, 5).map((ps) => ({ chore_id: ps[0].chore_id, name: ps[0].name, pairs: ps.map((p) => [p.chore_id, p.zone_id]), zone: ps.length === 1 ? ps[0].zone : null,
+      zones: ps.length, where: ps.length === 1 ? ps[0].zone : `${ps.length} zones`, interval: ps[0].interval, interval_text: ps[0].interval_text })),
+    more: Math.max(0, jobs.length - 5), answers,
+  };
+  const zs = hmActiveZones();
+  const flat = h.cfg.chores.filter((c) => c.zone_id === null && c.active).map((c) => {
+    const tiles = zs.flatMap((z) => h.pairs.filter((p) => p.chore_id === c.chore_id && p.zone_id === z.zone_id)).map(hmRow)
+      .map((r) => ({ ...r, age_short: hmAgeShort(r.age), tinted: r.age !== null && (r.age === 0 || r.age < r.interval * 0.5) }));
+    const groups = new Map();
+    for (const z of zs) {
+      const d = c.days[z.zone_id] ?? c.interval;
+      if (!c.off.includes(z.zone_id) && d !== c.interval) groups.set(d, [...(groups.get(d) ?? []), z]);
+    }
+    const sorted = [...groups.entries()].sort((a, b) => a[0] - b[0]);
+    const off = zs.filter((z) => c.off.includes(z.zone_id));
+    const text = [hmInterval(c.interval), ...sorted.map(([d, g]) => `${g.map((z) => z.short).join(', ')} ${hmInterval(d)}`), ...(off.length ? [`not in ${off.map((z) => z.short).join(', ')}`] : [])].join('; ');
+    return { chore_id: c.chore_id, name: c.name, interval: c.interval, interval_text: hmInterval(c.interval), minutes: c.minutes,
+      all_done_today: tiles.length > 0 && tiles.every((t) => t.age === 0),
+      per_zone: { text, groups: sorted.map(([d, g]) => ({ interval: d, interval_text: hmInterval(d), zones: g.map((z) => ({ zone_id: z.zone_id, short: z.short })) })), off: off.map((z) => ({ zone_id: z.zone_id, short: z.short })) }, tiles };
+  });
+  const zones = zs.map((z) => {
+    const mine = h.pairs.filter((p) => p.zone_id === z.zone_id).map(hmRow);
+    const own = mine.filter((r) => !r.flat);
+    const oldest = rows.find((r) => r.zone_id === z.zone_id);
+    return { zone_id: z.zone_id, name: z.name, short: z.short, count: mine.length, own: own.length, chores: mine,
+      open: own.some((r) => r.age !== null && r.age <= 14), todoist: z.name.toLowerCase() === 'storage' && own.length === 0,
+      oldest_age: oldest ? oldest.age : null, oldest_text: !oldest ? null : oldest.age === null ? 'not yet' : hmAge(oldest.age) };
+  });
+  return { today: HM_TODAY, empty: !h.cfg.chores.some((c) => c.active), start, flat, zones };
+}
+
+const hmDayHead = (day) => `${new Date(`${day}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'long', timeZone: 'UTC' })} ${ddmm(day)}`;
+/** GET /home/history?n= as the door answers (homepage.history_data): ?n= rows (60 to 600), by day, newest first. */
+function hmHistoryOut(nIn) {
+  const h = state.home;
+  const limit = Math.min(600, Math.max(60, /^\d+$/.test(String(nIn ?? '')) ? Number(nIn) : 60));
+  const rows = h.recent.slice(0, limit);
+  const days = [];
+  for (const e of rows) {
+    if (!days.length || days.at(-1).day !== e.day) days.push({ day: e.day, label: hmDayHead(e.day), rows: [] });
+    days.at(-1).rows.push(e);
+  }
+  const zoneIx = (z) => h.cfg.zones.findIndex((x) => x.zone_id === z);
+  const jobs = [...h.pairs].sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()) || zoneIx(a.zone_id) - zoneIx(b.zone_id))
+    .map((p) => ({ pairs: [[p.chore_id, p.zone_id]], label: p.label }));
+  return { today: HM_TODAY, limit, step: 60, max: 600, more: rows.length === limit && limit < 600, count: rows.length, days, jobs, earlier_days: 365 };
+}
+
+const hmDate = (day) => (day.slice(0, 4) === HM_TODAY.slice(0, 4) ? ddmm(day) : `${ddmm(day)}${day.slice(0, 4)}`);
+function hmDates(entries) {
+  const last = entries.slice(0, 10).map((e) => ({ day: e.day, start: e.source === 'start' }));
+  const days = [...new Set(entries.filter((e) => e.source !== 'start').map((e) => e.day))].sort();
+  const gaps = days.slice(1).map((d, i) => hmAgo(days[i]) - hmAgo(d)).sort((a, b) => a - b);
+  const gap = days.length >= 3 ? gaps[Math.floor(gaps.length / 2)] : null;
+  return { last, last_text: last.map((l) => `${hmDate(l.day)}${l.start ? ' (starting point)' : ''}`).join(' · ') || 'not logged yet', usually_days: gap, usually: gap === null ? null : `usually every ${gap} day${gap === 1 ? '' : 's'}` };
+}
+/** GET /home/chore?id= (reads.home_chore): null when there is no such chore. */
+function hmChoreOut(id) {
+  const h = state.home;
+  const c = h.cfg.chores.find((x) => x.chore_id === Number(id));
+  if (!c) return null;
+  const flat = c.zone_id === null;
+  const zone = flat ? 'whole flat' : h.cfg.zones.find((z) => z.zone_id === c.zone_id).name;
+  const mine = h.recent.filter((e) => e.chore_id === c.chore_id);
+  const base = { chore_id: c.chore_id, name: c.name, zone_id: c.zone_id, zone, flat, active: c.active, interval: c.interval, interval_text: hmInterval(c.interval), minutes: c.minutes,
+    meta: `${hmInterval(c.interval)} · ${c.minutes} min · ${zone}${c.active ? '' : ' · retired'}`, steps: c.steps, howto: c.howto, words: c.words };
+  if (!flat) return { ...base, ...hmDates(mine), zones: null };
+  const zones = hmActiveZones().flatMap((z) => {
+    const p = h.pairs.find((x) => x.chore_id === c.chore_id && x.zone_id === z.zone_id);
+    const rs = mine.filter((e) => e.zones.includes(z.name));
+    if (!p && !rs.length) return [];
+    const interval = p ? p.interval : c.interval;
+    const minutes = p ? p.minutes : c.minutes;
+    return [{ zone_id: z.zone_id, zone: z.name, on: !!p, interval, interval_text: hmInterval(interval), minutes, text: p ? `${hmInterval(interval)} · ${minutes} min` : 'not done here', ...hmDates(rs) }];
+  });
+  return { ...base, last: [], last_text: null, usually_days: null, usually: null, zones };
+}
+
+function hmEditChore(c) {
+  const flat = c.zone_id === null;
+  return { chore_id: c.chore_id, name: c.name, zone_id: c.zone_id, flat, active: c.active, interval: c.interval, interval_text: hmInterval(c.interval), minutes: c.minutes,
+    meta: `${hmInterval(c.interval)} · ${c.minutes} min${c.active ? '' : ' · retired'}`, steps: c.steps, howto: c.howto, words: c.words,
+    per_zone: flat && c.active ? hmActiveZones().map((z) => ({ zone_id: z.zone_id, zone: z.name, on: !c.off.includes(z.zone_id), days: c.days[z.zone_id] ?? null, minutes: c.mins[z.zone_id] ?? null })) : null };
+}
+/** GET /home/edit as the door answers (reads.home_edit). */
+function hmEditOut() {
+  const { cfg } = state.home;
+  return { goal: cfg.goal, flat: cfg.chores.filter((c) => c.zone_id === null).map(hmEditChore),
+    zones: cfg.zones.map((z) => { const mine = cfg.chores.filter((c) => c.zone_id === z.zone_id); return { ...z, count: mine.filter((c) => c.active).length, chores: mine.map(hmEditChore) }; }),
+    zone_options: [{ zone_id: null, label: 'Whole flat (each zone on its own)', active: true }, ...cfg.zones.map((z) => ({ zone_id: z.zone_id, label: `${z.name}${z.active ? '' : ' (retired)'}`, active: z.active }))],
+    limits: HM_EDIT.limits };
+}
+
+// the checks of homepage's api forms (_hname, _hlist): too long or not a list is a 400, not a refusal
+const hmName = (b, most, name = 'name') => {
+  const v = b[name];
+  if (v !== undefined && v !== null && typeof v !== 'string') return [`${name} must be text.`];
+  const out = String(v ?? '').split(/\s+/).filter(Boolean).join(' ');
+  return out.length > most ? [`${name} must be ${most} characters or fewer.`] : [null, out];
+};
+const hmList = (b, name, most, width, commas) => {
+  const v = b[name] ?? [];
+  const bad = !Array.isArray(v) || v.length > most || !v.every((x) => typeof x === 'string' && !/[\r\n]/.test(x) && (!commas || !x.includes(',')) && x.split(/\s+/).filter(Boolean).join(' ').length <= width);
+  return bad ? [`${name} must be a list of up to ${most} texts of up to ${width} characters${commas ? ', without commas' : ', one line each'}.`] : [null, v.map((x) => x.split(/\s+/).filter(Boolean).join(' ')).filter(Boolean)];
+};
+const hmInt = (b, name) => (Number.isInteger(b[name]) ? [null, b[name]] : [`${name} must be a whole number.`]);
+const hmZoneIn = (b) => {
+  const L = HM_EDIT.limits;
+  const [e1, name] = hmName(b, L.zone_name_max); if (e1) return [e1];
+  const [e2, short] = hmName(b, L.short_max, 'short'); if (e2) return [e2];
+  const [e3, spots] = hmList(b, 'spots', L.spots_max, L.spot_max, false); if (e3) return [e3];
+  const [e4, words] = hmList(b, 'words', L.words_max, L.word_max, true); if (e4) return [e4];
+  return [null, { name, short, spots, words: words.map((w) => w.toLowerCase()) }];
+};
+const hmChoreIn = (b) => {
+  const L = HM_EDIT.limits;
+  if (!('zone_id' in b)) return ['zone_id is missing (null = the whole flat).'];
+  if (b.zone_id !== null && !hmIsId(b.zone_id)) return ['zone_id must be a number.'];
+  if (b.howto !== undefined && b.howto !== null && typeof b.howto !== 'string') return ['howto must be text or null.'];
+  const howto = String(b.howto ?? '').split(/\s+/).filter(Boolean).join(' ');
+  if (howto.length > L.howto_max) return [`howto must be ${L.howto_max} characters or fewer.`];
+  const [e1, name] = hmName(b, L.chore_name_max); if (e1) return [e1];
+  const [e2, days] = hmInt(b, 'days'); if (e2) return [e2];
+  const [e3, minutes] = b.minutes === null || b.minutes === undefined ? [null, ''] : hmInt(b, 'minutes'); if (e3) return [e3];
+  const [e4, steps] = hmList(b, 'steps', L.steps_max, L.step_max, false); if (e4) return [e4];
+  const [e5, words] = hmList(b, 'words', L.words_max, L.word_max, true); if (e5) return [e5];
+  return [null, { name, zone_id: b.zone_id, days, minutes: minutes === '' ? 15 : minutes, steps, howto: howto || null, words: words.map((w) => w.toLowerCase()) }];
+};
+const hmChoreRefusal = (f) => !f.name ? "Type the chore's name." : f.days < 1 || f.days > 730 || f.minutes < 1 || f.minutes > 240 ? 'The interval is 1 to 730 days and the time 1 to 240 minutes.' : null;
+const hmDays = (n) => `${n} day${n === 1 ? '' : 's'}`;
+
+/** POST /home/<action> of Zones, History and Edit zones: [status, answer] (home.py). */
+function homeMore(action, b) {
+  const h = state.home;
+  const cfg = h.cfg;
+  const zoneBy = (id) => cfg.zones.find((z) => z.zone_id === id);
+  const choreBy = (id) => cfg.chores.find((c) => c.chore_id === id);
+  const done = (head) => { hmSync(h); return [200, homePlain({ outcome: 'changed', head })]; };
+  if (action === 'alldone') {
+    if (!hmIsId(b.chore_id)) return hmBad('chore_id must be a number.');
+    const c = choreBy(b.chore_id);
+    if (!c || !c.active || c.zone_id !== null) return [200, rejected('That is not a whole-flat chore.')];
+    const before = structuredClone(h);
+    const mine = h.pairs.filter((p) => p.chore_id === c.chore_id);
+    const said = `${c.name} · whole flat`;
+    const fresh = mine.filter((p) => !p.done.some((d) => d.ago === 0));
+    if (mine.length && !fresh.length) { // every zone done today: this tap takes it back
+      for (const p of mine) p.done = p.done.filter((d) => d.ago !== 0);
+      h.recent = h.recent.filter((e) => !(e.chore_id === c.chore_id && e.day === HM_TODAY));
+      return [200, homeSave(before, { outcome: 'changed', head: `Ticked off: ${said}` }, `Undone: ${said} is done again.`)];
+    }
+    hmStamp(fresh.map((p) => [p.chore_id, p.zone_id]), 'web');
+    return [200, homeSave(before, { outcome: 'saved', head: `Saved: ${said}` }, 'Undone: the tick is gone.')];
+  }
+  if (action === 'startpoint') {
+    const pairs = hmPairsOk(b.pairs) ? hmValid(b.pairs) : null;
+    if (!hmPairsOk(b.pairs)) return hmBad('pairs must be a list of 1 to 12 [chore_id, zone_id].');
+    if (!['week', 'month', 'longer', 'unknown'].includes(b.ago)) return hmBad('ago must be week, month, longer or unknown.');
+    if (!pairs.length) return [200, rejected('That job is not in the list any more.')];
+    const before = structuredClone(h);
+    const said = hmNames(pairs);
+    if (b.ago === 'unknown') {
+      const fresh = pairs.filter(([c, z]) => !h.unknown.includes(hmKey(c, z)));
+      h.unknown.push(...fresh.map(([c, z]) => hmKey(c, z)));
+      return [200, homeSave(before, { outcome: 'changed', head: `Left as not logged yet: ${said}`.slice(0, 160) }, 'Undone: the job is back on the card.')];
+    }
+    const todo = pairs.filter(([c, z]) => hmPair(c, z).done.length === 0);
+    if (!todo.length) return [200, homePlain({ outcome: 'changed', head: 'Logged already.' })];
+    for (const [c, z] of todo) {
+      const back = b.ago === 'week' ? 3 : b.ago === 'month' ? 14 : 2 * hmPair(c, z).interval;
+      hmStamp([[c, z]], 'start', back);
+    }
+    return [200, homeSave(before, { outcome: 'changed', head: `Starting point: ${said}`.slice(0, 160) }, 'Undone: the tick is gone.')];
+  }
+  if (action === 'remove') {
+    if (!Array.isArray(b.ids) || b.ids.length < 1 || b.ids.length > 20 || !b.ids.every(hmIsId)) return hmBad("ids must be a list of 1 to 20 ids (a history entry's ids).");
+    const gone = h.recent.filter((e) => e.ids.some((i) => b.ids.includes(i)));
+    if (!gone.length) return [200, rejected('That is not in the history any more.')];
+    const before = structuredClone(h);
+    const ids = gone.flatMap((e) => e.ids);
+    for (const p of h.pairs) p.done = p.done.filter((d) => !ids.includes(d.id));
+    for (const k of Object.keys(h.gone)) h.gone[k] = h.gone[k].filter((d) => !ids.includes(d.id));
+    h.recent = h.recent.filter((e) => !gone.includes(e));
+    const e = gone[0];
+    const said = e.ids.length > 1 && e.flat ? e.chore : e.label;
+    return [200, homeSave(before, { outcome: 'changed', head: `Removed: ${said}`.slice(0, 160) }, `Undone: ${said} is back in the history.`)];
+  }
+  if (action === 'goalset') {
+    const [bad, n] = hmInt(b, 'goal');
+    if (bad) return hmBad(bad);
+    if (n < 1 || n > 7) return [200, rejected('The weekly goal is 1 to 7 sessions.')];
+    cfg.goal = n;
+    h.week.goal = n;
+    return done(`Weekly goal: ${n} session${n === 1 ? '' : 's'}.`);
+  }
+  if (action === 'zonenew' || action === 'zoneedit') {
+    if (action === 'zoneedit' && !hmIsId(b.zone_id)) return hmBad('zone_id must be a number.');
+    const [bad, f] = hmZoneIn(b);
+    if (bad) return hmBad(bad);
+    if (!f.name) return [200, rejected("Type the zone's name.")];
+    const same = cfg.zones.find((z) => z.name.toLowerCase() === f.name.toLowerCase() && (action === 'zonenew' || z.zone_id !== b.zone_id));
+    const short = f.short || f.name.split(' ')[0].slice(0, 12);
+    if (action === 'zonenew') {
+      if (same && same.active) return [200, rejected(`${same.name} is already in your list.`)];
+      if (same) { same.active = true; return done(`${same.name} is back in your list.`); }
+      cfg.zones.push({ zone_id: cfg.nextZone++, name: f.name, short, spots: f.spots, words: f.words, active: true });
+      return done(`Added the zone ${f.name}.`);
+    }
+    if (same) return [200, rejected('Another zone has that name.')];
+    const z = zoneBy(b.zone_id);
+    if (!z) return [200, rejected('That zone is not in the list.')];
+    Object.assign(z, { name: f.name, short, spots: f.spots, words: f.words });
+    return done(`Saved the zone ${f.name}.`);
+  }
+  if (action === 'zoneactive') {
+    if (!hmIsId(b.zone_id)) return hmBad('zone_id must be a number.');
+    if (typeof b.on !== 'boolean') return hmBad('on must be true or false.');
+    const z = zoneBy(b.zone_id);
+    if (!z) return [200, rejected('That zone is not in the list.')];
+    z.active = b.on;
+    return done(b.on ? `${z.name} is back.` : `${z.name} is retired; its history stays.`);
+  }
+  if (action === 'chorenew' || action === 'choreedit') {
+    if (action === 'choreedit' && !hmIsId(b.chore_id)) return hmBad('chore_id must be a number.');
+    const [bad, f] = hmChoreIn(b);
+    if (bad) return hmBad(bad);
+    const stop = hmChoreRefusal(f);
+    if (stop) return [200, rejected(stop)];
+    const zoneOk = f.zone_id === null || (action === 'chorenew' ? zoneBy(f.zone_id)?.active : zoneBy(f.zone_id));
+    if (!zoneOk) return [200, rejected('Pick a zone from the list, or the whole flat.')];
+    const fields = { name: f.name, zone_id: f.zone_id, interval: f.days, minutes: f.minutes, steps: f.steps, howto: f.howto, words: f.words };
+    if (action === 'chorenew') {
+      cfg.chores.push({ chore_id: cfg.nextChore++, active: true, off: [], days: {}, mins: {}, ...fields });
+      return done(`Added ${f.name} (${hmInterval(f.days)}).`);
+    }
+    const c = choreBy(b.chore_id);
+    if (!c) return [200, rejected('That chore is not in the list.')];
+    Object.assign(c, fields);
+    return done(`Saved ${f.name} (${hmInterval(f.days)}).`);
+  }
+  if (action === 'choreactive') {
+    if (!hmIsId(b.chore_id)) return hmBad('chore_id must be a number.');
+    if (typeof b.on !== 'boolean') return hmBad('on must be true or false.');
+    const c = choreBy(b.chore_id);
+    if (!c) return [200, rejected('That chore is not in the list.')];
+    c.active = b.on;
+    return done(b.on ? `${c.name} is back.` : `${c.name} is retired; its history stays.`);
+  }
+  if (action === 'chorezones') {
+    if (!hmIsId(b.chore_id)) return hmBad('chore_id must be a number.');
+    if (!Array.isArray(b.zones) || !b.zones.every((z) => z && typeof z === 'object' && hmIsId(z.zone_id) && typeof z.on === 'boolean')) return hmBad('zones must be a list of {zone_id, on, days, minutes}.');
+    const c = choreBy(b.chore_id);
+    if (!c || c.zone_id !== null) return [200, rejected('That is not a whole-flat chore.')];
+    const ids = hmActiveZones().map((z) => z.zone_id);
+    const off = c.off.filter((x) => !ids.includes(x));
+    const days = Object.fromEntries(Object.entries(c.days).filter(([k]) => !ids.includes(Number(k))));
+    const mins = Object.fromEntries(Object.entries(c.mins).filter(([k]) => !ids.includes(Number(k))));
+    for (const z of ids) {
+      const row = b.zones.find((x) => x.zone_id === z);
+      if (!row || !row.on) off.push(z);
+      for (const [field, into, top, own] of [['days', days, 730, c.interval], ['minutes', mins, 240, c.minutes]]) {
+        const v = row?.[field];
+        if (v === null || v === undefined) continue;
+        if (!Number.isInteger(v)) return hmBad(`${field} must be a whole number.`);
+        if (v < 1 || v > top) return [200, rejected('Give the days (1 to 730) and minutes (1 to 240) as whole numbers, or leave them blank.')];
+        if (v !== own) into[z] = v;
+      }
+    }
+    if (ids.every((z) => off.includes(z))) return [200, rejected(`${c.name} needs at least one zone. Retire it instead.`)];
+    Object.assign(c, { off: off.sort((a, b2) => a - b2), days, mins });
+    return done(`Saved ${c.name} per zone.`);
+  }
+  return null;
+}
+
+/** The read a Home save answers with when the body names none (docs/API.md): tick and pickdone Now, the others Pick. */
+const homeView = (action) =>
+  ['tick', 'pickdone'].includes(action) ? 'home'
+  : ['alldone', 'startpoint'].includes(action) ? 'home_zones'
+  : action === 'remove' ? 'home_history'
+  : ['zonenew', 'zoneedit', 'zoneactive', 'chorenew', 'choreedit', 'choreactive', 'chorezones', 'goalset'].includes(action) ? 'home_edit'
+  : 'home_pick';
+
+const KEYED = ['/gym/tick', '/health/day', '/home/tick', '/home/pickdone', '/home/picknext', '/home/earlier', '/home/alldone', '/home/startpoint', '/body', '/food/labeladd', '/log', '/water', '/again', '/usual', '/habit', '/checkin', '/health', '/held/retry', '/held/delete', '/usual/meal', '/usual/new', '/usual/from_meal'];
 
 reset();
 
@@ -1670,6 +2031,34 @@ createServer(async (req, res) => {
   if (req.url === '/standin/home-closed' && req.method === 'POST') {
     hmCloseTimer(); // the timer stopped elsewhere (app. or another device): the page's next timer button is refused
     return send(res, 200, { outcome: 'home-closed' });
+  }
+  // deploy 100: History with 70 more rows (Show more), History with nothing ticked
+  if (req.url === '/standin/home-many' && req.method === 'POST') {
+    const p = state.home.pairs.find((x) => x.chore_id === 3);
+    for (let i = 0; i < 70; i++) {
+      const ago = 20 + i;
+      const day = shiftIso(HM_TODAY, -ago);
+      const id = ++state.home.doneIds;
+      p.done.push({ ago, at: hmNoon(ago), id });
+      state.home.recent.push({ ids: [id], chore_id: p.chore_id, chore: p.name, zones: [p.zone], flat: false, label: p.label, at: `${day}T20:00:00+01:00`, day, dated: false, source: 'web', how: 'ticked', time: '20:00', when: `${ddmm(day)} 20:00` });
+    }
+    state.home.recent.sort((a, b) => (a.at < b.at ? 1 : -1));
+    return send(res, 200, { outcome: 'home-many' });
+  }
+  if (req.url === '/standin/home-bare' && req.method === 'POST') {
+    // two more zones with no chore at all (the whole-flat ones are off there): "no recurring chores", and Storage with its link to Todoist
+    const cfg = state.home.cfg;
+    for (const name of ['Balcony', 'Storage']) {
+      const zone_id = cfg.nextZone++;
+      cfg.zones.push({ zone_id, name, short: name, spots: [], words: [], active: true });
+      for (const c of cfg.chores) if (c.zone_id === null) c.off.push(zone_id);
+    }
+    hmSync(state.home);
+    return send(res, 200, { outcome: 'home-bare' });
+  }
+  if (req.url === '/standin/home-nohistory' && req.method === 'POST') {
+    state.home.recent = [];
+    return send(res, 200, { outcome: 'home-nohistory' });
   }
   if (req.url === '/standin/home-empty' && req.method === 'POST') {
     state.home.empty = true; // no zones or chores: Now's empty card, Pick's, no card on Today
@@ -1758,6 +2147,15 @@ createServer(async (req, res) => {
   if (url.pathname === '/api/v1/home/pick' && req.method === 'GET') {
     return send(res, 200, { home_pick: pickOut(url.searchParams.get('min'), url.searchParams.get('n')), undo: undo() }, signedIn);
   }
+  if (url.pathname === '/api/v1/home/zones' && req.method === 'GET') return send(res, 200, { home_zones: hmZonesOut(), undo: undo() }, signedIn);
+  if (url.pathname === '/api/v1/home/history' && req.method === 'GET') return send(res, 200, { home_history: hmHistoryOut(url.searchParams.get('n')), undo: undo() }, signedIn);
+  if (url.pathname === '/api/v1/home/edit' && req.method === 'GET') return send(res, 200, { home_edit: hmEditOut(), undo: undo() }, signedIn);
+  if (url.pathname === '/api/v1/home/chore' && req.method === 'GET') {
+    const id = url.searchParams.get('id');
+    if (id === null || !/^\d+$/.test(id)) return send(res, 400, { error: 'bad_request', message: "id must be a chore's id." }, signedIn);
+    const chore = hmChoreOut(id);
+    return chore ? send(res, 200, { home_chore: chore, undo: undo() }, signedIn) : send(res, 404, { error: 'no_entry', message: 'That chore is not in the list.' }, signedIn);
+  }
   if (url.pathname === '/api/v1/gym' && req.method === 'GET') return send(res, 200, { gym: gymOut(), undo: undo() }, signedIn);
   if (url.pathname === '/api/v1/gym/plan' && req.method === 'GET') return send(res, 200, { gym_plan: planOut(), undo: undo() }, signedIn);
   if (url.pathname === '/api/v1/gym/exercises' && req.method === 'GET') return send(res, 200, { gym_exercises: exercisesOut(), undo: undo() }, signedIn);
@@ -1787,6 +2185,10 @@ createServer(async (req, res) => {
     : view === 'gym_exercises' ? { gym_exercises: exercisesOut() }
     : view === 'home' ? { home: homeOut(body.view_min) }
     : view === 'home_pick' ? { home_pick: pickOut(body.view_min, body.view_n) }
+    : view === 'home_zones' ? { home_zones: hmZonesOut() }
+    : view === 'home_history' ? { home_history: hmHistoryOut(body.view_limit) }
+    : view === 'home_chore' ? { home_chore: body.view_id ? hmChoreOut(body.view_id) : null }
+    : view === 'home_edit' ? { home_edit: hmEditOut() }
     : view === 'habits' ? { habits: habitsOut(['tracked', 'untracked', 'retired', 'all'].includes(body.show) ? body.show : 'tracked') }
     : { day: dayOut(state.day) };
   if (req.url === '/api/v1/session' && req.method === 'DELETE') {
