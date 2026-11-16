@@ -117,7 +117,7 @@ def habit_day(name: str, day: str, key: Optional[str]) -> dict:
         d = date.fromisoformat(day)
     except ValueError:
         return _rejected("Unknown day.")
-    if d > today or d < today - timedelta(days=habitspage.DAYS + 5):
+    if d > today or d < today - timedelta(days=habitspage.EDIT_DAYS):
         return _rejected("Only the last 30 days can be changed here.")
     with connect() as c:
         ids = [r["id"] for r in c.execute("""SELECT e.id FROM events e JOIN log_types lt ON lt.id = e.type_id WHERE lt.name = %s AND e.day = %s

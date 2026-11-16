@@ -8,7 +8,7 @@ import re
 from datetime import date, datetime, timedelta
 from typing import Optional
 
-from . import body as tape, bodypage, foodpage, gratitude, healthpage, held, privateline, todaypage, uiprefs, webquestions
+from . import body as tape, bodypage, foodpage, gratitude, habitspage, healthpage, held, privateline, todaypage, uiprefs, webquestions
 from .db import connect
 from .rules import BERLIN
 from .webentry import readable
@@ -477,3 +477,42 @@ def body_due(due) -> Optional[dict]:
     """Today's "Body measurements due" line (body.due, bodypage.today_line): the last session and how many days ago, both None
     before the first one; None when not due."""
     return {"last": iso(due["last"]), "days": due["days"]} if due else None
+
+
+# ---- the Habits page (deploy 93, step 1c of the move to logger.) ------------------------------------------------------------------
+
+SQUARE = {"d": "done", "h": "partly", "x": "logged", "": "none"}  # the calendar's square classes (habitspage.day_state) as words
+
+
+def habits(show: str = "tracked") -> dict:
+    """The Habits page (habitspage.load, todo, calendar, sections, stats: the same as app.'s page): today's habits with "n of N done",
+    the last 30 days of every tracked habit, "Your habits" for a filter (show: tracked, untracked, retired or all; else tracked)
+    with its counts, and what the new-habit form and the forms need (the groups, the limits)."""
+    show = show if show in dict(habitspage.SHOWS) else "tracked"
+    with connect() as c, c.cursor() as cur:
+        d = habitspage.load(cur)
+    rows, n_done = habitspage.todo(d)
+    avoid, n = d["avoid"], habitspage.counts(d["manage"])
+    return {
+        "today": iso(d["today"]), "start": iso(d["start"]), "days": habitspage.DAYS, "edit_from": iso(d["today"] - timedelta(days=habitspage.EDIT_DAYS)),
+        "checklist": {"done": n_done, "total": len(rows),
+                      "habits": [{"name": h["type_name"], "label": h["label"], "done": h["done"], "target": h["target"], "complete": bool(h["complete"]),
+                                  "avoid": h["type_name"] in avoid,
+                                  "last_tick": f"e{d['last_tick'][h['type_name']]}" if h["type_name"] in d["last_tick"] else None}
+                                 for h in d["now"]]},
+        "calendar": [{"name": r["h"]["name"], "label": r["h"]["label"], "target": r["target"], "avoid": r["avoid"], "full": r["full"],
+                      "editable": r["h"]["name"] not in habitspage.LOCKED,
+                      "days": [{"day": iso(day), "n": cnt, "state": SQUARE[cls], "text": words} for day, cnt, cls, words in r["days"]]}
+                     for r in habitspage.calendar(d)],
+        "show": show, "help": habitspage.HELP[show],
+        "shows": [{"key": k, "label": label, "count": n[k]} for k, label in habitspage.SHOWS],
+        "list": [{"group": cat, "label": title,
+                  "habits": [{"name": r["name"], "label": r["label"], "group": r["category"], "target": r["daily_target"], "order": r["sort_order"],
+                              "avoid": r["name"] in avoid, "state": habitspage.state(r), "ticks": r["ticks"], "days30": r["days30"],
+                              "last_day": iso(r["last_day"]), "stats": habitspage.stats(r, d["today"]),
+                              "can_track": bool(r["active"]), "can_delete": not r["ticks"]} for r in part]}
+                 for cat, title, part in habitspage.sections(d, show)],
+        "groups": [{"key": k, "label": v} for k, v in habitspage.GROUPS], "default_group": "practice",
+        "limits": {"label_max": habitspage.LABEL_MAX, "target_min": habitspage.TARGET[0], "target_max": habitspage.TARGET[1],
+                   "order_max": habitspage.ORDER_MAX},
+    }

@@ -1,10 +1,10 @@
 # The JSON door `/api/v1` (for the new front end)
 
 Since deploys 75 and 76 (16.11.2026); deploy 77 (16.11.2026) made the changes of the door's review (marked "since 77");
-deploy 78 removed the old field names that 77 kept for one deploy; deploy 86 added the usual-meal editor; deploy 89 the scanner, the label photo and the look-up; deploy 91 the Health page and body measurements. The front end that calls it: `front/` (`front/README.md`).
+deploy 78 removed the old field names that 77 kept for one deploy; deploy 86 added the usual-meal editor; deploy 89 the scanner, the label photo and the look-up; deploy 91 the Health page and body measurements; deploy 93 the Habits page. The front end that calls it: `front/` (`front/README.md`).
 Code: `core/app/api.py` (the door, the saves), `core/app/reads.py` (the reads).
 Tests: `tests/test_api_door.py`, `tests/test_api_reads.py`, `tests/test_api_saves.py`, `tests/test_api_shape.py` (77),
-`tests/test_api_usual.py` (86), `tests/test_api_scan.py` (89), `tests/test_api_health.py` (91).
+`tests/test_api_usual.py` (86), `tests/test_api_scan.py` (89), `tests/test_api_health.py` (91), `tests/test_api_habits.py` (93).
 
 The door is for one caller only: the new front end's own server, from inside Docker. The browser never calls it.
 The live web app at `app.` does not use it and did not change.
@@ -223,6 +223,41 @@ Body = {
 }
 ```
 
+### `GET /api/v1/habits?show=tracked|untracked|retired|all` → `{"habits": Habits, "undo": Undo}` (93)
+
+app.'s Habits page as data (`habitspage.load`, `todo`, `calendar`, `sections`, `stats`: app.'s page draws the same). `show` is the
+filter of "Your habits" (`tracked` when not given; another value is 400 `bad_request`: "show must be tracked, untracked, retired or
+all."); today's ticks and the calendar do not depend on it.
+
+```
+Habits = {
+  today, start, days: 30,             // the calendar: start .. today
+  edit_from,                          // the oldest day a save changes (today − 35); the calendar shows 30, a five-week one can use 35
+  checklist: {done, total,            // "n of N done": a habit to avoid is not counted
+              habits: [{name, label, done, target, complete, avoid, last_tick}]},   // every tracked habit, in Today's order
+                                      // (the Habits page ignores Settings > Today page's hidden ones, as app. does);
+                                      // last_tick: the tick an untick removes (POST /habit), null without one today
+  calendar: [{name, label, target, avoid, full, editable,       // a tracked habit; full: the days done (avoid: the days without)
+              days: [{day, n, state, text}]}],                  // oldest first, 30 days, today last
+  show, help,                         // the filter and app.'s line under it
+  shows: [{key, label, count}],       // tracked, untracked, retired, all
+  list: [{group, label,               // the groups with habits in this filter (intake, practice, learning, daily, behaviour)
+          habits: [{name, label, group, target, order, avoid, state, ticks, days30, last_day, stats, can_track, can_delete}]}],
+  groups: [{key, label}], default_group: "practice",   // for a new habit
+  limits: {label_max: 40, target_min: 1, target_max: 10, order_max: 999}
+}
+```
+
+- A calendar day: `n` ticks of that day against the habit's `target`; `state`: `done` (n at least target), `partly` (some, fewer), `none`;
+  for a habit to avoid `logged` (n above 0, "it happened") or `none`. `text` is app.'s hover text: "done", "1 of 2", "not logged",
+  "2 logged", "none". `editable: false` = a time (Wake-up): no save (none is listed today).
+- A list row: `state` is `tracked`, `untracked` (active, not on Today) or `retired`; `target` times a day; `order`; `avoid`: the aim;
+  `ticks` all ticks ever, `days30` the days of the last 30 with one, `last_day`; `stats` is app.'s line ("12 of the last 30 days · last
+  13.11.", "Never ticked", "Last ticked 02.08."). `can_track`: Track on or off works (not for a retired habit); `can_delete`: no history,
+  so Delete works. Edit and Retire (or Bring back, for `retired`) always work.
+- Wake-up and Bedtime are times, not habits: never listed. Hiding and ordering habits on Today and the reminders stay at app.
+  (Settings > Today page, Habits): no route here.
+
 ## The label photo: `POST /api/v1/food/label` (89)
 
 One to three photos of ONE package (the name and the nutrition table often need two), read together in one AI call
@@ -274,6 +309,8 @@ function takes one, so a re-sent request saves once (`replayed: true`).
 | `/api/v1/health/day` (91) | `day` (yyyy-mm-dd), `values: {<row>: value}` (only the rows sent are looked at), `confirmed`, `confirm_delete`, `key`; `range`, `all` for the fresh read | `webactions.health_day` |
 | `/api/v1/body` (91) | `day` (the session, yyyy-mm-dd), `values: {<measure>: cm}` (only the measures sent are looked at), `confirmed`, `confirm_delete`, `key`; `range` for the fresh read | `webactions.body_save` |
 | `/api/v1/body/skip` (91) | | `webactions.body_skip` ("Not today": the due line hidden until the next health day; no Undo) |
+| `/api/v1/habit/day` (93) | `name`, `day` (yyyy-mm-dd), `key`; `show` for the fresh read | `webactions.habit_day` (a square of the calendar) |
+| `/api/v1/habits/manage` (93) | `action`: `track`, `retire`, `restore`, `edit`, `delete` or `new`, and its fields (below), `key`; `show` for the fresh read | `webhabits.ACTIONS[action]` |
 | `/api/v1/lookup` (89) | `text` (a name, or a barcode of 8 to 14 digits), optional `question_id` (an open food question it answers; without `text` the question's word is looked up) | `webfood.look_up` → `logbook.food_lookup` (no key: it saves nothing) |
 
 The usual-meal saves (86): the front end sends `confirmed: true` and the change is made at once, with Undo (without it a change or
@@ -323,6 +360,40 @@ The Health page's row and the body session (91), each like app.'s Save of that r
 - The answer carries the fresh read: `view: "health"` (default of `/health/day`: `health` as `GET /health` with the body's `range`
   and `all`), `view: "body"` (default of `/body`: `body` of the session's day, or `view_day`); `/body/skip` answers with the `day`.
 
+The Habits page's saves (93), each like app.'s form:
+
+- `/habit/day`: a day with fewer ticks than the habit's `target` gets one more tick (a date, no time; `saved`, as a typed "tick
+  <habit> on 13.11.2026" without the AI); a day that is done (n at least target) has all its ticks taken off (`changed`, "Removed 2
+  ticks of Reading on 13.11.2026."); a habit to avoid is logged and taken off the same way. Refusals are `rejected` with a plain
+  `reason`: "That habit cannot be changed for a past day here." (not tracked, retired, not there, or Wake-up and Bedtime),
+  "Only the last 30 days can be changed here." (a day after today, or more than 35 days back: 35 back is still allowed), "Unknown day."
+  (not a date). A missing `name` or `day` is 400 `bad_request`.
+- `/habit/day` and `key`: the message carries the time of the click (as on app.), so a re-sent key never replays: sent again while the
+  day still needs a tick it is refused ("This idempotency key was already used for a different message."), nothing is saved twice;
+  sent again after the day is done it is the next click and takes the day's ticks off. The page sends a new `key` per tap and does not
+  send a tap twice.
+- `/habits/manage` fields by `action` (a plain yes is the click; Hiding and ordering on Today are not here):
+  `track`: `name`, `on` (true or false; a retired habit is refused: "… is retired: bring it back first."; a newly tracked habit goes
+  last on Today); `retire`, `restore`: `name`; `edit`: `name`, `label`, `target` (times a day, required: app.'s function sets 1 for a
+  field left out), optional `order` (0 to 999; kept when not sent) and `aim` (`do` or `avoid`; kept when not sent); `delete`: `name`,
+  `confirmed: true` (without it: "Press Yes, delete to delete a habit."; with history: "… has history, so it cannot be deleted. Retire
+  it instead."); `new`: `label`, `group` (one of `groups`; "daily" when not sent), `target` (1 when not sent), `track` (true or false;
+  false when not sent). Refusals as `rejected`: a label another habit or log type already has, in any case ("There is already a log
+  type called …"; for a retired one "(retired: bring it back from the Retired list)"), no label ("A habit needs a name to show." /
+  "Give the habit a name with letters or digits."), an unknown group ("Choose a group for the habit."), an unknown name ("Unknown
+  habit."; Wake-up and Bedtime too).
+- 400 `bad_request` (the page's own form stops these first; app.'s functions would cut or clamp them): a `label` of more than 40
+  characters (after its spaces are tidied), a `target` that is not a whole number from 1 to 10, an `order` outside 0 to 999, an `aim`
+  other than `do` or `avoid`, `on`, `track` not true or false, a missing `name`, an unknown `action`, an edit without `target`.
+- `key` on `/habits/manage`: accepted, but app.'s functions take none: a `new` sent twice is refused the second time (the label is
+  there), the others are the same twice.
+- **Undo** (`POST /undo`): a ticked day (`saved`): the logged message taken back (the chat's undo, while it is the newest); an unticked
+  day (`changed`): the ticks put back as they were (same ids). Today's `POST /habit` is the same (tick and untick). **The list's forms
+  (`/habits/manage`) have no Undo** (as on app.): track, edit, retire, bring back, new and delete are changed back by hand (a deleted
+  habit had no history); the answer's `undo` is null and the session's earlier Undo bar goes, as on app. A refusal leaves it.
+- The answer carries the fresh read: `view: "habits"` (default of both routes: `habits` as `GET /habits` with the body's `show`).
+  `POST /habit` (Today's button) answers with it too when sent `"view": "habits"`.
+
 Field names since 77: `action` (was `act` on `/review` and `/food/entry`), `time` (was `t` on `/health`), `items[].item_id` (was
 `items[].id` on `/usual`). Since deploy 78 only the new names work: a field sent under its old name counts as missing.
 
@@ -341,9 +412,10 @@ Every save answers (HTTP 200, also when nothing was saved):
   refill: null | {label, text},                // words to put back in the log box ("Try again" on a message that is not an entry)
   replayed,
   undo: Undo,            // one per session, 15 minutes; POST /api/v1/undo {token}
-  day: Day  |  food_day: FoodDay  |  usual: [Usual]  |  health: Health  |  body: Body
+  day: Day  |  food_day: FoodDay  |  usual: [Usual]  |  health: Health  |  body: Body  |  habits: Habits
                                                        // the fresh read; body "view": "day" | "food" | "usual" (86) | "health" |
-                                                       // "body" (91) and "view_day": "yyyy-mm-dd" choose it; /usual/meal and
+                                                       // "body" (91) | "habits" (93, with "show") and "view_day": "yyyy-mm-dd" choose it;
+                                                       // /habit/day and /habits/manage default to "habits"; /usual/meal and
                                                        // /usual/new default to "usual", /usual/from_meal and /food/* to "food",
                                                        // /health/day to "health" (with "range", "all"), /body to "body" (its day),
                                                        // the rest to "day"

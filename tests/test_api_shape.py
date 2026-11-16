@@ -2,7 +2,7 @@
 the private guard on questions and on lines the AI files as private, one name per field (the old names gone since deploy 78), Undo on a
 reload, a mixed line's look-up in result, answer styles and refill buttons, the outcome's tone, no chat lines in read-backs, and
 Try again / Delete on a message not read yet; the usual-meal editor's shapes (deploy 86); the scanner's, label photo's and look-up's
-shapes (deploy 89); the Health page's and body measurements' shapes (deploy 91). Every name, food, number and sentence is invented."""
+shapes (deploy 89); the Health page's and body measurements' shapes (deploy 91); the Habits page's shapes (deploy 93). Every name, food, number and sentence is invented."""
 from datetime import datetime
 
 import pytest
@@ -15,6 +15,7 @@ from test_api_saves import KEYS, Door, breakfast, clean_usual, got_undo, n, shap
 from test_log import ANSWERS, F, P, fake, off, skyr  # noqa: F401 - fixtures reused: the AI is a fake
 from test_webbed import recent_wake
 from test_webfood import eat_on, oats
+from test_webhabits import habit_types_as_they_were  # noqa: F401 - autouse: the habit types and settings as they were
 from test_webtoday import day, eat, food, raw  # noqa: F401
 
 
@@ -352,3 +353,31 @@ def test_the_health_and_body_shapes(sv, fake):
     woke(t)
     assert set(get(sv, "/day")["day"]["needs"]) == {"questions", "not_read", "review", "checkin", "body_due"}
     assert set(sv.post("/body/skip")) == KEYS | {"day"}
+
+
+# ---- 11. the Habits page (deploy 93) -------------------------------------------------------------------------------------------------
+
+def test_the_habits_shapes(sv, fake):
+    from test_api_habits import invented, today
+
+    invented()
+    j = get(sv, "/habits?show=all")
+    assert set(j) == {"v", "habits", "undo"}
+    h = j["habits"]
+    assert set(h) == {"today", "start", "days", "edit_from", "checklist", "calendar", "show", "help", "shows", "list", "groups", "default_group", "limits"}
+    assert set(h["checklist"]) == {"done", "total", "habits"}
+    assert all(set(x) == {"name", "label", "done", "target", "complete", "avoid", "last_tick"} for x in h["checklist"]["habits"])
+    assert all(set(c) == {"name", "label", "target", "avoid", "full", "editable", "days"} for c in h["calendar"])
+    assert all(len(c["days"]) == 30 and all(set(d) == {"day", "n", "state", "text"} for d in c["days"]) for c in h["calendar"])
+    assert {d["state"] for c in h["calendar"] for d in c["days"]} == {"done", "partly", "logged", "none"}
+    assert all(set(s) == {"key", "label", "count"} for s in h["shows"]) and [s["key"] for s in h["shows"]] == ["tracked", "untracked", "retired", "all"]
+    assert all(set(g) == {"group", "label", "habits"} for g in h["list"])
+    assert all(set(x) == {"name", "label", "group", "target", "order", "avoid", "state", "ticks", "days30", "last_day", "stats", "can_track", "can_delete"}
+               for g in h["list"] for x in g["habits"])
+    assert all(set(g) == {"key", "label"} for g in h["groups"]) and set(h["limits"]) == {"label_max", "target_min", "target_max", "order_max"}
+    j = sv.post("/habit/day", name="zz_walk", day=today().isoformat(), key="shape-1")
+    assert set(j) == KEYS | {"habits"} and set(j["habits"]) == set(h)
+    j = sv.post("/habits/manage", action="edit", name="zz_walk", label="Zz walk", target=1)
+    assert set(j) == KEYS | {"habits"} and j["undo"] is None
+    j = sv.post("/habits/manage", action="delete", name="zz_walk")
+    assert set(j) == KEYS | {"habits"} and j["outcome"] == "rejected"

@@ -1,0 +1,2953 @@
+{
+ "habits": {
+  "v": 1,
+  "habits": {
+   "today": "2026-11-16",
+   "start": "2026-10-18",
+   "days": 30,
+   "edit_from": "2026-10-12",
+   "checklist": {
+    "done": 2,
+    "total": 4,
+    "habits": [
+     {
+      "name": "meds",
+      "label": "Medication",
+      "done": 0,
+      "target": 1,
+      "complete": false,
+      "avoid": false,
+      "last_tick": null
+     },
+     {
+      "name": "shoonya",
+      "label": "Shoonya",
+      "done": 0,
+      "target": 1,
+      "complete": false,
+      "avoid": false,
+      "last_tick": null
+     },
+     {
+      "name": "sample_stretching",
+      "label": "Stretching",
+      "done": 1,
+      "target": 1,
+      "complete": true,
+      "avoid": false,
+      "last_tick": "e1"
+     },
+     {
+      "name": "sample_reading",
+      "label": "Reading",
+      "done": 2,
+      "target": 2,
+      "complete": true,
+      "avoid": false,
+      "last_tick": "e3"
+     },
+     {
+      "name": "sample_soft_drink",
+      "label": "Soft drink",
+      "done": 0,
+      "target": 1,
+      "complete": false,
+      "avoid": true,
+      "last_tick": null
+     }
+    ]
+   },
+   "calendar": [
+    {
+     "name": "meds",
+     "label": "Medication",
+     "target": 1,
+     "avoid": false,
+     "full": 0,
+     "editable": true,
+     "days": [
+      {
+       "day": "2026-10-18",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-19",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-20",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-21",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-22",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-23",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-24",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-25",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-26",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-27",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-28",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-29",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-30",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-31",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-01",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-02",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-03",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-04",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-05",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-06",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-07",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-08",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-09",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-10",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-11",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-12",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-13",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-14",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-15",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-16",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      }
+     ]
+    },
+    {
+     "name": "shoonya",
+     "label": "Shoonya",
+     "target": 1,
+     "avoid": false,
+     "full": 0,
+     "editable": true,
+     "days": [
+      {
+       "day": "2026-10-18",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-19",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-20",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-21",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-22",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-23",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-24",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-25",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-26",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-27",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-28",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-29",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-30",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-31",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-01",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-02",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-03",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-04",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-05",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-06",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-07",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-08",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-09",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-10",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-11",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-12",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-13",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-14",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-15",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-16",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      }
+     ]
+    },
+    {
+     "name": "sample_stretching",
+     "label": "Stretching",
+     "target": 1,
+     "avoid": false,
+     "full": 23,
+     "editable": true,
+     "days": [
+      {
+       "day": "2026-10-18",
+       "n": 1,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-10-19",
+       "n": 1,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-10-20",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-21",
+       "n": 1,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-10-22",
+       "n": 1,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-10-23",
+       "n": 1,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-10-24",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-25",
+       "n": 1,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-10-26",
+       "n": 1,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-10-27",
+       "n": 1,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-10-28",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-29",
+       "n": 1,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-10-30",
+       "n": 1,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-10-31",
+       "n": 1,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-11-01",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-02",
+       "n": 1,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-11-03",
+       "n": 1,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-11-04",
+       "n": 1,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-11-05",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-06",
+       "n": 1,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-11-07",
+       "n": 1,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-11-08",
+       "n": 1,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-11-09",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-10",
+       "n": 1,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-11-11",
+       "n": 1,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-11-12",
+       "n": 1,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-11-13",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-14",
+       "n": 1,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-11-15",
+       "n": 1,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-11-16",
+       "n": 1,
+       "state": "done",
+       "text": "done"
+      }
+     ]
+    },
+    {
+     "name": "sample_reading",
+     "label": "Reading",
+     "target": 2,
+     "avoid": false,
+     "full": 10,
+     "editable": true,
+     "days": [
+      {
+       "day": "2026-10-18",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-19",
+       "n": 1,
+       "state": "partly",
+       "text": "1 of 2"
+      },
+      {
+       "day": "2026-10-20",
+       "n": 2,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-10-21",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-22",
+       "n": 1,
+       "state": "partly",
+       "text": "1 of 2"
+      },
+      {
+       "day": "2026-10-23",
+       "n": 2,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-10-24",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-25",
+       "n": 1,
+       "state": "partly",
+       "text": "1 of 2"
+      },
+      {
+       "day": "2026-10-26",
+       "n": 2,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-10-27",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-28",
+       "n": 1,
+       "state": "partly",
+       "text": "1 of 2"
+      },
+      {
+       "day": "2026-10-29",
+       "n": 2,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-10-30",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-31",
+       "n": 1,
+       "state": "partly",
+       "text": "1 of 2"
+      },
+      {
+       "day": "2026-11-01",
+       "n": 2,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-11-02",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-03",
+       "n": 1,
+       "state": "partly",
+       "text": "1 of 2"
+      },
+      {
+       "day": "2026-11-04",
+       "n": 2,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-11-05",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-06",
+       "n": 1,
+       "state": "partly",
+       "text": "1 of 2"
+      },
+      {
+       "day": "2026-11-07",
+       "n": 2,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-11-08",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-09",
+       "n": 1,
+       "state": "partly",
+       "text": "1 of 2"
+      },
+      {
+       "day": "2026-11-10",
+       "n": 2,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-11-11",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-12",
+       "n": 1,
+       "state": "partly",
+       "text": "1 of 2"
+      },
+      {
+       "day": "2026-11-13",
+       "n": 2,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-11-14",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-15",
+       "n": 1,
+       "state": "partly",
+       "text": "1 of 2"
+      },
+      {
+       "day": "2026-11-16",
+       "n": 2,
+       "state": "done",
+       "text": "done"
+      }
+     ]
+    },
+    {
+     "name": "sample_soft_drink",
+     "label": "Soft drink",
+     "target": 1,
+     "avoid": true,
+     "full": 26,
+     "editable": true,
+     "days": [
+      {
+       "day": "2026-10-18",
+       "n": 0,
+       "state": "none",
+       "text": "none"
+      },
+      {
+       "day": "2026-10-19",
+       "n": 0,
+       "state": "none",
+       "text": "none"
+      },
+      {
+       "day": "2026-10-20",
+       "n": 0,
+       "state": "none",
+       "text": "none"
+      },
+      {
+       "day": "2026-10-21",
+       "n": 0,
+       "state": "none",
+       "text": "none"
+      },
+      {
+       "day": "2026-10-22",
+       "n": 0,
+       "state": "none",
+       "text": "none"
+      },
+      {
+       "day": "2026-10-23",
+       "n": 0,
+       "state": "none",
+       "text": "none"
+      },
+      {
+       "day": "2026-10-24",
+       "n": 0,
+       "state": "none",
+       "text": "none"
+      },
+      {
+       "day": "2026-10-25",
+       "n": 0,
+       "state": "none",
+       "text": "none"
+      },
+      {
+       "day": "2026-10-26",
+       "n": 0,
+       "state": "none",
+       "text": "none"
+      },
+      {
+       "day": "2026-10-27",
+       "n": 1,
+       "state": "logged",
+       "text": "1 logged"
+      },
+      {
+       "day": "2026-10-28",
+       "n": 0,
+       "state": "none",
+       "text": "none"
+      },
+      {
+       "day": "2026-10-29",
+       "n": 0,
+       "state": "none",
+       "text": "none"
+      },
+      {
+       "day": "2026-10-30",
+       "n": 0,
+       "state": "none",
+       "text": "none"
+      },
+      {
+       "day": "2026-10-31",
+       "n": 0,
+       "state": "none",
+       "text": "none"
+      },
+      {
+       "day": "2026-11-01",
+       "n": 0,
+       "state": "none",
+       "text": "none"
+      },
+      {
+       "day": "2026-11-02",
+       "n": 0,
+       "state": "none",
+       "text": "none"
+      },
+      {
+       "day": "2026-11-03",
+       "n": 0,
+       "state": "none",
+       "text": "none"
+      },
+      {
+       "day": "2026-11-04",
+       "n": 0,
+       "state": "none",
+       "text": "none"
+      },
+      {
+       "day": "2026-11-05",
+       "n": 1,
+       "state": "logged",
+       "text": "1 logged"
+      },
+      {
+       "day": "2026-11-06",
+       "n": 0,
+       "state": "none",
+       "text": "none"
+      },
+      {
+       "day": "2026-11-07",
+       "n": 0,
+       "state": "none",
+       "text": "none"
+      },
+      {
+       "day": "2026-11-08",
+       "n": 0,
+       "state": "none",
+       "text": "none"
+      },
+      {
+       "day": "2026-11-09",
+       "n": 0,
+       "state": "none",
+       "text": "none"
+      },
+      {
+       "day": "2026-11-10",
+       "n": 0,
+       "state": "none",
+       "text": "none"
+      },
+      {
+       "day": "2026-11-11",
+       "n": 0,
+       "state": "none",
+       "text": "none"
+      },
+      {
+       "day": "2026-11-12",
+       "n": 0,
+       "state": "none",
+       "text": "none"
+      },
+      {
+       "day": "2026-11-13",
+       "n": 1,
+       "state": "logged",
+       "text": "1 logged"
+      },
+      {
+       "day": "2026-11-14",
+       "n": 1,
+       "state": "logged",
+       "text": "1 logged"
+      },
+      {
+       "day": "2026-11-15",
+       "n": 0,
+       "state": "none",
+       "text": "none"
+      },
+      {
+       "day": "2026-11-16",
+       "n": 0,
+       "state": "none",
+       "text": "none"
+      }
+     ]
+    }
+   ],
+   "show": "tracked",
+   "help": "Tracked habits show on Today (unless hidden under Settings > Today page) and in the calendar below.",
+   "shows": [
+    {
+     "key": "tracked",
+     "label": "Tracked",
+     "count": 5
+    },
+    {
+     "key": "untracked",
+     "label": "Not tracked",
+     "count": 27
+    },
+    {
+     "key": "retired",
+     "label": "Retired",
+     "count": 2
+    },
+    {
+     "key": "all",
+     "label": "All",
+     "count": 34
+    }
+   ],
+   "list": [
+    {
+     "group": "intake",
+     "label": "Intake",
+     "habits": [
+      {
+       "name": "meds",
+       "label": "Medication",
+       "group": "intake",
+       "target": 1,
+       "order": 30,
+       "avoid": false,
+       "state": "tracked",
+       "ticks": 0,
+       "days30": 0,
+       "last_day": null,
+       "stats": "Never ticked",
+       "can_track": true,
+       "can_delete": true
+      }
+     ]
+    },
+    {
+     "group": "practice",
+     "label": "Practice",
+     "habits": [
+      {
+       "name": "shoonya",
+       "label": "Shoonya",
+       "group": "practice",
+       "target": 1,
+       "order": 40,
+       "avoid": false,
+       "state": "tracked",
+       "ticks": 0,
+       "days30": 0,
+       "last_day": null,
+       "stats": "Never ticked",
+       "can_track": true,
+       "can_delete": true
+      },
+      {
+       "name": "sample_stretching",
+       "label": "Stretching",
+       "group": "practice",
+       "target": 1,
+       "order": 801,
+       "avoid": false,
+       "state": "tracked",
+       "ticks": 23,
+       "days30": 23,
+       "last_day": "2026-11-16",
+       "stats": "23 of the last 30 days · last 16.11.",
+       "can_track": true,
+       "can_delete": false
+      }
+     ]
+    },
+    {
+     "group": "learning",
+     "label": "Learning",
+     "habits": [
+      {
+       "name": "sample_reading",
+       "label": "Reading",
+       "group": "learning",
+       "target": 2,
+       "order": 802,
+       "avoid": false,
+       "state": "tracked",
+       "ticks": 30,
+       "days30": 20,
+       "last_day": "2026-11-16",
+       "stats": "20 of the last 30 days · last 16.11.",
+       "can_track": true,
+       "can_delete": false
+      }
+     ]
+    },
+    {
+     "group": "behaviour",
+     "label": "Behaviour",
+     "habits": [
+      {
+       "name": "sample_soft_drink",
+       "label": "Soft drink",
+       "group": "behaviour",
+       "target": 1,
+       "order": 803,
+       "avoid": true,
+       "state": "tracked",
+       "ticks": 4,
+       "days30": 4,
+       "last_day": "2026-11-14",
+       "stats": "4 of the last 30 days · last 14.11.",
+       "can_track": true,
+       "can_delete": false
+      }
+     ]
+    }
+   ],
+   "groups": [
+    {
+     "key": "intake",
+     "label": "Intake"
+    },
+    {
+     "key": "practice",
+     "label": "Practice"
+    },
+    {
+     "key": "learning",
+     "label": "Learning"
+    },
+    {
+     "key": "daily",
+     "label": "Daily routine"
+    },
+    {
+     "key": "behaviour",
+     "label": "Behaviour"
+    }
+   ],
+   "default_group": "practice",
+   "limits": {
+    "label_max": 40,
+    "target_min": 1,
+    "target_max": 10,
+    "order_max": 999
+   }
+  },
+  "undo": null
+ },
+ "habits_all": {
+  "v": 1,
+  "habits": {
+   "today": "2026-11-16",
+   "start": "2026-10-18",
+   "days": 30,
+   "edit_from": "2026-10-12",
+   "checklist": {
+    "done": 2,
+    "total": 4,
+    "habits": [
+     {
+      "name": "meds",
+      "label": "Medication",
+      "done": 0,
+      "target": 1,
+      "complete": false,
+      "avoid": false,
+      "last_tick": null
+     },
+     {
+      "name": "shoonya",
+      "label": "Shoonya",
+      "done": 0,
+      "target": 1,
+      "complete": false,
+      "avoid": false,
+      "last_tick": null
+     },
+     {
+      "name": "sample_stretching",
+      "label": "Stretching",
+      "done": 1,
+      "target": 1,
+      "complete": true,
+      "avoid": false,
+      "last_tick": "e1"
+     },
+     {
+      "name": "sample_reading",
+      "label": "Reading",
+      "done": 2,
+      "target": 2,
+      "complete": true,
+      "avoid": false,
+      "last_tick": "e3"
+     },
+     {
+      "name": "sample_soft_drink",
+      "label": "Soft drink",
+      "done": 0,
+      "target": 1,
+      "complete": false,
+      "avoid": true,
+      "last_tick": null
+     }
+    ]
+   },
+   "calendar": [
+    {
+     "name": "meds",
+     "label": "Medication",
+     "target": 1,
+     "avoid": false,
+     "full": 0,
+     "editable": true,
+     "days": [
+      {
+       "day": "2026-10-18",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-19",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-20",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-21",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-22",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-23",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-24",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-25",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-26",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-27",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-28",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-29",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-30",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-31",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-01",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-02",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-03",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-04",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-05",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-06",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-07",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-08",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-09",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-10",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-11",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-12",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-13",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-14",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-15",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-16",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      }
+     ]
+    },
+    {
+     "name": "shoonya",
+     "label": "Shoonya",
+     "target": 1,
+     "avoid": false,
+     "full": 0,
+     "editable": true,
+     "days": [
+      {
+       "day": "2026-10-18",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-19",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-20",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-21",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-22",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-23",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-24",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-25",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-26",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-27",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-28",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-29",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-30",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-31",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-01",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-02",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-03",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-04",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-05",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-06",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-07",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-08",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-09",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-10",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-11",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-12",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-13",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-14",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-15",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-16",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      }
+     ]
+    },
+    {
+     "name": "sample_stretching",
+     "label": "Stretching",
+     "target": 1,
+     "avoid": false,
+     "full": 23,
+     "editable": true,
+     "days": [
+      {
+       "day": "2026-10-18",
+       "n": 1,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-10-19",
+       "n": 1,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-10-20",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-21",
+       "n": 1,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-10-22",
+       "n": 1,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-10-23",
+       "n": 1,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-10-24",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-25",
+       "n": 1,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-10-26",
+       "n": 1,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-10-27",
+       "n": 1,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-10-28",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-29",
+       "n": 1,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-10-30",
+       "n": 1,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-10-31",
+       "n": 1,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-11-01",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-02",
+       "n": 1,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-11-03",
+       "n": 1,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-11-04",
+       "n": 1,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-11-05",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-06",
+       "n": 1,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-11-07",
+       "n": 1,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-11-08",
+       "n": 1,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-11-09",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-10",
+       "n": 1,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-11-11",
+       "n": 1,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-11-12",
+       "n": 1,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-11-13",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-14",
+       "n": 1,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-11-15",
+       "n": 1,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-11-16",
+       "n": 1,
+       "state": "done",
+       "text": "done"
+      }
+     ]
+    },
+    {
+     "name": "sample_reading",
+     "label": "Reading",
+     "target": 2,
+     "avoid": false,
+     "full": 10,
+     "editable": true,
+     "days": [
+      {
+       "day": "2026-10-18",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-19",
+       "n": 1,
+       "state": "partly",
+       "text": "1 of 2"
+      },
+      {
+       "day": "2026-10-20",
+       "n": 2,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-10-21",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-22",
+       "n": 1,
+       "state": "partly",
+       "text": "1 of 2"
+      },
+      {
+       "day": "2026-10-23",
+       "n": 2,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-10-24",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-25",
+       "n": 1,
+       "state": "partly",
+       "text": "1 of 2"
+      },
+      {
+       "day": "2026-10-26",
+       "n": 2,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-10-27",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-28",
+       "n": 1,
+       "state": "partly",
+       "text": "1 of 2"
+      },
+      {
+       "day": "2026-10-29",
+       "n": 2,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-10-30",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-10-31",
+       "n": 1,
+       "state": "partly",
+       "text": "1 of 2"
+      },
+      {
+       "day": "2026-11-01",
+       "n": 2,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-11-02",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-03",
+       "n": 1,
+       "state": "partly",
+       "text": "1 of 2"
+      },
+      {
+       "day": "2026-11-04",
+       "n": 2,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-11-05",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-06",
+       "n": 1,
+       "state": "partly",
+       "text": "1 of 2"
+      },
+      {
+       "day": "2026-11-07",
+       "n": 2,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-11-08",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-09",
+       "n": 1,
+       "state": "partly",
+       "text": "1 of 2"
+      },
+      {
+       "day": "2026-11-10",
+       "n": 2,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-11-11",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-12",
+       "n": 1,
+       "state": "partly",
+       "text": "1 of 2"
+      },
+      {
+       "day": "2026-11-13",
+       "n": 2,
+       "state": "done",
+       "text": "done"
+      },
+      {
+       "day": "2026-11-14",
+       "n": 0,
+       "state": "none",
+       "text": "not logged"
+      },
+      {
+       "day": "2026-11-15",
+       "n": 1,
+       "state": "partly",
+       "text": "1 of 2"
+      },
+      {
+       "day": "2026-11-16",
+       "n": 2,
+       "state": "done",
+       "text": "done"
+      }
+     ]
+    },
+    {
+     "name": "sample_soft_drink",
+     "label": "Soft drink",
+     "target": 1,
+     "avoid": true,
+     "full": 26,
+     "editable": true,
+     "days": [
+      {
+       "day": "2026-10-18",
+       "n": 0,
+       "state": "none",
+       "text": "none"
+      },
+      {
+       "day": "2026-10-19",
+       "n": 0,
+       "state": "none",
+       "text": "none"
+      },
+      {
+       "day": "2026-10-20",
+       "n": 0,
+       "state": "none",
+       "text": "none"
+      },
+      {
+       "day": "2026-10-21",
+       "n": 0,
+       "state": "none",
+       "text": "none"
+      },
+      {
+       "day": "2026-10-22",
+       "n": 0,
+       "state": "none",
+       "text": "none"
+      },
+      {
+       "day": "2026-10-23",
+       "n": 0,
+       "state": "none",
+       "text": "none"
+      },
+      {
+       "day": "2026-10-24",
+       "n": 0,
+       "state": "none",
+       "text": "none"
+      },
+      {
+       "day": "2026-10-25",
+       "n": 0,
+       "state": "none",
+       "text": "none"
+      },
+      {
+       "day": "2026-10-26",
+       "n": 0,
+       "state": "none",
+       "text": "none"
+      },
+      {
+       "day": "2026-10-27",
+       "n": 1,
+       "state": "logged",
+       "text": "1 logged"
+      },
+      {
+       "day": "2026-10-28",
+       "n": 0,
+       "state": "none",
+       "text": "none"
+      },
+      {
+       "day": "2026-10-29",
+       "n": 0,
+       "state": "none",
+       "text": "none"
+      },
+      {
+       "day": "2026-10-30",
+       "n": 0,
+       "state": "none",
+       "text": "none"
+      },
+      {
+       "day": "2026-10-31",
+       "n": 0,
+       "state": "none",
+       "text": "none"
+      },
+      {
+       "day": "2026-11-01",
+       "n": 0,
+       "state": "none",
+       "text": "none"
+      },
+      {
+       "day": "2026-11-02",
+       "n": 0,
+       "state": "none",
+       "text": "none"
+      },
+      {
+       "day": "2026-11-03",
+       "n": 0,
+       "state": "none",
+       "text": "none"
+      },
+      {
+       "day": "2026-11-04",
+       "n": 0,
+       "state": "none",
+       "text": "none"
+      },
+      {
+       "day": "2026-11-05",
+       "n": 1,
+       "state": "logged",
+       "text": "1 logged"
+      },
+      {
+       "day": "2026-11-06",
+       "n": 0,
+       "state": "none",
+       "text": "none"
+      },
+      {
+       "day": "2026-11-07",
+       "n": 0,
+       "state": "none",
+       "text": "none"
+      },
+      {
+       "day": "2026-11-08",
+       "n": 0,
+       "state": "none",
+       "text": "none"
+      },
+      {
+       "day": "2026-11-09",
+       "n": 0,
+       "state": "none",
+       "text": "none"
+      },
+      {
+       "day": "2026-11-10",
+       "n": 0,
+       "state": "none",
+       "text": "none"
+      },
+      {
+       "day": "2026-11-11",
+       "n": 0,
+       "state": "none",
+       "text": "none"
+      },
+      {
+       "day": "2026-11-12",
+       "n": 0,
+       "state": "none",
+       "text": "none"
+      },
+      {
+       "day": "2026-11-13",
+       "n": 1,
+       "state": "logged",
+       "text": "1 logged"
+      },
+      {
+       "day": "2026-11-14",
+       "n": 1,
+       "state": "logged",
+       "text": "1 logged"
+      },
+      {
+       "day": "2026-11-15",
+       "n": 0,
+       "state": "none",
+       "text": "none"
+      },
+      {
+       "day": "2026-11-16",
+       "n": 0,
+       "state": "none",
+       "text": "none"
+      }
+     ]
+    }
+   ],
+   "show": "all",
+   "help": "Every habit in the database, grouped.",
+   "shows": [
+    {
+     "key": "tracked",
+     "label": "Tracked",
+     "count": 5
+    },
+    {
+     "key": "untracked",
+     "label": "Not tracked",
+     "count": 27
+    },
+    {
+     "key": "retired",
+     "label": "Retired",
+     "count": 2
+    },
+    {
+     "key": "all",
+     "label": "All",
+     "count": 34
+    }
+   ],
+   "list": [
+    {
+     "group": "intake",
+     "label": "Intake",
+     "habits": [
+      {
+       "name": "meds",
+       "label": "Medication",
+       "group": "intake",
+       "target": 1,
+       "order": 30,
+       "avoid": false,
+       "state": "tracked",
+       "ticks": 0,
+       "days30": 0,
+       "last_day": null,
+       "stats": "Never ticked",
+       "can_track": true,
+       "can_delete": true
+      },
+      {
+       "name": "supplements",
+       "label": "Supplements",
+       "group": "intake",
+       "target": 1,
+       "order": 31,
+       "avoid": false,
+       "state": "untracked",
+       "ticks": 0,
+       "days30": 0,
+       "last_day": null,
+       "stats": "Never ticked",
+       "can_track": true,
+       "can_delete": true
+      },
+      {
+       "name": "ayurveda",
+       "label": "Ayurveda medicines",
+       "group": "intake",
+       "target": 1,
+       "order": 32,
+       "avoid": false,
+       "state": "untracked",
+       "ticks": 0,
+       "days30": 0,
+       "last_day": null,
+       "stats": "Never ticked",
+       "can_track": true,
+       "can_delete": true
+      },
+      {
+       "name": "triphala",
+       "label": "Triphala",
+       "group": "intake",
+       "target": 1,
+       "order": 33,
+       "avoid": false,
+       "state": "untracked",
+       "ticks": 0,
+       "days30": 0,
+       "last_day": null,
+       "stats": "Never ticked",
+       "can_track": true,
+       "can_delete": true
+      },
+      {
+       "name": "isabgol",
+       "label": "Isabgol",
+       "group": "intake",
+       "target": 1,
+       "order": 34,
+       "avoid": false,
+       "state": "untracked",
+       "ticks": 0,
+       "days30": 0,
+       "last_day": null,
+       "stats": "Never ticked",
+       "can_track": true,
+       "can_delete": true
+      },
+      {
+       "name": "ghee",
+       "label": "Ghee 1 tbsp",
+       "group": "intake",
+       "target": 1,
+       "order": 35,
+       "avoid": false,
+       "state": "untracked",
+       "ticks": 0,
+       "days30": 0,
+       "last_day": null,
+       "stats": "Never ticked",
+       "can_track": true,
+       "can_delete": true
+      },
+      {
+       "name": "morning_concoction",
+       "label": "Morning concoction",
+       "group": "intake",
+       "target": 1,
+       "order": 36,
+       "avoid": false,
+       "state": "untracked",
+       "ticks": 0,
+       "days30": 0,
+       "last_day": null,
+       "stats": "Never ticked",
+       "can_track": true,
+       "can_delete": true
+      },
+      {
+       "name": "night_hot_drink",
+       "label": "Night hot drink",
+       "group": "intake",
+       "target": 1,
+       "order": 37,
+       "avoid": false,
+       "state": "retired",
+       "ticks": 0,
+       "days30": 0,
+       "last_day": null,
+       "stats": "Never ticked",
+       "can_track": false,
+       "can_delete": true
+      }
+     ]
+    },
+    {
+     "group": "practice",
+     "label": "Practice",
+     "habits": [
+      {
+       "name": "shoonya",
+       "label": "Shoonya",
+       "group": "practice",
+       "target": 1,
+       "order": 40,
+       "avoid": false,
+       "state": "tracked",
+       "ticks": 0,
+       "days30": 0,
+       "last_day": null,
+       "stats": "Never ticked",
+       "can_track": true,
+       "can_delete": true
+      },
+      {
+       "name": "surya_kriya",
+       "label": "Surya Kriya/Namaskar",
+       "group": "practice",
+       "target": 1,
+       "order": 41,
+       "avoid": false,
+       "state": "untracked",
+       "ticks": 0,
+       "days30": 0,
+       "last_day": null,
+       "stats": "Never ticked",
+       "can_track": true,
+       "can_delete": true
+      },
+      {
+       "name": "bhuta_shuddhi",
+       "label": "Bhuta Shuddhi",
+       "group": "practice",
+       "target": 1,
+       "order": 42,
+       "avoid": false,
+       "state": "untracked",
+       "ticks": 0,
+       "days30": 0,
+       "last_day": null,
+       "stats": "Never ticked",
+       "can_track": true,
+       "can_delete": true
+      },
+      {
+       "name": "shambhavi",
+       "label": "Shambhavi",
+       "group": "practice",
+       "target": 1,
+       "order": 43,
+       "avoid": false,
+       "state": "untracked",
+       "ticks": 0,
+       "days30": 0,
+       "last_day": null,
+       "stats": "Never ticked",
+       "can_track": true,
+       "can_delete": true
+      },
+      {
+       "name": "sck",
+       "label": "SCK",
+       "group": "practice",
+       "target": 1,
+       "order": 44,
+       "avoid": false,
+       "state": "untracked",
+       "ticks": 0,
+       "days30": 0,
+       "last_day": null,
+       "stats": "Never ticked",
+       "can_track": true,
+       "can_delete": true
+      },
+      {
+       "name": "yoga",
+       "label": "Yoga",
+       "group": "practice",
+       "target": 1,
+       "order": 45,
+       "avoid": false,
+       "state": "untracked",
+       "ticks": 0,
+       "days30": 0,
+       "last_day": null,
+       "stats": "Never ticked",
+       "can_track": true,
+       "can_delete": true
+      },
+      {
+       "name": "gym",
+       "label": "Gym",
+       "group": "practice",
+       "target": 1,
+       "order": 46,
+       "avoid": false,
+       "state": "untracked",
+       "ticks": 0,
+       "days30": 0,
+       "last_day": null,
+       "stats": "Never ticked",
+       "can_track": true,
+       "can_delete": true
+      },
+      {
+       "name": "walk",
+       "label": "1.5 mile walk",
+       "group": "practice",
+       "target": 1,
+       "order": 47,
+       "avoid": false,
+       "state": "untracked",
+       "ticks": 0,
+       "days30": 0,
+       "last_day": null,
+       "stats": "Never ticked",
+       "can_track": true,
+       "can_delete": true
+      },
+      {
+       "name": "sunlight",
+       "label": "Sunlight 15 mins",
+       "group": "practice",
+       "target": 1,
+       "order": 48,
+       "avoid": false,
+       "state": "untracked",
+       "ticks": 0,
+       "days30": 0,
+       "last_day": null,
+       "stats": "Never ticked",
+       "can_track": true,
+       "can_delete": true
+      },
+      {
+       "name": "sample_stretching",
+       "label": "Stretching",
+       "group": "practice",
+       "target": 1,
+       "order": 801,
+       "avoid": false,
+       "state": "tracked",
+       "ticks": 23,
+       "days30": 23,
+       "last_day": "2026-11-16",
+       "stats": "23 of the last 30 days · last 16.11.",
+       "can_track": true,
+       "can_delete": false
+      },
+      {
+       "name": "sample_cold_shower",
+       "label": "Cold shower",
+       "group": "practice",
+       "target": 1,
+       "order": 804,
+       "avoid": false,
+       "state": "untracked",
+       "ticks": 2,
+       "days30": 0,
+       "last_day": "2026-10-14",
+       "stats": "Last ticked 14.10.",
+       "can_track": true,
+       "can_delete": false
+      }
+     ]
+    },
+    {
+     "group": "learning",
+     "label": "Learning",
+     "habits": [
+      {
+       "name": "french",
+       "label": "French practice",
+       "group": "learning",
+       "target": 1,
+       "order": 51,
+       "avoid": false,
+       "state": "untracked",
+       "ticks": 0,
+       "days30": 0,
+       "last_day": null,
+       "stats": "Never ticked",
+       "can_track": true,
+       "can_delete": true
+      },
+      {
+       "name": "german",
+       "label": "German practice",
+       "group": "learning",
+       "target": 1,
+       "order": 52,
+       "avoid": false,
+       "state": "untracked",
+       "ticks": 0,
+       "days30": 0,
+       "last_day": null,
+       "stats": "Never ticked",
+       "can_track": true,
+       "can_delete": true
+      },
+      {
+       "name": "ai_practice",
+       "label": "AI practice",
+       "group": "learning",
+       "target": 1,
+       "order": 53,
+       "avoid": false,
+       "state": "untracked",
+       "ticks": 0,
+       "days30": 0,
+       "last_day": null,
+       "stats": "Never ticked",
+       "can_track": true,
+       "can_delete": true
+      },
+      {
+       "name": "sample_reading",
+       "label": "Reading",
+       "group": "learning",
+       "target": 2,
+       "order": 802,
+       "avoid": false,
+       "state": "tracked",
+       "ticks": 30,
+       "days30": 20,
+       "last_day": "2026-11-16",
+       "stats": "20 of the last 30 days · last 16.11.",
+       "can_track": true,
+       "can_delete": false
+      },
+      {
+       "name": "sample_piano",
+       "label": "Piano",
+       "group": "learning",
+       "target": 1,
+       "order": 805,
+       "avoid": false,
+       "state": "retired",
+       "ticks": 1,
+       "days30": 0,
+       "last_day": "2026-08-18",
+       "stats": "Last ticked 18.08.",
+       "can_track": false,
+       "can_delete": false
+      }
+     ]
+    },
+    {
+     "group": "daily",
+     "label": "Daily routine",
+     "habits": [
+      {
+       "name": "social",
+       "label": "Social connection",
+       "group": "daily",
+       "target": 1,
+       "order": 50,
+       "avoid": false,
+       "state": "untracked",
+       "ticks": 0,
+       "days30": 0,
+       "last_day": null,
+       "stats": "Never ticked",
+       "can_track": true,
+       "can_delete": true
+      },
+      {
+       "name": "journaling",
+       "label": "Evening journaling",
+       "group": "daily",
+       "target": 1,
+       "order": 54,
+       "avoid": false,
+       "state": "untracked",
+       "ticks": 0,
+       "days30": 0,
+       "last_day": null,
+       "stats": "Never ticked",
+       "can_track": true,
+       "can_delete": true
+      },
+      {
+       "name": "brush_teeth",
+       "label": "Brush teeth",
+       "group": "daily",
+       "target": 1,
+       "order": 60,
+       "avoid": false,
+       "state": "untracked",
+       "ticks": 0,
+       "days30": 0,
+       "last_day": null,
+       "stats": "Never ticked",
+       "can_track": true,
+       "can_delete": true
+      },
+      {
+       "name": "shower",
+       "label": "Shower",
+       "group": "daily",
+       "target": 1,
+       "order": 61,
+       "avoid": false,
+       "state": "untracked",
+       "ticks": 0,
+       "days30": 0,
+       "last_day": null,
+       "stats": "Never ticked",
+       "can_track": true,
+       "can_delete": true
+      },
+      {
+       "name": "dishes",
+       "label": "Dishes in the sink",
+       "group": "daily",
+       "target": 1,
+       "order": 62,
+       "avoid": false,
+       "state": "untracked",
+       "ticks": 0,
+       "days30": 0,
+       "last_day": null,
+       "stats": "Never ticked",
+       "can_track": true,
+       "can_delete": true
+      },
+      {
+       "name": "five_min_cleaning",
+       "label": "5 min cleaning",
+       "group": "daily",
+       "target": 1,
+       "order": 63,
+       "avoid": false,
+       "state": "untracked",
+       "ticks": 0,
+       "days30": 0,
+       "last_day": null,
+       "stats": "Never ticked",
+       "can_track": true,
+       "can_delete": true
+      }
+     ]
+    },
+    {
+     "group": "behaviour",
+     "label": "Behaviour",
+     "habits": [
+      {
+       "name": "scrolling",
+       "label": "Scrolling",
+       "group": "behaviour",
+       "target": 1,
+       "order": 70,
+       "avoid": false,
+       "state": "untracked",
+       "ticks": 0,
+       "days30": 0,
+       "last_day": null,
+       "stats": "Never ticked",
+       "can_track": true,
+       "can_delete": true
+      },
+      {
+       "name": "p",
+       "label": "P",
+       "group": "behaviour",
+       "target": 1,
+       "order": 71,
+       "avoid": false,
+       "state": "untracked",
+       "ticks": 0,
+       "days30": 0,
+       "last_day": null,
+       "stats": "Never ticked",
+       "can_track": true,
+       "can_delete": true
+      },
+      {
+       "name": "fanta_m",
+       "label": "Fanta M",
+       "group": "behaviour",
+       "target": 1,
+       "order": 72,
+       "avoid": false,
+       "state": "untracked",
+       "ticks": 0,
+       "days30": 0,
+       "last_day": null,
+       "stats": "Never ticked",
+       "can_track": true,
+       "can_delete": true
+      },
+      {
+       "name": "sample_soft_drink",
+       "label": "Soft drink",
+       "group": "behaviour",
+       "target": 1,
+       "order": 803,
+       "avoid": true,
+       "state": "tracked",
+       "ticks": 4,
+       "days30": 4,
+       "last_day": "2026-11-14",
+       "stats": "4 of the last 30 days · last 14.11.",
+       "can_track": true,
+       "can_delete": false
+      }
+     ]
+    }
+   ],
+   "groups": [
+    {
+     "key": "intake",
+     "label": "Intake"
+    },
+    {
+     "key": "practice",
+     "label": "Practice"
+    },
+    {
+     "key": "learning",
+     "label": "Learning"
+    },
+    {
+     "key": "daily",
+     "label": "Daily routine"
+    },
+    {
+     "key": "behaviour",
+     "label": "Behaviour"
+    }
+   ],
+   "default_group": "practice",
+   "limits": {
+    "label_max": 40,
+    "target_min": 1,
+    "target_max": 10,
+    "order_max": 999
+   }
+  },
+  "undo": null
+ },
+ "saves": {
+  "day": {
+   "v": 1,
+   "outcome": "saved",
+   "tone": "ok",
+   "head": "Saved.",
+   "receipt": [
+    "+ e61 sample_stretching | day 13.11. | 13.11.2026 (date only)"
+   ],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": {
+    "token": "4gt1-UeKlSBZpWsN",
+    "head": "Saved: + e61 sample_stretching | day 13.11. | 13.11.2026 (date only)",
+    "expires_at": "2026-11-16T17:28:37.482630+00:00"
+   }
+  },
+  "day_off": {
+   "v": 1,
+   "outcome": "changed",
+   "tone": "ok",
+   "head": "Removed 1 tick of Stretching on 13.11.2026.",
+   "receipt": [],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": {
+    "token": "ayYrp2eXCGQPpkvu",
+    "head": "Removed 1 tick of Stretching on 13.11.2026.",
+    "expires_at": "2026-11-16T17:28:37.508148+00:00"
+   }
+  },
+  "day_refused": {
+   "v": 1,
+   "outcome": "rejected",
+   "tone": "warning",
+   "head": "Nothing saved.",
+   "receipt": [],
+   "notes": [],
+   "reason": "Only the last 30 days can be changed here.",
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": {
+    "token": "ayYrp2eXCGQPpkvu",
+    "head": "Removed 1 tick of Stretching on 13.11.2026.",
+    "expires_at": "2026-11-16T17:28:37.508148+00:00"
+   }
+  },
+  "track": {
+   "v": 1,
+   "outcome": "changed",
+   "tone": "ok",
+   "head": "Now tracking Cold shower. It shows on Today and in the calendar.",
+   "receipt": [],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": null
+  },
+  "edit": {
+   "v": 1,
+   "outcome": "changed",
+   "tone": "ok",
+   "head": "Saved the habit Reading.",
+   "receipt": [],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": null
+  },
+  "new": {
+   "v": 1,
+   "outcome": "changed",
+   "tone": "ok",
+   "head": "Added the habit Evening walk. It is tracked: tick it above or log it by its name.",
+   "receipt": [],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": null
+  },
+  "retire": {
+   "v": 1,
+   "outcome": "changed",
+   "tone": "ok",
+   "head": "Retired Cold shower. Its history stays; it is hidden everywhere. Find it under Retired to bring it back.",
+   "receipt": [],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": null
+  },
+  "restore": {
+   "v": 1,
+   "outcome": "changed",
+   "tone": "ok",
+   "head": "Brought back Cold shower (tracked again).",
+   "receipt": [],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": null
+  },
+  "delete": {
+   "v": 1,
+   "outcome": "changed",
+   "tone": "ok",
+   "head": "Deleted the habit Evening walk.",
+   "receipt": [],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": null
+  },
+  "refused": {
+   "v": 1,
+   "outcome": "rejected",
+   "tone": "warning",
+   "head": "Nothing saved.",
+   "receipt": [],
+   "notes": [],
+   "reason": "There is already a log type called stretching.",
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": null
+  }
+ }
+}

@@ -6,7 +6,7 @@ import re
 
 from . import habitaim, logbook
 from .db import connect
-from .habitspage import GROUPS
+from .habitspage import GROUPS, LABEL_MAX, ORDER_MAX, TARGET
 from .websettings import _int, _rejected
 
 CATEGORIES = {k for k, _v in GROUPS}
@@ -19,7 +19,7 @@ def _habit(cur, name: str):
 
 
 def _label(form) -> str:
-    return " ".join(str(form.get("label", "")).split())[:40]
+    return " ".join(str(form.get("label", "")).split())[:LABEL_MAX]
 
 
 def track(form, key, session) -> dict:
@@ -32,7 +32,7 @@ def track(form, key, session) -> dict:
             return _rejected(f"{t['label']} is retired: bring it back first.")
         if on:  # a newly tracked habit goes last on Today
             cur.execute("SELECT coalesce(max(sort_order), 0) + 10 AS n FROM log_types WHERE on_checklist")
-            cur.execute("UPDATE log_types SET on_checklist = true, sort_order = %s WHERE name = %s", (min(cur.fetchone()["n"], 999), t["name"]))
+            cur.execute("UPDATE log_types SET on_checklist = true, sort_order = %s WHERE name = %s", (min(cur.fetchone()["n"], ORDER_MAX), t["name"]))
         else:
             cur.execute("UPDATE log_types SET on_checklist = false WHERE name = %s", (t["name"],))
         logbook._audit(cur, "web_change", "changed", {"what": "habit tracking"}, logbook.WEB)
@@ -72,9 +72,9 @@ def edit(form, key, session) -> dict:
         cur.execute("SELECT 1 FROM log_types WHERE lower(label) = lower(%s) AND name <> %s", (label, t["name"]))
         if cur.fetchone():
             return _rejected(f"There is already a log type called {label}.")
-        order = _int(form.get("sort_order"), 0, 999, t["sort_order"]) if str(form.get("sort_order", "")).strip() else t["sort_order"]
+        order = _int(form.get("sort_order"), 0, ORDER_MAX, t["sort_order"]) if str(form.get("sort_order", "")).strip() else t["sort_order"]
         cur.execute("UPDATE log_types SET label = %s, daily_target = %s, sort_order = %s WHERE name = %s",
-                    (label, _int(form.get("daily_target"), 1, 10, 1), order, t["name"]))
+                    (label, _int(form.get("daily_target"), *TARGET, 1), order, t["name"]))
         if form.get("aim") in ("do", "avoid"):
             habitaim.set_aim(cur, t["name"], form.get("aim") == "avoid")
         logbook._audit(cur, "web_change", "changed", {"what": "habit settings"}, logbook.WEB)
@@ -112,10 +112,10 @@ def new(form, key, session) -> dict:
         if old:
             return _rejected(f"There is already a log type called {label}" + ("" if old["active"] else " (retired: bring it back from the Retired list)") + ".")
         cur.execute("SELECT coalesce(max(sort_order), 0) + 10 AS n FROM log_types WHERE kind = 'event'")
-        order = min(cur.fetchone()["n"], 999)
+        order = min(cur.fetchone()["n"], ORDER_MAX)
         cur.execute("""INSERT INTO log_types (name, label, kind, category, aliases, on_checklist, daily_target, active, sort_order)
                        VALUES (%s, %s, 'event', %s, %s, %s, %s, true, %s)""",
-                    (name, label, group, [label.lower()], track_it, _int(form.get("daily_target"), 1, 10, 1), order))
+                    (name, label, group, [label.lower()], track_it, _int(form.get("daily_target"), *TARGET, 1), order))
         logbook._audit(cur, "web_change", "changed", {"what": "habit added"}, logbook.WEB)
     return {"outcome": "changed", "head": f"Added the habit {label}. " + ("It is tracked: tick it above or log it by its name." if track_it
                                                                          else "It is in the list, not tracked yet: switch Track on to start.")}

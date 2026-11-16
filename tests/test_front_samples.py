@@ -6,7 +6,7 @@ the check-in, health values, habits, chips), reads it through the door (day.json
 water, saved with Undo, and an odd weight correction read back first, with confirm; the stand-in answers every save in this shape),
 the Food day (food.json, step E: GET /food/day of the day and the day before, GET /food/entry, a change and a note), the usual
 meals (usual.json, deploy 86: GET /usual, GET /foods, a change with Undo and a refusal), the scanner, label photo and look-up
-(scan.json, deploy 89), the Health page and body measurements (health.json, deploy 91), and
+(scan.json, deploy 89), the Health page and body measurements (health.json, deploy 91), the Habits page (habits.json, deploy 93), and
 - with WRITE_FRONT_SAMPLES=1: writes the answer to the sample file (then look at the diff and commit it);
 - otherwise: checks that the committed sample still has the door's shape (the same keys at every level), so a change of the door
   that the stand-in does not know about fails here.
@@ -18,6 +18,8 @@ from pathlib import Path
 
 import pytest
 
+from psycopg.types.json import Jsonb
+
 from app import todaypage
 from app.rules import BERLIN
 from conftest import owner_sql
@@ -25,6 +27,7 @@ from test_api_door import door, door_on, signed_in  # noqa: F401 - door_on is au
 from test_log import fake, off, skyr  # noqa: F401 - the AI is a fake (a save must never reach it); skyr: the food of its lines; off: Open Food Facts
 from test_api_reads import api, pending  # noqa: F401 - api is a fixture
 from test_webfood import eat_on
+from test_webhabits import habit_types_as_they_were  # noqa: F401 - autouse: the habit types and settings as they were
 from test_webtoday import day, food, no_targets, raw  # noqa: F401 - no_targets: clean targets and usual meals
 
 SAMPLES = Path(__file__).resolve().parent.parent / "front" / "tests" / "samples"
@@ -413,3 +416,68 @@ def test_the_health_sample_has_the_doors_shape(four_pm, fake):
     assert sample.keys() == answers.keys()
     gone = differences(sample, answers, "health")
     assert not gone, "front/tests/samples/health.json no longer has the door's shape; run this test with WRITE_FRONT_SAMPLES=1:\n" + "\n".join(gone)
+
+
+def habits_month() -> None:
+    """Five invented habits with 30 days of ticks: stretching (once a day, mostly done), reading (twice a day, some days partly),
+    a soft drink (a habit to avoid, a few days logged), cold showers (not tracked) and piano (retired, ticked long ago)."""
+    for name, label, group, target, track, active, order in (
+            ("sample_stretching", "Stretching", "practice", 1, True, True, 801), ("sample_reading", "Reading", "learning", 2, True, True, 802),
+            ("sample_soft_drink", "Soft drink", "behaviour", 1, True, True, 803), ("sample_cold_shower", "Cold shower", "practice", 1, False, True, 804),
+            ("sample_piano", "Piano", "learning", 1, False, False, 805)):
+        owner_sql("""INSERT INTO log_types (name, label, kind, category, aliases, on_checklist, daily_target, active, sort_order)
+                     VALUES (%s, %s, 'event', %s, %s, %s, %s, %s, %s)""", name, label, group, [label.lower()], track, target, active, order)
+    owner_sql("INSERT INTO ui_settings (key, value) VALUES ('habit_aim', %s)", Jsonb({"avoid": ["sample_soft_drink"]}))
+    for i in range(30):
+        if i % 4 != 3:
+            event("sample_stretching", "07:30", back=i)
+        if i % 3 != 2:
+            event("sample_reading", "21:00", back=i)
+        if i % 3 == 0:
+            event("sample_reading", "22:00", back=i)
+        if i in (2, 3, 11, 20):
+            event("sample_soft_drink", "15:00", back=i)
+    for i in (33, 40):
+        event("sample_cold_shower", "07:00", back=i)
+    event("sample_piano", "18:00", back=90)
+
+
+def test_the_habits_sample_has_the_doors_shape(four_pm, fake):
+    """The Habits page (deploy 93, for the page of deploy 94): GET /habits tracked and all, a past day ticked and unticked, a refusal
+    of a day, track, edit, new, retire, bring back, delete and a refusal of a duplicate label. Answers of saves without their fresh read."""
+    habits_month()
+    c, bearer, _ = signed_in()
+    get = lambda path: c.get("/api/v1" + path, headers=bearer).json()  # noqa: E731
+    post = lambda path, **body: c.post("/api/v1" + path, headers=bearer, json=body).json()  # noqa: E731
+    t = day()
+    answers = {"habits": get("/habits"), "habits_all": get("/habits?show=all")}
+    h = answers["habits_all"]["habits"]
+    by = {x["name"]: x for g in h["list"] for x in g["habits"]}
+    assert {by[k]["state"] for k in ("sample_stretching", "sample_cold_shower", "sample_piano")} == {"tracked", "untracked", "retired"}
+    assert {s["state"] for cal in h["calendar"] for s in cal["days"]} == {"done", "partly", "logged", "none"}
+    assert any(cal["avoid"] for cal in h["calendar"]) and any(cal["target"] == 2 for cal in h["calendar"])
+    gap = t - timedelta(days=3)  # a day stretching was not done (i % 4 == 3)
+    saves = {"day": post("/habit/day", name="sample_stretching", day=gap.isoformat(), key="sample-habitday-key-0001"),
+             "day_off": post("/habit/day", name="sample_stretching", day=gap.isoformat(), key="sample-habitday-key-0002"),
+             "day_refused": post("/habit/day", name="sample_stretching", day=(t - timedelta(days=36)).isoformat(), key="sample-habitday-key-0003"),
+             "track": post("/habits/manage", action="track", name="sample_cold_shower", on=True, show="all"),
+             "edit": post("/habits/manage", action="edit", name="sample_reading", label="Reading", target=3, order=802, aim="do", show="all"),
+             "new": post("/habits/manage", action="new", label="Evening walk", group="practice", target=1, track=True, show="all"),
+             "retire": post("/habits/manage", action="retire", name="sample_cold_shower", show="all"),
+             "restore": post("/habits/manage", action="restore", name="sample_cold_shower", show="all"),
+             "delete": post("/habits/manage", action="delete", name="evening_walk", confirmed=True, show="all"),
+             "refused": post("/habits/manage", action="new", label="stretching", group="practice")}
+    for a in saves.values():
+        assert a.pop("habits")["show"] in ("tracked", "all"), a
+    assert saves["day"]["outcome"] == "saved" and saves["day"]["undo"] and saves["day_off"]["outcome"] == "changed" and saves["day_off"]["undo"]
+    assert saves["day_refused"]["outcome"] == "rejected" and saves["refused"]["outcome"] == "rejected"
+    assert all(saves[k]["outcome"] == "changed" and saves[k]["undo"] is None for k in ("track", "edit", "new", "retire", "restore", "delete"))
+    answers["saves"] = saves
+    path = SAMPLES / "habits.json"
+    if os.environ.get("WRITE_FRONT_SAMPLES") == "1":
+        path.write_text(json.dumps(answers, indent=1, ensure_ascii=False) + "\n")
+        return
+    sample = json.loads(path.read_text())
+    assert sample.keys() == answers.keys()
+    gone = differences(sample, answers, "habits")
+    assert not gone, "front/tests/samples/habits.json no longer has the door's shape; run this test with WRITE_FRONT_SAMPLES=1:\n" + "\n".join(gone)

@@ -21,7 +21,7 @@ from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-from . import body as tape, healthpage, hubtools, labelread, logbook, privateline, reads, web, webactions, webentry, webfood, webheld, webundo
+from . import body as tape, habitspage, healthpage, hubtools, labelread, logbook, privateline, reads, web, webactions, webentry, webfood, webhabits, webheld, webundo
 from .ai.provider import ProviderError
 from .config import FRONT_TOKEN
 from .db import connect
@@ -407,6 +407,8 @@ def saved(session, out: dict, body: dict, view: str = "day", private: bool = Fal
         res["health"] = reads.health(_range(body.get("range"), strict=False), body.get("all") is True)
     elif shown == "body":  # the body card (deploy 91), as GET /body of view_day
         res["body"] = reads.body(asked, _range(body.get("range"), strict=False))
+    elif shown == "habits":  # the Habits page (deploy 93), as GET /habits with the body's show (tracked when not given or unknown)
+        res["habits"] = reads.habits(body.get("show") if isinstance(body.get("show"), str) else "tracked")
     else:
         res["day"] = reads.day(asked)
     return res
@@ -828,3 +830,89 @@ def body_save(_request, body, session):
 def body_skip(_request, body, session):
     """"Not today" on Today's "Body measurements due" line: hidden until the next health day."""
     return saved(session, _work(webactions.body_skip), body)
+
+
+# ---- the Habits page (deploy 93) -----------------------------------------------------------------------------------------------
+# app.'s Habits page (habitspage), through the same functions: the read as data, a past day's tick or untick by webactions.habit_day
+# (the squares), and the list's forms by webhabits.ACTIONS (track, retire, restore, edit, delete, new). Today's buttons are POST
+# /habit (answer it with "view": "habits" for this page's read). Hiding and ordering habits on Today and the reminders stay at app.
+# (Settings): no route here.
+
+def _show(raw, strict: bool = True) -> str:
+    if raw in (None, ""):
+        return "tracked"
+    if isinstance(raw, str) and raw in dict(habitspage.SHOWS):
+        return raw
+    if strict:
+        raise Refused(400, "bad_request", "show must be tracked, untracked, retired or all.")
+    return "tracked"
+
+
+@route("/habits", "GET")
+def habits_read(request, _body, session):
+    """The Habits page: ?show=tracked|untracked|retired|all (tracked) for "Your habits"; and the session's Undo."""
+    return {"habits": reads.habits(_show(request.query_params.get("show"))), "undo": _undo_out(session.get("undo"))}
+
+
+@route("/habit/day", "POST")
+def habit_day(_request, body, session):
+    """A square of the calendar (webactions.habit_day): name, day (yyyy-mm-dd), key. A day with fewer ticks than the habit's target
+    gets one more tick (date only); a done day has its ticks taken off. Answered with "view": "habits" unless the body says other."""
+    name, day_s = text(body, "name", 64, required=True), text(body, "day", 10, required=True)
+    return saved(session, _work(lambda: webactions.habit_day(name, day_s, _key(body))), body, view="habits")
+
+
+def _whole(name: str, v, lo: int, hi: int) -> int:
+    if not isinstance(v, int) or isinstance(v, bool) or not lo <= v <= hi:
+        raise Refused(400, "bad_request", f"{name} must be a whole number from {lo} to {hi}.")
+    return v
+
+
+@route("/habits/manage", "POST")
+def habits_manage(_request, body, session):
+    """One of the list's forms (webhabits.ACTIONS): action, key, and by action
+    track: name, on (true or false); retire, restore: name; delete: name, confirmed (true); edit: name, label, target (times a day),
+    order (optional), aim ("do" or "avoid", optional); new: label, group, target (1 when not given), track (true or false).
+    Nothing is saved without a plain yes: a label over 40 letters or a target outside 1 to 10 is a bad request here (the page's
+    own form stops them first)."""
+    action = body.get("action")
+    if action not in webhabits.ACTIONS:
+        raise Refused(400, "bad_request", "action must be track, retire, restore, edit, delete or new.")
+    f = {}
+    if action != "new":
+        f["name"] = text(body, "name", 64, required=True)
+    if action in ("edit", "new"):
+        label = body.get("label")
+        if label is not None and not isinstance(label, str):
+            raise Refused(400, "bad_request", "label must be text.")
+        label = " ".join((label or "").split())
+        if len(label) > habitspage.LABEL_MAX:
+            raise Refused(400, "bad_request", f"label must be {habitspage.LABEL_MAX} characters or fewer.")
+        f["label"] = label
+        lo, hi = habitspage.TARGET
+        if body.get("target") is not None:
+            f["daily_target"] = str(_whole("target", body["target"], lo, hi))
+        elif action == "edit":  # the form's function sets 1 when it is not sent: not by a left-out field
+            raise Refused(400, "bad_request", "target is missing.")
+    if action == "edit":
+        if body.get("order") is not None:
+            f["sort_order"] = str(_whole("order", body["order"], 0, habitspage.ORDER_MAX))
+        if body.get("aim") is not None:
+            if body["aim"] not in ("do", "avoid"):
+                raise Refused(400, "bad_request", 'aim must be "do" or "avoid".')
+            f["aim"] = body["aim"]
+    if action == "new":
+        if body.get("group") is not None:
+            f["group"] = text(body, "group", 20)
+        if body.get("track") is not None:
+            if not isinstance(body["track"], bool):
+                raise Refused(400, "bad_request", "track must be true or false.")
+            f["track"] = "1" if body["track"] else "0"
+    if action == "track":
+        if not isinstance(body.get("on"), bool):
+            raise Refused(400, "bad_request", "on must be true or false.")
+        f["on"] = "1" if body["on"] else "0"
+    if action == "delete" and body.get("confirmed") is True:
+        f["confirmed"] = "1"
+    form, key = Form(f), _key(body)
+    return saved(session, _work(lambda: webhabits.ACTIONS[action](form, key, session)), body, view="habits")

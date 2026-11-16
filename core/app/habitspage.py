@@ -11,6 +11,10 @@ from .db import connect
 from .webentry import esc, hidden, here, key
 
 DAYS = 30
+EDIT_DAYS = DAYS + 5  # a past day can be changed this far back (a five-week calendar); the grid shows DAYS
+LABEL_MAX = 40
+TARGET = (1, 10)  # times a day
+ORDER_MAX = 999
 LOCKED = {"wake"}  # a time, not a habit; migration 017 took it off the checklist, this stays as a guard for the past-day squares
 GROUPS = (("intake", "Intake"), ("practice", "Practice"), ("learning", "Learning"), ("daily", "Daily routine"), ("behaviour", "Behaviour"))
 SHOWS = (("tracked", "Tracked"), ("untracked", "Not tracked"), ("retired", "Retired"), ("all", "All"))
@@ -54,6 +58,12 @@ def load(cur) -> dict:
             "avoid": avoid}
 
 
+def todo(d: dict) -> tuple[list, int]:
+    """Today's habits to do (an avoid habit is not counted) and how many of them are done: "n of N done"."""
+    rows = [h for h in d["now"] if h["type_name"] not in d["avoid"]]
+    return rows, sum(1 for h in rows if h["complete"])
+
+
 def _today(d: dict, csrf: str) -> str:
     if not d["now"]:
         return '<p class="empty">No habit is tracked. Switch Track on for one below.</p>'
@@ -66,13 +76,12 @@ def _today(d: dict, csrf: str) -> str:
         btns.append(f'<form method="post" action="/web/habit">{hidden("csrf", csrf)}{hidden("name", h["type_name"])}{act}{here("/web/habits")}'
                     f'<button class="habit big{" done" if done else ""}{" avoid" if av else ""}" type="submit" aria-pressed="{str(done).lower()}">'
                     f'<span class="box">{"&#10003;" if done else ""}</span>{esc(h["label"])}{count}{tag}</button></form>')
-    todo = [h for h in d["now"] if h["type_name"] not in d["avoid"]]
-    n_done = sum(1 for h in todo if h["complete"])
-    return (f'<h2>Today · {n_done} of {len(todo)} done</h2><div class="habits">{"".join(btns)}</div>'
+    rows, n_done = todo(d)
+    return (f'<h2>Today · {n_done} of {len(rows)} done</h2><div class="habits">{"".join(btns)}</div>'
             '<p class="small hint">Tap to tick, tap again to untick. A habit to avoid is ticked when it happened.</p>')
 
 
-def _stats(r: dict, today) -> str:
+def stats(r: dict, today) -> str:
     if not r["ticks"]:
         return "Never ticked"
     last = r["last_day"]
@@ -95,9 +104,9 @@ def _row(r: dict, csrf: str, today, group: str, avoid: frozenset = frozenset()) 
     av = name in avoid
     # Edit has the order and the aim too since 04.11.2026: Settings > Habits (a second manager with other rules) is gone
     ctl.append(f'<details class="hm-pop"><summary class="hm-link">Edit</summary>{form("edit")}'
-               f'<input name="label" value="{esc(r["label"])}" maxlength="40" required aria-label="Name of {label}">'
-               f'<label class="small"><input type="number" name="daily_target" min="1" max="10" value="{r["daily_target"]}" aria-label="Times a day for {label}"> times a day</label>'
-               f'<label class="small">Order <input type="number" name="sort_order" min="0" max="999" value="{r["sort_order"]}" aria-label="Order of {label}"></label>'
+               f'<input name="label" value="{esc(r["label"])}" maxlength="{LABEL_MAX}" required aria-label="Name of {label}">'
+               f'<label class="small"><input type="number" name="daily_target" min="{TARGET[0]}" max="{TARGET[1]}" value="{r["daily_target"]}" aria-label="Times a day for {label}"> times a day</label>'
+               f'<label class="small">Order <input type="number" name="sort_order" min="0" max="{ORDER_MAX}" value="{r["sort_order"]}" aria-label="Order of {label}"></label>'
                f'<label class="small">Aim <select name="aim" aria-label="Aim of {label}"><option value="do"{"" if av else " selected"}>do it</option>'
                f'<option value="avoid"{" selected" if av else ""}>avoid it</option></select></label>'
                '<button class="primary sm" type="submit">Save</button></form></details>')
@@ -111,40 +120,67 @@ def _row(r: dict, csrf: str, today, group: str, avoid: frozenset = frozenset()) 
     tag += ' <span class="pill warn">avoid</span>' if av else ""
     return (f'<div class="hm" id="hab-{esc(name)}"><div class="hm-main"><b>{label}</b>{tag}'
             f'<span class="small">{esc(group)} · {r["daily_target"]} {plural} a day</span></div>'
-            f'<div class="hm-stats small">{_stats(r, today)}</div><div class="hm-ctl">{"".join(ctl)}</div></div>')
+            f'<div class="hm-stats small">{stats(r, today)}</div><div class="hm-ctl">{"".join(ctl)}</div></div>')
 
 
-def _manage(d: dict, csrf: str, show: str) -> str:
-    rows = d["manage"]
-    counts = {k: sum(1 for r in rows if k == "all" or state(r) == k) for k, _l in SHOWS}
-    chips = ""
-    for k, label in SHOWS:
-        here_ = ' aria-current="true"' if k == show else ""
-        chips += f'<a class="chip{" on" if k == show else ""}" href="/web/habits?show={k}"{here_}>{label} · {counts[k]}</a>'
+def counts(rows: list) -> dict:
+    """How many habits each filter shows."""
+    return {k: sum(1 for r in rows if k == "all" or state(r) == k) for k, _l in SHOWS}
+
+
+def sections(d: dict, show: str) -> list:
+    """The habits of a filter in their groups: [(category, title, rows)], the groups of GROUPS and then "Other"; empty ones left out."""
     known = dict(GROUPS)
-    shown = [r for r in rows if show == "all" or state(r) == show]
+    shown = [r for r in d["manage"] if show == "all" or state(r) == show]
     out = []
     for cat, title in list(GROUPS) + [("", "Other")]:
         part = [r for r in shown if (r["category"] == cat if cat else r["category"] not in known)]
         if part:
-            out.append(f'<h3>{title} · {len(part)}</h3>' + "".join(_row(r, csrf, d["today"], title, frozenset(d["avoid"])) for r in part))
+            out.append((cat, title, part))
+    return out
+
+
+def _manage(d: dict, csrf: str, show: str) -> str:
+    n = counts(d["manage"])
+    chips = ""
+    for k, label in SHOWS:
+        here_ = ' aria-current="true"' if k == show else ""
+        chips += f'<a class="chip{" on" if k == show else ""}" href="/web/habits?show={k}"{here_}>{label} · {n[k]}</a>'
+    out = [f'<h3>{title} · {len(part)}</h3>' + "".join(_row(r, csrf, d["today"], title, frozenset(d["avoid"])) for r in part)
+           for _cat, title, part in sections(d, show)]
     return (f'<h2>Your habits</h2><div class="chips" role="group" aria-label="Show">{chips}</div>'
             f'<p class="small hint">{HELP[show]}</p>{"".join(out) or "<p class=empty>Nothing here.</p>"}')
+
+
+def day_state(n: int, target: int, avoid: bool) -> tuple[str, str]:
+    """One square of the calendar: (its class, its words). done "d" and partly "h" for a habit to do, logged "x" for one to avoid."""
+    if avoid:
+        return ("x" if n else ""), (f"{n} logged" if n else "none")
+    return ("d" if n >= target else "h" if n else ""), ("done" if n >= target else f"{n} of {target}" if n else "not logged")
+
+
+def calendar(d: dict) -> list:
+    """The last DAYS days of every tracked habit: [{h, avoid, target, full, days: [(day, n, class, words)]}], "full" = the days done
+    (a habit to avoid: the days without)."""
+    days = [d["start"] + timedelta(days=i) for i in range(DAYS)]
+    rows = []
+    for h in d["habits"]:
+        target, av, full, squares = h["daily_target"] or 1, h["name"] in d["avoid"], 0, []
+        for day in days:
+            n = d["done"].get((h["name"], day), 0)
+            full += n >= target if not av else not n
+            squares.append((day, n, *day_state(n, target, av)))
+        rows.append({"h": h, "avoid": av, "target": target, "full": full, "days": squares})
+    return rows
 
 
 def _calendar(d: dict, csrf: str) -> str:
     if not d["habits"]:
         return ""
-    days = [d["start"] + timedelta(days=i) for i in range(DAYS)]
     rows = []
-    for h in d["habits"]:
-        target, squares, full = h["daily_target"] or 1, [], 0
-        av = h["name"] in d["avoid"]
-        for day in days:
-            n = d["done"].get((h["name"], day), 0)
-            full += n >= target if not av else not n
-            cls = ("x" if n else "") if av else "d" if n >= target else "h" if n else ""
-            state_ = (f"{n} logged" if n else "none") if av else "done" if n >= target else f"{n} of {target}" if n else "not logged"
+    for r in calendar(d):
+        h, av, target, full, squares = r["h"], r["avoid"], r["target"], r["full"], []
+        for day, n, cls, state_ in r["days"]:
             tip = f"{_dm(day)}: {state_}"
             if h["name"] in LOCKED:
                 squares.append(f'<span class="sq {cls}" title="{esc(tip)}"></span>')
@@ -167,9 +203,9 @@ def _calendar(d: dict, csrf: str) -> str:
 def _new(csrf: str) -> str:
     opts = "".join(f'<option value="{k}"{" selected" if k == "practice" else ""}>{v}</option>' for k, v in GROUPS)
     return (f'<h2>New habit</h2><form class="row" method="post" action="/web/habits/new">{hidden("csrf", csrf)}{here("/web/habits")}'
-            '<input name="label" maxlength="40" required class="grow" placeholder="Name, e.g. Stretching" aria-label="Name of the new habit">'
+            f'<input name="label" maxlength="{LABEL_MAX}" required class="grow" placeholder="Name, e.g. Stretching" aria-label="Name of the new habit">'
             f'<label class="small">Group <select name="group">{opts}</select></label>'
-            '<label class="small">Times a day <input type="number" name="daily_target" min="1" max="10" value="1"></label>'
+            f'<label class="small">Times a day <input type="number" name="daily_target" min="{TARGET[0]}" max="{TARGET[1]}" value="1"></label>'
             '<label class="row small"><input type="checkbox" name="track" value="1" checked> Track it now</label>'
             '<button class="primary" type="submit">Add</button></form>'
             '<p class="small hint">Then log it in the chat or the entry box by its name ("did stretching") or tick it above.</p>')
