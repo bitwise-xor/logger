@@ -49,7 +49,15 @@ const want = {
   hiddenRefs: day.rows.filter((r) => r.kind !== 'food' && ['bed', 'wake', 'weight', 'blood_sugar', 'bp'].includes(r.type)).map((r) => r.ref),
   health: day.health.map((h) => h.row),
   gratitude: `${day.gratitude.count}/${day.gratitude.goal}`,
+  kcalEaten: grouped(day.energy.totals.kcal),
+  shares: (() => {
+    const t = day.energy.totals;
+    const k = { Protein: t.protein * 4, Fat: t.fat * 9, Carbs: t.carbs * 4 };
+    const whole = k.Protein + k.Fat + k.Carbs;
+    return ['Protein', 'Fat', 'Carbs'].map((m) => `${even((k[m] / whole) * 100)}%`);
+  })(),
 };
+const macros = (x) => `P ${grouped(x.protein)} · F ${grouped(x.fat)} · C ${grouped(x.carbs)} g`;
 
 async function checkToday(page, name) {
   assert.equal((await page.locator('[data-kcal-left]').textContent())?.trim(), want.kcalLeft, 'kcal left');
@@ -73,6 +81,21 @@ async function checkToday(page, name) {
   if (name === 'pc') assert.ok(timeline.x < needs.x && Math.abs(chips.y - needs.y) < 2, 'PC: the day left, Needs you right, both at the top');
   // all the macros on the Energy card; on the PC the day starts at the rail and takes the room the right column leaves
   assert.deepEqual(await page.locator('[data-macro]').evaluateAll((els) => els.map((e) => e.getAttribute('data-macro'))), ['Eaten', 'Protein', 'Fat', 'Carbs'], 'macro lines');
+  // the pie of the day's kcal from protein, carbs and fat, and each macro's share on its bar (deploy 88)
+  assert.deepEqual(await page.locator('[data-pie] [data-slice]').evaluateAll((els) => els.map((e) => e.getAttribute('data-slice'))), ['protein', 'carbs', 'fat'], 'pie slices');
+  assert.equal((await page.locator('[data-pie] b').textContent())?.trim(), want.kcalEaten, 'the pie: the day\'s kcal in the middle');
+  assert.deepEqual(await page.locator('[data-share]').allTextContents().then((x) => x.map((t) => t.replace(/[·\s]/g, ''))), want.shares, 'the shares of the macros');
+  const pie = await page.locator('[data-pie]').boundingBox();
+  const energy = await page.locator('[data-card="energy"]').boundingBox();
+  assert.ok(pie.x + pie.width <= energy.x + energy.width && pie.x > energy.x + energy.width / 2, 'the pie sits on the right of the Energy card');
+  // each food row's macros and each meal's under its label
+  for (const r of day.rows.filter((x) => x.kind === 'food'))
+    assert.equal((await page.locator(`[data-row="${r.ref}"] [data-row-macros]`).textContent())?.trim(), macros(r.nutrients), `macros of ${r.ref}`);
+  const mealMacros = await page.locator('[data-meal-macros]').allTextContents();
+  for (const m of day.energy.meals) assert.ok(mealMacros.map((x) => x.trim()).includes(macros(m.nutrients)), `macros of ${m.label}`);
+  // two habits per row
+  const habits = await page.locator('[data-habit]').evaluateAll((els) => els.map((e) => e.getBoundingClientRect()).map((r) => ({ x: r.x, y: r.y })));
+  if (habits.length >= 2) assert.ok(Math.abs(habits[0].y - habits[1].y) < 2 && habits[1].x > habits[0].x + 40, 'two habits per row');
   if (name === 'pc') {
     assert.ok(timeline.x < 260 && timeline.width > 600, `PC: the day is wide and starts at the rail (x ${timeline.x}, ${timeline.width} px)`);
     assert.ok(Math.abs(needs.width - 340) < 2, 'PC: the right column is 340 px');
@@ -195,7 +218,13 @@ async function checkLogBox(page, name, theme) {
   }
   assert.equal(await page.getByRole('link', { name: 'Barcode and label: full app' }).count(), 1, 'the link to the full app');
   const rest = await box.boundingBox();
-  assert.ok(rest.height >= 66 && rest.height <= 72, `the box is two lines tall at rest (${rest.height} px)`);
+  assert.ok(rest.height >= 43 && rest.height <= 46, `the box is one line tall at rest (${rest.height} px)`);
+  // it grows by itself when the words do not fit one line, and is one line again when sent or emptied
+  await box.fill('one\ntwo\nthree');
+  const grown = await box.boundingBox();
+  assert.ok(grown.height > rest.height + 30, `the box grows with its lines (${grown.height} px)`);
+  await box.fill('');
+  assert.ok(Math.abs((await box.boundingBox()).height - rest.height) < 2, 'the box is one line again when emptied');
   // Shift+Enter is a new line, not a send
   await box.fill('40 g radishes');
   await box.press('Shift+Enter');

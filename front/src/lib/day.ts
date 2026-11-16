@@ -177,22 +177,50 @@ export function kcalLeft(e: Day['energy']): { big: string; after: string; target
   return gap >= 0 ? { big: n(gap), after: 'kcal left of', target: n(target) } : { big: n(-gap), after: 'kcal over', target: n(target) };
 }
 
+export type MacroKey = 'protein' | 'fat' | 'carbs';
+
 export interface MacroBar {
   name: string;
+  /** protein, fat or carbs: its colour (the pie's, app.'s macro colours); null for the kcal line. */
+  key: MacroKey | null;
   value: number;
   /** null: no target set, the line shows the amount without a bar. */
   target: number | null;
   unit: string;
+  /** Its share of the kcal from the macros, in whole per cent ("16 %"), as the pie shows it; '' for kcal or nothing eaten. */
+  share: string;
+}
+
+/** kcal per gram, as app.'s "Energy from macros" (todaypage.MACRO_KCAL). */
+export const KCAL_PER_G: Record<MacroKey, number> = { protein: 4, carbs: 4, fat: 9 };
+
+/** The pie's slices (the owner, 16.11.): kcal from protein, carbs and fat, in app.'s order; null when nothing was eaten. */
+export function macroPie(e: Day['energy']): null | { kcal: string; slices: { key: MacroKey; name: string; share: number }[] } {
+  const order: [MacroKey, string][] = [
+    ['protein', 'Protein'],
+    ['carbs', 'Carbs'],
+    ['fat', 'Fat'],
+  ];
+  const kcal = order.map(([k]) => (e.totals[k] ?? 0) * KCAL_PER_G[k]);
+  const whole = kcal.reduce((a, b) => a + b, 0);
+  if (!(whole > 0)) return null;
+  // The middle: the day's kcal as the Calories card (from the foods' own kcal), as app.'s pie.
+  return { kcal: n(e.totals.kcal || whole), slices: order.map(([key, name], i) => ({ key, name, share: kcal[i]! / whole })) };
 }
 
 /** The Energy card's lines: kcal (only against a target: the big number has it) and all three macros (the owner, 16.11.). */
 export function macroBars(e: Day['energy']): MacroBar[] {
   const t = e.targets;
+  const pie = macroPie(e);
+  const share = (k: MacroKey) => {
+    const s = pie?.slices.find((x) => x.key === k);
+    return s ? `${n(s.share * 100)} %` : '';
+  };
   return [
-    t.kcal ? { name: 'Eaten', value: e.totals.kcal ?? 0, target: t.kcal, unit: 'kcal' } : null,
-    { name: 'Protein', value: e.totals.protein ?? 0, target: t.protein || null, unit: 'g' },
-    { name: 'Fat', value: e.totals.fat ?? 0, target: t.fat || null, unit: 'g' },
-    { name: 'Carbs', value: e.totals.carbs ?? 0, target: t.carbs || null, unit: 'g' },
+    t.kcal ? { name: 'Eaten', key: null, value: e.totals.kcal ?? 0, target: t.kcal, unit: 'kcal', share: '' } : null,
+    { name: 'Protein', key: 'protein' as const, value: e.totals.protein ?? 0, target: t.protein || null, unit: 'g', share: share('protein') },
+    { name: 'Fat', key: 'fat' as const, value: e.totals.fat ?? 0, target: t.fat || null, unit: 'g', share: share('fat') },
+    { name: 'Carbs', key: 'carbs' as const, value: e.totals.carbs ?? 0, target: t.carbs || null, unit: 'g', share: share('carbs') },
   ].filter((b) => b !== null);
 }
 
@@ -206,6 +234,8 @@ export interface Line {
   time: string;
   name: string;
   sub: string;
+  /** A food's macros in a small line ("P 24 · F 3 · C 60 g", the owner, 16.11.); '' for other rows. */
+  macros: string;
   value: string;
   review: boolean;
 }
@@ -214,16 +244,21 @@ export interface Block {
   key: string;
   label: string;
   total: string;
+  /** The meal's macros under its label ("P 37 · F 29 · C 136 g"); '' for "Other". */
+  macros: string;
   lines: Line[];
 }
 
+/** "P 24 · F 3 · C 60 g": protein, fat and carbs in whole grams, as app. rounds them. */
+export const macroText = (x: Nutrients) => `P ${n(x.protein)} · F ${n(x.fat)} · C ${n(x.carbs)} g`;
+
 function foodLine(r: FoodRow): Line {
-  const amount = r.portion_text || `${n(r.amount)} ${r.unit}`;
   return {
     ref: r.ref,
     time: r.time_known ? hm(r.at) : '',
     name: r.food,
-    sub: `${amount} · ${n(r.nutrients.protein)} g protein`,
+    sub: r.portion_text || `${n(r.amount)} ${r.unit}`,
+    macros: macroText(r.nutrients),
     value: `${n(r.nutrients.kcal)} kcal`,
     review: false,
   };
@@ -242,6 +277,7 @@ function valueLine(r: ValueRow): Line {
     time: r.time_known ? hm(r.at) : '',
     name: r.label,
     sub: r.needs_review ? 'to review' : r.period && r.type !== 'bp' ? r.period : '',
+    macros: '',
     value: valueText(r.v1, r.v2, r.unit),
     review: r.needs_review,
   };
@@ -309,6 +345,7 @@ export function timeline(d: Day): Block[] {
       key: b.key,
       label: b.meal === null ? 'Other' : mealLabel(b.meal, meal?.label),
       total: meal ? `${n(meal.nutrients.kcal)} kcal` : '',
+      macros: meal ? macroText(meal.nutrients) : '',
       lines: b.rows.map((r) => (r.kind === 'food' ? foodLine(r) : valueLine(r))),
     };
   });

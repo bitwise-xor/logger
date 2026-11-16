@@ -9,3 +9,17 @@
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
+
+/* The macro colours of app. (core/app/static/app.css --mp, --mc, --mf), so the pie and the bars match the full app (the owner,
+   16.11.2026): protein blue, carbs coral, fat amber; lighter in the dark. */
+:root,
+[data-theme='dark'] {
+  --macro-protein: #8db2ea;
+  --macro-carbs: #ee8a72;
+  --macro-fat: #f0c14f;
+}
+[data-theme='light'] {
+  --macro-protein: #3d6fb6;
+  --macro-carbs: #c4513a;
+  --macro-fat: #c98c12;
+}

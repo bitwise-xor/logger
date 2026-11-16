@@ -20,7 +20,7 @@
     if (location.hash === '#log-text') field?.focus();
   });
 
-  // Two lines at rest (the mockup's PC box, rows 2); it grows with its lines (each can be its own entry), then it scrolls.
+  // One line at rest (the owner, 16.11.2026; two since deploy 82); it grows with its lines (each can be its own entry), then it scrolls.
   $effect(() => {
     void today.box;
     if (!field) return;
@@ -88,13 +88,13 @@
         bind:value={today.box}
         id="log-text"
         name="text"
-        rows="2"
+        rows="1"
         maxlength="4000"
         placeholder="What to log"
         autocomplete="off"
         enterkeyhint="send"
         onkeydown={keydown}
-        class="min-h-[68px] min-w-0 flex-1 resize-none rounded-lg border border-line bg-panel px-3 py-[9px] text-base leading-6 text-text placeholder:text-muted focus-visible:border-blue focus-visible:outline-none tablet:text-sm"
+        class="min-h-11 min-w-0 flex-1 resize-none rounded-lg border border-line bg-panel px-3 py-[9px] text-base leading-6 text-text placeholder:text-muted focus-visible:border-blue focus-visible:outline-none tablet:text-sm"
       ></textarea>
       <button
         type="submit"

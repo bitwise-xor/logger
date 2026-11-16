@@ -8,6 +8,8 @@ import {
   healthLines,
   kcalLeft,
   macroBars,
+  macroPie,
+  macroText,
   needsCount,
   reviewText,
   timeline,
@@ -100,16 +102,39 @@ describe('the Energy card lines', () => {
   it('lists kcal and all three macros against their targets', () => {
     const t = SAMPLE.energy.totals;
     expect(macroBars(SAMPLE.energy)).toEqual([
-      { name: 'Eaten', value: t.kcal, target: 2100, unit: 'kcal' },
-      { name: 'Protein', value: t.protein, target: 150, unit: 'g' },
-      { name: 'Fat', value: t.fat, target: 70, unit: 'g' },
-      { name: 'Carbs', value: t.carbs, target: 250, unit: 'g' },
+      { name: 'Eaten', key: null, value: t.kcal, target: 2100, unit: 'kcal', share: '' },
+      { name: 'Protein', key: 'protein', value: t.protein, target: 150, unit: 'g', share: '16 %' },
+      { name: 'Fat', key: 'fat', value: t.fat, target: 70, unit: 'g', share: '26 %' },
+      { name: 'Carbs', key: 'carbs', value: t.carbs, target: 250, unit: 'g', share: '58 %' },
     ]);
   });
   it('still lists a macro without a target (no bar), and leaves kcal to the big number', () => {
     const e = copy().energy;
     e.targets = { kcal: null, protein: null, fat: 70, carbs: null };
     expect(macroBars(e).map((b) => [b.name, b.target])).toEqual([['Protein', null], ['Fat', 70], ['Carbs', null]]);
+  });
+  it('says no share before anything is eaten', () => {
+    const e = copy().energy;
+    e.totals = { kcal: 0, protein: 0, fat: 0, carbs: 0 };
+    expect(macroBars(e).map((b) => b.share)).toEqual(['', '', '', '']);
+  });
+});
+
+describe('the macro pie', () => {
+  it('splits the kcal from protein and carbs (4 per g) and fat (9 per g), in app.\'s order, the day\'s kcal in the middle', () => {
+    const pie = macroPie(SAMPLE.energy)!;
+    const whole = 57.2 * 4 + 206.2 * 4 + 40.2 * 9;
+    expect(pie.kcal).toBe('1,400'); // 1399.5, halves to even as app.
+    expect(pie.slices.map((s) => s.key)).toEqual(['protein', 'carbs', 'fat']);
+    expect(pie.slices.map((s) => s.share)).toEqual([(57.2 * 4) / whole, (206.2 * 4) / whole, (40.2 * 9) / whole]);
+    expect(pie.slices.reduce((a, s) => a + s.share, 0)).toBeCloseTo(1, 10);
+  });
+  it('is not drawn before anything is eaten, and takes the macros\' kcal when the day has none', () => {
+    const e = copy().energy;
+    e.totals = { kcal: 0, protein: 0, fat: 0, carbs: 0 };
+    expect(macroPie(e)).toBeNull();
+    e.totals = { kcal: 0, protein: 10, fat: 0, carbs: 0 };
+    expect(macroPie(e)).toMatchObject({ kcal: '40', slices: [{ key: 'protein', share: 1 }, { share: 0 }, { share: 0 }] });
   });
 });
 
@@ -179,8 +204,19 @@ describe('the timeline', () => {
     expect(blocks.map((b) => b.label)).toEqual(['Meal 2', 'Meal 1', 'Other', 'Drinks']); // the waist at 06:05, before breakfast at 06:10
     expect(blocks.find((b) => b.label === 'Other')?.lines.map((l) => [l.name, l.value])).toEqual([['Waist', '88 cm']]);
     const soup = blocks[0]!.lines.find((l) => l.name === 'Lentil soup');
-    expect(soup).toMatchObject({ time: '13:05', sub: '350 g · 24 g protein', value: '410 kcal' });
-    expect(blocks[0]!.lines.find((l) => l.name === 'Rye bread')?.sub).toBe('2 slices · 6 g protein');
+    expect(soup).toMatchObject({ time: '13:05', sub: '350 g', macros: 'P 24 · F 10 · C 56 g', value: '410 kcal' });
+    expect(blocks[0]!.lines.find((l) => l.name === 'Rye bread')).toMatchObject({ sub: '2 slices', macros: 'P 6 · F 1 · C 38 g' });
+    // each meal's macros under its label, from energy.meals; none for "Other"
+    expect(blocks.map((b) => [b.label, b.macros])).toEqual([
+      ['Meal 2', 'P 37 · F 29 · C 136 g'],
+      ['Meal 1', 'P 18 · F 9 · C 66 g'],
+      ['Other', ''],
+      ['Drinks', 'P 2 · F 2 · C 4 g'],
+    ]);
+    expect(blocks.find((b) => b.label === 'Other')?.lines[0]?.macros).toBe('');
+  });
+  it('writes macros in whole grams, halves to even as app.', () => {
+    expect(macroText({ kcal: 0, protein: 2.5, fat: 3.5, carbs: 0.4 })).toBe('P 2 · F 4 · C 0 g');
   });
 });
 

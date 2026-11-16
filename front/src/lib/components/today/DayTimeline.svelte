@@ -20,6 +20,8 @@
     >
       <span>{b.label}</span><span class="num">{b.total}</span>
     </div>
+    <!-- The meal's macros under its label (the owner, 16.11.2026). -->
+    {#if b.macros}<div class="num -mt-1 px-0.5 text-xs text-muted" data-meal-macros>{b.macros}</div>{/if}
     {#each b.lines as r (r.ref)}
       {@const cls = `grid min-h-11 grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-2.5 rounded-lg border bg-panel px-3 py-2 text-text no-underline transition-colors duration-[600ms] desktop:grid-cols-[48px_minmax(0,1fr)_auto] desktop:gap-3 ${today.fresh.has(r.ref) ? 'border-blue' : 'border-line'}`}
       {#snippet line()}
@@ -27,6 +29,7 @@
         <span class="flex min-w-0 flex-col">
           <span class="break-words">{r.name}</span>
           {#if r.sub}<span class="text-xs text-muted">{r.sub}</span>{/if}
+          {#if r.macros}<span class="num text-xs text-muted" data-row-macros>{r.macros}</span>{/if}
         </span>
         <span class="num text-[13px] whitespace-nowrap {r.review ? 'text-amber' : ''}">{r.value}</span>
       {/snippet}

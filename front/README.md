@@ -8,7 +8,7 @@ skeleton, the sign-in and an empty Today. Step B (deploy 79): Today read-only fr
 (deploy 80): the taps save in place (water, Again and usual chips, habits, check-in, review, Health card, question buttons,
 Try again / Delete for a message not read yet, Undo). Step D (deploy 81): the logging box. Step E (deploy 84): the Food day.
 Step F (deploy 85): polish (plain messages when the core is down or the door is off, back to your page after a sign-in, phone,
-tablet and PC width). Then the trial runs (below). Deploy 87: the Usual meals page.
+tablet and PC width). Then the trial runs (below). Deploy 87: the Usual meals page. Deploy 88: Today shows each food's and meal's macros, a pie of the day's kcal from protein, carbs and fat in the Energy card (app.'s macro colours, `--macro-*` in `app.css`), a one-line logging box that grows, and two habits per row.
 
 ## How it fits
 
