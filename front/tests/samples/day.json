@@ -1,0 +1,625 @@
+{
+ "v": 1,
+ "day": {
+  "day": "2026-11-16",
+  "today": "2026-11-16",
+  "past": false,
+  "header": {
+   "wake_at": "2026-11-16T05:40:00+01:00",
+   "slept_minutes": 440,
+   "awake_minutes": 630,
+   "naps": [],
+   "next_sleep": false,
+   "watch_wake_at": null
+  },
+  "needs": {
+   "questions": [
+    {
+     "id": "pq2",
+     "tool": "command",
+     "kind": null,
+     "asked_at": "2026-11-16T11:42:49.135442+01:00",
+     "open_until": "2026-11-17T11:42:49.135442+01:00",
+     "message": null,
+     "text": "Which entry did you mean?",
+     "read_back": null,
+     "answers": [
+      {
+       "reply": "skip",
+       "label": "Skip",
+       "style": "quiet"
+      }
+     ],
+     "free": {
+      "placeholder": "Your answer",
+      "type": "text",
+      "unit": null
+     },
+     "lookup": null,
+     "refill": null
+    },
+    {
+     "id": "pq1",
+     "tool": "log_confirm",
+     "kind": null,
+     "asked_at": "2026-11-16T11:42:49.132545+01:00",
+     "open_until": "2026-11-17T11:42:49.132545+01:00",
+     "message": null,
+     "text": "Save this?",
+     "read_back": "Skyr 450 g, today at breakfast.",
+     "answers": [
+      {
+       "reply": "yes",
+       "label": "Yes",
+       "style": "primary"
+      },
+      {
+       "reply": "no",
+       "label": "No",
+       "style": "plain"
+      }
+     ],
+     "free": null,
+     "lookup": null,
+     "refill": null
+    }
+   ],
+   "not_read": [
+    {
+     "id": 1,
+     "received_at": "2026-11-16T11:42:49.138378+01:00",
+     "text": "150 g skyr, weight 82",
+     "tries": 2,
+     "needs_you": false,
+     "reading": false
+    }
+   ],
+   "review": [
+    {
+     "ref": "t1",
+     "kind": "thought",
+     "label": null,
+     "day": "2026-11-16",
+     "reason": "nothing extracted",
+     "at": "2026-11-16T11:42:49.144827+01:00",
+     "logged_at": "2026-11-16T11:42:49.144827+01:00",
+     "thought_type": "task",
+     "area": "personal",
+     "type": null,
+     "v1": null,
+     "v2": null,
+     "unit": null
+    },
+    {
+     "ref": "f5",
+     "kind": "food",
+     "label": "Fruit bar",
+     "day": "2026-11-16",
+     "reason": "odd value",
+     "at": "2026-11-16T11:40:00+01:00",
+     "logged_at": "2026-11-16T11:42:49.031978+01:00",
+     "thought_type": null,
+     "area": null,
+     "type": null,
+     "v1": 40,
+     "v2": null,
+     "unit": "g"
+    },
+    {
+     "ref": "m5",
+     "kind": "measurement",
+     "label": "Weight",
+     "day": "2026-11-16",
+     "reason": "odd value",
+     "at": "2026-11-16T05:44:00+01:00",
+     "logged_at": "2026-11-16T11:42:48.938328+01:00",
+     "thought_type": null,
+     "area": null,
+     "type": "weight",
+     "v1": 182.4,
+     "v2": null,
+     "unit": "kg"
+    }
+   ],
+   "checkin": {
+    "day": "2026-11-16",
+    "mood": null,
+    "energy": null,
+    "scale": {
+     "mood": [
+      "very low",
+      "low",
+      "okay",
+      "good",
+      "great"
+     ],
+     "energy": [
+      "drained",
+      "tired",
+      "okay",
+      "good",
+      "full of energy"
+     ]
+    }
+   }
+  },
+  "energy": {
+   "totals": {
+    "kcal": 1399.5,
+    "protein": 57.2,
+    "fat": 40.2,
+    "carbs": 206.2
+   },
+   "targets": {
+    "kcal": 2100,
+    "protein": 150,
+    "fat": 70,
+    "carbs": 250
+   },
+   "meals": [
+    {
+     "meal": 1,
+     "label": "Meal 1",
+     "nutrients": {
+      "kcal": 420,
+      "protein": 18,
+      "fat": 9,
+      "carbs": 66
+     }
+    },
+    {
+     "meal": 2,
+     "label": "Meal 2",
+     "nutrients": {
+      "kcal": 934.5,
+      "protein": 36.7,
+      "fat": 28.7,
+      "carbs": 136.4
+     }
+    },
+    {
+     "meal": 0,
+     "label": "Drinks",
+     "nutrients": {
+      "kcal": 45,
+      "protein": 2.5,
+      "fat": 2.5,
+      "carbs": 3.8
+     }
+    }
+   ]
+  },
+  "water": {
+   "ml": 750,
+   "target_ml": 3000,
+   "glass_ml": 250
+  },
+  "chips": {
+   "again": [
+    {
+     "food_id": 7,
+     "name": "Rye bread",
+     "amount": 80,
+     "unit": "g"
+    },
+    {
+     "food_id": 6,
+     "name": "Lentil soup",
+     "amount": 350,
+     "unit": "g"
+    },
+    {
+     "food_id": 5,
+     "name": "Fruit bar",
+     "amount": 40,
+     "unit": "g"
+    },
+    {
+     "food_id": 4,
+     "name": "Water",
+     "amount": 500,
+     "unit": "ml"
+    },
+    {
+     "food_id": 3,
+     "name": "Apple with peanut butter",
+     "amount": 150,
+     "unit": "g"
+    },
+    {
+     "food_id": 2,
+     "name": "Oats with milk and banana",
+     "amount": 300,
+     "unit": "g"
+    },
+    {
+     "food_id": 1,
+     "name": "Coffee with milk",
+     "amount": 250,
+     "unit": "ml"
+    },
+    {
+     "food_id": 9,
+     "name": "Banana",
+     "amount": 120,
+     "unit": "g"
+    },
+    {
+     "food_id": 8,
+     "name": "Skyr",
+     "amount": 200,
+     "unit": "g"
+    }
+   ],
+   "usual": [
+    {
+     "meal_id": 44,
+     "name": "Usual breakfast",
+     "items": [
+      {
+       "item_id": 1,
+       "food": "Oats",
+       "amount": 60,
+       "unit": "g",
+       "nutrients": {
+        "kcal": 228,
+        "protein": 7.8,
+        "fat": 4.2,
+        "carbs": 36
+       }
+      },
+      {
+       "item_id": 2,
+       "food": "Skyr",
+       "amount": 200,
+       "unit": "g",
+       "nutrients": {
+        "kcal": 126,
+        "protein": 22,
+        "fat": 0.4,
+        "carbs": 8
+       }
+      }
+     ],
+     "nutrients": {
+      "kcal": 354,
+      "protein": 29.8,
+      "fat": 4.6,
+      "carbs": 44
+     }
+    }
+   ]
+  },
+  "rows": [
+   {
+    "ref": "e2",
+    "kind": "event",
+    "type": "wake",
+    "label": "Wake-up",
+    "at": "2026-11-16T05:40:00+01:00",
+    "time_known": true,
+    "v1": null,
+    "v2": null,
+    "unit": null,
+    "period": null,
+    "needs_review": false
+   },
+   {
+    "ref": "m5",
+    "kind": "measurement",
+    "type": "weight",
+    "label": "Weight",
+    "at": "2026-11-16T05:44:00+01:00",
+    "time_known": true,
+    "v1": 182.4,
+    "v2": null,
+    "unit": "kg",
+    "period": null,
+    "needs_review": true
+   },
+   {
+    "ref": "m1",
+    "kind": "measurement",
+    "type": "weight",
+    "label": "Weight",
+    "at": "2026-11-16T05:45:00+01:00",
+    "time_known": true,
+    "v1": 82.4,
+    "v2": null,
+    "unit": "kg",
+    "period": null,
+    "needs_review": false
+   },
+   {
+    "ref": "f1",
+    "kind": "food",
+    "meal": 0,
+    "at": "2026-11-16T05:50:00+01:00",
+    "time_known": true,
+    "food": "Coffee with milk",
+    "amount": 250,
+    "unit": "ml",
+    "portion_text": "1 cup",
+    "nutrients": {
+     "kcal": 45,
+     "protein": 2.5,
+     "fat": 2.5,
+     "carbs": 3.8
+    },
+    "usual_meal": null,
+    "food_id": 1
+   },
+   {
+    "ref": "m2",
+    "kind": "measurement",
+    "type": "blood_sugar",
+    "label": "Fasted blood sugar",
+    "at": "2026-11-16T05:55:00+01:00",
+    "time_known": true,
+    "v1": 94,
+    "v2": null,
+    "unit": "mg/dL",
+    "period": "fasted",
+    "needs_review": false
+   },
+   {
+    "ref": "e3",
+    "kind": "event",
+    "type": "meds",
+    "label": "Medication",
+    "at": "2026-11-16T06:00:00+01:00",
+    "time_known": true,
+    "v1": null,
+    "v2": null,
+    "unit": null,
+    "period": null,
+    "needs_review": false
+   },
+   {
+    "ref": "m3",
+    "kind": "measurement",
+    "type": "bp",
+    "label": "Blood pressure",
+    "at": "2026-11-16T06:00:00+01:00",
+    "time_known": true,
+    "v1": 118,
+    "v2": 76,
+    "unit": "mmHg",
+    "period": "morning",
+    "needs_review": false
+   },
+   {
+    "ref": "m4",
+    "kind": "measurement",
+    "type": "waist",
+    "label": "Waist",
+    "at": "2026-11-16T06:05:00+01:00",
+    "time_known": true,
+    "v1": 88,
+    "v2": null,
+    "unit": "cm",
+    "period": null,
+    "needs_review": false
+   },
+   {
+    "ref": "f2",
+    "kind": "food",
+    "meal": 1,
+    "at": "2026-11-16T06:10:00+01:00",
+    "time_known": true,
+    "food": "Oats with milk and banana",
+    "amount": 300,
+    "unit": "g",
+    "portion_text": "1 bowl",
+    "nutrients": {
+     "kcal": 420,
+     "protein": 18,
+     "fat": 9,
+     "carbs": 66
+    },
+    "usual_meal": null,
+    "food_id": 2
+   },
+   {
+    "ref": "f3",
+    "kind": "food",
+    "meal": 2,
+    "at": "2026-11-16T10:30:00+01:00",
+    "time_known": true,
+    "food": "Apple with peanut butter",
+    "amount": 150,
+    "unit": "g",
+    "portion_text": null,
+    "nutrients": {
+     "kcal": 165,
+     "protein": 4.9,
+     "fat": 9,
+     "carbs": 18
+    },
+    "usual_meal": null,
+    "food_id": 3
+   },
+   {
+    "ref": "f4",
+    "kind": "food",
+    "meal": 0,
+    "at": "2026-11-16T11:00:00+01:00",
+    "time_known": true,
+    "food": "Water",
+    "amount": 500,
+    "unit": "ml",
+    "portion_text": null,
+    "nutrients": {
+     "kcal": 0,
+     "protein": 0,
+     "fat": 0,
+     "carbs": 0
+    },
+    "usual_meal": null,
+    "food_id": 4
+   },
+   {
+    "ref": "f5",
+    "kind": "food",
+    "meal": 2,
+    "at": "2026-11-16T11:40:00+01:00",
+    "time_known": true,
+    "food": "Fruit bar",
+    "amount": 40,
+    "unit": "g",
+    "portion_text": null,
+    "nutrients": {
+     "kcal": 160,
+     "protein": 1.6,
+     "fat": 8,
+     "carbs": 24
+    },
+    "usual_meal": null,
+    "food_id": 5
+   },
+   {
+    "ref": "f6",
+    "kind": "food",
+    "meal": 2,
+    "at": "2026-11-16T13:05:00+01:00",
+    "time_known": true,
+    "food": "Lentil soup",
+    "amount": 350,
+    "unit": "g",
+    "portion_text": null,
+    "nutrients": {
+     "kcal": 409.5,
+     "protein": 24.2,
+     "fat": 10.5,
+     "carbs": 56
+    },
+    "usual_meal": null,
+    "food_id": 6
+   },
+   {
+    "ref": "f7",
+    "kind": "food",
+    "meal": 2,
+    "at": "2026-11-16T13:05:00+01:00",
+    "time_known": true,
+    "food": "Rye bread",
+    "amount": 80,
+    "unit": "g",
+    "portion_text": "2 slices",
+    "nutrients": {
+     "kcal": 200,
+     "protein": 6,
+     "fat": 1.2,
+     "carbs": 38.4
+    },
+    "usual_meal": null,
+    "food_id": 7
+   }
+  ],
+  "health": [
+   {
+    "row": "bed",
+    "label": "Bed",
+    "sub": "night before",
+    "type": "bed",
+    "period": null,
+    "unit": null,
+    "ref": "e1",
+    "v1": null,
+    "v2": null,
+    "at": "2026-11-15T22:20:00+01:00",
+    "last_at": null
+   },
+   {
+    "row": "wake",
+    "label": "Woke up",
+    "sub": null,
+    "type": "wake",
+    "period": null,
+    "unit": null,
+    "ref": "e2",
+    "v1": null,
+    "v2": null,
+    "at": "2026-11-16T05:40:00+01:00",
+    "last_at": null
+   },
+   {
+    "row": "weight",
+    "label": "Weight",
+    "sub": null,
+    "type": "weight",
+    "period": null,
+    "unit": "kg",
+    "ref": "m1",
+    "v1": 82.4,
+    "v2": null,
+    "at": "2026-11-16T05:45:00+01:00",
+    "last_at": null
+   },
+   {
+    "row": "sugar",
+    "label": "Blood sugar",
+    "sub": "fasted",
+    "type": "blood_sugar",
+    "period": "fasted",
+    "unit": "mg/dL",
+    "ref": "m2",
+    "v1": 94,
+    "v2": null,
+    "at": "2026-11-16T05:55:00+01:00",
+    "last_at": null
+   },
+   {
+    "row": "bp_morning",
+    "label": "Blood pressure",
+    "sub": "morning",
+    "type": "bp",
+    "period": "morning",
+    "unit": "mmHg",
+    "ref": "m3",
+    "v1": 118,
+    "v2": 76,
+    "at": "2026-11-16T06:00:00+01:00",
+    "last_at": null
+   },
+   {
+    "row": "bp_evening",
+    "label": "Blood pressure",
+    "sub": "evening",
+    "type": "bp",
+    "period": "evening",
+    "unit": "mmHg",
+    "ref": null,
+    "v1": null,
+    "v2": null,
+    "at": null,
+    "last_at": null
+   }
+  ],
+  "habits": [
+   {
+    "name": "meds",
+    "label": "Medication",
+    "done": 1,
+    "target": 1,
+    "complete": true,
+    "avoid": false,
+    "last_tick": "e3"
+   },
+   {
+    "name": "shoonya",
+    "label": "Shoonya",
+    "done": 0,
+    "target": 1,
+    "complete": false,
+    "avoid": false,
+    "last_tick": null
+   }
+  ],
+  "gratitude": {
+   "count": 0,
+   "goal": 10
+  }
+ },
+ "undo": null
+}

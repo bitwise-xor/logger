@@ -1,8 +1,10 @@
-// A stand-in for the core's JSON door (docs/API.md), for the screenshots: the sign-in and the session only, with the shapes
-// of the real door. Password "test", code "123456". It also checks what the real door checks: the token, the Host-free
+// A stand-in for the core's JSON door (docs/API.md), for the page tests and the screenshots: the sign-in, the session and
+// GET /day. Password "test", code "123456". GET /day answers with tests/samples/day.json, a real answer of the door that
+// tests/test_front_samples.py writes (and checks against the door's shape on every Python test run). It also checks what the real door checks: the token, the Host-free
 // call (no proxy headers) and the bearer. Usage: node tests/standin/door.mjs [port]  (FRONT_TOKEN from the environment)
 import { createServer } from 'node:http';
 import { randomBytes } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 
 const port = Number(process.argv[2] ?? 8099);
 const token = process.env.FRONT_TOKEN ?? '';
@@ -36,6 +38,10 @@ createServer(async (req, res) => {
   if (!sessions.has(bearer)) return send(res, 401, { error: 'signed_out', message: 'Sign in again.' });
   if (req.url === '/api/v1/session' && req.method === 'GET') {
     return send(res, 200, { signed_in: true, sid: '00000000-0000-0000-0000-000000000000', expires_at: ends() }, { 'X-Session-Expires': ends() });
+  }
+  if (req.url.startsWith('/api/v1/day') && req.method === 'GET') {
+    const sample = JSON.parse(readFileSync(new URL('../samples/day.json', import.meta.url), 'utf8'));
+    return send(res, 200, sample, { 'X-Session-Expires': ends() });
   }
   if (req.url === '/api/v1/session' && req.method === 'DELETE') {
     sessions.delete(bearer);

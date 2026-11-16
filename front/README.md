@@ -3,7 +3,7 @@
 A trial of Logger in the hub's look (SvelteKit, Svelte 5, Tailwind 4, shadcn-svelte neutral, the hub's tokens and Geist), at
 `https://logger.19hospitalroad.fyi`, on the same live data as the web app at `app.`, which stays complete. Planned in the plan
 doc's Current tab, "Plan: the SvelteKit front end (16.11.2026)", in six steps (deploys 78 to 83). Step A (deploy 78): this
-skeleton, the sign-in and an empty Today.
+skeleton, the sign-in and an empty Today. Step B (deploy 79): Today read-only from `GET /api/v1/day`, all its cards.
 
 ## How it fits
 
@@ -17,14 +17,25 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   door's `X-Session-Expires`; the device, which outlasts a sign-out).
 - `src/routes/login`: password and authenticator code (the web app's own checks and limits). `src/routes/(app)`: the
   signed-in pages; the layout checks the session with the door on every page.
+- `src/lib/day.ts`: the door's Day shape and what Today makes of it (header line, kcal left, the timeline with meal labels, the
+  Health card, what needs you); `src/lib/format.ts`: numbers and times as app. writes them (halves rounded to even, as Python).
+  The cards are in `src/lib/components/today/`. The timeline leaves out the Health card's entries and the habit ticks.
 - `src/lib/tokens/`: the hub's tokens, copied (`SOURCE.md` says from where and when).
 - `src/env.ts`: the settings (`DOOR_URL`, `FRONT_TOKEN`, `APP_URL`); `ORIGIN` and the memory cap are in `compose.yaml`.
 
 ## Commands (no Node on the VM: everything runs in the pinned Node container)
 
 - `tools/front-pnpm install`, `tools/front-pnpm test` (vitest), `tools/front-pnpm check` (svelte-check), `tools/front-pnpm build`
-- Screenshots (390 and 1280 px, dark and light) against the stand-in door, in the pinned Playwright container:
-  build the image, run it on a throwaway network with `tests/standin/door.mjs` (password `test`, code `123456`) and
-  `ORIGIN=http://localhost:3000` published on 127.0.0.1:3000, then `tools/front-screens http://localhost:3000 tests/screens/out`.
+- Page tests and screenshots (390 and 1280 px, dark and light) against the stand-in door, in the pinned Playwright container
+  (`tests/screens/shoot.mjs` checks the numbers against the sample and throws on a difference):
+  1. the stand-in on the host: `docker run -d --rm --name logger-front-standin --network host -e FRONT_TOKEN=<32+ characters>
+     -v "$PWD/front":/work:ro -w /work <the Node image of tools/front-pnpm> node tests/standin/door.mjs 8099`
+     (password `test`, code `123456`);
+  2. `tools/front-pnpm build`, then `FRONT_PORTS=1 FRONT_ENV="DOOR_URL=http://host.docker.internal:8099 FRONT_TOKEN=<the same>
+     ORIGIN=http://localhost:3000" tools/front-pnpm preview`;
+  3. `tools/front-screens http://localhost:3000 tests/screens/out`.
+- The stand-in's `GET /day` is `tests/samples/day.json`, a real answer of the door for an invented day. `tests/test_front_samples.py`
+  checks on every Python run that the sample still has the door's shape; after a change of the door, write it again with
+  `WRITE_FRONT_SAMPLES=1 .venv/bin/python -m pytest -q tests/test_front_samples.py` and commit the diff.
 - Deploy: `tools/deploy-front.sh <N>` (the core: `tools/deploy.sh`). Rollback of deploy N:
   `docker tag logger-v2-front:front-fixesN logger-v2-front:pilot; docker compose up -d front`.
