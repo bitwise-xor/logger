@@ -2,7 +2,7 @@
 // day asked for, and a gone session told apart from other problems.
 import { describe, expect, it } from 'vitest';
 import { makeDoor, type Fetch } from './door.js';
-import { bodyFor, runSave, SAVE_NAMES, SAVES } from './saves.js';
+import { bodyFor, FOOD_SAVES, runSave, SAVE_NAMES, SAVES, TODAY_SAVES } from './saves.js';
 
 const TOKEN = 'f'.repeat(40);
 const SESSION = 's'.repeat(43);
@@ -137,5 +137,49 @@ describe('a save through the door', () => {
   it('passes other problems on as they are, not as a sign-out', async () => {
     const out = await runSave(net(500, { v: 1, error: 'server_error', message: 'Something went wrong.' }).door, SESSION, 'water', form({}));
     expect(out).toEqual({ ok: false, status: 500, signedOut: false, message: 'Something went wrong.' });
+  });
+});
+
+describe('the Food day saves (step E)', () => {
+  it('changes a row: amount, unit, time and another food, asking for the fresh food day of the day shown', () => {
+    const f = form({ ref: 'f7', action: 'save', amount: '2', unit: 'slice', time: '13:20', food_name: 'Rye bread', view_day: '2026-11-15' });
+    expect(bodyFor('food_entry', f, '2026-11-15', undefined, 'food')).toEqual({
+      ref: 'f7',
+      action: 'save',
+      amount: '2',
+      unit: 'slice',
+      time: '13:20',
+      food_name: 'Rye bread',
+      view: 'food',
+      view_day: '2026-11-15',
+    });
+  });
+
+  it('sends confirmed only for the Yes to a read-back, and no key (the door takes none)', () => {
+    expect(bodyFor('food_entry', form({ ref: 'f7', action: 'delete', key: KEY }), undefined, undefined, 'food')).toEqual({
+      ref: 'f7',
+      action: 'delete',
+      view: 'food',
+    });
+    expect(bodyFor('food_entry', form({ ref: 'f7', action: 'save', amount: '90', confirmed: '1' }), undefined, undefined, 'food').confirmed).toBe(true);
+  });
+
+  it('sends an empty note to remove it', () => {
+    expect(bodyFor('food_note', form({ ref: 'f7', note: '  ' }), undefined, undefined, 'food')).toEqual({ ref: 'f7', note: '', view: 'food' });
+    expect(bodyFor('food_note', form({ ref: 'f7', note: 'with butter' }), undefined, undefined, 'food').note).toBe('with butter');
+  });
+
+  it('goes to the door with view "food"', async () => {
+    const { door, seen } = net(200, { v: 1, outcome: 'changed', head: 'Note saved.', food_day: {} });
+    const r = await runSave(door, SESSION, 'food_note', form({ ref: 'f7', note: 'x' }), '2026-11-15', 'food');
+    expect(r.ok).toBe(true);
+    expect(seen).toMatchObject([{ path: '/api/v1/food/note', body: { ref: 'f7', note: 'x', view: 'food', view_day: '2026-11-15' } }]);
+  });
+
+  it('offers the Food day its saves and Undo, and Today all the others', () => {
+    expect(FOOD_SAVES).toEqual(['food_entry', 'food_note', 'undo']);
+    expect(TODAY_SAVES).not.toContain('food_entry');
+    expect(TODAY_SAVES).toContain('undo');
+    expect(new Set([...TODAY_SAVES, ...FOOD_SAVES])).toEqual(new Set(SAVE_NAMES));
   });
 });

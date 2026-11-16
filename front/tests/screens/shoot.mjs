@@ -6,6 +6,9 @@
 // Step D: the logging box: a line is "being read" (a blue row), then saved with a new row and Undo, asks a question (Correct it
 // puts the words back in the box), is read back first, answers a look-up, is held under Needs you, or is "Saved privately."
 // and nothing else; a line that met a gone session is sent again after the sign-in, one kept too long comes back into the box.
+// Step E: the Food day: from the Energy card's link, the four tiles and the rows by meal against the food sample, a row opened
+// and changed (amount, unit, time), a note added and removed, an odd amount read back and confirmed, a row deleted and brought
+// back by Undo, an unknown food refused, the day switch, a food row on Today opening its row, and "+ Add food" leading to the box.
 // Every check throws on a failure, so the script ends with an error.
 // Usage: node tests/screens/shoot.mjs <base url> <out dir> <stand-in url>
 import assert from 'node:assert/strict';
@@ -15,6 +18,9 @@ import { chromium } from 'playwright-core';
 const [base = 'http://localhost:3000', out = 'tests/screens/out', standin = 'http://localhost:8099'] = process.argv.slice(2);
 mkdirSync(out, { recursive: true });
 const day = JSON.parse(readFileSync(new URL('../samples/day.json', import.meta.url), 'utf8')).day;
+const FOOD = JSON.parse(readFileSync(new URL('../samples/food.json', import.meta.url), 'utf8'));
+const foodDay = FOOD.food_day.food_day;
+const foodBefore = FOOD.before.food_day;
 
 // What the page must show, worked out here from the sample on its own (not with the page's code).
 const even = (x) => {
@@ -266,6 +272,149 @@ async function checkLogBox(page, name, theme) {
   await box.fill('');
 }
 
+/** Step E: the Food day, on a fresh stand-in day (the sample's). */
+async function checkFood(page, name, theme) {
+  await standinPost('/standin/reset');
+  await page.goto(`${base}/`);
+  await page.getByRole('link', { name: 'Food day' }).click();
+  await page.getByRole('heading', { name: 'Food', exact: true }).waitFor();
+  await page.evaluate(() => (window.__noReload = true));
+  const bar = page.locator('[data-bar]');
+  const head = bar.locator('[data-bar-head]');
+  const row = (ref) => page.locator(`[data-row="${ref}"]`);
+  const editor = (ref) => page.locator(`[data-food-editor="${ref}"]`);
+  const tile = async (key) => text(page.locator(`[data-tile="${key}"] [data-tile-value]`));
+  const kcal = async (ref) => text(row(ref).locator('[data-kcal]'));
+  /** Waits until the row's kcal reads so (the save's answer is in). */
+  const kcalIs = async (ref, want) => {
+    for (let i = 0; i < 100 && (await kcal(ref)) !== want; i++) await page.waitForTimeout(100);
+    assert.equal(await kcal(ref), want, `${ref}: kcal`);
+  };
+  const num = (s) => Number(s.replace(/,/g, ''));
+  const open = async (ref) => {
+    await row(ref).locator('button[aria-expanded]').first().click();
+    await editor(ref).waitFor();
+  };
+
+  // what it shows: the tiles against the sample's totals, the meals newest first and the drinks last, every row, a note
+  for (const k of ['kcal', 'protein', 'fat', 'carbs']) assert.equal(await tile(k), grouped(foodDay.totals[k]), `tile ${k}`);
+  const labels = (await page.locator('[data-meal-label] span:first-child').allTextContents()).map((x) => x.trim().toUpperCase());
+  assert.deepEqual(labels, ['MEAL 2', 'MEAL 1', 'DRINKS'], 'meal labels, newest first');
+  for (const r of foodDay.rows) assert.equal(await row(r.ref).count(), 1, `food row ${r.ref}`);
+  const noted = foodDay.rows.find((r) => r.note);
+  assert.equal(await text(row(noted.ref).locator('[data-note]')), `Note: ${noted.note}`, 'a row shows its note');
+  assert.match(await text(page.locator('[data-day]')), / · today$/, 'the day is today');
+  assert.equal(await page.locator('[data-day-after]').count(), 0, 'no day after today');
+  const sideways = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  assert.ok(sideways <= 0, `no sideways scroll (${sideways} px too wide)`);
+  const tiles = await page.locator('[data-tile]').evaluateAll((els) => els.map((e) => e.getBoundingClientRect().y));
+  assert.equal(new Set(tiles.map(Math.round)).size, name === 'pc' ? 1 : 2, 'tiles: one row on the PC, two by two on the phone');
+  if (name === 'pc') {
+    const rows = await page.locator('[data-card="food-rows"]').boundingBox();
+    assert.ok(rows.x < 260 && rows.width > 900, `PC: the rows start at the rail and use the width (x ${rows.x}, ${rows.width} px)`);
+  }
+  await page.screenshot({ path: `${out}/food-${name}-${theme}.png`, fullPage: true });
+
+  // a row opened: its amount, the food's other unit (from GET /food/entry), what it becomes; − and + move it
+  const bread = FOOD.entry.entry;
+  const amount = editor(bread.ref).locator('input[name=amount]');
+  await open(bread.ref);
+  assert.equal(await amount.inputValue(), String(bread.amount), 'the amount to change');
+  await editor(bread.ref).locator('select[name=unit] option[value=slice]').waitFor({ state: 'attached' });
+  const before = foodDay.rows.find((r) => r.ref === bread.ref);
+  const becomes = editor(bread.ref).locator('[data-becomes]');
+  assert.equal(await text(becomes), `${grouped(before.nutrients.kcal)} kcal · ${grouped(before.nutrients.protein)} g protein`, 'what it becomes');
+  await editor(bread.ref).getByRole('button', { name: 'More' }).click();
+  assert.equal(await amount.inputValue(), String(bread.amount + 5), '+ adds 5 g');
+  await editor(bread.ref).scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${out}/food-edit-${name}-${theme}.png` });
+
+  // changed: amount and time; saved in place, the row with a blue edge, the tiles moved, Undo in the bar, the row closed
+  await amount.fill('120');
+  await editor(bread.ref).locator('input[name=time]').fill('13:20');
+  await editor(bread.ref).getByRole('button', { name: 'Save', exact: true }).click();
+  await page.locator(`[data-row="${bread.ref}"][data-fresh]`).waitFor();
+  const per = before.nutrients.kcal / before.amount;
+  await kcalIs(bread.ref, `${grouped(per * 120)} kcal`);
+  assert.equal(await text(head), `Changed ${bread.food}.`, 'change: the head');
+  await bar.getByRole('button', { name: 'Undo' }).waitFor();
+  assert.equal(await editor(bread.ref).count(), 0, 'the row closed after the change');
+  assert.ok(Math.abs(num(await tile('kcal')) - (foodDay.totals.kcal + per * 40)) <= 1, 'the tiles moved');
+  assert.match(await text(row(bread.ref)), /13:20/, 'the new time');
+
+  // in another unit: 4 slices of 40 g
+  await open(bread.ref);
+  await editor(bread.ref).locator('select[name=unit]').selectOption('slice');
+  assert.equal(await amount.inputValue(), '3', '120 g are 3 slices');
+  await amount.fill('4');
+  await editor(bread.ref).getByRole('button', { name: 'Save', exact: true }).click();
+  await kcalIs(bread.ref, `${grouped(per * 160)} kcal`);
+
+  // a note, then removed
+  await open(bread.ref);
+  await editor(bread.ref).locator('input[name=note]').fill('with butter');
+  await editor(bread.ref).getByRole('button', { name: 'Save note' }).click();
+  await row(bread.ref).locator('[data-note]').getByText('Note: with butter').waitFor();
+  assert.equal(await text(head), 'Note saved.', 'note: the head');
+  await open(bread.ref);
+  await editor(bread.ref).getByRole('button', { name: 'Remove' }).click();
+  await row(bread.ref).locator('[data-note]').waitFor({ state: 'detached' });
+  assert.equal(await text(head), 'Note removed.', 'note removed: the head');
+
+  // an odd amount is read back first; "Yes, change" makes it
+  await open(bread.ref);
+  await amount.fill('2500');
+  await editor(bread.ref).getByRole('button', { name: 'Save', exact: true }).click();
+  const confirm = page.locator('[data-bar="warning"]').getByRole('button', { name: 'Yes, change' });
+  await confirm.waitFor();
+  await page.screenshot({ path: `${out}/food-confirm-${name}-${theme}.png` });
+  await confirm.click();
+  await kcalIs(bread.ref, `${grouped(per * 2500)} kcal`);
+
+  // an unknown food is refused, and the row stays open
+  const bar5 = foodDay.rows.find((r) => r.food === 'Fruit bar');
+  await open(bar5.ref);
+  await editor(bar5.ref).locator('input[id^=food-]').fill('Nothing like it');
+  await editor(bar5.ref).getByText('Another food from your catalogue, by its exact name.').waitFor();
+  await editor(bar5.ref).getByRole('button', { name: 'Save', exact: true }).click();
+  await page.locator('[data-bar="warning"]').getByText('No food called', { exact: false }).waitFor();
+  assert.equal(await editor(bar5.ref).count(), 1, 'refused: the row stays open');
+  await editor(bar5.ref).getByRole('button', { name: 'Cancel' }).click();
+
+  // deleted, then back with Undo
+  await open(noted.ref);
+  await editor(noted.ref).getByRole('button', { name: 'Delete' }).click();
+  await row(noted.ref).waitFor({ state: 'detached' });
+  assert.equal(await text(head), `Deleted ${noted.food}.`, 'delete: the head');
+  await page.screenshot({ path: `${out}/food-deleted-${name}-${theme}.png` });
+  await bar.getByRole('button', { name: 'Undo' }).click();
+  await page.locator(`[data-row="${noted.ref}"][data-fresh]`).waitFor();
+  assert.equal(await text(head), 'Undone.', 'Undo: the head');
+  assert.ok(await page.evaluate(() => window.__noReload === true), 'no reload during the saves');
+
+  // the day switch: the day before (the sample's), then back to today
+  await page.getByRole('link', { name: 'The day before' }).click();
+  await page.locator('[data-day]').filter({ hasNotText: 'today' }).waitFor();
+  for (const r of foodBefore.rows) await row(r.ref).waitFor();
+  assert.equal(await tile('kcal'), grouped(foodBefore.totals.kcal), 'the day before: its total');
+  if (name === 'phone') await page.screenshot({ path: `${out}/food-before-${name}-${theme}.png`, fullPage: true });
+  await page.getByRole('link', { name: 'The day after' }).click();
+  await page.locator('[data-day]').getByText('today', { exact: false }).waitFor();
+
+  // a food row on Today opens its row on the Food day
+  await page.getByRole('link', { name: '‹ Today' }).click();
+  await page.getByRole('heading', { name: 'Today', exact: true }).waitFor();
+  const apple = foodDay.rows.find((r) => r.food.startsWith('Apple'));
+  await page.locator(`a[data-row="${apple.ref}"]`).click();
+  await editor(apple.ref).waitFor();
+  assert.match(page.url(), new RegExp(`/food\\?open=${apple.ref}$`), 'the row opened from Today');
+
+  // "+ Add food": back to Today, the cursor in the logging box
+  await page.getByRole('link', { name: '+ Add food' }).click();
+  await page.getByRole('heading', { name: 'Today', exact: true }).waitFor();
+  await page.waitForFunction(() => document.activeElement?.id === 'log-text');
+}
+
 const browser = await chromium.launch();
 const sizes = { phone: { width: 390, height: 844 }, pc: { width: 1280, height: 800 } };
 
@@ -289,6 +438,8 @@ for (const theme of ['dark', 'light']) {
     console.log(`saves ${name} ${theme}: checks passed`);
     await checkLogBox(page, name, theme);
     console.log(`logging box ${name} ${theme}: checks passed`);
+    await checkFood(page, name, theme);
+    console.log(`food day ${name} ${theme}: checks passed`);
     if (name === 'phone' && theme === 'dark') {
       await page.getByRole('button', { name: 'Sign out' }).click();
       await page.getByRole('button', { name: 'Sign in' }).waitFor();

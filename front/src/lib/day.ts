@@ -3,6 +3,7 @@
  * with meal labels, the Health card's values, what needs you. Plain TypeScript, so the unit tests need no browser.
  */
 import { dayOf, hm, hours, n, plain } from './format.js';
+import type { FoodDay } from './food.js';
 
 // ---- the door's shapes (docs/API.md; front/tests/samples/day.json is a real answer) ----------------------------------------
 
@@ -246,11 +247,35 @@ function valueLine(r: ValueRow): Line {
 }
 
 /** A block's latest known time (ms), or null. */
-const latest = (b: { rows: Row[] }) =>
+const latest = (b: { rows: { at: string | null; time_known: boolean }[] }) =>
   b.rows.reduce<number | null>((m, r) => {
     const t = r.time_known && r.at ? Date.parse(r.at) : NaN;
     return Number.isNaN(t) || (m !== null && m >= t) ? m : t;
   }, null);
+
+/** A block of rows: a meal (0 = the day's drinks) or null for entries that are not food. */
+export interface RowBlock<R> {
+  key: string;
+  meal: number | null;
+  rows: R[];
+}
+
+/**
+ * Blocks newest first (the mockup): the drinks after the meals, blocks without a known time at the end; inside a block the
+ * newest row first, rows without a known time last (the door sends known times first, in time order). Today's timeline and
+ * the Food day (step E) both order their rows this way.
+ */
+export function newestFirst<R extends { at: string | null; time_known: boolean }>(blocks: RowBlock<R>[]): RowBlock<R>[] {
+  const rank = (b: RowBlock<R>) => (b.meal === 0 ? 1 : latest(b) ? 0 : 2);
+  return blocks
+    .map((b, i) => ({ b, i }))
+    .sort((x, y) => rank(x.b) - rank(y.b) || (latest(y.b) ?? 0) - (latest(x.b) ?? 0) || y.i - x.i)
+    .map(({ b }) => {
+      const known = b.rows.filter((r) => r.time_known && r.at).reverse();
+      const unknown = b.rows.filter((r) => !(r.time_known && r.at));
+      return { ...b, rows: [...known, ...unknown] };
+    });
+}
 
 /**
  * The day's rows as blocks, newest first (the mockup): one block per meal with its label and kcal (energy.meals), the drinks last
@@ -260,8 +285,8 @@ const latest = (b: { rows: Row[] }) =>
 export function timeline(d: Day): Block[] {
   const habits = new Set(d.habits.map((h) => h.name));
   const meals = new Map(d.energy.meals.map((m) => [m.meal, m]));
-  const blocks: { key: string; meal: number | null; rows: Row[] }[] = [];
-  const byMeal = new Map<number, (typeof blocks)[number]>();
+  const blocks: RowBlock<Row>[] = [];
+  const byMeal = new Map<number, RowBlock<Row>>();
   for (const r of d.rows) {
     if (r.kind === 'food') {
       let b = byMeal.get(r.meal);
@@ -277,25 +302,19 @@ export function timeline(d: Day): Block[] {
       else blocks.push({ key: `other-${r.ref}`, meal: null, rows: [r] });
     }
   }
-  // Newest block first; the drinks after the meals; blocks without a known time at the end.
-  const rank = (b: (typeof blocks)[number]) => (b.meal === 0 ? 1 : latest(b) ? 0 : 2);
-  const ordered = blocks
-    .map((b, i) => ({ b, i }))
-    .sort((x, y) => rank(x.b) - rank(y.b) || (latest(y.b) ?? 0) - (latest(x.b) ?? 0) || y.i - x.i)
-    .map((x) => x.b);
-  return ordered.map((b) => {
+  return newestFirst(blocks).map((b) => {
     const meal = b.meal === null ? undefined : meals.get(b.meal);
-    // Newest first inside a block too; the door sends known times first, in time order.
-    const known = b.rows.filter((r) => r.time_known && r.at).reverse();
-    const unknown = b.rows.filter((r) => !(r.time_known && r.at));
     return {
       key: b.key,
-      label: b.meal === null ? 'Other' : (meal?.label ?? (b.meal === 0 ? 'Drinks' : `Meal ${b.meal}`)),
+      label: b.meal === null ? 'Other' : mealLabel(b.meal, meal?.label),
       total: meal ? `${n(meal.nutrients.kcal)} kcal` : '',
-      lines: [...known, ...unknown].map((r) => (r.kind === 'food' ? foodLine(r) : valueLine(r))),
+      lines: b.rows.map((r) => (r.kind === 'food' ? foodLine(r) : valueLine(r))),
     };
   });
 }
+
+/** A meal's label as the door names it ("Meal 1", "Drinks"), or one made up when the door sent none. */
+export const mealLabel = (meal: number, label: string | undefined) => label ?? (meal === 0 ? 'Drinks' : `Meal ${meal}`);
 
 // ---- the Health card ----------------------------------------------------------------------------------------------------------
 
@@ -369,6 +388,8 @@ export interface SaveAnswer {
   replayed: boolean;
   undo: Undo | null;
   day?: Day;
+  /** A save of the Food day (step E) asks for the fresh food day instead ("view": "food"). */
+  food_day?: FoodDay;
 }
 
 /** The rows a save added (in the fresh day, not in the one shown before): they get a blue edge (the mockup). */

@@ -1,10 +1,10 @@
-"""Sample answers of the JSON door for the new front end's page tests (front/tests/samples/, 16.11.2026, front end steps B to D).
+"""Sample answers of the JSON door for the new front end's page tests (front/tests/samples/, 16.11.2026, front end steps B to E).
 
 The front end's stand-in door (front/tests/standin/door.mjs) answers with these files, so the page tests and the screenshots run
 on the real door's shapes. This test builds a full invented day (meals, drinks, questions, a message not read yet, items to review,
 the check-in, health values, habits, chips), reads it through the door (day.json) and makes two saves on it (save.json: a glass of
 water, saved with Undo, and an odd weight correction read back first, with confirm; the stand-in answers every save in this shape),
-and
+the Food day (food.json, step E: GET /food/day of the day and the day before, GET /food/entry, a change and a note), and
 - with WRITE_FRONT_SAMPLES=1: writes the answer to the sample file (then look at the diff and commit it);
 - otherwise: checks that the committed sample still has the door's shape (the same keys at every level), so a change of the door
   that the stand-in does not know about fails here.
@@ -198,3 +198,36 @@ def test_the_log_sample_has_the_doors_shape(fake, skyr):
     assert sample.keys() == answers.keys()
     gone = [x for k in answers for x in differences(sample[k], answers[k], f"log.{k}")]
     assert not gone, "front/tests/samples/log.json no longer has the door's shape; run this test with WRITE_FRONT_SAMPLES=1:\n" + "\n".join(gone)
+
+
+def test_the_food_sample_has_the_doors_shape(four_pm, fake):
+    """The Food day (step E): GET /food/day of the full day (a note on one entry) and of the day before, GET /food/entry of a
+    food with its own unit, and two saves on it without their food_day: a change of amount and time (with Undo) and a note."""
+    full_day()
+    bread = owner_sql("SELECT e.id, e.food_id FROM food_entries e JOIN foods f ON f.id = e.food_id WHERE f.name = 'Rye bread'")[0]
+    owner_sql("INSERT INTO food_units (food_id, unit, grams) VALUES (%s, 'slice', 40)", bread["food_id"])
+    owner_sql("UPDATE food_entries SET note = 'toasted' FROM foods f WHERE f.id = food_entries.food_id AND f.name = 'Lentil soup'")
+    ref = f"f{bread['id']}"
+    c, bearer, _ = signed_in()
+    get = lambda path: c.get("/api/v1" + path, headers=bearer)  # noqa: E731
+    post = lambda path, **body: c.post("/api/v1" + path, headers=bearer, json=body)  # noqa: E731
+    before = (day() - timedelta(days=1)).isoformat()
+    answers = {"food_day": get("/food/day").json(), "before": get(f"/food/day?day={before}").json(), "entry": get(f"/food/entry?ref={ref}").json()}
+    changed = post("/food/entry", ref=ref, action="save", amount=120, unit="g", time="13:20", view="food").json()
+    note = post("/food/note", ref=ref, note="with butter", view="food", view_day=day().isoformat()).json()
+    for a in (changed, note):
+        assert a["outcome"] == "changed" and a.pop("food_day")["day"] == day().isoformat(), a
+    answers["saves"] = {"changed": changed, "note": note}
+    f, b = answers["food_day"]["food_day"], answers["before"]["food_day"]
+    assert f["day"] == day().isoformat() and not f["past"] and b["day"] == before and b["past"] and b["rows"]
+    assert [r["note"] for r in f["rows"] if r["food"] == "Lentil soup"] == ["toasted"] and f["meals"] and f["targets"]["kcal"] == 2100
+    assert answers["entry"]["entry"]["units"] == [{"unit": "g", "in_basis": 1}, {"unit": "slice", "in_basis": 40}]
+    assert changed["head"] == "Changed Rye bread." and changed["undo"] and note["head"] == "Note saved."
+    path = SAMPLES / "food.json"
+    if os.environ.get("WRITE_FRONT_SAMPLES") == "1":
+        path.write_text(json.dumps(answers, indent=1, ensure_ascii=False) + "\n")
+        return
+    sample = json.loads(path.read_text())
+    assert sample.keys() == answers.keys()
+    gone = differences(sample, answers, "food")
+    assert not gone, "front/tests/samples/food.json no longer has the door's shape; run this test with WRITE_FRONT_SAMPLES=1:\n" + "\n".join(gone)

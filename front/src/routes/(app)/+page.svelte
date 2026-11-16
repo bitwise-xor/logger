@@ -25,8 +25,8 @@
   onMount(() => void today.resend());
 
   const day = $derived(today.day);
-  // The Food day is app.'s until step E (deploy 82) brings it here.
-  const foodHref = $derived(day ? `${data.appUrl}/web/food?day=${day.day}` : `${data.appUrl}/web/food`);
+  // The Food day (step E, deploy 84): its own page under Today.
+  const foodHref = '/food';
 </script>
 
 <svelte:head><title>Today · Logger</title></svelte:head>

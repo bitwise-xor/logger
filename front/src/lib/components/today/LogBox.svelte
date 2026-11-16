@@ -1,6 +1,7 @@
 <script lang="ts">
   import AnswerBar from '#lib/components/today/AnswerBar.svelte';
   import { getToday } from '#lib/today.svelte.js';
+  import { afterNavigate } from '$app/navigation';
 
   let { appUrl }: { appUrl: string } = $props();
   const today = getToday();
@@ -12,6 +13,11 @@
   $effect(() => {
     today.bindBox(field);
     return () => today.bindBox(null);
+  });
+
+  // "+ Add food" on the Food day leads here (/#log-text): the box gets the cursor.
+  afterNavigate(() => {
+    if (location.hash === '#log-text') field?.focus();
   });
 
   // Two lines at rest (the mockup's PC box, rows 2); it grows with its lines (each can be its own entry), then it scrolls.
@@ -66,7 +72,7 @@
         </span>
       </div>
     {/each}
-    <AnswerBar />
+    <AnswerBar answers={today} />
   </div>
   <form
     bind:this={form}

@@ -1,0 +1,329 @@
+{
+ "food_day": {
+  "v": 1,
+  "food_day": {
+   "day": "2026-11-16",
+   "today": "2026-11-16",
+   "past": false,
+   "rows": [
+    {
+     "ref": "f1",
+     "kind": "food",
+     "meal": 0,
+     "at": "2026-11-16T05:50:00+01:00",
+     "time_known": true,
+     "food": "Coffee with milk",
+     "amount": 250,
+     "unit": "ml",
+     "portion_text": "1 cup",
+     "nutrients": {
+      "kcal": 45,
+      "protein": 2.5,
+      "fat": 2.5,
+      "carbs": 3.8
+     },
+     "food_id": 1,
+     "note": null
+    },
+    {
+     "ref": "f4",
+     "kind": "food",
+     "meal": 0,
+     "at": "2026-11-16T11:00:00+01:00",
+     "time_known": true,
+     "food": "Water",
+     "amount": 500,
+     "unit": "ml",
+     "portion_text": null,
+     "nutrients": {
+      "kcal": 0,
+      "protein": 0,
+      "fat": 0,
+      "carbs": 0
+     },
+     "food_id": 4,
+     "note": null
+    },
+    {
+     "ref": "f2",
+     "kind": "food",
+     "meal": 1,
+     "at": "2026-11-16T06:10:00+01:00",
+     "time_known": true,
+     "food": "Oats with milk and banana",
+     "amount": 300,
+     "unit": "g",
+     "portion_text": "1 bowl",
+     "nutrients": {
+      "kcal": 420,
+      "protein": 18,
+      "fat": 9,
+      "carbs": 66
+     },
+     "food_id": 2,
+     "note": null
+    },
+    {
+     "ref": "f3",
+     "kind": "food",
+     "meal": 2,
+     "at": "2026-11-16T10:30:00+01:00",
+     "time_known": true,
+     "food": "Apple with peanut butter",
+     "amount": 150,
+     "unit": "g",
+     "portion_text": null,
+     "nutrients": {
+      "kcal": 165,
+      "protein": 4.9,
+      "fat": 9,
+      "carbs": 18
+     },
+     "food_id": 3,
+     "note": null
+    },
+    {
+     "ref": "f5",
+     "kind": "food",
+     "meal": 2,
+     "at": "2026-11-16T11:40:00+01:00",
+     "time_known": true,
+     "food": "Fruit bar",
+     "amount": 40,
+     "unit": "g",
+     "portion_text": null,
+     "nutrients": {
+      "kcal": 160,
+      "protein": 1.6,
+      "fat": 8,
+      "carbs": 24
+     },
+     "food_id": 5,
+     "note": null
+    },
+    {
+     "ref": "f6",
+     "kind": "food",
+     "meal": 2,
+     "at": "2026-11-16T13:05:00+01:00",
+     "time_known": true,
+     "food": "Lentil soup",
+     "amount": 350,
+     "unit": "g",
+     "portion_text": null,
+     "nutrients": {
+      "kcal": 409.5,
+      "protein": 24.2,
+      "fat": 10.5,
+      "carbs": 56
+     },
+     "food_id": 6,
+     "note": "toasted"
+    },
+    {
+     "ref": "f7",
+     "kind": "food",
+     "meal": 2,
+     "at": "2026-11-16T13:05:00+01:00",
+     "time_known": true,
+     "food": "Rye bread",
+     "amount": 80,
+     "unit": "g",
+     "portion_text": "2 slices",
+     "nutrients": {
+      "kcal": 200,
+      "protein": 6,
+      "fat": 1.2,
+      "carbs": 38.4
+     },
+     "food_id": 7,
+     "note": null
+    }
+   ],
+   "meals": [
+    {
+     "meal": 1,
+     "label": "Meal 1",
+     "nutrients": {
+      "kcal": 420,
+      "protein": 18,
+      "fat": 9,
+      "carbs": 66
+     }
+    },
+    {
+     "meal": 2,
+     "label": "Meal 2",
+     "nutrients": {
+      "kcal": 934.5,
+      "protein": 36.7,
+      "fat": 28.7,
+      "carbs": 136.4
+     }
+    },
+    {
+     "meal": 0,
+     "label": "Drinks",
+     "nutrients": {
+      "kcal": 45,
+      "protein": 2.5,
+      "fat": 2.5,
+      "carbs": 3.8
+     }
+    }
+   ],
+   "totals": {
+    "kcal": 1399.5,
+    "protein": 57.2,
+    "fat": 40.2,
+    "carbs": 206.2
+   },
+   "targets": {
+    "kcal": 2100,
+    "protein": 150,
+    "fat": 70,
+    "carbs": 250
+   }
+  },
+  "undo": null
+ },
+ "before": {
+  "v": 1,
+  "food_day": {
+   "day": "2026-11-15",
+   "today": "2026-11-16",
+   "past": true,
+   "rows": [
+    {
+     "ref": "f8",
+     "kind": "food",
+     "meal": 1,
+     "at": "2026-11-15T16:10:00+01:00",
+     "time_known": true,
+     "food": "Skyr",
+     "amount": 200,
+     "unit": "g",
+     "portion_text": null,
+     "nutrients": {
+      "kcal": 126,
+      "protein": 10,
+      "fat": 2,
+      "carbs": 5
+     },
+     "food_id": 8,
+     "note": null
+    },
+    {
+     "ref": "f9",
+     "kind": "food",
+     "meal": 1,
+     "at": "2026-11-15T16:10:00+01:00",
+     "time_known": true,
+     "food": "Banana",
+     "amount": 120,
+     "unit": "g",
+     "portion_text": null,
+     "nutrients": {
+      "kcal": 107,
+      "protein": 10,
+      "fat": 2,
+      "carbs": 5
+     },
+     "food_id": 9,
+     "note": null
+    }
+   ],
+   "meals": [
+    {
+     "meal": 1,
+     "label": "Meal 1",
+     "nutrients": {
+      "kcal": 233,
+      "protein": 20,
+      "fat": 4,
+      "carbs": 10
+     }
+    }
+   ],
+   "totals": {
+    "kcal": 233,
+    "protein": 20,
+    "fat": 4,
+    "carbs": 10
+   },
+   "targets": {
+    "kcal": 2100,
+    "protein": 150,
+    "fat": 70,
+    "carbs": 250
+   }
+  },
+  "undo": null
+ },
+ "entry": {
+  "v": 1,
+  "entry": {
+   "ref": "f7",
+   "day": "2026-11-16",
+   "food_id": 7,
+   "food": "Rye bread",
+   "amount": 80,
+   "unit": "g",
+   "at": "2026-11-16T13:05:00+01:00",
+   "time_known": true,
+   "note": null,
+   "units": [
+    {
+     "unit": "g",
+     "in_basis": 1
+    },
+    {
+     "unit": "slice",
+     "in_basis": 40
+    }
+   ]
+  }
+ },
+ "saves": {
+  "changed": {
+   "v": 1,
+   "outcome": "changed",
+   "tone": "ok",
+   "head": "Changed Rye bread.",
+   "receipt": [],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": {
+    "token": "7uFoOoGbQRHRuaW9",
+    "head": "Changed Rye bread.",
+    "expires_at": "2026-11-16T12:19:35.982222+00:00"
+   }
+  },
+  "note": {
+   "v": 1,
+   "outcome": "changed",
+   "tone": "ok",
+   "head": "Note saved.",
+   "receipt": [],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": {
+    "token": "1m5eHIMv_H0G4p1Y",
+    "head": "Note saved.",
+    "expires_at": "2026-11-16T12:19:36.016259+00:00"
+   }
+  }
+ }
+}

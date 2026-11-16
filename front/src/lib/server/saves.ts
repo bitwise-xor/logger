@@ -1,10 +1,11 @@
 /**
- * Today's saves (step C, deploy 80; the logging box's typed line since step D, deploy 81): which form action calls which door route with which body (docs/API.md, "Saves").
+ * Today's saves (step C, deploy 80; the logging box's typed line since step D, deploy 81) and the Food day's (step E, deploy 84):
+ * which form action calls which door route with which body (docs/API.md, "Saves").
  *
  * Every tap on Today is a SvelteKit form action (src/routes/(app)/+page.server.ts). The browser sends the form's fields and a
  * new `key` per tap (the same key again when it re-sends that tap after a sign-in, src/lib/saver.ts); this file turns the fields
  * into the door's JSON body, adds the key where the door's route takes one, and asks for the fresh day in the answer
- * (`view: "day"`), so the page can replace what it shows without a reload.
+ * (`view: "day"`, or `view: "food"` with the day shown for the Food day), so the page can replace what it shows without a reload.
  *
  * Plain TypeScript with no SvelteKit import, so the tests can hand it a door with a fake network.
  */
@@ -81,18 +82,45 @@ export const SAVES = {
   held_retry: { path: '/held/retry', keyed: true, body: (f) => ({ id: int(f, 'id') }), timeoutMs: 60_000 },
   held_delete: { path: '/held/delete', keyed: true, body: (f) => ({ id: int(f, 'id') }) },
   undo: { path: '/undo', keyed: false, body: (f) => ({ token: str(f, 'token', 200) }) },
+  // The Food day (step E): change a row (amount in a unit, time hh:mm, another food by its name) or delete it; an odd value is
+  // read back first (then the same with confirmed). The door's routes take no key: a change made twice is caught as on app.
+  food_entry: {
+    path: '/food/entry',
+    keyed: false,
+    body: (f) => ({
+      ref: str(f, 'ref', 12),
+      action: str(f, 'action', 10),
+      amount: str(f, 'amount', 20),
+      unit: str(f, 'unit', 40),
+      time: str(f, 'time', 5),
+      food_name: str(f, 'food_name', 200),
+      confirmed: f.get('confirmed') === '1' ? true : undefined,
+    }),
+  },
+  // A row's note; empty removes it (300 characters, as app.).
+  food_note: { path: '/food/note', keyed: false, body: (f) => ({ ref: str(f, 'ref', 12), note: str(f, 'note', 300) ?? '' }) },
 } satisfies Record<string, Save>;
 
 export type SaveName = keyof typeof SAVES;
 export const SAVE_NAMES = Object.keys(SAVES) as SaveName[];
+/** The Food day's form actions (src/routes/(app)/food); Today has all the others. */
+export const FOOD_SAVES: SaveName[] = ['food_entry', 'food_note', 'undo'];
+export const TODAY_SAVES: SaveName[] = SAVE_NAMES.filter((n) => n !== 'food_entry' && n !== 'food_note');
+export type View = 'day' | 'food';
 
 /** A key as the browser makes them (src/lib/saver.ts): a random UUID or base64url; anything else is replaced. */
 const KEY = /^[A-Za-z0-9_-]{16,64}$/;
 
-/** The door's body for a save: the form's fields, the key where the route takes one, and the fresh Today in the answer. */
-export function bodyFor(name: SaveName, f: Fields, viewDay: string | undefined, newKey: () => string = () => crypto.randomUUID()): Body {
+/** The door's body for a save: the form's fields, the key where the route takes one, and the fresh Today (or Food day) in the answer. */
+export function bodyFor(
+  name: SaveName,
+  f: Fields,
+  viewDay: string | undefined,
+  newKey: () => string = () => crypto.randomUUID(),
+  view: View = 'day',
+): Body {
   const save: Save = SAVES[name];
-  const body: Body = { ...save.body(f), view: 'day' };
+  const body: Body = { ...save.body(f), view };
   if (viewDay && /^\d{4}-\d\d-\d\d$/.test(viewDay)) body.view_day = viewDay;
   if (save.keyed) {
     const key = str(f, 'key', 64);
@@ -108,10 +136,17 @@ export type SaveResult<A> =
   | { ok: false; status: number; signedOut: boolean; message: string };
 
 /** One save through the door. Signed out (or the door switched off): signedOut, so the page can keep the tap and sign in. */
-export async function runSave<A>(door: Door, session: string, name: SaveName, f: Fields, viewDay?: string): Promise<SaveResult<A>> {
+export async function runSave<A>(
+  door: Door,
+  session: string,
+  name: SaveName,
+  f: Fields,
+  viewDay?: string,
+  view: View = 'day',
+): Promise<SaveResult<A>> {
   const save: Save = SAVES[name];
   try {
-    const { body, expiresAt } = await door.post<A>(save.path, session, bodyFor(name, f, viewDay), save.timeoutMs);
+    const { body, expiresAt } = await door.post<A>(save.path, session, bodyFor(name, f, viewDay, undefined, view), save.timeoutMs);
     return { ok: true, answer: body, expiresAt };
   } catch (error) {
     if (error instanceof DoorError) {

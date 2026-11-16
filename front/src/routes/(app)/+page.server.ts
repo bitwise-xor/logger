@@ -1,10 +1,11 @@
-import { fail, redirect } from '@sveltejs/kit';
+import { redirect } from '@sveltejs/kit';
+import { formActions } from '#lib/server/actions.js';
 import { door } from '#lib/server/config.js';
 import { DoorError } from '#lib/server/door.js';
-import { runSave, SAVE_NAMES, type SaveName } from '#lib/server/saves.js';
+import { TODAY_SAVES } from '#lib/server/saves.js';
 import { endSession, renewSession } from '#lib/server/session.js';
-import type { Day, SaveAnswer, Undo } from '#lib/day.js';
-import type { Actions, PageServerLoad, RequestEvent } from './$types';
+import type { Day, Undo } from '#lib/day.js';
+import type { Actions, PageServerLoad } from './$types';
 
 // Today from GET /api/v1/day (step B), with the session's Undo so the Undo bar stays after a reload (step C).
 export const load: PageServerLoad = async ({ locals, cookies }) => {
@@ -29,20 +30,4 @@ export const load: PageServerLoad = async ({ locals, cookies }) => {
  * calls). The page posts them with fetch (src/lib/saver.ts) and takes the answer's fresh day; a form sent without the page's
  * script ends on Today again, loaded fresh.
  */
-function action(name: SaveName) {
-  return async ({ request, locals, cookies }: RequestEvent) => {
-    const session = locals.session;
-    if (!session) return fail(401, { signedOut: true, message: 'Sign in again.' });
-    const form = await request.formData();
-    const viewDay = form.get('view_day');
-    const r = await runSave<SaveAnswer>(door, session, name, form, typeof viewDay === 'string' ? viewDay : undefined);
-    if (r.ok) {
-      renewSession(cookies, session, r.expiresAt);
-      return { answer: r.answer };
-    }
-    if (r.signedOut) endSession(cookies);
-    return fail(r.status, { signedOut: r.signedOut, message: r.message });
-  };
-}
-
-export const actions = Object.fromEntries(SAVE_NAMES.map((n) => [n, action(n)])) as Actions;
+export const actions = formActions(TODAY_SAVES, 'day') as Actions;

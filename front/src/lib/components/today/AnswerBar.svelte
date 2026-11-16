@@ -1,13 +1,15 @@
 <script lang="ts">
-  import { getToday } from '#lib/today.svelte.js';
+  import type { Answers } from '#lib/answers.svelte.js';
 
-  const today = getToday();
+  // The page's saves: Today's (drawn in LogBox.svelte) or the Food day's (step E).
+  let { answers: today }: { answers: Answers } = $props();
   const bar = $derived(today.bar);
   const btn = 'min-h-10 shrink-0 cursor-pointer rounded-md px-3.5 font-medium whitespace-nowrap disabled:opacity-60';
 </script>
 
 <!-- A save's answer (the mockup's Undo bar): its head, drawn as a warning when the tone says so; a read-back to confirm; Undo for
-     15 minutes. On phones just above the logging box (it is drawn inside LogBox.svelte), at the bottom right on the PC. -->
+     15 minutes. On phones just above the logging box (it is drawn inside LogBox.svelte) or, on the Food day, above the tab bar;
+     at the bottom right on the PC. -->
 <div
   role="status"
   aria-live="polite"

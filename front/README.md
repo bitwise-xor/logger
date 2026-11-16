@@ -5,7 +5,7 @@ A trial of Logger in the hub's look (SvelteKit, Svelte 5, Tailwind 4, shadcn-sve
 doc's Current tab, "Plan: the SvelteKit front end (16.11.2026)", in six steps (deploys 78 to 83). Step A (deploy 78): this
 skeleton, the sign-in and an empty Today. Step B (deploy 79): Today read-only from `GET /api/v1/day`, all its cards. Step C
 (deploy 80): the taps save in place (water, Again and usual chips, habits, check-in, review, Health card, question buttons,
-Try again / Delete for a message not read yet, Undo). Step D (deploy 81): the logging box.
+Try again / Delete for a message not read yet, Undo). Step D (deploy 81): the logging box. Step E (deploy 84): the Food day.
 
 ## How it fits
 
@@ -37,6 +37,15 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   into the box. A line's answer is never dropped for a tap made while it was read (`SLOW` in `saver.ts`). Signed out
   mid-save, the line and its key are sent again after the sign-in; one kept over 10 minutes comes back into the box instead,
   and so do words that got no answer (sent again, they keep their key: `src/lib/logbox.ts`).
+- The Food day (step E): `src/routes/(app)/food` (`?day=yyyy-mm-dd` for an earlier day, a later one is today; `?open=f<id>`
+  opens a row), reached from the Energy card's "Food day" and from a food row on Today (it opens that row). `src/lib/food.ts`:
+  the four total tiles, the rows by meal (newest first, the drinks last, as Today's timeline: `newestFirst` in `day.ts`), the day
+  switch and what a changed amount becomes; the cards in `src/lib/components/food/`. A row opens to change its amount (− and +),
+  unit (the food's units from `GET /food/entry`, through `src/routes/(app)/food/entry/+server.ts`), time and food (another one
+  from the catalogue, by its exact name), to add or remove its note, or to delete it: the form actions `food_entry` and
+  `food_note` (`saves.ts`, `view: "food"` with the day shown), an odd value read back first (Yes = `confirmed`), Undo in the
+  answer bar. The answer bar and the taps on their way are shared with Today (`src/lib/answers.svelte.ts`; the Food day's state
+  is `src/lib/foodday.svelte.ts`). The logging box stays on Today ("+ Add food" leads to it); usual meals open in app.
 - `src/lib/tokens/`: the hub's tokens, copied (`SOURCE.md` says from where and when).
 - `src/env.ts`: the settings (`DOOR_URL`, `FRONT_TOKEN`, `APP_URL`); `ORIGIN` and the memory cap are in `compose.yaml`.
 
@@ -56,7 +65,10 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   in the shape of `tests/samples/save.json` (a real "saved" and "needs_confirmation" answer, without their day) and change the
   day a little, as the core would; `/log` answers from `tests/samples/log.json` (real answers of a typed line: saved, a
   question, a change read back, a look-up, private, held), after a moment's "reading" (`door.mjs` says which words do what;
-  POST `/standin/ai-down` and `/standin/ai-up` make it hold lines). `tests/test_front_samples.py` checks on every Python run that the samples still have the
+  POST `/standin/ai-down` and `/standin/ai-up` make it hold lines). The Food day: `GET /food/day` is today's day above with the
+  notes of `tests/samples/food.json` (real answers of the door: the day, the day before, an entry with its units, a change and a
+  note), an earlier day is that file's day before, and `/food/entry` and `/food/note` change the day as the core would (an
+  amount over 2000 g is read back first: a stand-in rule, to try the confirm). `tests/test_front_samples.py` checks on every Python run that the samples still have the
   door's shape; after a change of the door, write it again with
   `WRITE_FRONT_SAMPLES=1 .venv/bin/python -m pytest -q tests/test_front_samples.py` and commit the diff.
 - Deploy: `tools/deploy-front.sh <N>` (the core: `tools/deploy.sh`). Rollback of deploy N:

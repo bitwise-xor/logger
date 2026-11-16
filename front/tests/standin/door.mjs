@@ -8,6 +8,11 @@
 // moment ("being read"), then a food line ("40 g radishes") is saved with a new row and Undo, the same words again ask "Log it
 // again?" (with Correct it), "the … was/were …" is a change read back first (a question), "what …" or "…?" is a look-up, a
 // "g:"/"gratitude:"/"private:" line is "Saved privately." and nothing else, and while the AI is "down" every line is held.
+// Step E: GET /food/day (today from the day above, with notes; an earlier day from tests/samples/food.json's day before; a later
+// day is today), GET /food/entry (the units of tests/samples/food.json's entry for that food), and the Food day's saves:
+// POST /food/entry (save: amount, unit, time, another food named like one of the day's; delete) and /food/note, each answering
+// with the food day when the body asks for view "food". An amount over 2000 g (or ml) is read back first: a stand-in rule only,
+// to try the confirm (the real door reads back only an odd value).
 // Usage: node tests/standin/door.mjs [port]  (FRONT_TOKEN from the environment). POST /standin/reset starts the day again,
 // POST /standin/drop-sessions signs every session out (for the re-send after a sign-in), POST /standin/ai-down and
 // /standin/ai-up make /log hold its lines or read them again.
@@ -23,12 +28,96 @@ const ends = () => new Date(Date.now() + 30 * 86400_000).toISOString();
 const read = (name) => JSON.parse(readFileSync(new URL(`../samples/${name}`, import.meta.url), 'utf8'));
 const SAVE = read('save.json');
 const LOG = read('log.json');
+const FOOD = read('food.json');
 const READ_MS = 1200; // the AI's moment: long enough to see the "being read" row
 
 let state; // { day, undo: {token, head, expires_at} | null, before: the day before the last save (for Undo), keys: Map, lines: Map, aiDown }
 let ids = 9000;
 function reset() {
   state = { day: read('day.json').day, undo: null, before: null, keys: new Map(), lines: new Map(), aiDown: false };
+  // the notes of the food sample's rows (the same invented day), kept on the rows so an Undo puts them back too
+  const notes = new Map(FOOD.food_day.food_day.rows.map((r) => [r.ref, r.note]));
+  for (const r of state.day.rows) if (r.kind === 'food') r.note = notes.get(r.ref) ?? null;
+}
+
+/** GET /day's day: the rows without the notes the stand-in keeps on them (the door's /day has none). */
+const dayOut = (d) => ({ ...d, rows: d.rows.map(({ note: _n, ...r }) => r) });
+
+/** The Food day as the door sends it: today from the day above; an earlier day is the sample's day before. */
+function foodDay(asked) {
+  const d = state.day;
+  if (asked && /^\d{4}-\d\d-\d\d$/.test(asked) && asked < d.day) {
+    return { ...structuredClone(FOOD.before.food_day), day: asked, today: d.day, past: true };
+  }
+  const rows = d.rows
+    .filter((r) => r.kind === 'food')
+    .map((r) => ({ ref: r.ref, kind: 'food', meal: r.meal, at: r.at, time_known: r.time_known, food: r.food, amount: r.amount,
+      unit: r.unit, portion_text: r.portion_text, nutrients: r.nutrients, food_id: r.food_id, note: r.note ?? null }));
+  return { day: d.day, today: d.day, past: false, rows, meals: d.energy.meals, totals: d.energy.totals, targets: d.energy.targets };
+}
+
+/** GET /food/entry: the row with its food's units (the sample entry's units for its food, else only the food's own). */
+function foodEntry(ref) {
+  const r = state.day.rows.find((x) => x.ref === ref && x.kind === 'food');
+  if (!r) return null;
+  const e = FOOD.entry.entry;
+  return { ref, day: state.day.day, food_id: r.food_id, food: r.food, amount: r.amount, unit: r.unit, at: r.at, time_known: r.time_known,
+    note: r.note ?? null, units: r.food === e.food ? e.units : [{ unit: r.unit, in_basis: 1 }] };
+}
+
+/** The day's totals and meals worked out again from its food rows (after a change or a delete). */
+function recount(d) {
+  const food = d.rows.filter((r) => r.kind === 'food');
+  d.energy.totals = food.reduce((a, r) => add(a, r.nutrients), ZERO);
+  d.energy.meals = d.energy.meals
+    .map((m) => ({ ...m, nutrients: food.filter((r) => r.meal === m.meal).reduce((a, r) => add(a, r.nutrients), ZERO) }))
+    .filter((m) => food.some((r) => r.meal === m.meal));
+}
+
+/** POST /food/entry and /food/note, as webfood.entry and .note answer. */
+function foodSave(path, b, d) {
+  const row = d.rows.find((r) => r.ref === b.ref && r.kind === 'food');
+  if (!row) return { outcome: 'rejected', head: 'Nothing saved.', reason: /^f\d{1,9}$/.test(b.ref ?? '') ? 'That entry is not there any more.' : 'Unknown entry.' };
+  if (path === '/food/note') {
+    const note = String(b.note ?? '').split(/\s+/).filter(Boolean).join(' ').slice(0, 300);
+    row.note = note || null;
+    return { outcome: 'changed', head: note ? 'Note saved.' : 'Note removed.' };
+  }
+  if (b.action === 'delete') {
+    d.rows = d.rows.filter((r) => r !== row);
+    recount(d);
+    return { outcome: 'changed', head: `Deleted ${row.food}.` };
+  }
+  const typed = String(b.food_name ?? '').trim();
+  let name = row.food;
+  if (typed && typed.toLowerCase() !== row.food.toLowerCase()) {
+    const other = d.rows.find((r) => r.kind === 'food' && r.food.toLowerCase() === typed.toLowerCase());
+    if (!other) return { outcome: 'rejected', head: 'Nothing saved.', reason: `No food called "${typed}" in your catalogue: type part of its name and pick it from the list.` };
+    name = other.food;
+  }
+  const units = foodEntry(row.ref).units;
+  const unit = b.unit || row.unit;
+  const u = units.find((x) => x.unit === unit);
+  if (!u) return { outcome: 'rejected', head: 'Nothing saved.', reason: `"${unit}" is not a unit of that food: give the amount in ${row.unit}.` };
+  const a = Number(b.amount);
+  const top = u.in_basis === 1 ? 5000 : 100;
+  if (!(a > 0 && a <= top)) return { outcome: 'rejected', head: 'Nothing saved.', reason: `Give the amount as a number above 0 and at most ${top} ${unit}.` };
+  if (b.time && !/^\d\d:\d\d$/.test(b.time)) return { outcome: 'rejected', head: 'Nothing saved.', reason: 'Give the time as hh:mm.' };
+  const grams = a * u.in_basis;
+  const at = b.time ? `${d.day}T${b.time}:00+01:00` : row.at;
+  if (grams === row.amount && name === row.food && (!b.time || (row.time_known && hm(new Date(row.at)) === b.time))) {
+    return { outcome: 'unchanged', head: 'Nothing changed.', reason: 'Nothing changed.' };
+  }
+  if (grams > 2000 && b.confirmed !== true) {
+    return { ...SAVE.needs_confirmation, read_back: `${name} ${grams} ${row.unit}: more than usual. Change it?`, confirm: { label: 'Yes, change', no_label: 'No' } };
+  }
+  const k = grams / row.amount;
+  row.nutrients = Object.fromEntries(Object.entries(row.nutrients).map(([x, v]) => [x, +(v * k).toFixed(1)]));
+  // as the core: a new amount replaces the portion's words ("4 slice" in another unit, none in the food's own)
+  if (grams !== row.amount) row.portion_text = u.in_basis === 1 ? null : `${a} ${unit}`;
+  [row.amount, row.food, row.at, row.time_known] = [grams, name, at, row.time_known || !!b.time];
+  recount(d);
+  return { outcome: 'changed', head: `Changed ${row.food}.` };
 }
 reset();
 
@@ -161,10 +250,14 @@ function save(path, b) {
   } else if (path === '/held/delete' || path === '/held/retry') {
     d.needs.not_read = d.needs.not_read.filter((m) => m.id !== b.id);
     if (path === '/held/delete') [outcome, head] = ['removed', 'Deleted.'];
+  } else if (path === '/food/entry' || path === '/food/note') {
+    const out = foodSave(path, b, d);
+    if (out.outcome !== 'changed') return out;
+    [outcome, head] = [out.outcome, out.head];
   } else if (path === '/health') {
     const h = d.health.find((x) => x.row === b.row);
     if (!h) return { outcome: 'rejected', head: 'Nothing saved.', reason: 'Unknown row.' };
-    if (h.type === 'weight' && Number(b.v1) > 300 && b.confirmed !== true) return { ...SAVE.needs_confirmation, day: state.day };
+    if (h.type === 'weight' && Number(b.v1) > 300 && b.confirmed !== true) return { ...SAVE.needs_confirmation };
     if (b.time) h.at = `${d.day}T${b.time}:00+01:00`;
     else [h.v1, h.v2, h.at] = [Number(b.v1), b.v2 === undefined ? null : Number(b.v2), nowIso()];
     if (h.ref) [outcome, head] = ['changed', `${h.label} changed.`];
@@ -216,7 +309,17 @@ createServer(async (req, res) => {
   if (req.url === '/api/v1/session' && req.method === 'GET') {
     return send(res, 200, { signed_in: true, sid: '00000000-0000-0000-0000-000000000000', expires_at: ends() }, signedIn);
   }
-  if (req.url.startsWith('/api/v1/day') && req.method === 'GET') return send(res, 200, { day: state.day, undo: undo() }, signedIn);
+  if (req.url.startsWith('/api/v1/day') && req.method === 'GET') return send(res, 200, { day: dayOut(state.day), undo: undo() }, signedIn);
+  const url = new URL(req.url, 'http://standin');
+  if (url.pathname === '/api/v1/food/day' && req.method === 'GET') {
+    return send(res, 200, { food_day: foodDay(url.searchParams.get('day')), undo: undo() }, signedIn);
+  }
+  if (url.pathname === '/api/v1/food/entry' && req.method === 'GET') {
+    const entry = foodEntry(url.searchParams.get('ref'));
+    return entry ? send(res, 200, { entry }, signedIn) : send(res, 404, { error: 'no_entry', message: 'No such entry.' }, signedIn);
+  }
+  // A save's fresh day: the Food day when the body asks for it (view "food", view_day), else Today.
+  const fresh = () => (body.view === 'food' ? { food_day: foodDay(body.view_day) } : { day: dayOut(state.day) });
   if (req.url === '/api/v1/session' && req.method === 'DELETE') {
     sessions.delete(bearer);
     return send(res, 200, { outcome: 'signed_out' });
@@ -226,14 +329,14 @@ createServer(async (req, res) => {
     const base = { ...SAVE.saved, head: 'Saved.', receipt: [], undo: undo() };
     if (path === '/undo') {
       if (!undo() || body.token !== state.undo.token) {
-        return send(res, 200, { ...base, outcome: 'rejected', tone: 'warning', head: 'Nothing undone.', reason: 'There is nothing to undo any more.', day: state.day }, signedIn);
+        return send(res, 200, { ...base, outcome: 'rejected', tone: 'warning', head: 'Nothing undone.', reason: 'There is nothing to undo any more.', ...fresh() }, signedIn);
       }
       [state.day, state.before, state.undo] = [state.before, null, null];
-      return send(res, 200, { ...base, outcome: 'changed', head: 'Undone.', undo: null, day: state.day }, signedIn);
+      return send(res, 200, { ...base, outcome: 'changed', head: 'Undone.', undo: null, ...fresh() }, signedIn);
     }
     // The key rule, as logbook's: the same key again answers as before and saves nothing twice.
     if (KEYED.includes(path) && body.key && state.keys.has(body.key)) {
-      return send(res, 200, { ...state.keys.get(body.key), replayed: true, head: 'Already saved earlier (same message).', day: state.day }, signedIn);
+      return send(res, 200, { ...state.keys.get(body.key), replayed: true, head: 'Already saved earlier (same message).', ...fresh() }, signedIn);
     }
     if (path === '/log') {
       await new Promise((r) => setTimeout(r, READ_MS));
@@ -245,13 +348,13 @@ createServer(async (req, res) => {
       }
       const answer = { ...r.answer, v: 1, replayed: false, undo: r.undo ? state.undo : null };
       if (body.key && !['rejected', 'needs_confirmation', 'held'].includes(answer.outcome)) state.keys.set(body.key, answer);
-      return send(res, 200, { ...answer, day: state.day }, signedIn);
+      return send(res, 200, { ...answer, ...fresh() }, signedIn);
     }
     const out = save(path, body);
     if (!out) return send(res, 404, { error: 'not_found', message: 'Not found.' });
     const answer = { ...base, ...out, tone: out.tone ?? (['saved', 'changed', 'removed', 'unchanged', 'cancelled'].includes(out.outcome) ? 'ok' : 'warning') };
     if (KEYED.includes(path) && body.key && answer.outcome !== 'rejected' && answer.outcome !== 'needs_confirmation') state.keys.set(body.key, answer);
-    return send(res, 200, { ...answer, day: state.day }, signedIn);
+    return send(res, 200, { ...answer, ...fresh() }, signedIn);
   }
   return send(res, 404, { error: 'not_found', message: 'Not found.' });
 }).listen(port, () => console.log(`stand-in door on ${port}`));
