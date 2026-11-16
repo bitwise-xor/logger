@@ -5,7 +5,8 @@ on the real door's shapes. This test builds a full invented day (meals, drinks, 
 the check-in, health values, habits, chips), reads it through the door (day.json) and makes two saves on it (save.json: a glass of
 water, saved with Undo, and an odd weight correction read back first, with confirm; the stand-in answers every save in this shape),
 the Food day (food.json, step E: GET /food/day of the day and the day before, GET /food/entry, a change and a note), the usual
-meals (usual.json, deploy 86: GET /usual, GET /foods, a change with Undo and a refusal), and
+meals (usual.json, deploy 86: GET /usual, GET /foods, a change with Undo and a refusal), the scanner, label photo and look-up
+(scan.json, deploy 89), and
 - with WRITE_FRONT_SAMPLES=1: writes the answer to the sample file (then look at the diff and commit it);
 - otherwise: checks that the committed sample still has the door's shape (the same keys at every level), so a change of the door
   that the stand-in does not know about fails here.
@@ -21,7 +22,7 @@ from app import todaypage
 from app.rules import BERLIN
 from conftest import owner_sql
 from test_api_door import door, door_on, signed_in  # noqa: F401 - door_on is autouse
-from test_log import fake, skyr  # noqa: F401 - the AI is a fake (a save must never reach it); skyr: the food of its lines
+from test_log import fake, off, skyr  # noqa: F401 - the AI is a fake (a save must never reach it); skyr: the food of its lines; off: Open Food Facts
 from test_api_reads import api, pending  # noqa: F401 - api is a fixture
 from test_webfood import eat_on
 from test_webtoday import day, food, no_targets, raw  # noqa: F401 - no_targets: clean targets and usual meals
@@ -265,3 +266,56 @@ def test_the_usual_sample_has_the_doors_shape(four_pm, fake):
     assert sample.keys() == answers.keys()
     gone = differences(sample, answers, "usual")
     assert not gone, "front/tests/samples/usual.json no longer has the door's shape; run this test with WRITE_FRONT_SAMPLES=1:\n" + "\n".join(gone)
+
+
+def test_the_scan_sample_has_the_doors_shape(four_pm, fake, off):
+    """The scanner, label photo and look-up (deploy 89, for the page of deploy 90): a barcode in the catalogue and one that is not,
+    Open Food Facts' values and a code it does not know, two label photos read (the AI a fake) and an unreadable one, the checked
+    values added and logged (with Undo, without the day), a refusal of a photo, and a look-up read back (its question in full)
+    and its yes through /answer. Every food, barcode and number is invented."""
+    from app import logbook
+    from test_api_scan import JPEG, PNG, Vision
+    from test_log import OAT
+
+    full_day()
+    oats = owner_sql("SELECT id FROM foods WHERE name = 'Oats'")[0]["id"]
+    owner_sql("UPDATE foods SET barcode = '4006040123456' WHERE id = %s", oats)
+    off.products["4012345678901"] = {"product_name": "Oat drink", "brands": "Samplemarke", "quantity": "1 l",
+                                     "nutriments": {"energy-kcal_100g": 46, "proteins_100g": 1, "fat_100g": 1.5,
+                                                    "carbohydrates_100g": 6.6, "sugars_100g": 4, "salt_100g": 0.1}}
+    off.products[OAT["code"]] = OAT
+    c, bearer, _ = signed_in()
+    get = lambda path: c.get("/api/v1" + path, headers=bearer).json()  # noqa: E731
+    post = lambda path, **body: c.post("/api/v1" + path, headers=bearer, json=body).json()  # noqa: E731
+    answers = {"barcode": get("/foods/barcode?code=4006040123456"), "barcode_none": get("/foods/barcode?code=4000000000000"),
+               "off": get("/foods/off?code=4012345678901"), "off_none": get("/foods/off?code=4000000000000")}
+    vision = Vision()
+    logbook.PROVIDER = vision
+    try:
+        answers["label"] = c.post("/api/v1/food/label", headers=bearer, files=[("photo", JPEG), ("photo", PNG)]).json()
+        vision.answer = {**{k: None for k in vision.answer}, "readable": False, "basis": "g", "note": "The table is cut off."}
+        answers["label_unreadable"] = c.post("/api/v1/food/label", headers=bearer, files=[("photo", JPEG)]).json()
+        answers["label_refused"] = c.post("/api/v1/food/label", headers=bearer, files=[("photo", ("a.pdf", b"%PDF", "application/pdf"))]).json()
+    finally:
+        logbook.PROVIDER = fake
+    assert vision.calls[0] == ["image/jpeg", "image/png"]
+    added = post("/food/labeladd", name="Crunchy granola (Samplemarke)", basis="g", kcal=452, protein=9.5, fat=17.8, carbs=61.2,
+                 sat_fat=3.1, sugar_total=19, fibre=6.4, salt_g=0.3, barcode="4006040999999", source="label", amount=45, time="08:30",
+                 key="sample-label-key-0001")
+    found = post("/lookup", text=OAT["code"])
+    yes = post("/answer", question_id=found["questions"][0]["id"], reply="yes")
+    for a in (added, found, yes):
+        assert a.pop("day")["day"] == day().isoformat(), a
+    answers["saves"] = {"labeladd": added, "lookup": found, "answer": yes}
+    assert answers["barcode"]["food"]["name"] == "Oats" and answers["barcode_none"]["food"] is None
+    assert answers["off"]["ok"] and not answers["off_none"]["ok"] and answers["label"]["ok"] and not answers["label_unreadable"]["ok"]
+    assert answers["label_refused"]["error"] == "bad_request"
+    assert added["outcome"] == "saved" and added["undo"] and found["outcome"] == "needs_confirmation" and yes["outcome"] == "saved"
+    path = SAMPLES / "scan.json"
+    if os.environ.get("WRITE_FRONT_SAMPLES") == "1":
+        path.write_text(json.dumps(answers, indent=1, ensure_ascii=False) + "\n")
+        return
+    sample = json.loads(path.read_text())
+    assert sample.keys() == answers.keys()
+    gone = differences(sample, answers, "scan")
+    assert not gone, "front/tests/samples/scan.json no longer has the door's shape; run this test with WRITE_FRONT_SAMPLES=1:\n" + "\n".join(gone)

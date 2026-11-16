@@ -1,7 +1,8 @@
 """The door's shape after the review of 16.11.2026 (deploy 77): the night's bed time on the Health card, a save's questions in full,
 the private guard on questions and on lines the AI files as private, one name per field (the old names gone since deploy 78), Undo on a
 reload, a mixed line's look-up in result, answer styles and refill buttons, the outcome's tone, no chat lines in read-backs, and
-Try again / Delete on a message not read yet; the usual-meal editor's shapes (deploy 86). Every name, food, number and sentence is invented."""
+Try again / Delete on a message not read yet; the usual-meal editor's shapes (deploy 86); the scanner's, label photo's and look-up's
+shapes (deploy 89). Every name, food, number and sentence is invented."""
 from datetime import datetime
 
 import pytest
@@ -278,3 +279,32 @@ def test_the_usual_meal_shapes(sv, fake):
     assert set(f) == {"food_id", "name", "unit", "drink", "per_100"} and set(f["per_100"]) == {"kcal", "protein", "fat", "carbs"}
     asked = sv.post("/usual/meal", meal_id=m["meal_id"], action="save", name="Test box", items=[{"food_id": oats, "amount": 70}], view="day")
     assert asked["outcome"] == "needs_confirmation" and "day" in asked and "usual" not in asked  # view chooses the fresh read
+
+
+# ---- 9. scan, label photo and look-up (deploy 89) ----------------------------------------------------------------------------------
+
+def test_the_scan_shapes(sv, fake, off):
+    from test_api_scan import GRANOLA_FORM, JPEG, Vision
+    from test_log import OAT
+
+    values = {"kcal", "protein", "fat", "carbs", "sat_fat", "sugar_total", "fibre", "salt_g"}
+    fid = food("Test crispbread", 360, 10)
+    owner_sql("UPDATE foods SET barcode = '4006040123456' WHERE id = %s", fid)
+    j = get(sv, "/foods/barcode?code=4006040123456")
+    assert set(j) == {"v", "code", "food"} and set(j["food"]) == {"food_id", "name", "unit", "amount"}
+    assert get(sv, "/foods/barcode?code=40000000")["food"] is None
+    off.products[OAT["code"]] = OAT
+    j = get(sv, f"/foods/off?code={OAT['code']}")
+    assert set(j) == {"v", "ok", "values", "name", "brand", "basis", "note"} and set(j["values"]) == values and j["ok"] is True
+    assert set(get(sv, "/foods/off?code=40000000")) == {"v", "ok", "reason"}
+    api.logbook.PROVIDER = Vision()
+    try:
+        r = sv.c.post("/api/v1/food/label", headers=sv.h, files=[("photo", JPEG)])
+    finally:
+        api.logbook.PROVIDER = fake
+    j = r.json()
+    assert set(j) == {"v", "ok", "values", "name", "brand", "basis", "note"} and set(j["values"]) == values
+    assert shaped(sv.post("/food/labeladd", **GRANOLA_FORM, amount=40, key="shape-l1"))["outcome"] == "saved"
+    j = shaped(sv.post("/lookup", text=OAT["code"]))
+    [q] = j["questions"]
+    assert j["outcome"] == "needs_confirmation" and q["tool"] == "lookup_confirm" and q["lookup"] is None and j["read_back"]

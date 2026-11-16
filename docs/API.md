@@ -1,10 +1,10 @@
 # The JSON door `/api/v1` (for the new front end)
 
 Since deploys 75 and 76 (16.11.2026); deploy 77 (16.11.2026) made the changes of the door's review (marked "since 77");
-deploy 78 removed the old field names that 77 kept for one deploy; deploy 86 added the usual-meal editor. The front end that calls it: `front/` (`front/README.md`).
+deploy 78 removed the old field names that 77 kept for one deploy; deploy 86 added the usual-meal editor; deploy 89 the scanner, the label photo and the look-up. The front end that calls it: `front/` (`front/README.md`).
 Code: `core/app/api.py` (the door, the saves), `core/app/reads.py` (the reads).
 Tests: `tests/test_api_door.py`, `tests/test_api_reads.py`, `tests/test_api_saves.py`, `tests/test_api_shape.py` (77),
-`tests/test_api_usual.py` (86).
+`tests/test_api_usual.py` (86), `tests/test_api_scan.py` (89).
 
 The door is for one caller only: the new front end's own server, from inside Docker. The browser never calls it.
 The live web app at `app.` does not use it and did not change.
@@ -33,7 +33,7 @@ The front end reads these as plain messages (since deploy 85, `front/src/lib/pro
   (once a day the end moves to 30 days from now); the front end can renew its own cookie from this header.
 - Errors: `{"v": 1, "error": "<code>", "message": "<plain text>"}`. Codes: `not_found` 404, `signed_out` 401,
   `wrong_credentials` 401, `too_many_tries` 429, `bad_request` 400, `too_large` 413 (body over 64 KB), `no_entry` 404,
-  `server_error` 500.
+  `server_error` 500. Only `POST /food/label` takes a larger body (up to three photos, see below).
 - Request bodies are a JSON object. Values: numbers, ISO 8601 times in Europe/Berlin with the offset (`2026-01-31T08:05:00+01:00`),
   dates as `yyyy-mm-dd`, durations in minutes. Display strings are the front end's job.
 
@@ -130,6 +130,53 @@ Items in their order; `amount` in the food's `unit` (g, or ml for a drink).
 Up to 20 active foods for the words (the Catalogue's search: name, one of its words, N number or barcode), most eaten first; no
 `q` = the 20 most eaten. To pick a food for a usual meal; `per_100` is per 100 g, or per 100 ml (`unit`).
 
+### `GET /api/v1/foods/barcode?code=` → `{code, food}` (89)
+
+The scanner: the active catalogue food with this barcode (`webfood.scanned`, app.'s own scanner), or `food: null`.
+`code`: 8 to 14 digits; spaces and dashes are left out; anything else is 400 `bad_request` ("A barcode is 8 to 14 digits."). A
+12-digit UPC-A code also finds its EAN-13 (the same with a 0 in front), and the reverse.
+
+```
+food = null | {food_id, name, unit: "g" | "ml", amount}     // amount: the last amount eaten, 100 when it was never eaten
+```
+
+A found food is logged through `POST /again` (`food_id`, `amount`); no route of its own.
+
+### `GET /api/v1/foods/off?code=` → Open Food Facts' values to check (89)
+
+`webfood.off_values` (app.'s "Look it up" in the scanner); nothing is saved. The same code rule as above (400 otherwise).
+
+```
+{ok: true, name, brand, basis: "g" | "ml", note,
+ values: {kcal, protein, fat, carbs, sat_fat, sugar_total, fibre, salt_g}}    // per 100 g or ml; a value it does not know is null
+{ok: false, reason}                                    // not in Open Food Facts, not all its values, or it did not answer
+```
+
+The form fills from this; its Add is `POST /food/labeladd` with `source: "off"`.
+
+## The label photo: `POST /api/v1/food/label` (89)
+
+One to three photos of ONE package (the name and the nutrition table often need two), read together in one AI call
+(`labelread.read`, Claude Sonnet). Nothing is saved; the photos are not kept (one cost row in the audit log: the AI's tokens and
+the number of photos, never the photo or the values).
+
+- Body: `multipart/form-data`, the field `photo` once, twice or three times; each JPEG, PNG, WebP or GIF (its part's content
+  type), at most 8 MB. This route only is exempt from the 64 KB cap: the whole body may be up to 3 × 8 MB + 64 KB, cut off while
+  it is read (also without a Content-Length).
+- Refusals (HTTP errors, nothing reaches the AI): 400 `bad_request` "No photo came with the request." / "At most 3 photos." /
+  "A photo must be JPEG, PNG, WebP or GIF." / "A photo is empty." / "Send the photos as multipart/form-data, in the field photo."
+  (also a body that is not readable multipart); 413 `too_large` "A photo is too large: at most 8 MB each, 3 photos.".
+- Answer (200):
+
+```
+{ok: true, name, brand, basis: "g" | "ml", note,       // name, brand: as printed, or null; note: one sentence to check, or null
+ values: {kcal, protein, fat, sat_fat, carbs, sugar_total, fibre, salt_g}}    // per 100 g or ml; not on the label: null
+{ok: false, reason}                                    // not readable ("Try a sharper photo …"), or the AI did not answer
+```
+
+The page should make its photos smaller before sending (a few hundred KB each is plenty for a label): the AI service takes a
+limited request size, and three photos of 8 MB would be too much for it (not tested against the live service).
+
 ## Saves (`POST`)
 
 Each calls the same function as the live form and passes `key` (a new random string per action, the same on a re-send) where that
@@ -154,6 +201,8 @@ function takes one, so a re-sent request saves once (`replayed: true`).
 | `/api/v1/usual/meal` (86) | `meal_id`, `action`: `save` (`name`, `items: [{food_id, amount}]`: the whole list, in order, up to 40) or `delete`, `confirmed`, `key` | `webfood.usual_meal` |
 | `/api/v1/usual/new` (86) | `name`, `drink` (true or false, default false), `items: [{food_id, amount}]` (1 to 8), `key` | `webfood.usual_create` |
 | `/api/v1/usual/from_meal` (86) | `day` (yyyy-mm-dd), `meal` (1, 2, …; 0, the drinks, is refused), `name`, `key` | `webfood.usual_new` |
+| `/api/v1/food/labeladd` (89) | `name` (2 to 120 characters), `basis` (`g` or `ml`, default `g`), `kcal`, `protein`, `fat`, `carbs` (numbers, per 100), optional `sat_fat`, `sugar_total`, `fibre`, `salt_g` (numbers or null), `barcode` (8 to 14 digits; otherwise left out), `source` (`label`, default, or `off`), optional `amount` (to log it now, in g or ml, above 0 and at most 5000) and `time` (hh:mm, default now), `key` | `webfood.label_add` |
+| `/api/v1/lookup` (89) | `text` (a name, or a barcode of 8 to 14 digits), optional `question_id` (an open food question it answers; without `text` the question's word is looked up) | `webfood.look_up` → `logbook.food_lookup` (no key: it saves nothing) |
 
 The usual-meal saves (86): the front end sends `confirmed: true` and the change is made at once, with Undo (without it a change or
 delete is read back first, as on app.: `needs_confirmation` with `read_back` and `confirm`). Amounts above 0 and at most 5000 (g or ml); a
@@ -162,6 +211,21 @@ the catalogue. Each refusal is `rejected` with a plain `reason` and changes noth
 answer with `replayed: true`; the same key with another body is refused ("This form was already used."). Undo puts the meal back as
 it was (name, foods, amounts, the same item ids), after a delete also the past entries' link to it (`Row.usual_meal`); a new one is
 removed again. app.'s Usual meals tab got the same Undo bar.
+
+The label food (89): the checked values go into the catalogue through the logger's own new-food checks (impossible values are
+refused, `rejected` with a `reason`), with the barcode and a source note ("label photo read by Claude, checked by the owner on …",
+or "Open Food Facts, …" with `source: "off"`). Without `amount` the answer is `changed` ("Added … to your catalogue. Scan it again or
+find it in the Again chips to log it.") and there is no Undo. With `amount` it is logged at once like an Again chip: `saved`, and
+**Undo takes back the logged entry only; the catalogue food stays** (it can be hidden in app.'s Catalogue). An amount that is
+refused still adds the food (`rejected` with the head "Added …" and the reason). A `key` saves once: a re-send gets the first answer
+(`replayed: true`) and adds no second food; the same key with other values is refused ("This form was already used."). A wrong kind
+of field is 400 `bad_request` (`kcal must be a number.`, `basis must be g or ml.`, `source must be label or off.`).
+
+The look-up (89): by barcode Open Food Facts, by name USDA and Open Food Facts (an AI call picks the best fit). A food found is read
+back: `needs_confirmation`, `read_back` (its values per 100) and its question in `questions` (`tool: "lookup_confirm"`, `text`
+"Add this food?", answers `yes` and `no`); send the answer to `POST /answer` (`question_id` = the question's `id`): `yes` adds it
+(`saved`; with a `question_id`, the question's waiting item is logged too), `no` is `cancelled`. A food already in the catalogue is
+`saved` at once ("Your catalogue already has N…"). Nothing found, or no word: `rejected` with a `reason`.
 
 Field names since 77: `action` (was `act` on `/review` and `/food/entry`), `time` (was `t` on `/health`), `items[].item_id` (was
 `items[].id` on `/usual`). Since deploy 78 only the new names work: a field sent under its old name counts as missing.
@@ -218,5 +282,5 @@ Texts in `read_back`, `result` and questions never carry the lines meant for the
 - Errors inside a save (the AI or the database not answering) are `outcome: "rejected"` with a reason that nothing was saved; a typed
   line's words stay kept (`held`) and appear in `day.needs.not_read`.
 
-Not in the door (on purpose, for now): Home, Gym and Coach, body measurements, the Food catalogue editor, "Look it up"
-(USDA or Open Food Facts) for an unknown food, the gratitude list itself (only its count), Ideas and Private.
+Not in the door (on purpose, for now): Home, Gym and Coach, body measurements, the Food catalogue editor, the gratitude list
+itself (only its count), Ideas and Private.

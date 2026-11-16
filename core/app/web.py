@@ -667,17 +667,8 @@ def add_routes(mcp) -> None:
             return r
         if not current_session(request):
             return Response("Not found", status_code=404)
-        code = re.sub(r"\D", "", request.query_params.get("code", ""))[:14]
-        food = None
-        if len(code) >= 8:
-            same = {code, code.zfill(13) if len(code) == 12 else code, code[1:] if len(code) == 13 and code[0] == "0" else code}  # UPC-A = EAN-13 with a 0
-            with connect() as c:
-                r = c.execute("""SELECT f.id, f.name, f.basis, (SELECT e.amount FROM food_entries e WHERE e.food_id = f.id
-                                                               ORDER BY e.eaten_at DESC, e.id DESC LIMIT 1) AS amount
-                                 FROM foods f WHERE f.active AND f.barcode = ANY(%s) ORDER BY f.id LIMIT 1""", (list(same),)).fetchone()
-            if r:
-                food = {"id": r["id"], "name": r["name"], "basis": r["basis"], "amount": float(r["amount"]) if r["amount"] is not None else 100.0}
-        return JSONResponse({"code": code, "food": food}, headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"})
+        out = await run_in_threadpool(lambda: webfood.scanned(request.query_params.get("code", "")))
+        return JSONResponse(out, headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"})
 
     @mcp.custom_route("/web/foods/off.json", methods=["GET"])
     async def food_off(request: Request) -> Response:
@@ -703,7 +694,7 @@ def add_routes(mcp) -> None:
             data, media_type = await photo.read(labelread.MAX_BYTES + 1), (photo.content_type or "").split(";")[0].strip().lower()
         except (AttributeError, ValueError, KeyError):
             return JSONResponse({"ok": False, "reason": "No photo came with the request."}, status_code=400)
-        return JSONResponse(await _run(lambda: labelread.read(data, media_type)), headers={"Cache-Control": "no-store"})
+        return JSONResponse(await _run(lambda: labelread.read([(media_type, data)])), headers={"Cache-Control": "no-store"})
 
     @mcp.custom_route("/web/sw.js", methods=["GET"])
     async def service_worker(request: Request) -> Response:
@@ -753,15 +744,8 @@ def add_routes(mcp) -> None:
         session, form = await post_form(request)
         if form is None:
             return session
-        question_id = str(form.get("question_id", ""))[:64]
-        name = str(form.get("reply", "")).strip()[:200]
-        if not name:  # no word typed: look up the word of the question
-            with connect() as c:
-                row = c.execute("SELECT payload FROM pending WHERE id = %s AND tool = 'log'", (question_id,)).fetchone()
-            name = ((row or {}).get("payload") or {}).get("item", {}).get("food", "") if row else ""
-        if not name:
-            return done(session, {"outcome": "rejected", "reason": "Type the food's name first."}, back_to(form))
-        return done(session, await _run(lambda: logbook.food_lookup(None, name, question_id)), back_to(form))
+        question_id, words = str(form.get("question_id", ""))[:64], str(form.get("reply", ""))[:200]
+        return done(session, await _run(lambda: webfood.look_up(words, question_id)), back_to(form))
 
     @mcp.custom_route("/web/habit", methods=["POST"])
     async def habit(request: Request) -> Response:

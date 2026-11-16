@@ -208,7 +208,9 @@ def copy(form, key: Optional[str]) -> dict:
 # were, the past entries' links of a deleted one, or a new meal to remove again) and a new one with its "meal_id". A key (the
 # JSON door sends one per Save) saves once: a re-send gets the first answer back (idempotency_keys, as gym.py and home.py).
 
-def _usual_once(key: Optional[str], form, fn) -> dict:
+def _once(key: Optional[str], form, fn, tool: str = "usual", kept=lambda out: out.get("outcome") == "changed") -> dict:
+    """fn() once per key: a re-send with the same fields gets the first answer back (replayed), with other fields a refusal.
+    kept(out): whether the answer changed something and is kept for a re-send (a refusal is not: the form can be sent again)."""
     if not key:
         return fn()
     fields = {k: str(v) for k, v in form.items() if k not in ("csrf", "confirmed", "key", "back")}
@@ -219,9 +221,13 @@ def _usual_once(key: Optional[str], form, fn) -> dict:
         if seen:
             return {**seen["response"], "replayed": True} if seen["request_hash"] == req else _rejected("This form was already used.")
         out = fn()
-        if out.get("outcome") == "changed":
-            cur.execute("INSERT INTO idempotency_keys (key, tool, request_hash, response) VALUES (%s, 'usual', %s, %s)", (key, req, Jsonb(out)))
+        if kept(out):
+            cur.execute("INSERT INTO idempotency_keys (key, tool, request_hash, response) VALUES (%s, %s, %s, %s)", (key, tool, req, Jsonb(out)))
     return out
+
+
+def _usual_once(key: Optional[str], form, fn) -> dict:
+    return _once(key, form, fn)
 
 
 def _name_taken(cur, name: str, other_than: Optional[int] = None) -> Optional[dict]:
@@ -445,11 +451,41 @@ def reviewed(form, key: Optional[str]) -> dict:
 
 
 def lookup(form, key: Optional[str]) -> dict:
-    name = " ".join(str(form.get("name", "")).split())[:120]
+    return look_up(str(form.get("name", ""))[:120])
+
+
+def look_up(words: str, question_id: str = "") -> dict:
+    """"Look it up" (USDA and Open Food Facts, logbook.food_lookup): the Food page's form, a question's button on app.
+    (/web/lookup) and the JSON door's /lookup (deploy 89). words: a name, or a barcode of 8 to 14 digits; none with a question:
+    the question's own word. The food found is read back with yes or no (a pending lookup_confirm); a yes adds it (and logs
+    the question's waiting item)."""
+    name = " ".join(str(words or "").split())[:200]
+    if not name and question_id:  # no word typed: look up the word of the question
+        with connect() as c:
+            row = c.execute("SELECT payload FROM pending WHERE id = %s AND tool = 'log'", (question_id,)).fetchone()
+        name = ((row or {}).get("payload") or {}).get("item", {}).get("food", "") if row else ""
     if not name:
         return _rejected("Type the food's name or barcode first.")
     b = re.sub(r"\s", "", name)
-    return logbook.food_lookup(barcode=b) if BARCODE.fullmatch(b) else logbook.food_lookup(name=name)
+    if BARCODE.fullmatch(b):
+        return logbook.food_lookup(barcode=b, question_id=question_id or None)
+    return logbook.food_lookup(name=name, question_id=question_id or None)
+
+
+def scanned(code: str) -> dict:
+    """The scanner's barcode (Today on app., the JSON door's /foods/barcode, deploy 89): the active catalogue food with it and
+    the amount eaten last (100 when it was never eaten), or food None. A UPC-A code (12 digits) is the EAN-13 with a 0 in front."""
+    code = re.sub(r"\D", "", code or "")[:14]
+    food = None
+    if len(code) >= 8:
+        same = {code, code.zfill(13) if len(code) == 12 else code, code[1:] if len(code) == 13 and code[0] == "0" else code}
+        with connect() as c:
+            r = c.execute("""SELECT f.id, f.name, f.basis, (SELECT e.amount FROM food_entries e WHERE e.food_id = f.id
+                                                           ORDER BY e.eaten_at DESC, e.id DESC LIMIT 1) AS amount
+                             FROM foods f WHERE f.active AND f.barcode = ANY(%s) ORDER BY f.id LIMIT 1""", (list(same),)).fetchone()
+        if r:
+            food = {"id": r["id"], "name": r["name"], "basis": r["basis"], "amount": float(r["amount"]) if r["amount"] is not None else 100.0}
+    return {"code": code, "food": food}
 
 
 def usual_meal(form, key: Optional[str]) -> dict:
@@ -591,7 +627,12 @@ def off_values(code: str) -> dict:
 def label_add(form, key: Optional[str]) -> dict:
     """The values Claude read from a label photo, as the owner checked and corrected them: the food goes into the catalogue
     through the logger's own new-food checks (impossible values are refused), with its barcode when it was scanned first;
-    with an amount it is logged straight away as well (like an Again chip)."""
+    with an amount it is logged straight away as well (like an Again chip). A key saves once (since deploy 89): a re-send gets
+    the first answer back and adds no second food (kept under "label:<key>"; the key itself is the logged entry's, logbook.log)."""
+    return _once(f"label:{key}" if key else None, form, lambda: _label_add(form, key), "label", lambda out: bool(out.get("food_id")))
+
+
+def _label_add(form, key: Optional[str]) -> dict:
     name = " ".join(str(form.get("name", "")).split())[:120]
     if len(name) < 2:
         return _rejected("Give the food a name.")
@@ -635,8 +676,9 @@ def label_add(form, key: Optional[str]) -> dict:
     head = f"Added {name} to your catalogue."
     if str(form.get("amount", "")).strip():
         logged = again({"food": str(out["food_id"]), "amount": form.get("amount"), "time": form.get("time", "")}, key)
-        return {**logged, "head": f"{head} {logged.get('head') or ('Logged it.' if logged.get('outcome') == 'saved' else '')}".strip()}
-    return {"outcome": "changed", "head": head + " Scan it again or find it in the Again chips to log it."}
+        return {**logged, "food_id": out["food_id"],
+                "head": f"{head} {logged.get('head') or ('Logged it.' if logged.get('outcome') == 'saved' else '')}".strip()}
+    return {"outcome": "changed", "food_id": out["food_id"], "head": head + " Scan it again or find it in the Again chips to log it."}
 
 
 # Every form of the Food page: path under /web/food/, the function, and where the browser goes afterwards

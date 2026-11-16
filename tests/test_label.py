@@ -39,7 +39,7 @@ def foods():
 # ---- reading -----------------------------------------------------------------------------------------
 
 def test_a_label_is_read_into_values_per_100_and_the_cost_is_logged(vision):
-    out = labelread.read(b"\xff\xd8 a jpeg", "image/jpeg")
+    out = labelread.read([("image/jpeg", b"\xff\xd8 a jpeg")])
     assert out["ok"] and out["name"] == "Crunchy Granola" and out["brand"] == "Testmarke" and out["basis"] == "g"
     assert out["values"]["kcal"] == 452 and out["values"]["salt_g"] == 0.3
     assert vision.calls == [(labelread.MODEL, "image/jpeg", 9)] and foods() == []  # nothing saved by reading
@@ -47,11 +47,11 @@ def test_a_label_is_read_into_values_per_100_and_the_cost_is_logged(vision):
 
 
 def test_an_unreadable_photo_a_wrong_file_and_a_failed_call_say_why(vision):
-    assert "JPEG or PNG" in labelread.read(b"x", "application/pdf")["reason"]
+    assert "JPEG or PNG" in labelread.read([("application/pdf", b"x")])["reason"]
     vision.answer = {**{k: None for k in GRANOLA}, "readable": False, "basis": "g", "note": "The table is cut off."}
-    assert "The table is cut off." in labelread.read(b"x", "image/png")["reason"]
+    assert "The table is cut off." in labelread.read([("image/png", b"x")])["reason"]
     vision.fail = True
-    assert "could not read it" in labelread.read(b"x", "image/png")["reason"]
+    assert "could not read it" in labelread.read([("image/png", b"x")])["reason"]
 
 
 def test_the_route_needs_the_csrf_header_and_returns_the_values(web, vision):

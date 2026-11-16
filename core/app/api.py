@@ -21,7 +21,7 @@ from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-from . import hubtools, logbook, privateline, reads, web, webactions, webentry, webfood, webheld, webundo
+from . import hubtools, labelread, logbook, privateline, reads, web, webactions, webentry, webfood, webheld, webundo
 from .ai.provider import ProviderError
 from .config import FRONT_TOKEN
 from .db import connect
@@ -99,10 +99,11 @@ def session_for(token: str):
     return {**row, "expires_at": r["expires_at"]}
 
 
-def route(path: str, method: str, signed_in: bool = True):
+def route(path: str, method: str, signed_in: bool = True, photos: bool = False):
     """Register a door route: fn(request, body, session) -> dict (or (dict, status)), run off the event loop. The checks of the
     module's docstring come first; a Refused becomes its JSON error; any other error a plain 500 (the kind goes to the log,
-    never what was sent)."""
+    never what was sent). photos: the body is multipart with one to three photos (body = {"photos": [(type, bytes)]}, see
+    _photos), not JSON; only this route may be larger than MAX_BODY (deploy 89, the label photo)."""
     def wrap(fn):
         async def handler(request: Request):
             if not (door_open() and from_inside(request) and token_ok(request)):
@@ -114,7 +115,12 @@ def route(path: str, method: str, signed_in: bool = True):
                 if not session:
                     return error(401, "signed_out", "Sign in first.")
             body: dict = {}
-            if method in ("POST", "DELETE"):
+            if photos:
+                try:
+                    body = await _photos(request)
+                except Refused as e:
+                    return error(e.status, e.code, e.message)
+            elif method in ("POST", "DELETE"):
                 raw = await request.body()
                 if len(raw) > MAX_BODY:
                     return error(413, "too_large", "The request is too large.")
@@ -137,6 +143,68 @@ def route(path: str, method: str, signed_in: bool = True):
         _ROUTES.append((PREFIX + path, method, handler))
         return fn
     return wrap
+
+
+# The label photo's body (deploy 89): multipart/form-data with the field "photo" one to three times, each JPEG, PNG, WebP or GIF of
+# at most 8 MB (labelread). The whole body may be three photos and a little form around them; a larger one is cut off while it
+# is read (also without a Content-Length) and answered 413.
+MAX_PHOTO_BODY = labelread.MAX_PHOTOS * labelread.MAX_BYTES + MAX_BODY
+PHOTO_TYPES = "JPEG, PNG, WebP or GIF"
+
+
+class _TooLarge(Exception):
+    pass
+
+
+async def _photos(request: Request) -> dict:
+    """-> {"photos": [(media type, bytes)]}, or a Refused: 400 bad_request (not multipart, no photo, four or more, another kind of
+    file, an empty one), 413 too_large (a photo over 8 MB, or the whole body over MAX_PHOTO_BODY). The photos are kept for this
+    request only (above 1 MB in Starlette's temporary file, removed when the form is closed) and never stored."""
+    big = Refused(413, "too_large", f"A photo is too large: at most {labelread.MAX_BYTES // (1024 * 1024)} MB each, {labelread.MAX_PHOTOS} photos.")
+    try:
+        sent = int(request.headers.get("content-length") or 0)
+    except ValueError:
+        sent = 0
+    if sent > MAX_PHOTO_BODY:
+        raise big
+    if not request.headers.get("content-type", "").lower().startswith("multipart/form-data"):
+        raise Refused(400, "bad_request", "Send the photos as multipart/form-data, in the field photo.")
+    seen = 0
+
+    async def receive():
+        nonlocal seen
+        msg = await request.receive()
+        seen += len(msg.get("body", b""))
+        if seen > MAX_PHOTO_BODY:
+            raise _TooLarge
+        return msg
+
+    try:
+        form = await Request(request.scope, receive).form(max_files=labelread.MAX_PHOTOS + 1, max_fields=10)
+    except _TooLarge:
+        raise big from None
+    except Exception:  # noqa: BLE001 - a body that is not readable multipart, or five files or more
+        raise Refused(400, "bad_request", f"Send one to {labelread.MAX_PHOTOS} photos in the field photo.") from None
+    try:
+        files = form.getlist("photo")
+        if not files or not all(hasattr(f, "read") for f in files):
+            raise Refused(400, "bad_request", "No photo came with the request.")
+        if len(files) > labelread.MAX_PHOTOS:
+            raise Refused(400, "bad_request", f"At most {labelread.MAX_PHOTOS} photos.")
+        out = []
+        for f in files:
+            kind = (f.content_type or "").split(";")[0].strip().lower()
+            if kind not in labelread.TYPES:
+                raise Refused(400, "bad_request", f"A photo must be {PHOTO_TYPES}.")
+            data = await f.read(labelread.MAX_BYTES + 1)
+            if len(data) > labelread.MAX_BYTES:
+                raise big
+            if not data:
+                raise Refused(400, "bad_request", "A photo is empty.")
+            out.append((kind, data))
+        return {"photos": out}
+    finally:
+        await form.close()
 
 
 def add_routes(mcp) -> None:
@@ -575,3 +643,73 @@ def usual_from_meal(_request, body, session):
     """A logged meal saved as a usual meal: day (yyyy-mm-dd), meal (1, 2, ...; not 0, the drinks), name. Answers with the Food day."""
     f = _form(day=text(body, "day", 10, required=True), meal=str(_int(body, "meal", 0)), name=text(body, "name", 200))
     return saved(session, _work(lambda: webfood.usual_new(f, _key(body))), body, view="food")
+
+
+# ---- scan, label photo and look-up (deploy 89) -------------------------------------------------------------------------------
+# app.'s scanner on Today and its "Look it up", through the same functions: the catalogue food of a barcode (webfood.scanned), Open
+# Food Facts' values to check (webfood.off_values), one to three label photos read in one AI call (labelread.read, the cost in the
+# audit log, no photo kept), the checked values added to the catalogue and logged (webfood.label_add), and a food looked up by name
+# or barcode and read back with yes or no (webfood.look_up -> logbook.food_lookup; the answer through /answer). A scanned food that
+# is in the catalogue is logged through /again.
+
+def _code(request: Request) -> str:
+    """?code=: 8 to 14 digits (spaces and dashes are left out), as app.'s scanner."""
+    code = re.sub(r"[\s-]", "", request.query_params.get("code", ""))
+    if not webfood.BARCODE.fullmatch(code):
+        raise Refused(400, "bad_request", "A barcode is 8 to 14 digits.")
+    return code
+
+
+@route("/foods/barcode", "GET")
+def food_barcode(request, _body, _session):
+    """The catalogue's active food with this barcode (a UPC-A code finds its EAN-13), with the amount eaten last (100 if never),
+    or food null."""
+    out = webfood.scanned(_code(request))
+    f = out["food"]
+    return {"code": out["code"],
+            "food": {"food_id": f["id"], "name": f["name"], "unit": f["basis"], "amount": f["amount"]} if f else None}
+
+
+@route("/foods/off", "GET")
+def food_off(request, _body, _session):
+    """Open Food Facts' values for a barcode, per 100 g or ml, for the label form to check (nothing saved); ok false with a
+    reason when it does not know the code or not all its values."""
+    return webfood.off_values(_code(request))
+
+
+@route("/food/label", "POST", photos=True)
+def food_label(_request, body, _session):
+    """One to three photos of one package (multipart, field photo), read together in one AI call; nothing saved, no photo kept."""
+    return labelread.read(body["photos"])
+
+
+LABEL_NUMBERS = ("kcal", "protein", "fat", "carbs", "sat_fat", "sugar_total", "fibre", "salt_g", "amount")
+
+
+@route("/food/labeladd", "POST")
+def food_labeladd(_request, body, session):
+    """The checked values (per 100 g or ml) as a new catalogue food, with its barcode; with amount (and time hh:mm, else now) it
+    is logged at once, with Undo of the logged entry (the catalogue food stays). A key saves once."""
+    basis, source = text(body, "basis", 2) or "g", text(body, "source", 5) or "label"
+    if basis not in ("g", "ml"):
+        raise Refused(400, "bad_request", "basis must be g or ml.")
+    if source not in ("label", "off"):
+        raise Refused(400, "bad_request", "source must be label or off.")
+    fields = {"name": text(body, "name", 200), "basis": basis, "barcode": text(body, "barcode", 20), "time": text(body, "time", 5),
+              "from": source}
+    for k in LABEL_NUMBERS:
+        v = body.get(k)
+        if v is not None and (not isinstance(v, (int, float)) or isinstance(v, bool)):
+            raise Refused(400, "bad_request", f"{k} must be a number.")
+        fields[k] = "" if v is None else str(v)
+    f = Form({k: v for k, v in fields.items() if v != ""})
+    return saved(session, _work(lambda: webfood.label_add(f, _key(body))), body)
+
+
+@route("/lookup", "POST")
+def food_look_up(_request, body, session):
+    """Look a food up in USDA and Open Food Facts: text = a name or a barcode; question_id = the open food question it answers
+    (without text: the question's word). The food found is read back (needs_confirmation, its question in questions); "yes" or
+    "no" to it through /answer."""
+    words, qid = text(body, "text", 200), text(body, "question_id", 64)
+    return saved(session, _work(lambda: webfood.look_up(words, qid)), body)
