@@ -58,6 +58,8 @@ const HABITS = JSON.parse(readFileSync(new URL('../samples/habits.json', import.
 const GYM = JSON.parse(readFileSync(new URL('../samples/gym.json', import.meta.url), 'utf8'));
 const HOME = JSON.parse(readFileSync(new URL('../samples/home.json', import.meta.url), 'utf8'));
 const WEEK = JSON.parse(readFileSync(new URL('../samples/week.json', import.meta.url), 'utf8'));
+const FOODTRENDS = JSON.parse(readFileSync(new URL('../samples/food_trends.json', import.meta.url), 'utf8'));
+const INSIGHTS = JSON.parse(readFileSync(new URL('../samples/insights.json', import.meta.url), 'utf8')).insights.insights;
 
 // What the page must show, worked out here from the sample on its own (not with the page's code).
 const even = (x) => {
@@ -3144,10 +3146,10 @@ async function checkTrends(page, name, theme) {
   assert.equal(await page.locator('[data-place="library"]').evaluate((e) => e.tagName), 'SPAN');
   assert.ok(await page.getByText('Library and the rest are').isVisible(), 'the footer says what is still in the full app');
   assert.equal(await page.getByText('Trends, Library and the rest').count(), 0);
-  // the tabs: Week here, Charts and Insights at app. until deploy 103
+  // the tabs: all three are pages of this app since deploy 103 (no mark for the full app)
   assert.deepEqual(await page.locator('[data-tab]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-tab'), e.getAttribute('aria-current')])), [['week', 'page'], ['charts', null], ['insights', null]]);
-  assert.match(await page.locator('[data-tab="charts"]').getAttribute('href'), /\/web\/food\/trends$/);
-  assert.match(await page.locator('[data-tab="insights"]').getAttribute('href'), /\/web\/insights$/);
+  assert.deepEqual(await page.locator('[data-tab]').evaluateAll((els) => els.map((e) => e.getAttribute('href'))), ['/trends', '/trends/charts', '/trends/insights']);
+  assert.equal(await page.locator('[data-tabs]').getByText('↗').count(), 0, 'no mark for the full app on the tabs');
   await page.evaluate(() => (window.__noReload = true));
 
   // ---- 7 days: the not-offered review card --------------------------------------------------------------------------------------
@@ -3330,6 +3332,234 @@ async function checkTrends(page, name, theme) {
   await page.goto(`${base}/`);
 }
 
+/** Trends' Charts and Insights tabs (deploy 103): the tabs, the range switch, the four sections, a failing read, the insight bars. */
+async function checkTrendsTabs(page, name, theme) {
+  await standinPost('/standin/reset');
+  const pc = name === 'pc';
+  const shot = (n, full = true) => page.screenshot({ path: `${out}/trends-${n}-${name}-${theme}.png`, fullPage: full });
+  const FT = (r) => FOODTRENDS[String(r)].trends;
+  const bars = (c) => c.chart.series.find((x) => x.mark === 'bar').pts;
+  const stat = (c) => c.stat.map((x) => x.text).join('');
+  const sections = () => page.locator('[data-section]').evaluateAll((els) => els.map((e) => e.getAttribute('data-section')));
+  const markCount = (id, mark) => page.locator(`[data-chart="${id}"] [data-mark="${mark}"]`).count();
+
+  // ---- the tabs open this app's pages: Week > Charts > Insights > Week ---------------------------------------------------------
+  await page.goto(`${base}/trends`);
+  await page.locator('[data-tab="charts"]').click();
+  await page.waitForURL(/\/trends\/charts$/);
+  await page.locator('[data-section="food"]').waitFor();
+  assert.deepEqual(await page.locator('[data-tab]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-tab'), e.getAttribute('aria-current')])), [['week', null], ['charts', 'page'], ['insights', null]]);
+  assert.equal(await page.locator('[data-place="trends"]').getAttribute('aria-current'), 'true', 'Trends lit on /trends/charts');
+  assert.equal(await page.locator('[data-tabs] a[href^="http"]').count(), 0, 'no tab leaves this app');
+  assert.deepEqual(await sections(), ['food', 'health', 'body', 'gym'], 'the four sections in order');
+
+  // ---- Food: the door's four cards as they are --------------------------------------------------------------------------------
+  const f30 = FT(30);
+  assert.equal(await text(page.locator('[data-head-line]')), `${f30.title}, ${f30.small}`, 'the door\'s header words');
+  assert.deepEqual(await page.locator('[data-range]').evaluateAll((els) => els.map((e) => [e.textContent.trim(), e.getAttribute('href'), e.getAttribute('aria-current')])),
+    [['7 days', '/trends/charts?range=7', null], ['30 days', '/trends/charts', 'page'], ['90 days', '/trends/charts?range=90', null]]);
+  const foodIds = await page.locator('[data-food-charts] [data-chart-card]').evaluateAll((els) => els.map((e) => e.getAttribute('data-chart-card')));
+  assert.deepEqual(foodIds, f30.charts.map((c) => c.id), 'Calories, Protein, Fat, Carbs');
+  for (const c of f30.charts) {
+    const card = page.locator(`[data-food-charts] [data-chart-card="${c.id}"]`);
+    assert.equal(await text(card.locator('h2')), [c.title, c.small].filter(Boolean).join(' '));
+    assert.equal(await text(card.locator('[data-stat]')), stat(c).replace(/\s+/g, ' ').trim(), `${c.id}: the stat line`);
+    assert.equal(await markCount(c.id, 'bar'), bars(c).length, `${c.id}: a bar per day with food`);
+    assert.equal(await markCount(c.id, 'line'), 1, `${c.id}: the 7-day average`);
+    assert.ok(await page.locator(`[data-chart="${c.id}"] line, [data-chart="${c.id}"] path`).count() > 0, `${c.id}: the target and the axes`);
+    assert.ok((await text(card.locator('.legend'))).includes(c.legend[0].text), `${c.id}: the legend`);
+  }
+  assert.equal(await page.locator('[data-chart="kcal"] [data-mark="bar"][class*="a"]').count() > 0, true);
+  // a tap on a bar shows its tip
+  const kcal = bars(f30.charts[0]);
+  await page.locator('[data-chart="kcal"] [data-mark="bar"]').nth(2).click({ force: true });
+  assert.equal(await text(page.locator('[data-chart="kcal"] [data-tip]')), kcal[2][2], 'a tap shows the bar\'s text');
+  await page.locator('[data-chart="kcal"] [data-mark="bar"]').nth(2).click({ force: true }); // the same bar again hides it
+  assert.equal(await page.locator('[data-chart="kcal"] [data-tip]').count(), 0, 'a second tap on the bar hides the box');
+
+  // ---- Health, as on /health: five charts and the sleep times ------------------------------------------------------------------
+  const h = HEALTH.health.health;
+  assert.deepEqual(await page.locator('[data-section="health"] [data-chart-card]').evaluateAll((els) => els.map((e) => e.getAttribute('data-chart-card'))), [...h.charts.map((c) => c.id), 'times']);
+  for (const c of h.charts) assert.equal(await text(page.locator(`[data-section="health"] [data-chart-card="${c.id}"] [data-stat]`)), stat(c).replace(/\s+/g, ' ').trim(), `${c.id}: the stat line`);
+  assert.equal(await text(page.locator('[data-chart-card="times"] h2')), [h.times.title, h.times.small].filter(Boolean).join(' '));
+
+  // ---- Body: a chart per measure ------------------------------------------------------------------------------------------------
+  const B = HEALTH.body.body;
+  assert.deepEqual(await page.locator('[data-body-chart]').evaluateAll((els) => els.map((e) => e.getAttribute('data-body-chart'))), B.charts.map((c) => c.key));
+  for (const c of B.charts) assert.equal(await text(page.locator(`[data-body-chart="${c.key}"] h3`)), c.label);
+
+  // ---- Gym: workouts per week and one exercise, always the last 8 weeks --------------------------------------------------------
+  const P = GYM.progress.gym_progress;
+  assert.equal(await text(page.locator('[data-section="gym"] [data-title]')), `${P.exercise.name}: ${P.title}`);
+  assert.equal(await page.locator('[data-section="gym"] [data-bars] rect').count(), P.per_week.weeks.length, 'workouts per week: a bar per week');
+  assert.equal(await text(page.locator('[data-gym-note]')), `The last ${P.weeks} weeks, whatever the range above says.`);
+  const chips = await page.locator('[data-chip]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-chip'), e.getAttribute('href')]));
+  assert.ok(chips.length >= 2, 'the exercise chips');
+  assert.deepEqual(chips.map((c) => c[1]), chips.map((c) => `/trends/charts?range=30&x=${c[0]}`), 'a chip stays on this page and keeps the range');
+
+  // the layout: one column on phones and tablets, the cards in two columns from 1100 px
+  const k = await page.locator('[data-food-charts] [data-chart-card]').evaluateAll((els) => els.map((e) => e.getBoundingClientRect()).map((r) => ({ x: r.x, y: r.y, w: r.width })));
+  const hc = await page.locator('[data-section="health"] [data-chart-card]').evaluateAll((els) => els.map((e) => e.getBoundingClientRect()).map((r) => ({ x: r.x, y: r.y, w: r.width })));
+  const gc = await page.locator('[data-section="gym"] [data-card]').evaluateAll((els) => els.map((e) => e.getBoundingClientRect()).map((r) => ({ x: r.x, y: r.y, w: r.width })));
+  if (pc) {
+    assert.ok(Math.abs(k[0].y - k[1].y) < 2 && k[1].x > k[0].x + k[0].w - 1 && Math.abs(k[2].x - k[0].x) < 1 && k[2].y > k[0].y, 'pc: Food in two columns');
+    assert.ok(Math.abs(hc[0].y - hc[1].y) < 2 && hc[1].x > hc[0].x + hc[0].w - 1, 'pc: Health in two columns');
+    assert.ok(Math.abs(gc[0].y - gc[1].y) < 2 && gc[1].x > gc[0].x + gc[0].w - 1, 'pc: Gym in two columns');
+  } else {
+    assert.ok(k.every((r) => Math.abs(r.x - k[0].x) < 1 && Math.abs(r.w - k[0].w) < 1) && k[1].y > k[0].y, `${name}: Food in one column`);
+    assert.ok(hc.every((r) => Math.abs(r.x - hc[0].x) < 1) && hc[1].y > hc[0].y, `${name}: Health in one column`);
+    assert.ok(gc[1].y > gc[0].y && Math.abs(gc[1].x - gc[0].x) < 1, `${name}: Gym in one column`);
+  }
+  // charts take the card's width
+  const wide = await page.locator('[data-chart-card] [data-chart] svg').evaluateAll((els) => els.map((e) => {
+    const c = e.closest('[data-chart-card]').getBoundingClientRect();
+    const r = e.getBoundingClientRect();
+    return r.right <= c.right + 0.5 && r.left >= c.left - 0.5;
+  }));
+  assert.ok(wide.every(Boolean), 'every chart stays inside its card');
+  await shot('charts-30');
+  if (name === 'phone' && theme === 'dark') await page.screenshot({ path: `${out}/trends-charts-30-top-${name}-${theme}.png` });
+  await checkWidth(page, 'trends charts, 30 days');
+
+  // ---- the range switch redraws Food, Health and Body, keeps x; the gym chart stays --------------------------------------------
+  const gymBefore = await markCount('gym', 'dot');
+  await page.evaluate(() => (window.__noReload = true));
+  await page.locator('[data-range="7"]').click();
+  await page.waitForURL(/\/trends\/charts\?range=7$/);
+  const f7 = FT(7);
+  await page.waitForFunction((t) => document.querySelector('[data-head-line]')?.textContent?.includes(t), f7.small);
+  assert.equal(await text(page.locator('[data-head-line]')), `${f7.title}, ${f7.small}`);
+  assert.equal(await page.locator('[data-range="7"]').getAttribute('aria-current'), 'page');
+  for (const c of f7.charts) {
+    assert.equal(await markCount(c.id, 'bar'), bars(c).length, `7 days, ${c.id}: the bars`);
+    assert.equal(await text(page.locator(`[data-food-charts] [data-chart-card="${c.id}"] [data-stat]`)), stat(c).replace(/\s+/g, ' ').trim());
+  }
+  assert.ok((await markCount('kcal', 'bar')) < bars(f30.charts[0]).length, 'fewer bars than in 30 days');
+  const sleep7 = await markCount('sleep', 'bar');
+  assert.ok(sleep7 > 0 && sleep7 <= 7, `Health follows the switch (sleep: ${sleep7} bars)`);
+  assert.equal(await markCount('gym', 'dot'), gymBefore, 'the gym chart does not follow the switch');
+  assert.ok(await page.evaluate(() => window.__noReload === true), 'the switch does not reload the page');
+  await checkWidth(page, 'trends charts, 7 days');
+  // a chip keeps the range and the chart changes; the range switch then keeps the exercise
+  const second = chips[1];
+  await page.locator(`[data-chip="${second[0]}"]`).click();
+  await page.waitForURL(new RegExp(`/trends/charts\\?range=7&x=${second[0]}$`));
+  await page.locator(`[data-chip="${second[0]}"][aria-current="page"]`).waitFor();
+  assert.match(await text(page.locator('[data-section="gym"] [data-title]')), /^.+: /);
+  assert.equal(await text(page.locator('[data-head-line]')), `${f7.title}, ${f7.small}`, 'the range stays');
+  await page.locator('[data-range="90"]').click();
+  await page.waitForURL(new RegExp(`/trends/charts\\?range=90&x=${second[0]}$`));
+  await page.locator(`[data-chip="${second[0]}"][aria-current="page"]`).waitFor();
+  const f90 = FT(90);
+  await page.waitForFunction((t) => document.querySelector('[data-head-line]')?.textContent?.includes(t), f90.small);
+  for (const c of f90.charts) assert.equal(await markCount(c.id, 'bar'), bars(c).length, `90 days, ${c.id}: the bars`);
+  assert.deepEqual(await page.locator('[data-range]').evaluateAll((els) => els.map((e) => e.getAttribute('href'))), [7, 30, 90].map((r) => `/trends/charts?range=${r}&x=${second[0]}`));
+  if (name === 'phone' || pc) await shot('charts-90');
+  await checkWidth(page, 'trends charts, 90 days');
+
+  // ---- a bad range or x: as /health and /gym/progress (30 days; the door's choice of exercise) ------------------------------------
+  await page.goto(`${base}/trends/charts?range=45&x=abc`);
+  await page.locator('[data-section="food"] [data-chart-card]').first().waitFor();
+  assert.equal(await page.locator('[data-range="30"]').getAttribute('aria-current'), 'page');
+  assert.equal(await text(page.locator('[data-head-line]')), `${f30.title}, ${f30.small}`);
+  assert.equal(await page.locator('[data-chip][aria-current="page"]').count(), 1);
+  assert.equal(await page.locator('[data-problem]').count(), 0);
+  await page.goto(`${base}/trends/charts?range=7&x=99999`);
+  await page.locator('[data-section="gym"] [data-chip]').first().waitFor();
+  assert.equal(await page.locator('[data-problem]').count(), 0, 'an exercise that was never done: the door\'s pick');
+
+  // ---- one failing read does not blank the page ---------------------------------------------------------------------------------
+  await standinPost('/standin/trends?fail=food,body');
+  await page.goto(`${base}/trends/charts`);
+  await page.locator('[data-section="health"] [data-chart-card]').first().waitFor();
+  assert.equal(await page.locator('[data-section="food"] [data-problem="trouble"]').count(), 1, 'Food says it could not be read');
+  assert.equal(await page.locator('[data-section="body"] [data-problem="trouble"]').count(), 1, 'Body says it could not be read');
+  assert.equal(await page.locator('[data-section="health"] [data-problem]').count() + await page.locator('[data-section="gym"] [data-problem]').count(), 0);
+  assert.ok(await page.locator('[data-section="gym"] [data-card="progress"]').count() === 1, 'Gym drawn');
+  assert.equal(await page.locator('[data-head-line]').count(), 0, 'no header words without the food read');
+  await checkWidth(page, 'trends charts, two reads failed');
+  await standinPost('/standin/trends?fail=gym,health');
+  await page.goto(`${base}/trends/charts?range=90`);
+  await page.locator('[data-section="food"] [data-chart-card]').first().waitFor();
+  assert.equal(await page.locator('[data-section="gym"] [data-problem]').count() + await page.locator('[data-section="health"] [data-problem]').count(), 2);
+  assert.equal(await page.locator('[data-section="body"] [data-body-chart]').count(), B.charts.length);
+  await standinPost('/standin/reset');
+  await standinPost('/standin/core-down');
+  await page.goto(`${base}/trends/charts`);
+  await page.locator('[data-problem="core_down"]').waitFor();
+  assert.equal(await page.locator('[data-problem]').count(), 1, 'all four down: one message');
+  await standinPost('/standin/up');
+  // the door's words for no body session, and no gym exercise
+  await standinPost('/standin/reset');
+  await standinPost('/standin/body-none');
+  await standinPost('/standin/gym-empty');
+  await page.goto(`${base}/trends/charts`);
+  await page.locator('[data-no-body]').waitFor();
+  assert.equal(await text(page.locator('[data-no-body]')), 'No measurements yet. Measure on the Health page.');
+  await page.locator('[data-section="gym"] [data-empty]').waitFor();
+  assert.equal(await page.locator('[data-section="gym"] [data-bars] rect').count(), P.per_week.weeks.length);
+  await checkWidth(page, 'trends charts, no body, no gym');
+  await standinPost('/standin/reset');
+
+  // ---- Insights ---------------------------------------------------------------------------------------------------------------------
+  await page.goto(`${base}/trends/charts`);
+  await page.locator('[data-tab="insights"]').click();
+  await page.waitForURL(/\/trends\/insights$/);
+  await page.locator('[data-insights]').waitFor();
+  assert.deepEqual(await page.locator('[data-tab]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-tab'), e.getAttribute('aria-current')])), [['week', null], ['charts', null], ['insights', 'page']]);
+  assert.equal(await page.locator('[data-place="trends"]').getAttribute('aria-current'), 'true', 'Trends lit on /trends/insights');
+  assert.equal(await text(page.locator('[data-head-line]')), INSIGHTS.small);
+  assert.deepEqual(await page.locator('[data-insight]').evaluateAll((els) => els.map((e) => e.getAttribute('data-insight'))), INSIGHTS.cards.map((c) => c.key), 'the cards in the door\'s order');
+  for (const c of INSIGHTS.cards) {
+    const el = page.locator(`[data-insight="${c.key}"]`);
+    assert.equal(await text(el.locator('h2')), c.title);
+    if (c.waiting) {
+      assert.equal(await el.getAttribute('data-waiting'), 'true');
+      assert.equal(await el.evaluate((e) => getComputedStyle(e).borderStyle), 'dashed', 'a waiting card is dashed');
+      assert.equal(await page.locator(`[data-insight="${c.key}"] [data-bar-fill]`).count(), 0, 'no bars while waiting');
+      assert.equal(`${await text(el.locator('[data-wait]'))} ${await text(el.locator('[data-counts]'))}`, c.wait_text);
+      assert.ok((await text(el.locator('[data-wait]'))).startsWith('Not enough days yet'));
+      assert.ok((await text(el.locator('[data-counts]'))).includes(c.needs));
+      continue;
+    }
+    assert.equal(await el.getAttribute('data-waiting'), null);
+    assert.equal(await text(el.locator('[data-chip]')), c.chip, 'the corner chip');
+    assert.equal(await text(el.locator('[data-say]')), c.say.map((x) => x.text).join('').replace(/\s+/g, ' ').trim(), 'the door\'s sentence');
+    assert.deepEqual(await el.locator('[data-say] b').allTextContents(), c.say.filter((x) => x.bold).map((x) => x.text), 'the two averages bold');
+    assert.deepEqual(await el.locator('[data-bar-label]').allTextContents(), c.groups.map((g) => `${g.label} · ${g.n} days`));
+    assert.deepEqual(await el.locator('[data-bar-value]').allTextContents(), c.groups.map((g) => g.text));
+    const fills = await el.locator('[data-bar-fill]').evaluateAll((els) => els.map((e) => {
+      const t = e.parentElement.getBoundingClientRect();
+      const r = e.getBoundingClientRect();
+      return { cls: e.getAttribute('data-bar-fill'), left: ((r.left - t.left) / t.width) * 100, width: (r.width / t.width) * 100, bg: e.style.background, inside: r.right <= t.right + 0.5 };
+    }));
+    c.groups.forEach((g, i) => {
+      assert.equal(fills[i].cls, g.cls);
+      assert.match(fills[i].bg, new RegExp(`--chart-${g.cls}`), 'first bar --chart-a, second --chart-b');
+      assert.ok(Math.abs(fills[i].left - g.left) < 0.5 && Math.abs(fills[i].width - g.width) < 0.5, `${c.key}: bar ${i} is ${fills[i].width.toFixed(1)}% from ${fills[i].left.toFixed(1)}%`);
+      assert.ok(fills[i].inside, 'the bar stays on its track');
+    });
+  }
+  assert.equal(await text(page.locator('[data-note]')), INSIGHTS.note, 'the door\'s footer note');
+  const ic = await page.locator('[data-insight]').evaluateAll((els) => els.map((e) => e.getBoundingClientRect()).map((r) => ({ x: r.x, y: r.y, w: r.width })));
+  if (pc) assert.ok(Math.abs(ic[0].y - ic[1].y) < 2 && ic[1].x > ic[0].x + ic[0].w - 1 && ic[2].y > ic[0].y, 'pc: two columns');
+  else assert.ok(ic.every((r) => Math.abs(r.x - ic[0].x) < 1 && Math.abs(r.w - ic[0].w) < 1) && ic[1].y > ic[0].y && ic[2].y > ic[1].y, `${name}: one column`);
+  await shot('insights');
+  await checkWidth(page, 'trends insights');
+  await page.goto(`${base}/trends/insights`);
+  await standinPost('/standin/trends?fail=insights');
+  await page.goto(`${base}/trends/insights`);
+  await page.locator('[data-problem="trouble"]').waitFor();
+  await checkWidth(page, 'trends insights, failed');
+  await standinPost('/standin/reset');
+  // the Week tab from here
+  await page.goto(`${base}/trends/insights`);
+  await page.locator('[data-tab="week"]').click();
+  await page.waitForURL(/\/trends$/);
+  await page.locator('[data-card="food"]').waitFor();
+  await page.goto(`${base}/`);
+}
+
 async function checkWidth(page, what) {
   const sideways = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   assert.ok(sideways <= 0, `${what}: no sideways scroll (${sideways} px too wide)`);
@@ -3441,6 +3671,8 @@ for (const theme of ['dark', 'light']) {
     if (only('trends')) {
       await checkTrends(page, name, theme);
       console.log(`trends week, the week review, the trends tab ${name} ${theme}: checks passed`);
+      await checkTrendsTabs(page, name, theme);
+      console.log(`trends charts and insights ${name} ${theme}: checks passed`);
     }
     if (only('problems')) {
       await checkProblems(page, name, theme);

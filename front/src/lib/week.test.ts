@@ -70,11 +70,11 @@ describe('the Week', () => {
     expect(kgText(null)).toBe('–');
   });
 
-  it('has the tabs Week, Charts and Insights; Charts and Insights open app. until deploy 103', () => {
-    expect(TRENDS_TABS.map((t) => [t.key, t.label, t.href, t.app])).toEqual([
-      ['week', 'Week', '/trends', null],
-      ['charts', 'Charts', null, '/web/food/trends'],
-      ['insights', 'Insights', null, '/web/insights'],
+  it('has the tabs Week, Charts and Insights, all pages of this app', () => {
+    expect(TRENDS_TABS.map((t) => [t.key, t.label, t.href])).toEqual([
+      ['week', 'Week', '/trends'],
+      ['charts', 'Charts', '/trends/charts'],
+      ['insights', 'Insights', '/trends/insights'],
     ]);
   });
 

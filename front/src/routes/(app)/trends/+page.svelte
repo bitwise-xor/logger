@@ -54,7 +54,7 @@
 
 <svelte:head><title>Trends · Logger</title></svelte:head>
 
-<TrendsTabs appUrl={data.appUrl} />
+<TrendsTabs />
 
 {#if !w}
   <ProblemCard kind={data.problem ?? 'trouble'} appHref="{data.appUrl}/web/week" />

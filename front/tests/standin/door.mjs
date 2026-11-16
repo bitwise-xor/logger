@@ -91,6 +91,8 @@ const SCAN = read('scan.json');
 const HEALTH = read('health.json');
 const HABITS = read('habits.json');
 const GYM = read('gym.json');
+const FOODTRENDS = read('food_trends.json');
+const INSIGHTS = read('insights.json');
 const READ_MS = 1200; // the AI's moment: long enough to see the "being read" row
 
 let state; // { day, usual, undo: {token, head, expires_at} | null, before: {day, usual} before the last save (for Undo), keys: Map, lines: Map, aiDown }
@@ -99,7 +101,7 @@ let mode = 'up'; // 'up' | 'core-down' | 'door-off' (step F)
 function reset() {
   state = { day: read('day.json').day, usual: usualStart(), undo: null, before: null, keys: new Map(), lines: new Map(), aiDown: false,
     scanned: new Map([[SCAN.barcode.code, SCAN.barcode.food]]), labelFail: false,
-    hv: healthStart(), sessions: sessionsStart(), hab: habitsStart(), dayKeys: new Set(), slow: 0, locked: new Set(), gym: gymStart(), watchNone: false, gymEmpty: false, home: homeStart(), week: weekStart() };
+    hv: healthStart(), sessions: sessionsStart(), hab: habitsStart(), dayKeys: new Set(), slow: 0, locked: new Set(), gym: gymStart(), watchNone: false, gymEmpty: false, home: homeStart(), week: weekStart(), fail: new Set() };
   state.day.needs.body_due = structuredClone(HEALTH.day_body_due);
   // the notes of the food sample's rows (the same invented day), kept on the rows so an Undo puts them back too
   const notes = new Map(FOOD.food_day.food_day.rows.map((r) => [r.ref, r.note]));
@@ -2097,6 +2099,14 @@ createServer(async (req, res) => {
     for (const k of ['foods', 'polls']) if (q.has(k)) state.week[k] = Number(q.get(k));
     return send(res, 200, { outcome: 'week', week: { ...state.week, coachings: [...state.week.coachings] } });
   }
+  if (req.url.startsWith('/standin/trends?') && req.method === 'POST') {
+    state.fail = new Set((new URL(req.url, 'http://standin').searchParams.get('fail') ?? '').split(',').filter(Boolean));
+    return send(res, 200, { outcome: 'trends', fail: [...state.fail] });
+  }
+  if (req.url === '/standin/body-none' && req.method === 'POST') {
+    state.sessions = {};
+    return send(res, 200, { outcome: 'body-none' });
+  }
   if (req.url === '/standin/week-starts' && req.method === 'GET') return send(res, 200, { starts: state.week.starts });
   if (req.url === '/standin/slow' && req.method === 'POST') {
     state.slow = 700; // the next day taps of the Habits page (and the Gym's ticks) take a moment
@@ -2202,6 +2212,16 @@ createServer(async (req, res) => {
   }
   if (req.url.startsWith('/api/v1/day') && req.method === 'GET') return send(res, 200, { day: { ...dayOut(state.day), home: homeCard() }, undo: undo() }, signedIn);
   const url = new URL(req.url, 'http://standin');
+  // deploy 103: POST /standin/trends?fail=food,health,body,gym,insights makes those reads answer 500 (a section's problem on Trends' Charts
+  // tab, the others drawn); POST /standin/body-none: no body session at all (Body's empty words)
+  const failing = { '/api/v1/food/trends': 'food', '/api/v1/health': 'health', '/api/v1/body': 'body', '/api/v1/gym/progress': 'gym', '/api/v1/insights': 'insights' }[url.pathname];
+  if (failing && req.method === 'GET' && state.fail.has(failing)) return send(res, 500, { error: 'server_error', message: 'Something went wrong.' }, signedIn);
+  if (url.pathname === '/api/v1/food/trends' && req.method === 'GET') {
+    const r = url.searchParams.get('range') ?? '30';
+    if (!['7', '30', '90'].includes(r)) return send(res, 400, { error: 'bad_request', message: 'range must be 7, 30 or 90.' }, signedIn);
+    return send(res, 200, { trends: structuredClone(FOODTRENDS[r].trends), undo: undo() }, signedIn);
+  }
+  if (url.pathname === '/api/v1/insights' && req.method === 'GET') return send(res, 200, { insights: structuredClone(INSIGHTS.insights.insights), undo: undo() }, signedIn);
   if (url.pathname === '/api/v1/food/day' && req.method === 'GET') {
     return send(res, 200, { food_day: foodDay(url.searchParams.get('day')), undo: undo() }, signedIn);
   }

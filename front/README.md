@@ -8,7 +8,7 @@ skeleton, the sign-in and an empty Today. Step B (deploy 79): Today read-only fr
 (deploy 80): the taps save in place (water, Again and usual chips, habits, check-in, review, Health card, question buttons,
 Try again / Delete for a message not read yet, Undo). Step D (deploy 81): the logging box. Step E (deploy 84): the Food day.
 Step F (deploy 85): polish (plain messages when the core is down or the door is off, back to your page after a sign-in, phone,
-tablet and PC width). Then the trial runs (below). Deploy 87: the Usual meals page. Deploy 88: Today shows each food's and meal's macros, a pie of the day's kcal from protein, carbs and fat in the Energy card (app.'s macro colours, `--macro-*` in `app.css`), a one-line logging box that grows, and two habits per row. Deploy 90: scan, label photo, look-up and voice in the logging box (step 1a of the move to `logger.`, below). Deploy 92: the Health page with body measurements (step 1b, below). Deploy 94: the Habits page (step 1c, below). Deploy 96: the Gym's Workout page, the Gym card on Today and the Spaces menu (step 2, below). Deploy 97: Gym's other five parts (below). Deploy 99: Home's Now and Pick pages with the timer, the Home card on Today and Home in the Spaces menu (step 3, below). Deploy 100: Home's other four pages (Zones, History, a chore's page, Edit zones). Deploy 102: Trends' Week tab with the Week review; the Trends tab is live (below).
+tablet and PC width). Then the trial runs (below). Deploy 87: the Usual meals page. Deploy 88: Today shows each food's and meal's macros, a pie of the day's kcal from protein, carbs and fat in the Energy card (app.'s macro colours, `--macro-*` in `app.css`), a one-line logging box that grows, and two habits per row. Deploy 90: scan, label photo, look-up and voice in the logging box (step 1a of the move to `logger.`, below). Deploy 92: the Health page with body measurements (step 1b, below). Deploy 94: the Habits page (step 1c, below). Deploy 96: the Gym's Workout page, the Gym card on Today and the Spaces menu (step 2, below). Deploy 97: Gym's other five parts (below). Deploy 99: Home's Now and Pick pages with the timer, the Home card on Today and Home in the Spaces menu (step 3, below). Deploy 100: Home's other four pages (Zones, History, a chore's page, Edit zones). Deploy 102: Trends' Week tab with the Week review; the Trends tab is live (below). Deploy 103: Trends' Charts and Insights tabs (step 4 done).
 
 ## How it fits
 
@@ -179,12 +179,11 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   `/standin/home-bare` (two zones with no chore, one of them Storage); `SHOOT_ONLY=homeparts` runs only these checks.
 - Trends' Week tab (deploy 102, the move's step 4; the door's routes came with deploy 101): `src/routes/(app)/trends` (`?p=7|last|30|this`, 7
   without or for anything else), from the Trends tab (a link since 102, lit on every `/trends` path: `placeOf` in `places.ts`). The title with
-  the tabs Week · Charts · Insights (`components/trends/TrendsTabs.svelte`; until deploy 103 Charts and Insights open app.'s Food > Trends and
-  Insights: only the two hrefs in `TRENDS_TABS` in `src/lib/week.ts` change then), the four periods (links), the header line, the empty state
+  the tabs Week · Charts · Insights (`components/trends/TrendsTabs.svelte`, `TRENDS_TABS` in `src/lib/week.ts`; all three are pages of this app since deploy 103), the four periods (links), the header line, the empty state
   (`empty_text`); then on phones and tablets the Week review, Food (four tiles: the meter's 100% line at 80% of the track, amber only for the
   door's warn level), Health and habits, Foods that count most (five rows, "Show all N") and The days (seven rows, "Show all N", "partly"); from
-  1100 px Food, Health and habits and The days in the middle and the review and the foods in a 380 px column. The door's food charts are not
-  drawn here (Charts, deploy 103). The Week review card (`ReviewCard.svelte`) in the door's words for its five states (not offered, none,
+  1100 px Food, Health and habits and The days in the middle and the review and the foods in a 380 px column. The door's food charts are on the
+  Charts tab (below). The Week review card (`ReviewCard.svelte`) in the door's words for its five states (not offered, none,
   working, done, failed). Its button is the form action `coach_start` (`saves.ts`: POST /coach/start, kind "week", the card's start and end,
   view "week" with view_p, 60 s): no key, never sent again by the page (not after a network error, not after a sign-in: `mayResend` refuses
   `coach_`), the button disabled from the press until the answer is in (`OneStart` in `week.ts`, state in `weekpage.svelte.ts`); the answer's
@@ -195,10 +194,28 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   starts); `SHOOT_ONLY=trends` runs only these checks (the variable must reach the container: `docker run -e SHOOT_ONLY=…`; `tools/front-screens`
   does not pass it). Also on the Habits page: on the PC the page leaves room for the answer bar while it shows, so an open calendar's last week can
   be scrolled clear of it.
+- Trends' Charts and Insights tabs (deploy 103, the move's step 4 done; read only, no save): `/trends/charts` (`?range=7|30|90`, 30 without or for anything
+  else; `?x=<exercise id>`, a bad one dropped) and `/trends/insights`. Charts: the tabs, ONE range switch (links "7 days · 30 days · 90 days" that keep
+  `x`; it drives Food, Health and Body, not Gym), the door's header words (`title`, `small` of GET /food/trends), then four sections: **Food** (the
+  door's four cards, Calories, Protein, Fat, Carbs: title, stat parts, `Chart.svelte` with the door's description as it is, the legend; the card
+  is `components/chart/ChartCardView.svelte`, which `HealthCharts` now uses too), **Health** (`HealthCharts` as on `/health`, with `twoFrom="desktop"`:
+  one column up to the tablet width, two from 1100 px; the five charts and the sleep times), **Body** (`components/trends/BodyCharts.svelte`: a chart
+  per measure from GET /body, three to a row from 1100 px; with none: "No measurements yet." with a link to the Health page and the door's `hint`),
+  **Gym** (`ExerciseChips`, `ProgressCard` and `WeekBars`, shared with `/gym/progress`; the chips are links `?range=…&x=…` on this page; a line that
+  it is the last 8 weeks whatever the range says). The four reads go together and each answers for itself (`src/lib/server/trendsread.ts`: a gone
+  session still goes to the sign-in); a failing one shows its section's plain message (`ProblemCard`) and the others are drawn, all four failing
+  the same way say it once. Insights: the door's `small` line, the three cards in the door's order (`InsightCard`: title, the corner chip in a
+  neutral colour, the door's sentence with its two averages bold, `InsightBars`: a bar per group from `left` to `left + width` percent of its
+  track, the first in `--chart-a`, the second in `--chart-b`, a thin line for zero when it is not at the left), a card that waits is dashed with the
+  door's "Not enough days yet" words and, smaller, its "It counts …" sentence (`waitParts` in `src/lib/trendscharts.ts`), and the door's note;
+  one column up to the tablet width, two from 1100 px (three from 1500 px). Plain rules and the door's shapes: `src/lib/trendscharts.ts`. The
+  stand-in answers GET `/food/trends` (the three ranges of `tests/samples/food_trends.json`, a bad range 400) and `/insights`
+  (`tests/samples/insights.json`); POST `/standin/trends?fail=food,health,body,gym,insights` makes those reads answer 500, POST `/standin/body-none`
+  leaves no body session; `SHOOT_ONLY=trends` runs these checks too.
 - The Spaces menu (deploy 96): `src/lib/places.ts` says where a page belongs. The PC rail: Today, Trends, Library, then "Spaces"
   (Gym, Health, Habits, Home since deploy 99; the one you are in highlighted), then More. Phones and tablets keep four tabs; More is the page `/more`
   (`src/routes/(app)/more`): the Spaces as a list (Medical greyed, "soon"; Home since deploy 99), then one line that the rest is in the full app.
-  On a Space's page the More tab is highlighted. Trends and Library stayed greyed (Trends is live since deploy 102). Deploy 96 also fixed two things on the Habits page:
+  On a Space's page the More tab is highlighted. Trends and Library stayed greyed (Trends is live since deploy 102; its three tabs since 103). Deploy 96 also fixed two things on the Habits page:
   after a day tick the open calendar is scrolled above the answer bar (phones and tablets), and app.'s "in the calendar below" is
   worded "in Last 30 days" (`helpText` in `habits.ts`).
 - The chart part (deploy 92; for Trends and Gym too): `components/chart/Chart.svelte` draws a chart description of the door

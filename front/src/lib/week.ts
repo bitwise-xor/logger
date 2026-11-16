@@ -111,14 +111,11 @@ export const askedPeriod = (p: string | null): Period => ((PERIODS as readonly s
 /** A period chip's address. */
 export const periodHref = (p: Period) => (p === '7' ? '/trends' : `/trends?p=${p}`);
 
-/**
- * The tabs of Trends. Week is this app's page; until deploy 103 Charts and Insights open app.'s pages (marked "in the full app", as
- * Home's tabs were between deploys 99 and 100). Deploy 103 changes only the two hrefs (and drops `app`).
- */
+/** The tabs of Trends: three pages of this app (Charts and Insights since deploy 103). */
 export const TRENDS_TABS = [
-  { key: 'week', label: 'Week', href: '/trends', app: null },
-  { key: 'charts', label: 'Charts', href: null, app: '/web/food/trends' },
-  { key: 'insights', label: 'Insights', href: null, app: '/web/insights' },
+  { key: 'week', label: 'Week', href: '/trends' },
+  { key: 'charts', label: 'Charts', href: '/trends/charts' },
+  { key: 'insights', label: 'Insights', href: '/trends/insights' },
 ] as const;
 
 /** The line under the period chips: the door's parts, joined as app. joins them. */
