@@ -25,7 +25,7 @@ export type Sent<A> =
   | { kind: 'stale' }
   /** The session is gone: the tap is kept for after the sign-in (when it can be re-sent). */
   | { kind: 'signed_out' }
-  | { kind: 'problem'; message: string };
+  | { kind: 'problem'; message: string; link?: string | null };
 
 export type FieldValues = Record<string, string | string[]>;
 
@@ -88,7 +88,7 @@ export class Saver {
       });
       result = this.#d.deserialize(await res.text());
     } catch {
-      return this.#take(seq, action, { kind: 'problem', message: 'No connection to the logger. Nothing was saved; try again.' });
+      return this.#take(seq, action, { kind: 'problem', message: 'No connection to Logger (offline?). Nothing was saved; try again.' });
     }
 
     if (result.type === 'success') return this.#take(seq, action, { kind: 'answer', answer: result.data?.answer as A });
@@ -102,7 +102,9 @@ export class Saver {
       result.type === 'failure' && typeof result.data?.message === 'string'
         ? result.data.message
         : 'Something went wrong. Nothing was saved; try again in a moment.';
-    return this.#take(seq, action, { kind: 'problem', message });
+    // A link to app. when the door is off (step F); only a path or an https address, as the server sends it.
+    const link = result.type === 'failure' && typeof result.data?.link === 'string' && /^(https:\/\/|\/)/.test(result.data.link) ? result.data.link : null;
+    return this.#take(seq, action, { kind: 'problem', message, link });
   }
 
   /** After the sign-in: the tap kept when the session was gone, sent again with its own key (once; dropped after 10 minutes). */

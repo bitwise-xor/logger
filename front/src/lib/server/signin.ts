@@ -3,9 +3,10 @@
  * limit of 5 wrong tries in 15 minutes, counted together with app.'s sign-in unless this browser signed in before.
  */
 import { type Door, DoorError } from './door.js';
+import { problemOf, problemText, type ProblemKind } from '../problems.js';
 import { type CookieJar, deviceOf, endSession, sessionOf, startSession } from './session.js';
 
-export type SignInResult = { ok: true } | { ok: false; status: number; message: string };
+export type SignInResult = { ok: true } | { ok: false; status: number; message: string; problem?: ProblemKind };
 
 interface Created {
   token: string;
@@ -41,21 +42,18 @@ export async function signIn(
   }
 }
 
-function failure(error: unknown): { status: number; message: string } {
+function failure(error: unknown): { status: number; message: string; problem?: ProblemKind } {
   if (!(error instanceof DoorError)) return { status: 500, message: 'Something went wrong. Try again.' };
   switch (error.code) {
     case 'wrong_credentials':
       return { status: 401, message: 'Wrong password or code.' };
     case 'too_many_tries':
       return { status: 429, message: 'Too many wrong tries. Wait 15 minutes, or sign in at app. instead.' };
-    case 'door_off':
-    case 'not_found':
-      return { status: 503, message: 'The new front end is not switched on yet. Use app. for now.' };
-    case 'unreachable':
-      return { status: 503, message: 'The logger is not answering right now. Try again in a minute.' };
-    default:
-      return { status: 502, message: 'The logger could not sign you in. Try again.' };
   }
+  // The door off, the core down or another problem: the same plain words as on the pages (src/lib/problems.ts).
+  const kind = problemOf(error);
+  const problem = kind === 'signed_out' ? 'trouble' : kind;
+  return { status: problem === 'trouble' ? 502 : 503, message: problemText(problem, 'signin'), problem };
 }
 
 /** Ends the session at the core (best effort: the cookie goes in any case). */

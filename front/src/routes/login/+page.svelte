@@ -1,5 +1,6 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
+  import ProblemCard from '#lib/components/ProblemCard.svelte';
   import ThemeButton from '#lib/components/ThemeButton.svelte';
   import { Button } from '#lib/components/ui/button/index.js';
   import { Input } from '#lib/components/ui/input/index.js';
@@ -7,6 +8,8 @@
 
   let { data, form }: PageProps = $props();
   let busy = $state(false);
+  // Step F: the door off or the core down, seen before you type (the page's load) or at the sign-in itself (the form's answer).
+  const problem = $derived(form?.problem ?? data.problem);
 </script>
 
 <svelte:head><title>Sign in · Logger</title></svelte:head>
@@ -16,7 +19,8 @@
     <h1 class="m-0 text-[15px] font-semibold">Logger</h1>
     <ThemeButton />
   </div>
-  <main>
+  <main class="flex flex-col gap-3">
+    {#if problem}<ProblemCard kind={problem} where="signin" appHref="{data.appUrl}/web/" />{/if}
     <form
       method="POST"
       class="flex flex-col gap-3 rounded-card border border-line bg-panel p-4"
@@ -63,7 +67,7 @@
       />
       <Button type="submit" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</Button>
       <!-- Always there, so the form does not jump when a message appears. -->
-      <p id="login-message" class="m-0 min-h-5 font-medium" role="alert">{form?.message ?? ''}</p>
+      <p id="login-message" class="m-0 min-h-5 font-medium" role="alert">{form?.problem ? '' : (form?.message ?? '')}</p>
     </form>
   </main>
   <p class="m-0 text-[13px] text-muted">

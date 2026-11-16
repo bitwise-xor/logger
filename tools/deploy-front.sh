@@ -62,6 +62,7 @@ fetch(process.env.DOOR_URL + '/api/v1/session', { headers: { 'X-Front-Token': t,
 echo "== through Caddy (logger. resolved to this machine)"
 L=(--resolve logger.19hospitalroad.fyi:443:127.0.0.1)
 echo -n "/login -> "; curl -sk -m 10 -o /dev/null -w "%{http_code}\n" "${L[@]}" https://logger.19hospitalroad.fyi/login </dev/null
+echo -n "/login sees the door on and the core answering (must be 0 messages) -> "; curl -sk -m 10 "${L[@]}" https://logger.19hospitalroad.fyi/login </dev/null | grep -c 'data-problem=' || true
 echo -n "/ signed out -> "; curl -sk -m 10 -o /dev/null -w "%{http_code} %{redirect_url}\n" -H "Accept: text/html" "${L[@]}" https://logger.19hospitalroad.fyi/ </dev/null
 echo -n "sign-in from another origin (must be 403) -> "; curl -sk -m 10 -o /dev/null -w "%{http_code}\n" -X POST -H "Origin: https://example.com" -d "password=x&code=1" "${L[@]}" https://logger.19hospitalroad.fyi/login </dev/null
 echo -n "headers: "; curl -sk -m 10 -D - -o /dev/null "${L[@]}" https://logger.19hospitalroad.fyi/login </dev/null | grep -ciE "^(content-security-policy|x-frame-options|x-content-type-options|referrer-policy):" | sed 's/$/ of 4 security headers/'

@@ -1,9 +1,10 @@
 import { redirect } from '@sveltejs/kit';
 import { formActions } from '#lib/server/actions.js';
 import { door } from '#lib/server/config.js';
-import { DoorError } from '#lib/server/door.js';
 import { FOOD_SAVES } from '#lib/server/saves.js';
 import { endSession, renewSession } from '#lib/server/session.js';
+import { loginHref } from '#lib/next.js';
+import { problemOf } from '#lib/problems.js';
 import type { Undo } from '#lib/day.js';
 import { askedDay, type FoodDay } from '#lib/food.js';
 import type { Actions, PageServerLoad } from './$types';
@@ -12,7 +13,7 @@ import type { Actions, PageServerLoad } from './$types';
 // ?open=f<id> to open a row (a food row on Today leads here).
 export const load: PageServerLoad = async ({ locals, cookies, url }) => {
   const session = locals.session;
-  if (!session) redirect(303, '/login');
+  if (!session) redirect(303, loginHref(url.pathname + url.search));
   const day = askedDay(url.searchParams.get('day'));
   const ref = url.searchParams.get('open');
   const open = ref && /^f\d{1,9}$/.test(ref) ? ref : null;
@@ -21,11 +22,12 @@ export const load: PageServerLoad = async ({ locals, cookies, url }) => {
     renewSession(cookies, session, expiresAt);
     return { foodDay: body.food_day, undo: body.undo ?? null, open, problem: null };
   } catch (error) {
-    if (error instanceof DoorError && ['signed_out', 'not_found', 'door_off'].includes(error.code)) {
+    const problem = problemOf(error);
+    if (problem === 'signed_out') {
       endSession(cookies);
-      redirect(303, '/login');
+      redirect(303, loginHref(url.pathname + url.search));
     }
-    return { foodDay: null, undo: null, open: null, problem: error instanceof DoorError ? error.message : 'The food day could not be read.' };
+    return { foodDay: null, undo: null, open: null, problem };
   }
 };
 

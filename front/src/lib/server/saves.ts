@@ -11,6 +11,7 @@
  */
 import type { Door } from './door.js';
 import { DoorError } from './door.js';
+import { problemOf, problemText, type ProblemKind } from '../problems.js';
 
 /** The form's fields: what `FormData` offers (and a plain test double). */
 export interface Fields {
@@ -133,9 +134,12 @@ export function bodyFor(
 
 export type SaveResult<A> =
   | { ok: true; answer: A; expiresAt: string | null }
-  | { ok: false; status: number; signedOut: boolean; message: string };
+  | { ok: false; status: number; signedOut: boolean; message: string; problem?: ProblemKind };
 
-/** One save through the door. Signed out (or the door switched off): signedOut, so the page can keep the tap and sign in. */
+/**
+ * One save through the door. Signed out: signedOut, so the page can keep the tap and sign in. The door off or the core down
+ * (step F): "Not saved." with the plain words of src/lib/problems.ts (the session stays). Another error: the door's own message.
+ */
 export async function runSave<A>(
   door: Door,
   session: string,
@@ -149,10 +153,14 @@ export async function runSave<A>(
     const { body, expiresAt } = await door.post<A>(save.path, session, bodyFor(name, f, viewDay, undefined, view), save.timeoutMs);
     return { ok: true, answer: body, expiresAt };
   } catch (error) {
-    if (error instanceof DoorError) {
-      const signedOut = ['signed_out', 'not_found', 'door_off'].includes(error.code);
-      return { ok: false, status: signedOut ? 401 : error.status || 502, signedOut, message: error.message };
+    const kind = problemOf(error);
+    if (kind === 'signed_out') {
+      return { ok: false, status: 401, signedOut: true, message: error instanceof DoorError ? error.message : 'Sign in again.' };
     }
-    return { ok: false, status: 500, signedOut: false, message: 'Something went wrong. Nothing was saved.' };
+    if (kind === 'door_off' || kind === 'core_down') {
+      return { ok: false, status: 503, signedOut: false, message: problemText(kind, 'save'), problem: kind };
+    }
+    if (error instanceof DoorError) return { ok: false, status: error.status || 502, signedOut: false, message: error.message, problem: kind };
+    return { ok: false, status: 500, signedOut: false, message: 'Something went wrong. Nothing was saved.', problem: kind };
   }
 }

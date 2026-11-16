@@ -16,6 +16,9 @@
 // Usage: node tests/standin/door.mjs [port]  (FRONT_TOKEN from the environment). POST /standin/reset starts the day again,
 // POST /standin/drop-sessions signs every session out (for the re-send after a sign-in), POST /standin/ai-down and
 // /standin/ai-up make /log hold its lines or read them again.
+// Step F: POST /standin/core-down makes every door call fail with no answer (the connection is dropped, as when the core is
+// stopped), POST /standin/door-off answers 404 not_found to every door call (FRONT_TOKEN unset at the core), and POST
+// /standin/up (or /standin/reset) brings it back. Sessions survive both, as at the core.
 import { createServer } from 'node:http';
 import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
@@ -33,6 +36,7 @@ const READ_MS = 1200; // the AI's moment: long enough to see the "being read" ro
 
 let state; // { day, undo: {token, head, expires_at} | null, before: the day before the last save (for Undo), keys: Map, lines: Map, aiDown }
 let ids = 9000;
+let mode = 'up'; // 'up' | 'core-down' | 'door-off' (step F)
 function reset() {
   state = { day: read('day.json').day, undo: null, before: null, keys: new Map(), lines: new Map(), aiDown: false };
   // the notes of the food sample's rows (the same invented day), kept on the rows so an Undo puts them back too
@@ -280,12 +284,19 @@ createServer(async (req, res) => {
   console.log(`${req.method} ${req.url}  headers: ${seen}${raw && req.url !== '/api/v1/session' ? `  body: ${raw}` : ''}`);
   if (req.url === '/standin/reset' && req.method === 'POST') {
     reset();
+    mode = 'up';
     return send(res, 200, { outcome: 'reset' });
   }
   if (['/standin/ai-down', '/standin/ai-up'].includes(req.url) && req.method === 'POST') {
     state.aiDown = req.url.endsWith('down');
     return send(res, 200, { outcome: req.url.slice(9) });
   }
+  if (['/standin/core-down', '/standin/door-off', '/standin/up'].includes(req.url) && req.method === 'POST') {
+    mode = req.url.slice('/standin/'.length);
+    return send(res, 200, { outcome: mode });
+  }
+  if (mode === 'core-down') return req.socket.destroy(); // no answer at all, as from a stopped core
+  if (mode === 'door-off') return send(res, 404, { error: 'not_found', message: 'Not found.' });
   if (req.url === '/standin/drop-sessions' && req.method === 'POST') {
     sessions.clear(); // as if the session ended elsewhere: the next call is signed out
     return send(res, 200, { outcome: 'dropped' });

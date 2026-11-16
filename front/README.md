@@ -2,10 +2,13 @@
 
 A trial of Logger in the hub's look (SvelteKit, Svelte 5, Tailwind 4, shadcn-svelte neutral, the hub's tokens and Geist), at
 `https://logger.19hospitalroad.fyi`, on the same live data as the web app at `app.`, which stays complete. Planned in the plan
-doc's Current tab, "Plan: the SvelteKit front end (16.11.2026)", in six steps (deploys 78 to 83). Step A (deploy 78): this
+doc's Current tab, "Plan: the SvelteKit front end (16.11.2026)", in six steps (planned as deploys 78 to 83; they became 78 to
+85 with two fixes at the owner's word). Step A (deploy 78): this
 skeleton, the sign-in and an empty Today. Step B (deploy 79): Today read-only from `GET /api/v1/day`, all its cards. Step C
 (deploy 80): the taps save in place (water, Again and usual chips, habits, check-in, review, Health card, question buttons,
 Try again / Delete for a message not read yet, Undo). Step D (deploy 81): the logging box. Step E (deploy 84): the Food day.
+Step F (deploy 85): polish (plain messages when the core is down or the door is off, back to your page after a sign-in, phone,
+tablet and PC width). Then the trial runs (below).
 
 ## How it fits
 
@@ -46,13 +49,26 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   `food_note` (`saves.ts`, `view: "food"` with the day shown), an odd value read back first (Yes = `confirmed`), Undo in the
   answer bar. The answer bar and the taps on their way are shared with Today (`src/lib/answers.svelte.ts`; the Food day's state
   is `src/lib/foodday.svelte.ts`). The logging box stays on Today ("+ Add food" leads to it); usual meals open in app.
+- When the door cannot be asked (step F): `src/lib/problems.ts` tells three cases apart and words them for a page, a save and the
+  sign-in. The door off (its 404 `not_found` to everything, or no `FRONT_TOKEN` here): app. still works, so the message links
+  there. The core down (no answer: `unreachable`): app. is the same core, so it says to try again in a minute, with no link.
+  Anything else (`server_error`, an answer this app cannot read): try again, or app. Today and the Food day show the message
+  in place of the day (`components/ProblemCard.svelte`, with "Try again", which reloads), and the session cookie stays, so the
+  page is back as soon as the door is. A save says "Not saved." with the same words (and "Open the full app" when the door is
+  off). The sign-in page asks the door once before you type (GET /session without a session: its 401 is the good answer) and
+  says the same above the form. Only a gone session (401 `signed_out`) leads to the sign-in page.
+- After a sign-in, back to the page you were on: `?next=` on the sign-in page (`src/lib/next.ts` takes only a path of this app;
+  anything else, the sign-in and sign-out pages included, is Today), e.g. `/login?next=%2Ffood%3Fday%3D2026-01-30`.
+- Widths: below 1100 px (phones and tablets) the tab bar is at the bottom and the page is one column; from 1100 px (`desktop:`)
+  the rail on the left and Today in two columns, up to 1440 px. Tap targets are 44 px on phones and tablets; the logging box
+  and the answer bar leave room at the bottom (`--dock`), so they cover nothing.
 - `src/lib/tokens/`: the hub's tokens, copied (`SOURCE.md` says from where and when).
 - `src/env.ts`: the settings (`DOOR_URL`, `FRONT_TOKEN`, `APP_URL`); `ORIGIN` and the memory cap are in `compose.yaml`.
 
 ## Commands (no Node on the VM: everything runs in the pinned Node container)
 
 - `tools/front-pnpm install`, `tools/front-pnpm test` (vitest), `tools/front-pnpm check` (svelte-check), `tools/front-pnpm build`
-- Page tests and screenshots (390 and 1280 px, dark and light) against the stand-in door, in the pinned Playwright container
+- Page tests and screenshots (390, 800 and 1280 px, dark and light) against the stand-in door, in the pinned Playwright container
   (`tests/screens/shoot.mjs` checks the numbers against the sample and throws on a difference):
   1. the stand-in on the host: `docker run -d --rm --name logger-front-standin --network host -e FRONT_TOKEN=<32+ characters>
      -v "$PWD/front":/work:ro -w /work <the Node image of tools/front-pnpm> node tests/standin/door.mjs 8099`
@@ -60,7 +76,9 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   2. `tools/front-pnpm build`, then `FRONT_PORTS=1 FRONT_ENV="DOOR_URL=http://host.docker.internal:8099 FRONT_TOKEN=<the same>
      ORIGIN=http://localhost:3000" tools/front-pnpm preview`;
   3. `tools/front-screens http://localhost:3000 tests/screens/out http://localhost:8099` (the last: the stand-in, which the
-     checks reset before each run and sign out once, to see a tap sent again after the sign-in).
+     checks reset before each run and sign out once, to see a tap sent again after the sign-in). Restart the preview after each
+     build. The checks also play the core down and the door off (below), look for sideways scroll and tap targets under 44 px
+     on phones and tablets, and sign in from `/food?day=…` to see that page come back.
 - The stand-in's `GET /day` starts as `tests/samples/day.json`, a real answer of the door for an invented day; its saves answer
   in the shape of `tests/samples/save.json` (a real "saved" and "needs_confirmation" answer, without their day) and change the
   day a little, as the core would; `/log` answers from `tests/samples/log.json` (real answers of a typed line: saved, a
@@ -68,8 +86,20 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   POST `/standin/ai-down` and `/standin/ai-up` make it hold lines). The Food day: `GET /food/day` is today's day above with the
   notes of `tests/samples/food.json` (real answers of the door: the day, the day before, an entry with its units, a change and a
   note), an earlier day is that file's day before, and `/food/entry` and `/food/note` change the day as the core would (an
-  amount over 2000 g is read back first: a stand-in rule, to try the confirm). `tests/test_front_samples.py` checks on every Python run that the samples still have the
+  amount over 2000 g is read back first: a stand-in rule, to try the confirm). Step F: POST `/standin/core-down` (every
+  door call gets no answer), `/standin/door-off` (every door call answers 404 `not_found`) and `/standin/up` (or `/standin/reset`). `tests/test_front_samples.py` checks on every Python run that the samples still have the
   door's shape; after a change of the door, write it again with
   `WRITE_FRONT_SAMPLES=1 .venv/bin/python -m pytest -q tests/test_front_samples.py` and commit the diff.
 - Deploy: `tools/deploy-front.sh <N>` (the core: `tools/deploy.sh`). Rollback of deploy N:
   `docker tag logger-v2-front:front-fixesN logger-v2-front:pilot; docker compose up -d front`.
+
+## The trial
+
+From deploy 85 the trial runs: the owner uses `logger.` for Today and the Food day on the phone and the PC, next to `app.`,
+which stays complete and is where everything else lives (Trends, Library, More, usual meals, Settings, notifications). What to
+look for: anything that differs from `app.` (numbers, a save that does not show up there), anything slow or unclear, and how the
+two compare on the phone. Notes go into the plan doc; the decision about the rest of the app comes after it. Next build (its own
+step, planned in the plan doc first): editing usual meals, which needs new door routes.
+- If the front end misbehaves: roll back (`docker tag logger-v2-front:front-fixesN logger-v2-front:pilot; docker compose up -d
+  front`) or stop it (`docker compose stop front`); `app.` does not depend on it. Switching the door off (empty `FRONT_TOKEN` in
+  `.env`, one restart of the core) shows "switched off" on `logger.`.

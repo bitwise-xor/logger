@@ -3,7 +3,7 @@
  * the door (saves.ts) and answers with the door's answer, which brings the fresh day (Today's or the Food day's: `view`).
  */
 import { fail, type RequestEvent } from '@sveltejs/kit';
-import { door } from './config.js';
+import { appUrl, door } from './config.js';
 import { runSave, type SaveName, type View } from './saves.js';
 import { endSession, renewSession } from './session.js';
 
@@ -19,7 +19,8 @@ export function formAction(name: SaveName, view: View) {
       return { answer: r.answer };
     }
     if (r.signedOut) endSession(cookies);
-    return fail(r.status, { signedOut: r.signedOut, message: r.message });
+    // The door off (step F): the bar links to app., which still works.
+    return fail(r.status, { signedOut: r.signedOut, message: r.message, link: r.problem === 'door_off' ? `${appUrl}/web/` : null });
   };
 }
 

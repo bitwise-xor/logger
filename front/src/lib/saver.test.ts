@@ -93,7 +93,16 @@ describe('the saver', () => {
     const p = s.send('water', {});
     await tick();
     n.calls[0]!.answer({ type: 'failure', status: 500, data: { signedOut: false, message: 'The logger is not answering right now.' } });
-    expect(await p).toEqual({ kind: 'problem', message: 'The logger is not answering right now.' });
+    expect(await p).toEqual({ kind: 'problem', message: 'The logger is not answering right now.', link: null });
+    // the door off (step F): the bar links to app.; a link that is not a path or https is dropped
+    const q = s.send('water', {});
+    await tick();
+    n.calls[1]!.answer({ type: 'failure', status: 503, data: { signedOut: false, message: 'Off.', link: 'https://app.example/web/' } });
+    expect(await q).toEqual({ kind: 'problem', message: 'Off.', link: 'https://app.example/web/' });
+    const r = s.send('water', {});
+    await tick();
+    n.calls[2]!.answer({ type: 'failure', status: 503, data: { signedOut: false, message: 'Off.', link: 'javascript:alert(1)' } });
+    expect(await r).toEqual({ kind: 'problem', message: 'Off.', link: null });
     const down = new Saver({ fetch: () => Promise.reject(new Error('offline')), deserialize: n.deserialize, storage: null });
     expect(await down.send('water', {})).toMatchObject({ kind: 'problem', message: expect.stringContaining('Nothing was saved') });
   });

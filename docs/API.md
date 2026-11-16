@@ -22,6 +22,9 @@ Every route checks these in order. Steps 1 to 3 all fail the same way (404 `not_
 
 A session of `app.` never works here, and a session made here never works as `app.`'s cookie (`web_sessions.front`, migration 031).
 
+The front end reads these as plain messages (since deploy 85, `front/src/lib/problems.ts`): 404 `not_found` = the door is off
+(it links to `app.`), no answer at all = the core is down, 401 `signed_out` = sign in again; anything else = try again.
+
 ## Every answer
 
 - JSON, `"v": 1` in every body, `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`.

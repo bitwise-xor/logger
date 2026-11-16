@@ -130,13 +130,21 @@ describe('a save through the door', () => {
   it('tells a gone session apart, so the tap can be kept for after the sign-in', async () => {
     const out = await runSave(net(401, { v: 1, error: 'signed_out', message: 'Sign in first.' }).door, SESSION, 'water', form({}));
     expect(out).toEqual({ ok: false, status: 401, signedOut: true, message: 'Sign in first.' });
+  });
+
+  it('says plainly when the door is off or the core is down, and keeps the session (step F)', async () => {
     const off = await runSave(net(404, { v: 1, error: 'not_found', message: 'Not found.' }).door, SESSION, 'water', form({}));
-    expect(off).toMatchObject({ ok: false, signedOut: true });
+    expect(off).toMatchObject({ ok: false, status: 503, signedOut: false, problem: 'door_off' });
+    expect(off.ok === false && off.message).toContain('switched off');
+    const down = makeDoor({ url: 'http://logger-v2-core:8000', token: TOKEN, fetch: async () => { throw new TypeError('fetch failed'); } });
+    const out = await runSave(down, SESSION, 'water', form({}));
+    expect(out).toMatchObject({ ok: false, status: 503, signedOut: false, problem: 'core_down' });
+    expect(out.ok === false && out.message).toContain('Nothing was saved');
   });
 
   it('passes other problems on as they are, not as a sign-out', async () => {
     const out = await runSave(net(500, { v: 1, error: 'server_error', message: 'Something went wrong.' }).door, SESSION, 'water', form({}));
-    expect(out).toEqual({ ok: false, status: 500, signedOut: false, message: 'Something went wrong.' });
+    expect(out).toEqual({ ok: false, status: 500, signedOut: false, message: 'Something went wrong.', problem: 'trouble' });
   });
 });
 

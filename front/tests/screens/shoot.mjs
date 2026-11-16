@@ -9,6 +9,10 @@
 // Step E: the Food day: from the Energy card's link, the four tiles and the rows by meal against the food sample, a row opened
 // and changed (amount, unit, time), a note added and removed, an odd amount read back and confirmed, a row deleted and brought
 // back by Undo, an unknown food refused, the day switch, a food row on Today opening its row, and "+ Add food" leading to the box.
+// Step F: plain messages when the core is down or the door is off (the stand-in plays both): a tap says "Not saved." with why
+// (and links to app. when the door is off), Today, the Food day and the sign-in page say it instead of the page, "Try again"
+// brings the page back with the session kept; after a sign-in the page you were on comes back (`next`); and every page at a
+// tablet width (800 px) too, with no sideways scroll and tap targets of 44 px on phones and tablets.
 // Every check throws on a failure, so the script ends with an error.
 // Usage: node tests/screens/shoot.mjs <base url> <out dir> <stand-in url>
 import assert from 'node:assert/strict';
@@ -127,6 +131,7 @@ async function checkSaves(page, name, theme) {
   await page.locator('[data-bar="warning"]').getByRole('button', { name: 'Yes, save it' }).waitFor();
   await page.locator('[data-health="weight"]').scrollIntoViewIfNeeded();
   await page.screenshot({ path: `${out}/today-confirm-${name}-${theme}.png` });
+  await checkWidth(page, 'today, a read-back to confirm');
   await page.locator('[data-bar="warning"]').getByRole('button', { name: 'Yes, save it' }).click();
   await page.locator('[data-health="weight"]').getByText('400 kg').waitFor();
   if (name === 'phone') await page.screenshot({ path: `${out}/today-health-${name}-${theme}.png` });
@@ -138,6 +143,13 @@ async function checkSaves(page, name, theme) {
   await page.getByRole('button', { name: `+ ${day.water.glass_ml} ml` }).click();
   await bar.getByRole('button', { name: 'Undo' }).waitFor();
   assert.ok(await page.evaluate(() => window.__noReload === true), 'no reload during the taps');
+  if (name !== 'pc') {
+    // step F: scrolled to the end, the logging box and its answer bar cover nothing (the page leaves room for both)
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    const last = await page.getByText('Trends, Library and More are').boundingBox();
+    const dock = await page.locator('[data-logbox]').boundingBox();
+    assert.ok(last.y + last.height <= dock.y + 1, `the logging box covers nothing at the end (${last.y + last.height} > ${dock.y})`);
+  }
   await page.reload();
   await page.locator('[data-bar]').getByRole('button', { name: 'Undo' }).waitFor();
 
@@ -168,7 +180,7 @@ async function checkLogBox(page, name, theme) {
 
   // where it sits: above the tab bar on phones, at the top on the PC
   const form = await page.locator('[data-logbox] form').boundingBox();
-  if (name === 'phone') {
+  if (name !== 'pc') {
     const nav = await page.locator('nav[aria-label="Places"]').boundingBox();
     assert.ok(Math.abs(form.y + form.height - nav.y) < 2, 'phone: the box sits right above the tab bar');
   } else {
@@ -314,6 +326,7 @@ async function checkFood(page, name, theme) {
     assert.ok(rows.x < 260 && rows.width > 900, `PC: the rows start at the rail and use the width (x ${rows.x}, ${rows.width} px)`);
   }
   await page.screenshot({ path: `${out}/food-${name}-${theme}.png`, fullPage: true });
+  await checkWidth(page, 'food');
 
   // a row opened: its amount, the food's other unit (from GET /food/entry), what it becomes; − and + move it
   const bread = FOOD.entry.entry;
@@ -328,6 +341,7 @@ async function checkFood(page, name, theme) {
   assert.equal(await amount.inputValue(), String(bread.amount + 5), '+ adds 5 g');
   await editor(bread.ref).scrollIntoViewIfNeeded();
   await page.screenshot({ path: `${out}/food-edit-${name}-${theme}.png` });
+  await checkWidth(page, 'food, a row open');
 
   // changed: amount and time; saved in place, the row with a blue edge, the tiles moved, Undo in the bar, the row closed
   await amount.fill('120');
@@ -387,6 +401,13 @@ async function checkFood(page, name, theme) {
   await row(noted.ref).waitFor({ state: 'detached' });
   assert.equal(await text(head), `Deleted ${noted.food}.`, 'delete: the head');
   await page.screenshot({ path: `${out}/food-deleted-${name}-${theme}.png` });
+  if (name !== 'pc') {
+    // step F: scrolled to the end, the bar covers nothing (the page leaves room for it)
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    const last = await page.getByRole('link', { name: 'Usual meals: full app' }).boundingBox();
+    const shown = await bar.boundingBox();
+    assert.ok(last.y + last.height <= shown.y + 1, `the answer bar covers nothing at the end (${last.y + last.height} > ${shown.y})`);
+  }
   await bar.getByRole('button', { name: 'Undo' }).click();
   await page.locator(`[data-row="${noted.ref}"][data-fresh]`).waitFor();
   assert.equal(await text(head), 'Undone.', 'Undo: the head');
@@ -415,8 +436,114 @@ async function checkFood(page, name, theme) {
   await page.waitForFunction(() => document.activeElement?.id === 'log-text');
 }
 
+/** Step F: the core down, the door off, and the way back; the sign-in page in both; `next` after a sign-in. */
+async function checkProblems(page, name, theme) {
+  const bar = page.locator('[data-bar]');
+  const card = page.locator('[data-problem]');
+  const water = page.getByRole('button', { name: `+ ${day.water.glass_ml} ml` });
+  const shot = (what, fullPage = false) => page.screenshot({ path: `${out}/${what}-${name}-${theme}.png`, fullPage });
+  await page.goto(`${base}/`);
+  await page.locator('[data-kcal-left]').waitFor();
+
+  // a tap while the core is down: "Not saved." and why, no link to app. (the same core)
+  await standinPost('/standin/core-down');
+  await water.click();
+  await bar.getByText('Not saved.').waitFor();
+  assert.match(await text(bar), /not answering right now.*Nothing was saved/, 'core down: the tap says why');
+  assert.equal(await bar.locator('[data-bar-link]').count(), 0, 'core down: no link to app.');
+  await shot('problem-save-core-down');
+  // the door off: the same, with a link to app.
+  await standinPost('/standin/door-off');
+  await water.click();
+  await bar.getByText('switched off', { exact: false }).waitFor();
+  assert.match((await bar.locator('[data-bar-link]').getAttribute('href')) ?? '', /\/web\/$/, 'door off: the bar links to app.');
+  await shot('problem-save-door-off');
+
+  // the pages say it instead of the day; the session cookie stays (no sign-in page)
+  await page.reload();
+  await page.locator('[data-problem="door_off"]').waitFor();
+  assert.equal(await page.locator('#log-text').count(), 0, 'door off: no logging box without the day');
+  assert.match((await card.getByRole('link', { name: 'Open the full app' }).getAttribute('href')) ?? '', /\/web\/$/, 'door off: Today links to app.');
+  await checkWidth(page, 'today, door off');
+  await shot('today-door-off');
+  await page.goto(`${base}/food`);
+  await page.locator('[data-problem="door_off"]').waitFor();
+  assert.match((await card.getByRole('link', { name: 'Open the full app' }).getAttribute('href')) ?? '', /\/web\/food$/, 'door off: Food links to app.');
+  await standinPost('/standin/core-down');
+  await card.getByRole('link', { name: 'Try again' }).click();
+  await page.locator('[data-problem="core_down"]').waitFor();
+  assert.equal(await card.getByRole('link', { name: 'Open the full app' }).count(), 0, 'core down: no link to app.');
+  await checkWidth(page, 'food, core down');
+  await shot('food-core-down');
+  // back up: "Try again" shows the day, still signed in
+  await standinPost('/standin/up');
+  await card.getByRole('link', { name: 'Try again' }).click();
+  await page.locator('[data-tile]').first().waitFor();
+  assert.equal(await card.count(), 0, 'up again: no message');
+
+  // the sign-in page: the door off and the core down, before typing and at the sign-in
+  await page.goto(`${base}/`);
+  await page.getByRole('button', { name: 'Sign out' }).click();
+  await page.getByRole('button', { name: 'Sign in' }).waitFor();
+  await standinPost('/standin/door-off');
+  await page.reload();
+  await page.locator('[data-problem="door_off"]').getByRole('link', { name: 'Open the full app' }).waitFor();
+  await shot('signin-door-off');
+  await standinPost('/standin/core-down');
+  await page.reload();
+  await page.locator('[data-problem="core_down"]').waitFor();
+  await page.fill('#password', 'test');
+  await page.fill('#code', '123456');
+  await page.click('button[type=submit]');
+  await page.getByRole('button', { name: 'Sign in' }).waitFor();
+  await page.locator('[data-problem="core_down"]').waitFor();
+  assert.equal(await text(page.locator('#login-message')), '', 'core down at the sign-in: said once, in the card');
+  await checkWidth(page, 'sign-in, core down');
+  await shot('signin-core-down');
+  await standinPost('/standin/up');
+
+  // after the sign-in, back to the page you were on: the Food day of the day before
+  await page.goto(`${base}/food?day=${foodBefore.day}`);
+  await page.getByRole('button', { name: 'Sign in' }).waitFor();
+  assert.equal(await card.count(), 0, 'up: no message on the sign-in page');
+  assert.match(page.url(), /\/login\?next=%2Ffood%3Fday%3D/, 'the sign-in page knows where you were');
+  await page.fill('#password', 'test');
+  await page.fill('#code', '123456');
+  await page.click('button[type=submit]');
+  await page.getByRole('heading', { name: 'Food', exact: true }).waitFor();
+  assert.ok(page.url().endsWith(`/food?day=${foodBefore.day}`), `back on the page you were on (${page.url()})`);
+  for (const r of foodBefore.rows) await page.locator(`[data-row="${r.ref}"]`).waitFor();
+  // and a "next" to another site is not followed
+  await page.getByRole('link', { name: '‹ Today' }).click();
+  await page.getByRole('button', { name: 'Sign out' }).click();
+  await page.goto(`${base}/login?next=${encodeURIComponent('//example.com/')}`);
+  await signIn(page);
+  assert.equal(new URL(page.url()).origin, new URL(base).origin, 'a next to another site is not followed');
+}
+
+/** No sideways scroll, and on phones and tablets every button, field and link that stands alone at least 44 px tall. */
+async function checkWidth(page, what) {
+  const sideways = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  assert.ok(sideways <= 0, `${what}: no sideways scroll (${sideways} px too wide)`);
+  if (page.viewportSize().width >= 1100) return;
+  const small = await page.evaluate(() =>
+    [...document.querySelectorAll('button, input:not([type=hidden]), select, textarea, a')]
+      .filter((e) => {
+        const r = e.getBoundingClientRect();
+        if (!r.width || !r.height || e.closest('[aria-hidden=true], .sr-only') || getComputedStyle(e).visibility === 'hidden') return false;
+        // a link inside a sentence is a word of the text, not a target of its own
+        if (e.tagName === 'A' && e.parentElement && e.parentElement.tagName === 'P' && e.parentElement.textContent.trim() !== e.textContent.trim()) return false;
+        return r.height < 43.5;
+      })
+      .map((e) => `${e.tagName.toLowerCase()} "${(e.textContent || e.getAttribute('aria-label') || e.getAttribute('name') || '').trim().slice(0, 30)}" ${Math.round(e.getBoundingClientRect().height)} px`),
+  );
+  for (const x of small) smallTargets.add(`${page.viewportSize().width} px, ${what}: ${x}`);
+}
+// Collected over the whole run and checked at the end, so one run lists them all.
+const smallTargets = new Set();
+
 const browser = await chromium.launch();
-const sizes = { phone: { width: 390, height: 844 }, pc: { width: 1280, height: 800 } };
+const sizes = { phone: { width: 390, height: 844 }, tablet: { width: 800, height: 1100 }, pc: { width: 1280, height: 800 } };
 
 for (const theme of ['dark', 'light']) {
   for (const [name, viewport] of Object.entries(sizes)) {
@@ -426,6 +553,7 @@ for (const theme of ['dark', 'light']) {
     await standinPost('/standin/reset');
     await page.goto(`${base}/`);
     await page.screenshot({ path: `${out}/signin-${name}-${theme}.png` });
+    await checkWidth(page, 'sign-in');
     await page.fill('#password', 'nope');
     await page.fill('#code', '000000');
     await page.click('button[type=submit]');
@@ -434,12 +562,15 @@ for (const theme of ['dark', 'light']) {
     await signIn(page);
     await page.screenshot({ path: `${out}/today-${name}-${theme}.png`, fullPage: true });
     await checkToday(page, name);
+    await checkWidth(page, 'today');
     await checkSaves(page, name, theme);
     console.log(`saves ${name} ${theme}: checks passed`);
     await checkLogBox(page, name, theme);
     console.log(`logging box ${name} ${theme}: checks passed`);
     await checkFood(page, name, theme);
     console.log(`food day ${name} ${theme}: checks passed`);
+    await checkProblems(page, name, theme);
+    console.log(`core down, door off, next ${name} ${theme}: checks passed`);
     if (name === 'phone' && theme === 'dark') {
       await page.getByRole('button', { name: 'Sign out' }).click();
       await page.getByRole('button', { name: 'Sign in' }).waitFor();
@@ -450,4 +581,5 @@ for (const theme of ['dark', 'light']) {
   }
 }
 await browser.close();
+assert.deepEqual([...smallTargets], [], 'tap targets under 44 px on phones and tablets');
 console.log(`screenshots in ${out}`);

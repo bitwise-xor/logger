@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ProblemCard from '#lib/components/ProblemCard.svelte';
   import ThemeButton from '#lib/components/ThemeButton.svelte';
   import FoodRows from '#lib/components/food/FoodRows.svelte';
   import FoodTiles from '#lib/components/food/FoodTiles.svelte';
@@ -25,6 +26,14 @@
     if (!food.open) return;
     await tick();
     document.querySelector(`[data-row="${food.open}"]`)?.scrollIntoView({ block: 'center' });
+  });
+
+  // Step F: on phones the answer bar floats above the tab bar; the page leaves room for it (the layout's --dock, as the logging
+  // box does on Today), so it never covers the last rows.
+  let barHeight = $state(0);
+  $effect(() => {
+    document.documentElement.style.setProperty('--dock', `${barHeight}px`);
+    return () => document.documentElement.style.removeProperty('--dock');
   });
 
   const square =
@@ -62,9 +71,7 @@
 </header>
 
 {#if !fd}
-  <p role="alert" class="m-0 rounded-card border border-line bg-panel p-3.5">
-    {data.problem} The <a href="{data.appUrl}/web/food">full app</a> may still work.
-  </p>
+  <ProblemCard kind={data.problem ?? 'trouble'} appHref="{data.appUrl}/web/food" />
 {:else}
   <main class="flex flex-col gap-3 desktop:gap-4">
     <FoodTiles day={fd} />
@@ -77,6 +84,9 @@
 {/if}
 
 <!-- The answer bar: above the tab bar on phones (no logging box here), at the bottom right on the PC. -->
-<div class="pointer-events-none fixed inset-x-0 bottom-[calc(52px+env(safe-area-inset-bottom))] z-20 px-3.5 pb-2 desktop:static desktop:p-0">
+<div
+  bind:clientHeight={barHeight}
+  class="pointer-events-none fixed inset-x-0 bottom-[calc(52px+env(safe-area-inset-bottom))] z-20 px-3.5 pb-2 desktop:static desktop:p-0"
+>
   <AnswerBar answers={food} />
 </div>

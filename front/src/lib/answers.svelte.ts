@@ -8,6 +8,7 @@ import { goto } from '$app/navigation';
 import { deserialize } from '$app/forms';
 import type { SaveAnswer, Undo } from './day.js';
 import { Saver, type FieldValues, type Sent } from './saver.js';
+import { loginHref } from './next.js';
 
 export interface Bar {
   id: number;
@@ -19,6 +20,8 @@ export interface Bar {
   undo: Undo | null;
   /** A read-back to confirm: Yes sends the same tap again with confirmed. */
   confirm: null | { readBack: string; label: string; noLabel: string; action: string; fields: FieldValues };
+  /** A link under the lines: "Open the full app" when the door is off (step F). */
+  link?: string | null;
 }
 
 /** How long a plain "saved" line stays (an Undo, a warning or a question stays until closed or over). */
@@ -126,11 +129,11 @@ export abstract class Answers {
   protected handle(sent: Sent<SaveAnswer>, action: string, fields: FieldValues): SaveAnswer | null {
     if (sent.kind === 'stale') return null;
     if (sent.kind === 'signed_out') {
-      void goto('/login');
+      void goto(loginHref(location.pathname + location.search));
       return null;
     }
     if (sent.kind === 'problem') {
-      this.show({ tone: 'warning', head: 'Not saved.', lines: [sent.message], undo: null, confirm: null });
+      this.show({ tone: 'warning', head: 'Not saved.', lines: [sent.message], undo: null, confirm: null, link: sent.link ?? null });
       return null;
     }
     const a = sent.answer;

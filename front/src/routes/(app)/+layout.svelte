@@ -39,11 +39,6 @@
   </nav>
 
   <div class="mx-auto flex w-full max-w-[960px] min-w-0 flex-1 flex-col desktop:mx-0 desktop:max-w-[1440px] gap-3 px-3.5 pt-3.5 pb-[calc(84px+var(--dock,0px))] desktop:px-6 desktop:pb-8">
-    {#if data.problem}
-      <p role="alert" class="m-0 rounded-card border border-line bg-panel p-3.5">
-        {data.problem} The <a href="{data.appUrl}/web/">full app</a> may still work.
-      </p>
-    {/if}
     {@render children()}
     <p class="m-0 mt-auto pt-6 text-[13px] text-muted">
       Trends, Library and More are <a href="{data.appUrl}/web/">in the full app</a>.

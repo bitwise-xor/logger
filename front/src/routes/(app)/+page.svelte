@@ -7,6 +7,7 @@
   import HabitsCard from '#lib/components/today/HabitsCard.svelte';
   import HealthCard from '#lib/components/today/HealthCard.svelte';
   import NeedsCard from '#lib/components/today/NeedsCard.svelte';
+  import ProblemCard from '#lib/components/ProblemCard.svelte';
   import { Button } from '#lib/components/ui/button/index.js';
   import LogBox from '#lib/components/today/LogBox.svelte';
   import { headerLine } from '#lib/day.js';
@@ -42,12 +43,11 @@
   </form>
 </header>
 
-<LogBox appUrl={data.appUrl} />
+<!-- Without the day (the door off, the core down) there is nothing to log into: the box waits for the page to load again. -->
+{#if day}<LogBox appUrl={data.appUrl} />{/if}
 
 {#if !day}
-  <p role="alert" class="m-0 rounded-card border border-line bg-panel p-3.5">
-    {data.problem} The <a href="{data.appUrl}/web/">full app</a> may still work.
-  </p>
+  <ProblemCard kind={data.problem ?? 'trouble'} appHref="{data.appUrl}/web/" />
 {:else}
   <!-- Phones: one column in the order below (order-*). The PC: the day on the left, what needs you and the numbers on the right
        (the mockup's TodayDesktop); the day takes all the room the right column leaves (the owner, 16.11.). The two column boxes are display: contents on phones, so their cards join one list. -->

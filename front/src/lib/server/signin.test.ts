@@ -78,7 +78,8 @@ describe('sign-in', () => {
   it.each([
     [401, 'wrong_credentials', 'Wrong password or code.'],
     [429, 'too_many_tries', 'Too many wrong tries'],
-    [404, 'not_found', 'not switched on yet'],
+    [404, 'not_found', 'switched off right now'],
+    [500, 'server_error', 'could not sign you in'],
   ])('a %i %s says so in plain words and sets no cookie', async (status, error, words) => {
     const d = door(status, { v: 1, error, message: 'x' });
     const j = jar();
@@ -86,6 +87,15 @@ describe('sign-in', () => {
     expect(out.ok).toBe(false);
     expect(out.ok === false && out.message).toContain(words);
     expect(j.sets).toEqual([]);
+  });
+
+  it('says the core is down when it does not answer', async () => {
+    const fetch: Fetch = async () => {
+      throw new TypeError('fetch failed');
+    };
+    const out = await signIn(makeDoor({ url: 'http://logger-v2-core:8000', token: TOKEN, fetch }), jar().cookies, FORM);
+    expect(out).toMatchObject({ ok: false, status: 503, problem: 'core_down' });
+    expect(out.ok === false && out.message).toContain('not answering');
   });
 
   it('sets no cookie from an answer it cannot use', async () => {

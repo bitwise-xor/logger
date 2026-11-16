@@ -4,7 +4,7 @@
   // The page's saves: Today's (drawn in LogBox.svelte) or the Food day's (step E).
   let { answers: today }: { answers: Answers } = $props();
   const bar = $derived(today.bar);
-  const btn = 'min-h-10 shrink-0 cursor-pointer rounded-md px-3.5 font-medium whitespace-nowrap disabled:opacity-60';
+  const btn = 'min-h-11 desktop:min-h-10 shrink-0 cursor-pointer rounded-md px-3.5 font-medium whitespace-nowrap disabled:opacity-60';
 </script>
 
 <!-- A save's answer (the mockup's Undo bar): its head, drawn as a warning when the tone says so; a read-back to confirm; Undo for
@@ -23,7 +23,7 @@
           : 'bg-text text-bg'}"
         data-bar={bar.tone}
       >
-        <div class="flex min-h-10 items-center gap-2.5">
+        <div class="flex min-h-11 items-center gap-2.5 desktop:min-h-10">
           <span class="min-w-0 flex-1 truncate font-medium {bar.tone === 'warning' ? 'text-amber' : ''}" data-bar-head>{bar.head}</span>
           {#if bar.undo}
             <button
@@ -36,7 +36,7 @@
           <button
             type="button"
             aria-label="Close"
-            class="flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-md border-0 bg-transparent {bar.tone === 'warning'
+            class="flex size-11 desktop:size-10 shrink-0 cursor-pointer items-center justify-center rounded-md border-0 bg-transparent {bar.tone === 'warning'
               ? 'text-muted'
               : 'text-bg/70'}"
             onclick={() => today.closeBar()}
@@ -49,6 +49,9 @@
         {#each bar.lines as line, i (i)}
           <p class="m-0 max-h-40 overflow-y-auto pr-2 pb-1 text-[13px] whitespace-pre-line">{line}</p>
         {/each}
+        {#if bar.link}
+          <a href={bar.link} class="inline-flex min-h-11 items-center self-start pb-1 text-[13px] font-medium desktop:min-h-0 desktop:pb-2" data-bar-link>Open the full app</a>
+        {/if}
         {#if bar.confirm}
           {#if bar.confirm.readBack}<p class="m-0 pr-2 text-[13px] whitespace-pre-line">{bar.confirm.readBack}</p>{/if}
           <div class="flex gap-2 pt-1 pb-2">
