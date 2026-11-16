@@ -13,15 +13,19 @@ import hashlib
 import hmac
 import json
 import logging
+import re
 from datetime import date, datetime, timedelta, timezone
 
+from psycopg.types.json import Jsonb
 from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-from . import reads, web
+from . import hubtools, logbook, privateline, reads, web, webactions, webentry, webfood, webundo
+from .ai.provider import ProviderError
 from .config import FRONT_TOKEN
 from .db import connect
+from .webentry import readable
 
 log = logging.getLogger("logger.api")
 V = 1
@@ -210,3 +214,230 @@ def food_entry(request, _body, _session):
     if e is None:
         raise Refused(404, "no_entry", "That entry is not there any more.")
     return {"entry": e}
+
+
+# ---- saves (deploy 76) -------------------------------------------------------------------------------------------
+# Each save calls the same function as the live form (webactions, webfood, logbook, webundo), passes the re-send key where that
+# function takes one, and answers in one shape (saved below): outcome, head, receipt, notes, reason, questions, read_back,
+# confirm, result, replayed, undo, plus the fresh day ("day", Today) or food day ("food_day", the Food page), so a page can
+# update in place. The body's "view" ("day" or "food") and "view_day" (yyyy-mm-dd; not "day", which the check-in saves to)
+# choose which. The Undo record is kept in the session row, one per session, as the web app keeps one per device.
+
+class Form(dict):
+    """A JSON body as the live forms' functions read a form: .get(name), and .multi_items() (webfood._again)."""
+
+    def multi_items(self):
+        return list(self.items())
+
+
+def _form(**fields) -> Form:
+    """Only the fields that were sent, as text (a form sends text; None = not sent)."""
+    return Form({k: ("1" if v is True else str(v)) for k, v in fields.items() if v not in (None, "", False)})
+
+
+def _work(fn) -> dict:
+    """web._run's rule, in the request's thread: an AI that does not answer, or any other error, is a refusal that says nothing
+    was saved (a typed message is kept before the AI reads it, held.py); the kind of error goes to the log only."""
+    try:
+        return fn()
+    except Refused:
+        raise
+    except ProviderError as e:
+        log.warning("the AI service did not answer (%s)", type(e).__name__)
+        return {"outcome": "rejected", "reason": "The AI service did not answer. Nothing was saved; try again in a moment."}
+    except Exception as e:  # noqa: BLE001 - the kind only, never what was sent
+        log.error("a door save failed: %s", type(e).__name__)
+        return {"outcome": "rejected", "reason": "Something went wrong (the database or a service did not answer). Nothing was saved; try again in a moment."}
+
+
+def _key(body: dict):
+    return text(body, "key", 64) or None
+
+
+def _undo_out(rec) -> dict | None:
+    if not webundo.fresh(rec):
+        return None
+    ends = datetime.fromtimestamp(float(rec["at"]) + webundo.MAX_AGE_S, timezone.utc)
+    return {"token": rec["token"], "head": rec.get("head") or "Saved.", "expires_at": ends.isoformat()}
+
+
+def saved(session, out: dict, body: dict, view: str = "day", private: bool = False) -> dict:
+    """The one answer of every save. private: the words were a private or gratitude line: no receipt, notes or result."""
+    replace, new = webundo.settle(out)  # takes the rows before a change out of out (kept for Undo, never sent)
+    if replace:
+        with connect() as c:
+            c.execute("UPDATE web_sessions SET undo = %s WHERE token_hash = %s", (Jsonb(new) if new else None, session["token_hash"]))
+    rec = new if replace else session.get("undo")
+    o = out.get("outcome", "rejected")
+    head = webentry._HEAD["replayed"] if out.get("replayed") else out.get("head") or webentry._HEAD.get(o, o)
+    if o == "rejected" and out.get("steps"):  # a change that matched nothing (webentry.reply_html)
+        head = "Nothing changed."
+    if private and o == "saved" and not out.get("replayed"):
+        head = "Saved privately."
+    reason = out.get("reason") or (out.get("message") if o == "rejected" and not out.get("receipt") else None)
+    texts = [*(out.get("receipt") or []), *(out.get("notes") or []), out.get("result"), out.get("read_back"), reason]
+    if not private and reads.names_private(*texts):  # a look-up or change of private entries typed here: no words (fail closed)
+        private, reason = True, reads.HIDDEN
+    c = out.get("confirm")
+    res = {"outcome": o, "head": head,
+           "receipt": [] if private else [str(x) for x in out.get("receipt") or []],
+           "notes": [] if private else [str(x) for x in out.get("notes") or []],
+           "reason": reason or None,
+           "questions": [{"id": q["question_id"], "question": q["question"]} for q in out.get("questions") or []],
+           "read_back": readable(out["read_back"]) if out.get("read_back") and not private else None,
+           # a change the logger read back first: send the same request again with "confirmed": true
+           "confirm": {"label": c.get("label", "Yes"), "no_label": c.get("no_label", "No")} if c else None,
+           "result": None if private or not out.get("result") else str(out["result"]),
+           "replayed": bool(out.get("replayed")), "undo": _undo_out(rec)}
+    try:
+        asked = date.fromisoformat(str(body.get("view_day") or "")[:10]) if body.get("view_day") else None
+    except ValueError:
+        asked = None
+    if (body.get("view") or view) == "food":
+        res["food_day"] = reads.food_day(asked)
+    else:
+        res["day"] = reads.day(asked)
+    return res
+
+
+@route("/log", "POST")
+def log_line(_request, body, session):
+    """A typed line, read as /web/log reads it (logbook.log, synchronous: up to the AI's wait, then "held" with the words kept).
+    A line with a private or gratitude label is saved without the AI and answered without its words."""
+    words = text(body, "text", webentry.MAX_TEXT).strip()
+    out = _work(lambda: logbook.log(words, _key(body), channel=logbook.WEB))
+    return saved(session, out, body, private=bool(privateline.label(words)))
+
+
+@route("/again", "POST")
+def again(_request, body, session):
+    """An Again chip: food_id, amount (in the food's unit), time hh:mm or none (= now)."""
+    f = _form(food=text(body, "food_id", 12), amount=text(body, "amount", 20), time=text(body, "time", 5))
+    return saved(session, _work(lambda: webfood.again(f, _key(body))), body)
+
+
+@route("/usual", "POST")
+def usual(_request, body, session):
+    """A usual meal: every item with its saved amount, now (Today's one tap); or items [{"id", "amount"}] (only those are
+    logged, with these amounts) and time hh:mm, as the meal's form on Today."""
+    meal = text(body, "meal_id", 12, required=True)
+    items = body.get("items")
+    if items is None:
+        f = _form(quick="1")
+    else:
+        if not isinstance(items, list) or not all(isinstance(i, dict) for i in items):
+            raise Refused(400, "bad_request", "items must be a list of {id, amount}.")
+        fields = {}
+        for i in items[:50]:
+            iid = text(i, "id", 12)
+            fields[f"on_{iid}"] = "1"
+            fields[f"g_{iid}"] = text(i, "amount", 20)
+        f = _form(time=text(body, "time", 5), **fields)
+    return saved(session, _work(lambda: webactions.usual(meal, f, _key(body))), body)
+
+
+@route("/water", "POST")
+def water(_request, body, session):
+    """The water bar's glass (ml left out = 250 ml), or ml from 50 to 2000 (as the hub's add_water)."""
+    ml = body.get("ml")
+    lo, hi = hubtools.WATER_ML
+    if ml is not None and (not isinstance(ml, int) or isinstance(ml, bool) or not lo <= ml <= hi):
+        out = webactions._rejected(f"Give the water in ml, from {lo} to {hi}.")
+    else:
+        out = _work(lambda: webfood.water({}, _key(body), ml))
+    return saved(session, out, body)
+
+
+@route("/habit", "POST")
+def habit(_request, body, session):
+    """Tick a habit, or untick: the tick ref (e<id>, the day's last_tick) or, without one, today's last tick of it."""
+    name, action = text(body, "name", 64, required=True), text(body, "action", 10)
+    if action not in ("tick", "untick"):
+        raise Refused(400, "bad_request", "action must be tick or untick.")
+    eid = ""
+    if action == "untick":
+        ref = text(body, "ref", 20)
+        if ref:
+            if not re.fullmatch(r"e\d{1,12}", ref):
+                raise Refused(400, "bad_request", "ref must be e<id>.")
+            eid = ref[1:]
+        else:
+            with connect() as c:  # today's last tick of it, the one Today's button sends (hubtools.untick_habit)
+                r = c.execute("""SELECT e.id FROM events e JOIN log_types t ON t.id = e.type_id
+                                 WHERE t.name = %s AND e.day = log_day(now()) ORDER BY e.event_at DESC, e.id DESC LIMIT 1""", (name,)).fetchone()
+            eid = str(r["id"] if r else 0)
+    return saved(session, _work(lambda: webactions.habit(name, action, eid, _key(body))), body)
+
+
+@route("/checkin", "POST")
+def checkin(_request, body, session):
+    """Mood or energy, 1 to 5; day: yesterday's, while the check-in asks about it (needs.checkin.day)."""
+    f = _form(type=text(body, "type", 10), value=text(body, "value", 3), day=text(body, "day", 10))
+    return saved(session, _work(lambda: webactions.checkin(f, _key(body))), body)
+
+
+@route("/health", "POST")
+def health(_request, body, session):
+    """A Health card row (row: bed, wake, weight, sugar, bp_morning, bp_evening): v1 (and v2 for blood pressure), or t hh:mm for
+    bed and wake-up; ref = the entry to correct (the card row's ref). confirmed: true after a read-back."""
+    row, ref = text(body, "row", 20, required=True), text(body, "ref", 20)
+    f = _form(t=text(body, "t", 5), v1=text(body, "v1", 20), v2=text(body, "v2", 20), confirmed=body.get("confirmed") is True)
+    return saved(session, _work(lambda: webactions.health(row, ref, f, _key(body))), body)
+
+
+@route("/answer", "POST")
+def answer(_request, body, session):
+    """An answer to an open question: reply = one of its answers' reply, or typed words (logbook.answer; it takes no key)."""
+    qid, words = text(body, "question_id", 64), text(body, "reply", webentry.MAX_REPLY).strip()
+    if not qid or not words:
+        out = {"outcome": "rejected", "reason": "Type an answer first."}
+    else:
+        out = _work(lambda: logbook.answer(qid, words, channel=logbook.WEB))
+    return saved(session, out, body)
+
+
+@route("/review", "POST")
+def review(_request, body, session):
+    """"Looks right": act "ok" with ref (one item), or act "all" with refs (the items shown; webactions.review_all)."""
+    act = text(body, "act", 5)
+    if act == "ok":
+        ref = text(body, "ref", 20, required=True)
+        out = _work(lambda: webactions.review(ref, "ok", Form()))
+    elif act == "all":
+        refs = body.get("refs")
+        if not isinstance(refs, list) or not all(isinstance(r, str) for r in refs):
+            raise Refused(400, "bad_request", "refs must be a list of refs.")
+        out = _work(lambda: webactions.review("", "all", Form(refs=" ".join(refs)[:webactions.REVIEW_LIMIT * 12])))
+    else:
+        raise Refused(400, "bad_request", "act must be ok or all.")
+    return saved(session, out, body)
+
+
+@route("/food/entry", "POST")
+def food_entry_save(_request, body, session):
+    """Change (act "save": amount, unit, time hh:mm, food_name) or delete (act "delete") a food entry, made at once with Undo,
+    as on the Food page (webfood.entry). An odd value is read back first: then send it again with "confirmed": true."""
+    act = text(body, "act", 10)
+    if act not in ("save", "delete"):
+        raise Refused(400, "bad_request", "act must be save or delete.")
+    f = _form(id=text(body, "ref", 12), act=act, amount=text(body, "amount", 20), unit=text(body, "unit", 40), time=text(body, "time", 5),
+              food_name=text(body, "food_name", 200), confirmed=body.get("confirmed") is True, back="/web/food")
+    return saved(session, _work(lambda: webfood.entry(f, _key(body))), body, view="food")
+
+
+@route("/food/note", "POST")
+def food_note(_request, body, session):
+    """A food entry's note (empty = removed)."""
+    f = _form(id=text(body, "ref", 12), note=text(body, "note", 300))
+    return saved(session, _work(lambda: webfood.note(f, _key(body))), body, view="food")
+
+
+@route("/undo", "POST")
+def undo(_request, body, session):
+    """Undo the session's last save: the token of its answer's undo (one per session, for 15 minutes, as the Undo bar)."""
+    rec = session.get("undo") or {}
+    if not webundo.matches(rec, body.get("token")):
+        out = {"outcome": "rejected", "head": "Nothing undone.", "reason": "There is nothing to undo any more."}
+    else:
+        out = _work(lambda: webundo.apply(rec))
+    return saved(session, out, body)
