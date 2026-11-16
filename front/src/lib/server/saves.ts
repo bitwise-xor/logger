@@ -221,7 +221,35 @@ export const SAVES = {
   // Exercises read (view "gym_exercises"); no key, no Undo.
   gym_rename: { path: '/gym/rename', keyed: false, body: (f) => ({ exercise_id: int(f, 'exercise_id'), name: str(f, 'name', 60) ?? '' }) },
   gym_active: { path: '/gym/active', keyed: false, body: (f) => ({ exercise_id: int(f, 'exercise_id'), on: f.get('on') === '1' }) },
+  // Home's Now and Pick pages (deploy 99): the door's /home/<action> takes ids as numbers and pairs as [[chore_id, zone_id], ...].
+  // Only tick, pickdone, picknext and earlier take a key (home._once); the page never sends a Home save again by itself (saver.ts).
+  // A tick toggles: a pair done today is ticked off again. Each answers with its page's read (view "home" or "home_pick").
+  home_tick: { path: '/home/tick', keyed: true, body: (f) => ({ chore_id: int(f, 'chore_id'), zone_id: int(f, 'zone_id') }) },
+  // the Pick page's timer: start (the job's pairs and the page's minutes), pause, resume, stop (its id)
+  home_start: { path: '/home/start', keyed: false, body: (f) => ({ pairs: pairsOf(f), minutes: int(f, 'minutes') }) },
+  home_pause: { path: '/home/pause', keyed: false, body: (f) => ({ timer_id: int(f, 'timer_id') }) },
+  home_resume: { path: '/home/resume', keyed: false, body: (f) => ({ timer_id: int(f, 'timer_id') }) },
+  home_stop: { path: '/home/stop', keyed: false, body: (f) => ({ timer_id: int(f, 'timer_id') }) },
+  // "Done" (the timer's id may come along), "Done, next job" (running only), "Not today", "Done it earlier?" (1 to 7 days ago, or a date)
+  home_pickdone: { path: '/home/pickdone', keyed: true, body: (f) => ({ pairs: pairsOf(f), timer_id: int(f, 'timer_id') }) },
+  home_picknext: { path: '/home/picknext', keyed: true, body: (f) => ({ pairs: pairsOf(f), timer_id: int(f, 'timer_id') }) },
+  home_skip: { path: '/home/skip', keyed: false, body: (f) => ({ pairs: pairsOf(f) }) },
+  home_earlier: { path: '/home/earlier', keyed: true, body: (f) => ({ pairs: pairsOf(f), when: whenOf(f) }) },
 } satisfies Record<string, Save>;
+
+/** A job's pairs: the form's "3-1,7-2" (app.'s own format) as the door's [[3, 1], [7, 2]] (1 to 12); anything else is left out. */
+function pairsOf(f: Fields): number[][] | undefined {
+  const t = str(f, 'pairs', 300);
+  if (!t || !/^\d{1,9}-\d{1,9}(,\d{1,9}-\d{1,9}){0,11}$/.test(t)) return undefined;
+  return t.split(',').map((p) => p.split('-').map(Number));
+}
+
+/** "Done it earlier?": 1 to 7 (days ago) as a number, or a date yyyy-mm-dd; anything else as typed (the door refuses it). */
+function whenOf(f: Fields): number | string | undefined {
+  const t = str(f, 'when', 10);
+  if (t === undefined) return undefined;
+  return /^[1-7]$/.test(t) ? Number(t) : t;
+}
 
 /**
  * One of the Habits page's list forms (docs/API.md, /habits/manage): only the fields its action takes, as numbers and true or
@@ -279,12 +307,17 @@ export const PLAN_SAVES: SaveName[] = ['gym_itemset', 'gym_itemmove', 'gym_itemr
 /** The Exercises part's (deploy 97, src/routes/(app)/gym/exercises): Rename, Retire or Bring back, + New exercise. No Undo exists for them. */
 export const EXERCISES_SAVES: SaveName[] = ['gym_rename', 'gym_active', 'gym_new'];
 const GYM_ONLY: SaveName[] = [...GYM_SAVES, ...PLAN_SAVES, ...EXERCISES_SAVES];
+/** Home's Now page's (deploy 99, src/routes/(app)/home): the tick circle, Undo. */
+export const HOME_SAVES: SaveName[] = ['home_tick', 'undo'];
+/** The Pick page's (deploy 99, src/routes/(app)/home/pick): the timer, Done, Done next job, Not today, Done it earlier?, Undo. */
+export const PICK_SAVES: SaveName[] = ['home_start', 'home_pause', 'home_resume', 'home_stop', 'home_pickdone', 'home_picknext', 'home_skip', 'home_earlier', 'undo'];
+const HOME_ONLY: SaveName[] = [...HOME_SAVES, ...PICK_SAVES];
 export const TODAY_SAVES: SaveName[] = SAVE_NAMES.filter(
   (n) =>
     n === 'undo' ||
-    (!FOOD_SAVES.includes(n) && !USUAL_SAVES.includes(n) && !HEALTH_SAVES.includes(n) && !HABITS_ONLY.includes(n) && !GYM_ONLY.includes(n)),
+    (!FOOD_SAVES.includes(n) && !USUAL_SAVES.includes(n) && !HEALTH_SAVES.includes(n) && !HABITS_ONLY.includes(n) && !GYM_ONLY.includes(n) && !HOME_ONLY.includes(n)),
 );
-export type View = 'day' | 'food' | 'usual' | 'health' | 'body' | 'habits' | 'gym' | 'gym_plan' | 'gym_exercises';
+export type View = 'day' | 'food' | 'usual' | 'health' | 'body' | 'habits' | 'gym' | 'gym_plan' | 'gym_exercises' | 'home' | 'home_pick';
 
 /** A key as the browser makes them (src/lib/saver.ts): a random UUID or base64url; anything else is replaced. */
 const KEY = /^[A-Za-z0-9_-]{16,64}$/;
@@ -310,6 +343,13 @@ export function bodyFor(
   if (view === 'habits') {
     const show = str(f, 'show', 10);
     if (show && (SHOWS as readonly string[]).includes(show)) body.show = show;
+  }
+  // Home's fresh read (deploy 99): Now's time (view_min), Pick's time and job (view_min, view_n), as the page's address has them.
+  if (view === 'home' || view === 'home_pick') {
+    const min = str(f, 'view_min', 3);
+    if (min && /^\d{1,3}$/.test(min)) body.view_min = Number(min);
+    const n = str(f, 'view_n', 4);
+    if (view === 'home_pick' && n && /^\d{1,4}$/.test(n)) body.view_n = Number(n);
   }
   if (save.keyed) {
     const key = str(f, 'key', 64);

@@ -36,6 +36,7 @@
 // Deploy 96: the Gym's Workout page, Today's Gym card and the Spaces menu (checkGym says what), and on the Habits page the open
 // calendar not covered by the answer bar after a tick, and the line under the filter worded for this page.
 // Deploy 97: the Gym's other five parts, Plan, Exercises, Progress, Activity and History (checkGymParts says what).
+// Deploy 99: Home's Now and Pick pages with the timer, Today's Home card and Home in the Spaces menu (checkHome says what).
 // Every check throws on a failure, so the script ends with an error.
 // Usage: node tests/screens/shoot.mjs <base url> <out dir> <stand-in url>
 import assert from 'node:assert/strict';
@@ -53,6 +54,7 @@ const SCAN = JSON.parse(readFileSync(new URL('../samples/scan.json', import.meta
 const HEALTH = JSON.parse(readFileSync(new URL('../samples/health.json', import.meta.url), 'utf8'));
 const HABITS = JSON.parse(readFileSync(new URL('../samples/habits.json', import.meta.url), 'utf8'));
 const GYM = JSON.parse(readFileSync(new URL('../samples/gym.json', import.meta.url), 'utf8'));
+const HOME = JSON.parse(readFileSync(new URL('../samples/home.json', import.meta.url), 'utf8'));
 
 // What the page must show, worked out here from the sample on its own (not with the page's code).
 const even = (x) => {
@@ -1554,11 +1556,11 @@ async function checkGym(page, name, theme) {
   // the places: on the PC the rail's Spaces group with Gym highlighted; on phones and tablets the More tab
   if (pc) {
     assert.ok(await page.locator('[data-rail-group]').isVisible(), 'the rail has the Spaces group');
-    assert.deepEqual(await page.locator('[data-rail-space]').allTextContents().then((x) => x.map((t) => t.trim())), ['Gym', 'Health', 'Habits']);
+    assert.deepEqual(await page.locator('[data-rail-space]').allTextContents().then((x) => x.map((t) => t.trim())), ['Gym', 'Health', 'Habits', 'Home']);
     assert.equal(await page.locator('[data-rail-space="gym"]').getAttribute('aria-current'), 'page');
     assert.equal(await page.locator('[data-place="today"]').getAttribute('aria-current'), null);
     const order = await page.locator('[data-places] > a, [data-places] > span').evaluateAll((els) => els.filter((e) => e.offsetParent && e.textContent.trim()).map((e) => e.textContent.trim()));
-    assert.deepEqual(order, ['Logger', 'Today', 'Trends', 'Library', 'Spaces', 'Gym', 'Health', 'Habits', 'More'], 'the rail');
+    assert.deepEqual(order, ['Logger', 'Today', 'Trends', 'Library', 'Spaces', 'Gym', 'Health', 'Habits', 'Home', 'More'], 'the rail');
   } else {
     assert.equal(await page.locator('[data-rail-group]').isVisible(), false);
     assert.equal(await page.locator('[data-place="more"]').getAttribute('aria-current'), 'true', 'the More tab is highlighted on /gym');
@@ -1739,9 +1741,10 @@ async function checkGym(page, name, theme) {
     await page.waitForURL(/\/more$/);
     assert.equal(await page.locator('[data-place="more"]').getAttribute('aria-current'), 'page');
     assert.deepEqual(await page.locator('[data-space]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-space'), e.tagName, e.hasAttribute('data-soon')])), [
-      ['gym', 'A', false], ['health', 'A', false], ['habits', 'A', false], ['home', 'DIV', true], ['medical', 'DIV', true],
+      ['gym', 'A', false], ['health', 'A', false], ['habits', 'A', false], ['home', 'A', false], ['medical', 'DIV', true],
     ]);
-    assert.match(await text(page.locator('[data-space="home"]')), /soon$/);
+    assert.match(await text(page.locator('[data-space="medical"]')), /soon$/);
+    assert.equal(await page.locator('[data-space="home"]').getAttribute('href'), '/home', 'deploy 99: Home is a live Space');
     assert.equal(await text(page.locator('[data-rest]')), 'The rest is in the full app.');
     assert.match(await page.locator('[data-rest] a').getAttribute('href'), /\/web\/$/);
     if (name === 'phone') await page.screenshot({ path: `${out}/more-${name}-${theme}.png` });
@@ -2277,6 +2280,303 @@ async function checkGymParts(page, name, theme) {
   await page.goto(`${base}/`);
 }
 
+/**
+ * Deploy 99: Home's first pages against the home sample. Today's Home card (its lines, after Habits, its buttons). Now: the tabs (Zones
+ * and History at app.), the chips, This week, the six rows in the door's words, "Show all", Recently done; one column on phones and
+ * tablets, the side column from 1100 px; Home in the rail and under More. A tick fills at once with the blue edge while its button is
+ * blocked, the answer bar with Undo, the row kept in its place, a second tap takes it back, Undo; a tick that met a gone session is not
+ * sent after the sign-in. Pick: the job card, the clock, Not today and Done it earlier? with Undo staying on Pick, Start timer counting
+ * down without a reload, Pause and Resume, Done next job, Stop timer, a timer reaching zero (Time is up, Pause and next gone, Finished),
+ * a refusal next to its button, Done ending on Now with the answer bar and Undo. Now's timer card counting; a paused timer; no chores.
+ */
+async function checkHome(page, name, theme) {
+  await standinPost('/standin/reset');
+  const N = HOME.home.home;
+  const P = HOME.pick.home_pick;
+  const pc = name === 'pc';
+  const bar = page.locator('[data-bar]');
+  const headIs = async (want) => {
+    await page.locator('[data-bar-head]', { hasText: want }).first().waitFor();
+    assert.equal(await text(page.locator('[data-bar-head]')), want, 'the answer bar');
+  };
+  const undoBtn = () => bar.getByRole('button', { name: 'Undo' });
+  const row = (c, z) => page.locator(`[data-hrow="${c}:${z}"]`);
+  const labels = () => page.locator('[data-list="rows"] [data-hlabel]').allTextContents().then((x) => x.map((t) => t.trim()));
+  const clock = () => text(page.locator('[data-clock]'));
+  const buttons = () => page.locator('[data-buttons] [data-btn]').evaluateAll((els) => els.map((e) => e.getAttribute('data-btn')));
+
+  // Today's Home card, from the stand-in's day: its lines, after Habits, its buttons
+  await page.goto(`${base}/`);
+  const c = day.home;
+  const hc = page.locator('[data-card="home"]');
+  await hc.waitFor();
+  assert.equal(await text(hc.locator('[data-home-week]')), c.text);
+  assert.equal(await text(hc.locator('[data-home-label]')), c.waiting.label);
+  assert.equal(await text(hc.locator('[data-home-meta]')), `${c.waiting.age_text} · ${c.waiting.interval_text}`);
+  assert.equal(await hc.locator('[data-home-hidden]').count(), 0);
+  assert.equal(await hc.locator('[data-home-15]').getAttribute('href'), '/home/pick?min=15');
+  assert.equal(await text(hc.locator('[data-home-15]')), '15 minutes');
+  assert.equal(await hc.locator('[data-home-open]').getAttribute('href'), '/home');
+  const [hab, hom] = await Promise.all(['habits', 'home'].map((k) => page.locator(`[data-card="${k}"]`).boundingBox()));
+  assert.ok(hom.y > hab.y + hab.height - 1 && Math.abs(hom.x - hab.x) < 2, `${name}: the Home card right under Habits`);
+  if (name === 'phone') await hc.screenshot({ path: `${out}/today-home-card-${name}-${theme}.png` });
+  await hc.locator('[data-home-open]').click();
+  await page.waitForURL(/\/home$/);
+  await page.locator('[data-card="rows"]').waitFor();
+  await page.evaluate(() => (window.__noReload = true));
+
+  // Now, against the sample
+  assert.equal(await text(page.locator('h1')), 'Home');
+  assert.deepEqual(await page.locator('[data-tab]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-tab'), e.getAttribute('href').replace(/^https?:\/\/[^/]+/, ''), e.getAttribute('aria-current')])), [
+    ['now', '/home', 'page'], ['zones', '/web/home/zones', null], ['history', '/web/home/history', null],
+  ]);
+  assert.deepEqual(await page.locator('[data-chip]').evaluateAll((els) => els.map((e) => [e.textContent.trim(), e.getAttribute('href'), e.getAttribute('aria-current')])),
+    N.minutes_options.map((o) => [o.label, `/home?min=${o.minutes}`, o.minutes === N.minutes ? 'true' : null]));
+  assert.equal(await page.locator('[data-pick]').getAttribute('href'), `/home/pick?min=${N.minutes}`);
+  assert.equal(await page.locator('[data-card="timer"]').count(), 0, 'no timer card without a timer');
+  assert.equal(await text(page.locator('[data-week-count]')), `${N.week.this} of ${N.week.goal} sessions`);
+  assert.deepEqual(await page.locator('[data-seg]').evaluateAll((els) => els.map((e) => e.getAttribute('data-seg'))), Array.from({ length: N.week.goal }, (_, i) => (i < N.week.this ? 'on' : 'off')));
+  assert.equal(await text(page.locator('[data-weeks]')), `Last 4 weeks: ${N.week.weeks.join(' · ')}`);
+  assert.equal(await text(page.locator('[data-count]')), `${N.count} chores`);
+  assert.deepEqual(await labels(), N.rows.slice(0, 6).map((r) => r.label), 'six rows, waiting longest first');
+  for (const r of N.rows.slice(0, 6)) {
+    assert.equal(await text(row(r.chore_id, r.zone_id).locator('[data-hmeta]')), `${r.age_text} · ${r.interval_text}`);
+    assert.equal(await text(row(r.chore_id, r.zone_id).locator('[data-hmin]')), `${r.minutes} min`);
+    assert.equal(await row(r.chore_id, r.zone_id).locator('[data-tick]').getAttribute('aria-pressed'), String(r.done_today));
+    assert.match(await row(r.chore_id, r.zone_id).locator('[data-hlink]').getAttribute('href'), new RegExp(`/web/home/chore\\?id=${r.chore_id}$`));
+  }
+  assert.equal((await text(page.locator('[data-show-all]'))).replace('↗', ''), `Show all ${N.count} chores`);
+  assert.match(await page.locator('[data-show-all]').getAttribute('href'), /\/web\/home\/zones$/);
+  assert.equal(await page.locator('[data-hidden]').count(), 0);
+  assert.deepEqual(await page.locator('[data-recent]').evaluateAll((els) => els.map((e) => e.textContent.replace(/\s+/g, ' ').trim())), N.recent.map((e) => `${e.label} ${e.when}`));
+  const [tm, wk, rw, rc] = await Promise.all(['time', 'week', 'rows', 'recent'].map((k) => page.locator(`[data-card="${k}"]`).boundingBox()));
+  if (pc) assert.ok(wk.x > tm.x + tm.width - 1 && Math.abs(wk.y - tm.y) < 2 && Math.abs(wk.width - 340) < 2 && rc.y > wk.y + wk.height - 1 && rw.y > tm.y + tm.height - 1, 'pc: time and list in the middle, This week and Recently done right (340 px)');
+  else assert.ok(wk.y > tm.y + tm.height - 1 && rw.y > wk.y + wk.height - 1 && rc.y > rw.y + rw.height - 1 && Math.abs(wk.x - tm.x) < 2, `${name}: one column in app.'s order`);
+  await page.screenshot({ path: `${out}/home-now-${name}-${theme}.png`, fullPage: true });
+  await checkWidth(page, 'home now');
+
+  // the places: Home in the rail on the PC (highlighted), the More tab on phones and tablets; and under More, not greyed
+  if (pc) {
+    assert.equal(await page.locator('[data-rail-space="home"]').getAttribute('aria-current'), 'page');
+    assert.equal(await page.locator('[data-rail-space="home"]').getAttribute('href'), '/home');
+  } else assert.equal(await page.locator('[data-place="more"]').getAttribute('aria-current'), 'true', 'the More tab is highlighted on /home');
+
+  // a tick: filled at once with the blue edge while its button is blocked, then the answer bar with Undo; the row keeps its place
+  const fridge = N.rows.find((r) => r.chore_id === 4);
+  const tick = row(4, 1).locator('[data-tick]');
+  await standinPost('/standin/slow');
+  await tick.click();
+  assert.equal(await tick.getAttribute('aria-pressed'), 'true', 'filled at once');
+  assert.ok(await tick.isDisabled(), 'blocked while its save is on the way');
+  assert.equal(await row(4, 1).locator('[data-ring]').getAttribute('data-ring'), 'fresh', 'the blue edge');
+  await headIs(`Saved: ${fridge.label}`);
+  assert.equal(await undoBtn().count(), 1);
+  assert.equal(await tick.getAttribute('aria-pressed'), 'true');
+  assert.equal(await text(row(4, 1).locator('[data-hmeta]')), `today · ${fridge.interval_text}`);
+  assert.deepEqual(await labels(), N.rows.slice(0, 6).map((r) => r.label), 'the ticked row stays in its place');
+  assert.match(await row(4, 1).locator('[data-ring]').getAttribute('class'), /border-blue/);
+  await page.screenshot({ path: `${out}/home-now-ticked-${name}-${theme}.png` });
+  await checkWidth(page, 'home now ticked');
+  // a second tap takes the tick back
+  await tick.click();
+  await headIs(`Ticked off: ${fridge.label}`);
+  assert.equal(await tick.getAttribute('aria-pressed'), 'false');
+  assert.equal(await text(row(4, 1).locator('[data-hmeta]')), `${fridge.age_text} · ${fridge.interval_text}`);
+  // tick again, then Undo
+  await tick.click();
+  await headIs(`Saved: ${fridge.label}`);
+  await undoBtn().click();
+  await headIs('Undone: the tick is gone.');
+  assert.equal(await tick.getAttribute('aria-pressed'), 'false');
+  assert.ok(await page.evaluate(() => window.__noReload), 'no reload');
+  await standinPost('/standin/reset');
+
+  // never sent again: a tick that met a gone session is not saved after the sign-in
+  await page.goto(`${base}/home`);
+  await page.locator('[data-card="rows"]').waitFor();
+  await standinPost('/standin/drop-sessions');
+  await row(4, 1).locator('[data-tick]').click();
+  await page.getByRole('button', { name: 'Sign in' }).waitFor();
+  await page.fill('#password', 'test');
+  await page.fill('#code', '123 456');
+  await page.click('button[type=submit]');
+  await page.waitForURL(/\/home$/);
+  await page.locator('[data-card="rows"]').waitFor();
+  await page.waitForTimeout(500);
+  assert.equal(await row(4, 1).locator('[data-tick]').getAttribute('aria-pressed'), 'false', 'not sent again after the sign-in');
+
+  // Pick, without a timer
+  await page.locator('[data-pick]').click();
+  await page.waitForURL(/\/home\/pick\?min=15$/);
+  await page.locator('[data-card="job"]').waitFor();
+  await page.evaluate(() => (window.__noReload = true));
+  assert.equal(await page.locator('[data-back]').getAttribute('href'), '/home');
+  assert.equal(await text(page.locator('[data-title]')), P.title);
+  assert.equal(await text(page.locator('[data-pill="zone"]')), P.job.zone);
+  assert.equal(await text(page.locator('[data-pill="age"]')), P.job.age_text);
+  assert.equal(await text(page.locator('[data-of]')), `Job ${P.n + 1} of ${P.count}`);
+  assert.equal(await text(page.locator('[data-job]')), P.job.title);
+  assert.equal(await clock(), '15:00');
+  assert.equal(await page.locator('[data-card="clock"]').getAttribute('data-state'), 'none');
+  assert.equal(await text(page.locator('[data-btn="start"]')), 'Start timer');
+  assert.deepEqual(await buttons(), ['done', 'another', 'skip']);
+  assert.equal(await page.locator('[data-btn="another"]').getAttribute('href'), '/home/pick?min=15&n=1');
+  assert.deepEqual(await page.locator('[data-also]').evaluateAll((els) => els.map((e) => [e.textContent.trim(), e.getAttribute('href')])), P.also.map((a) => [a.title, `/home/pick?min=15&n=${a.n}`]));
+  assert.equal(await text(page.locator('[data-card="also"] h2')), 'Also fits in 15 minutes');
+  assert.equal(await page.locator('[data-earlier]').count(), 0, 'Done it earlier? folded');
+  await page.screenshot({ path: `${out}/home-pick-${name}-${theme}.png`, fullPage: true });
+  await checkWidth(page, 'home pick');
+
+  // Not today: the next job, the answer bar with Undo, on Pick; Undo brings the job back
+  await page.locator('[data-btn="skip"]').click();
+  await headIs(`Not today: ${P.job.title} · ${P.job.zone}`);
+  assert.equal(await text(page.locator('[data-job]')), P.also[0].title, 'the next job');
+  assert.match(page.url(), /\/home\/pick/);
+  await undoBtn().click();
+  await headIs('Undone: the job is back in the list.');
+  assert.equal(await text(page.locator('[data-job]')), P.job.title);
+
+  // Done it earlier?: Yesterday, then a date, each with Undo, on Pick
+  await page.locator('[data-earlier-open]').click();
+  assert.deepEqual(await page.locator('[data-when]').allTextContents().then((x) => x.map((t) => t.trim())), P.earlier.map((e) => e.label));
+  assert.equal(await page.locator('[data-earlier-date]').getAttribute('max'), '2026-11-15');
+  await checkWidth(page, 'home pick, done earlier open');
+  await page.locator('[data-when="1"]').click();
+  await headIs(`Saved: ${P.job.title} · ${P.job.zone} on 15.11.`);
+  assert.equal(await undoBtn().count(), 1);
+  assert.match(page.url(), /\/home\/pick/);
+  await undoBtn().click();
+  await headIs('Undone: the tick is gone.');
+  await page.locator('[data-earlier-open]').click();
+  await page.locator('[data-earlier-date]').fill('2026-11-02');
+  await page.locator('[data-earlier-save]').click();
+  await headIs(`Saved: ${P.job.title} · ${P.job.zone} on 02.11.`);
+  await undoBtn().click();
+  await headIs('Undone: the tick is gone.');
+
+  // Start timer: the clock counts down in the browser, without a reload
+  await page.locator('[data-btn="start"]').click();
+  await headIs('Timer started: 15 minutes.');
+  assert.equal(await undoBtn().count(), 0, 'no Undo for a timer');
+  await page.locator('[data-card="clock"][data-state="running"]').waitFor();
+  const c1 = await clock();
+  await page.waitForTimeout(1300);
+  const c2 = await clock();
+  assert.match(c1, /^1[45]:\d\d$/);
+  assert.ok(c2 < c1, `the clock counts down (${c1} -> ${c2})`);
+  assert.deepEqual(await buttons(), ['done', 'next', 'stop']);
+  assert.equal(await text(page.locator('[data-btn="stop"]')), 'Stop timer');
+  assert.equal(await text(page.locator('[data-btn="pause"]')), 'Pause');
+  assert.match(await page.locator('[data-btn="done"]').getAttribute('class'), /bg-text/, 'Done is the main button');
+  assert.equal(await page.locator('[data-card="earlier"]').count(), 0);
+  assert.equal(await page.locator('[data-card="also"]').count(), 0);
+  await page.screenshot({ path: `${out}/home-pick-running-${name}-${theme}.png`, fullPage: true });
+  await checkWidth(page, 'home pick running');
+  // Pause and Resume
+  await page.locator('[data-btn="pause"]').click();
+  await headIs('Timer paused.');
+  await page.locator('[data-card="clock"][data-state="paused"]').waitFor();
+  assert.equal(await text(page.locator('[data-line]')), 'Paused.');
+  const p1 = await clock();
+  await page.waitForTimeout(1100);
+  assert.equal(await clock(), p1, 'a paused clock stands');
+  assert.deepEqual(await buttons(), ['done', 'stop']);
+  await page.locator('[data-btn="resume"]').click();
+  await headIs('Timer running again.');
+  await page.locator('[data-card="clock"][data-state="running"]').waitFor();
+  // Done, next job: ticked, the timer goes on with the next job, Undo; the page stays
+  await page.locator('[data-btn="next"]').click();
+  await headIs(`Saved: ${P.job.title} · ${P.job.zone}. Next: ${P.also[0].title}`);
+  assert.equal(await undoBtn().count(), 1);
+  assert.equal(await text(page.locator('[data-job]')), P.also[0].title);
+  await page.locator('[data-card="clock"][data-state="running"]').waitFor();
+  // Stop timer
+  await page.locator('[data-btn="stop"]').click();
+  await headIs('Timer closed.');
+  await page.locator('[data-card="clock"][data-state="none"]').waitFor();
+  assert.ok(await page.evaluate(() => window.__noReload), 'no reload on Pick');
+  await standinPost('/standin/reset');
+
+  // a refusal next to its button: the timer closed elsewhere, then Pause
+  await standinPost('/standin/home-running');
+  await page.goto(`${base}/home/pick`);
+  await page.locator('[data-card="clock"][data-state="running"]').waitFor();
+  await standinPost('/standin/home-closed');
+  await page.locator('[data-btn="pause"]').click();
+  await page.locator('[data-card="clock"] [data-err]').waitFor();
+  assert.equal(await text(page.locator('[data-card="clock"] [data-err]')), 'That timer is not running.');
+  assert.equal(await page.locator('[data-bar]').count(), 0, 'said next to the button, not in the bar');
+  await standinPost('/standin/reset');
+
+  // a timer reaching zero, without a reload: Time is up, Pause and next gone, Finished
+  await standinPost('/standin/home-ending');
+  await page.goto(`${base}/home/pick`);
+  await page.locator('[data-card="clock"][data-state="running"]').waitFor();
+  await page.evaluate(() => (window.__noReload = true));
+  assert.deepEqual(await buttons(), ['done', 'stop'], 'under 3 minutes left: no Done, next job');
+  await page.locator('[data-card="clock"][data-state="over"]').waitFor({ timeout: 10000 });
+  assert.equal(await clock(), '00:00');
+  assert.equal(await text(page.locator('[data-line]')), 'Time is up · well done');
+  assert.equal(await page.locator('[data-btn="pause"]').count(), 0);
+  assert.deepEqual(await buttons(), ['done', 'stop']);
+  assert.equal(await text(page.locator('[data-btn="stop"]')), 'Finished');
+  assert.ok(await page.evaluate(() => window.__noReload), 'zero without a reload');
+  await page.screenshot({ path: `${out}/home-pick-over-${name}-${theme}.png`, fullPage: true });
+  await page.locator('[data-btn="stop"]').click();
+  await headIs('Timer closed.');
+  await standinPost('/standin/reset');
+
+  // Done: the job ticked, the page ends on Now with the answer bar and Undo there
+  await page.goto(`${base}/home/pick?min=15`);
+  await page.locator('[data-card="job"]').waitFor();
+  await page.locator('[data-btn="done"]').click();
+  await page.waitForURL(/\/home$/);
+  await headIs(`Saved: ${P.job.title} · ${P.job.zone}`);
+  assert.equal(await undoBtn().count(), 1, 'Undo on Now');
+  await undoBtn().click();
+  await headIs('Undone: the tick is gone.');
+  await standinPost('/standin/reset');
+
+  // Now with a running timer: the Timer card counting (the mockup's screen 9 on the PC); a paused one
+  await standinPost('/standin/home-running');
+  await page.goto(`${base}/home`);
+  const tc = page.locator('[data-card="timer"]');
+  await tc.waitFor();
+  assert.equal(await text(tc.locator('[data-timer-title]')), P.job.title);
+  assert.equal(await tc.locator('[data-open-timer]').getAttribute('href'), '/home/pick');
+  const l1 = await text(tc.locator('[data-left]'));
+  await page.waitForTimeout(1300);
+  const l2 = await text(tc.locator('[data-left]'));
+  assert.match(l1, /^1[45]:\d\d left$/);
+  assert.notEqual(l1, l2, 'the card counts each second');
+  const [tt, tm2] = await Promise.all(['timer', 'time'].map((k) => page.locator(`[data-card="${k}"]`).boundingBox()));
+  assert.ok(tm2.y > tt.y + tt.height - 1, 'the timer card first');
+  if (pc) await page.screenshot({ path: `${out}/home-now-timer-${name}-${theme}.png` });
+  await checkWidth(page, 'home now with a timer');
+  await standinPost('/standin/reset');
+  await standinPost('/standin/home-paused');
+  await page.reload();
+  await tc.waitFor();
+  assert.equal(await text(tc.locator('[data-left]')), '7:05 left (paused)');
+  await page.goto(`${base}/home/pick`);
+  await page.locator('[data-card="clock"][data-state="paused"]').waitFor();
+  assert.equal(await clock(), '07:05');
+  assert.equal(await text(page.locator('[data-btn="resume"]')), 'Resume');
+  await standinPost('/standin/reset');
+
+  // no zones or chores: Now's and Pick's empty cards, no card on Today
+  await standinPost('/standin/home-empty');
+  await page.goto(`${base}/home`);
+  assert.equal(await text(page.locator('[data-empty]')), 'No zones or chores yet.');
+  await page.goto(`${base}/home/pick`);
+  assert.equal(await text(page.locator('[data-empty]')), 'No zones or chores yet.');
+  await page.goto(`${base}/`);
+  await page.locator('[data-card="habits"]').waitFor();
+  assert.equal(await page.locator('[data-card="home"]').count(), 0, 'no Home card without chores');
+  await standinPost('/standin/reset');
+  await page.goto(`${base}/`);
+}
+
 async function checkWidth(page, what) {
   const sideways = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   assert.ok(sideways <= 0, `${what}: no sideways scroll (${sideways} px too wide)`);
@@ -2376,6 +2676,10 @@ for (const theme of ['dark', 'light']) {
     if (only('gymparts')) {
       await checkGymParts(page, name, theme);
       console.log(`gym plan, exercises, progress, activity, history ${name} ${theme}: checks passed`);
+    }
+    if (only('home')) {
+      await checkHome(page, name, theme);
+      console.log(`home now, pick, timer, today's home card ${name} ${theme}: checks passed`);
     }
     if (only('problems')) {
       await checkProblems(page, name, theme);

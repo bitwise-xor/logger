@@ -1,7 +1,7 @@
 /**
  * The places of the app (deploy 96, the Spaces menu): the tab or rail item a page belongs to, and the Spaces. The PC's rail shows
- * Today, Trends, Library, the Spaces (Gym, Health, Habits) and More; phones and tablets four tabs, with the Spaces on the More page
- * (/more), where Home and Medical wait greyed ("soon"). Plain TypeScript, so the tests need no browser.
+ * Today, Trends, Library, the Spaces (Gym, Health, Habits, and Home since deploy 99) and More; phones and tablets four tabs, with
+ * the Spaces on the More page (/more), where Medical waits greyed ("soon"). Plain TypeScript, so the tests need no browser.
  */
 
 export interface Space {
@@ -17,7 +17,7 @@ export const SPACES: Space[] = [
   { key: 'gym', name: 'Gym', href: '/gym', sub: 'Today’s workout, the split, the last 4 weeks' },
   { key: 'health', name: 'Health', href: '/health', sub: 'Weight, blood pressure, sugar, sleep, body' },
   { key: 'habits', name: 'Habits', href: '/habits', sub: 'Today’s ticks and the last 30 days' },
-  { key: 'home', name: 'Home', href: null, sub: 'soon' },
+  { key: 'home', name: 'Home', href: '/home', sub: 'Chores by zone, a job for the time you have' },
   { key: 'medical', name: 'Medical', href: null, sub: 'soon' },
 ];
 

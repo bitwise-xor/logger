@@ -2,7 +2,7 @@
 // day asked for, and a gone session told apart from other problems.
 import { describe, expect, it } from 'vitest';
 import { makeDoor, type Fetch } from './door.js';
-import { bodyFor, EXERCISES_SAVES, FOOD_SAVES, GYM_SAVES, HABITS_SAVES, HEALTH_SAVES, PLAN_SAVES, runSave, SAVE_NAMES, SAVES, TODAY_SAVES, USUAL_SAVES } from './saves.js';
+import { bodyFor, EXERCISES_SAVES, FOOD_SAVES, GYM_SAVES, HABITS_SAVES, HEALTH_SAVES, HOME_SAVES, PICK_SAVES, PLAN_SAVES, runSave, SAVE_NAMES, SAVES, TODAY_SAVES, USUAL_SAVES } from './saves.js';
 
 const TOKEN = 'f'.repeat(40);
 const SESSION = 's'.repeat(43);
@@ -191,7 +191,7 @@ describe('the Food day saves (step E)', () => {
     expect(TODAY_SAVES).not.toContain('usual_meal');
     expect(TODAY_SAVES).toContain('usual');
     expect(TODAY_SAVES).toContain('undo');
-    expect(new Set([...TODAY_SAVES, ...FOOD_SAVES, ...USUAL_SAVES, ...HEALTH_SAVES, ...HABITS_SAVES, ...GYM_SAVES, ...PLAN_SAVES, ...EXERCISES_SAVES])).toEqual(new Set(SAVE_NAMES));
+    expect(new Set([...TODAY_SAVES, ...FOOD_SAVES, ...USUAL_SAVES, ...HEALTH_SAVES, ...HABITS_SAVES, ...GYM_SAVES, ...PLAN_SAVES, ...EXERCISES_SAVES, ...HOME_SAVES, ...PICK_SAVES])).toEqual(new Set(SAVE_NAMES));
   });
 });
 
@@ -597,5 +597,72 @@ describe('the Gym’s Plan and Exercises parts (deploy 97)', () => {
     expect(seen.at(-1)!.body).toEqual({ token: 'T4v0N4V_gRMyUTvZ', view: 'gym_plan' });
     expect(seen.slice(0, 7).every((x) => (x.body as { view: string }).view === 'gym_plan')).toBe(true);
     expect(seen.slice(7, 10).every((x) => (x.body as { view: string }).view === 'gym_exercises')).toBe(true);
+  });
+});
+
+describe('Home’s Now and Pick pages (deploy 99)', () => {
+  const HOME = ['home_tick', 'home_start', 'home_pause', 'home_resume', 'home_stop', 'home_pickdone', 'home_picknext', 'home_skip', 'home_earlier'] as const;
+
+  it('offers Now the tick and Undo, Pick its eight buttons and Undo, and keeps them off Today', () => {
+    expect(HOME_SAVES).toEqual(['home_tick', 'undo']);
+    expect(PICK_SAVES).toEqual(['home_start', 'home_pause', 'home_resume', 'home_stop', 'home_pickdone', 'home_picknext', 'home_skip', 'home_earlier', 'undo']);
+    for (const n of HOME) expect(TODAY_SAVES).not.toContain(n);
+  });
+
+  it('keys only tick, Done, Done next job and Done it earlier? (the door’s home._once)', () => {
+    expect(HOME.filter((n) => SAVES[n].keyed)).toEqual(['home_tick', 'home_pickdone', 'home_picknext', 'home_earlier']);
+    for (const n of HOME) {
+      const b = bodyFor(n, form({ key: KEY, chore_id: '3', zone_id: '1', pairs: '3-1', minutes: '15', timer_id: '1', when: '1' }), undefined, undefined, 'home_pick');
+      if (SAVES[n].keyed) expect(b.key, n).toBe(KEY);
+      else expect(b, n).not.toHaveProperty('key');
+    }
+  });
+
+  it('sends ids as numbers and pairs as [[chore_id, zone_id], …], with the page’s time and job for the fresh read', () => {
+    expect(bodyFor('home_tick', form({ chore_id: '4', zone_id: '1', key: KEY, view_min: '30' }), undefined, undefined, 'home')).toEqual({
+      chore_id: 4,
+      zone_id: 1,
+      key: KEY,
+      view: 'home',
+      view_min: 30,
+    });
+    expect(bodyFor('home_start', form({ pairs: '1-2,7-2,2-2', minutes: '60', view_min: '60', view_n: '0' }), undefined, undefined, 'home_pick')).toEqual({
+      pairs: [[1, 2], [7, 2], [2, 2]],
+      minutes: 60,
+      view: 'home_pick',
+      view_min: 60,
+      view_n: 0,
+    });
+    for (const n of ['home_pause', 'home_resume', 'home_stop'] as const) {
+      expect(bodyFor(n, form({ timer_id: '12' }), undefined, undefined, 'home_pick')).toEqual({ timer_id: 12, view: 'home_pick' });
+    }
+    expect(bodyFor('home_pickdone', form({ pairs: '3-1', key: KEY }), undefined, undefined, 'home')).toEqual({ pairs: [[3, 1]], key: KEY, view: 'home' });
+    expect(bodyFor('home_pickdone', form({ pairs: '3-1', timer_id: '5', key: KEY, view_min: '15', view_n: '2' }), undefined, undefined, 'home')).toEqual({
+      pairs: [[3, 1]],
+      timer_id: 5,
+      key: KEY,
+      view: 'home',
+      view_min: 15,
+    });
+    expect(bodyFor('home_picknext', form({ pairs: '3-1', timer_id: '5', key: KEY }), undefined, undefined, 'home_pick')).toMatchObject({ pairs: [[3, 1]], timer_id: 5 });
+    expect(bodyFor('home_skip', form({ pairs: '6-3' }), undefined, undefined, 'home_pick')).toEqual({ pairs: [[6, 3]], view: 'home_pick' });
+    expect(bodyFor('home_earlier', form({ pairs: '5-2', when: '2', key: KEY }), undefined, undefined, 'home_pick')).toMatchObject({ pairs: [[5, 2]], when: 2 });
+    expect(bodyFor('home_earlier', form({ pairs: '5-2', when: '2026-11-02', key: KEY }), undefined, undefined, 'home_pick')).toMatchObject({ when: '2026-11-02' });
+  });
+
+  it('leaves out pairs that are not pairs and a time or job that is not a number (the door then says what is wrong)', () => {
+    expect(bodyFor('home_skip', form({ pairs: '3-1;drop' }), undefined, undefined, 'home_pick')).toEqual({ view: 'home_pick' });
+    expect(bodyFor('home_skip', form({ pairs: Array.from({ length: 13 }, (_, i) => `${i + 1}-1`).join(',') }), undefined, undefined, 'home_pick')).not.toHaveProperty('pairs');
+    expect(bodyFor('home_tick', form({ chore_id: '4', zone_id: '1', key: KEY, view_min: 'all' }), undefined, undefined, 'home')).not.toHaveProperty('view_min');
+    // view_n belongs to the Pick read only
+    expect(bodyFor('home_tick', form({ chore_id: '4', zone_id: '1', key: KEY, view_n: '3' }), undefined, undefined, 'home')).not.toHaveProperty('view_n');
+  });
+
+  it('each goes to its /home/<action>, and Undo asks for its page’s read', async () => {
+    const { door, seen } = net(200, { v: 1, outcome: 'saved', head: 'Saved: Clean the fridge · Kitchen', home: {} });
+    for (const n of HOME) await runSave(door, SESSION, n, form({ chore_id: '3', zone_id: '1', pairs: '3-1', minutes: '15', timer_id: '1', when: '1', key: KEY }), undefined, 'home_pick');
+    await runSave(door, SESSION, 'undo', form({ token: 'xxr8bM8hNQ71ey7c', view_min: '15' }), undefined, 'home');
+    expect(seen.map((x) => x.path)).toEqual([...HOME.map((n) => `/api/v1/home/${n.slice(5)}`), '/api/v1/undo']);
+    expect(seen.at(-1)!.body).toEqual({ token: 'xxr8bM8hNQ71ey7c', view: 'home', view_min: 15 });
   });
 });

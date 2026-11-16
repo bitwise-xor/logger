@@ -192,14 +192,15 @@ describe('the cards', () => {
 });
 
 describe('the Spaces menu', () => {
-  it('lists Gym, Health and Habits, then Home and Medical for later', () => {
+  it('lists Gym, Health, Habits and Home (deploy 99), then Medical for later', () => {
     expect(SPACES.map((s) => [s.name, s.href])).toEqual([
       ['Gym', '/gym'],
       ['Health', '/health'],
       ['Habits', '/habits'],
-      ['Home', null],
+      ['Home', '/home'],
       ['Medical', null],
     ]);
+    expect(SPACES.find((s) => s.key === 'home')!.sub).not.toBe('soon');
   });
 
   it('knows the place of a page: Today for Today and the Food day, More for /more and every Space', () => {
@@ -210,6 +211,9 @@ describe('the Spaces menu', () => {
     expect(placeOf('/gym')).toEqual({ tab: 'more', space: 'gym', atMore: false });
     expect(placeOf('/health')).toEqual({ tab: 'more', space: 'health', atMore: false });
     expect(placeOf('/habits')).toEqual({ tab: 'more', space: 'habits', atMore: false });
+    expect(placeOf('/home')).toEqual({ tab: 'more', space: 'home', atMore: false });
+    expect(placeOf('/home/pick')).toEqual({ tab: 'more', space: 'home', atMore: false });
+    expect(placeOf('/homework')).toEqual({ tab: null, space: null, atMore: false });
     expect(placeOf('/gymnastics')).toEqual({ tab: null, space: null, atMore: false });
     expect(placeOf('/scan/barcode')).toEqual({ tab: null, space: null, atMore: false });
   });

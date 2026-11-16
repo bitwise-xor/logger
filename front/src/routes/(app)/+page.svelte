@@ -7,6 +7,7 @@
   import GymCard from '#lib/components/today/GymCard.svelte';
   import HabitsCard from '#lib/components/today/HabitsCard.svelte';
   import HealthCard from '#lib/components/today/HealthCard.svelte';
+  import HomeCard from '#lib/components/today/HomeCard.svelte';
   import NeedsCard from '#lib/components/today/NeedsCard.svelte';
   import ProblemCard from '#lib/components/ProblemCard.svelte';
   import { Button } from '#lib/components/ui/button/index.js';
@@ -64,7 +65,9 @@
       <div class="order-1 empty:hidden desktop:order-none"><NeedsCard {day} appUrl={data.appUrl} /></div>
       <div class="order-2 empty:hidden desktop:order-none"><EnergyCard {day} {foodHref} /></div>
       <div class="order-7 empty:hidden desktop:order-none"><HabitsCard {day} /></div>
-      <div class="order-8 empty:hidden desktop:order-none"><GratitudeLink {day} href="{data.appUrl}/web/gratitude" /></div>
+      <!-- the Home card (deploy 99): right after Habits, as on app. (its Gym card follows there; here the Gym card sits under the day) -->
+      <div class="order-8 empty:hidden desktop:order-none"><HomeCard {day} /></div>
+      <div class="order-9 empty:hidden desktop:order-none"><GratitudeLink {day} href="{data.appUrl}/web/gratitude" /></div>
     </div>
   </main>
 {/if}

@@ -8,6 +8,7 @@ import type { Body, BodyDue, Health } from './health.js';
 import type { Habits } from './habits.js';
 import type { GymCard, Workout } from './gym.js';
 import type { Exercises, Plan } from './gymplan.js';
+import type { HomeCard, HomePick, Now } from './home.js';
 import type { Usual } from './usual.js';
 
 // ---- the door's shapes (docs/API.md; front/tests/samples/day.json is a real answer) ----------------------------------------
@@ -160,6 +161,8 @@ export interface Day {
   gratitude: { count: number; goal: number };
   /** Today's Gym card (deploy 95/96); null for a past day. */
   gym?: GymCard | null;
+  /** Today's Home card (deploy 98/99); null: a past day, no chores, or the card hidden in Settings > Today page. */
+  home?: HomeCard | null;
 }
 
 export interface Undo {
@@ -456,6 +459,9 @@ export interface SaveAnswer {
   /** A save of the Gym's Plan part (deploy 97): the Plan read ("view": "gym_plan"); of the Exercises part: "gym_exercises". */
   gym_plan?: Plan;
   gym_exercises?: Exercises;
+  /** A save of Home's Now page (deploy 99): the Now read ("view": "home"); of the Pick page: "home_pick". */
+  home?: Now;
+  home_pick?: HomePick;
 }
 
 /** The rows a save added (in the fresh day, not in the one shown before): they get a blue edge (the mockup). */

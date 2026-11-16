@@ -61,6 +61,13 @@
 // data changed as the core would; the Workout read follows the plan (the chips and the split come from the days). POST
 // /standin/gym-empty: no exercises, no days (the empty Exercises list, the empty Progress, History and Plan). POST
 // /standin/week-done: Day 1 counts as done this week.
+// Deploy 99: Home's Now and Pick pages, from tests/samples/home.json (real answers of the door for an invented flat): GET /home?min= and
+// /home/pick?min=&n= worked out from the Zones sample's pairs as they stand (home.load's order, one row per chore, the jobs that fit as
+// home.candidates picks them, the open timer with its seconds left), Day.home made the same way; POST /home/tick (toggles a pair done
+// today), start, pause, resume, stop, pickdone, picknext, skip and earlier with the core's checks and words, keys replayed, Undo of a
+// tick, pickdone, picknext, skip and earlier. POST /standin/home-running (a timer of 15 minutes on the first job), /standin/home-ending
+// (one with 6 seconds left), /standin/home-paused (7:05 left, paused), /standin/home-closed (the open timer closed elsewhere),
+// /standin/home-empty (no zones or chores); /standin/slow slows Home's saves too.
 import { createServer } from 'node:http';
 import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
@@ -87,7 +94,7 @@ let mode = 'up'; // 'up' | 'core-down' | 'door-off' (step F)
 function reset() {
   state = { day: read('day.json').day, usual: usualStart(), undo: null, before: null, keys: new Map(), lines: new Map(), aiDown: false,
     scanned: new Map([[SCAN.barcode.code, SCAN.barcode.food]]), labelFail: false,
-    hv: healthStart(), sessions: sessionsStart(), hab: habitsStart(), dayKeys: new Set(), slow: 0, locked: new Set(), gym: gymStart(), watchNone: false, gymEmpty: false };
+    hv: healthStart(), sessions: sessionsStart(), hab: habitsStart(), dayKeys: new Set(), slow: 0, locked: new Set(), gym: gymStart(), watchNone: false, gymEmpty: false, home: homeStart() };
   state.day.needs.body_due = structuredClone(HEALTH.day_body_due);
   // the notes of the food sample's rows (the same invented day), kept on the rows so an Undo puts them back too
   const notes = new Map(FOOD.food_day.food_day.rows.map((r) => [r.ref, r.note]));
@@ -1335,7 +1342,294 @@ const gymView = (action, b) =>
   ['daynew', 'dayedit', 'dayactive', 'itemadd', 'itemset', 'itemmove', 'itemremove'].includes(action) ? 'gym_plan'
   : ['rename', 'active'].includes(action) || (action === 'new' && b.today !== true) ? 'gym_exercises' : 'gym';
 
-const KEYED = ['/gym/tick', '/health/day', '/body', '/food/labeladd', '/log', '/water', '/again', '/usual', '/habit', '/checkin', '/health', '/held/retry', '/held/delete', '/usual/meal', '/usual/new', '/usual/from_meal'];
+// ---- Home (deploy 99): Now, Pick and Today's card, from tests/samples/home.json -------------------------------------------------
+
+const HM = read('home.json');
+const HM_NOW = HM.home.home;
+const HM_TODAY = HM_NOW.today;
+const HM_HOURS = [5, 15, 30, 60];
+/** The chores' own steps and how-to and the zones' spots (Edit zones' sample), for the jobs of the Pick page. */
+const HM_EDIT = HM.edit.home_edit;
+const HM_CHORE = new Map([...HM_EDIT.flat, ...HM_EDIT.zones.flatMap((z) => z.chores)].map((c) => [c.chore_id, c]));
+const HM_SPOTS = new Map(HM_EDIT.zones.map((z) => [z.zone_id, z.spots]));
+
+/** home.age_text and interval_text (the door's words). */
+function hmAge(days) {
+  if (days === null) return 'not logged yet';
+  if (days <= 0) return 'today';
+  if (days === 1) return 'yesterday';
+  if (days < 14) return `${days} days ago`;
+  if (days < 56) return `${Math.floor(days / 7)} weeks ago`;
+  if (days < 365) { const n = Math.floor(days / 30); return `${n} month${n === 1 ? '' : 's'} ago`; }
+  const n = Math.floor(days / 365);
+  return `${n} year${n === 1 ? '' : 's'} ago`;
+}
+const hmNoon = (ago) => `${shiftIso(HM_TODAY, -ago)}T12:00:00+01:00`;
+
+/** The pairs of the Zones sample (every chore in every zone it is done in), each with the days ago it was done (0 = today). */
+function homeStart() {
+  const pairs = [];
+  for (const z of HM.zones.home_zones.zones) {
+    for (const c of z.chores) {
+      pairs.push({ ...c, done: c.age === null ? [] : [{ ago: c.age, at: c.done_at }] });
+    }
+  }
+  return { pairs, skips: new Set(), recent: structuredClone(HM_NOW.recent), week: structuredClone(HM_NOW.week), timer: null, timerIds: 0, doneIds: 100, empty: false };
+}
+const hmKey = (c, z) => `${c}:${z}`;
+const hmPair = (c, z) => state.home.pairs.find((p) => p.chore_id === c && p.zone_id === z);
+/** A pair as the door's HomeRow, its age from its done days. */
+function hmRow(p) {
+  const last = p.done.reduce((a, d) => (a === null || d.ago < a.ago ? d : a), null);
+  const age = last ? last.ago : null;
+  const { done: _d, ...row } = p;
+  return { ...row, age, age_text: hmAge(age), done_today: age === 0, done_at: last ? last.at : null };
+}
+/** home.load's order: never logged 1.5 times late, then the most overdue; ties by interval, chore, zone. */
+function hmRows() {
+  const rank = (r) => (r.age === null ? 1.5 : r.age / r.interval);
+  return state.home.pairs.map(hmRow).sort((a, b) => rank(b) - rank(a) || a.interval - b.interval || a.chore_id - b.chore_id || a.zone_id - b.zone_id);
+}
+const hmVisible = () => hmRows().filter((r) => !state.home.skips.has(hmKey(r.chore_id, r.zone_id)));
+/** home.worst: one row per chore, its zone waiting longest. */
+const hmWorst = (rows) => rows.filter((r, i) => rows.findIndex((x) => x.chore_id === r.chore_id) === i);
+
+/** A job (home._single, _session, _whole). */
+function hmSingle(r, over = false) {
+  const c = HM_CHORE.get(r.chore_id);
+  return { pairs: [[r.chore_id, r.zone_id]], title: r.flat ? `${r.name} the ${r.zone.toLowerCase()}` : r.name, zone: r.zone, age: r.age, age_text: hmAge(r.age),
+    minutes: r.minutes, steps: (c?.steps?.length ? c.steps : r.flat ? HM_SPOTS.get(r.zone_id) ?? [] : []).slice(0, 5), howto: c?.howto ?? null, over, session: false };
+}
+const hmAgeOf = (rs) => (rs.some((r) => r.age === null) ? null : Math.max(...rs.map((r) => r.age)));
+function hmSession(rs) {
+  const place = (r) => [r.flat ? (r.name.toLowerCase().startsWith('dust') ? 0 : 2) : 1, r.chore_id];
+  rs = [...rs].sort((a, b) => place(a)[0] - place(b)[0] || place(a)[1] - place(b)[1]);
+  const age = hmAgeOf(rs);
+  return { pairs: rs.map((r) => [r.chore_id, r.zone_id]), title: `${rs[0].zone}: ${rs.length} jobs`, zone: rs[0].zone, age, age_text: hmAge(age),
+    minutes: rs.reduce((a, r) => a + r.minutes, 0), steps: rs.map((r) => `${r.name} (${r.minutes} min)`), howto: null, over: false, session: true };
+}
+function hmWhole(rs) {
+  rs = [...rs].sort((a, b) => a.zone_id - b.zone_id);
+  const age = hmAgeOf(rs);
+  return { pairs: rs.map((r) => [r.chore_id, r.zone_id]), title: `${rs[0].name} the whole flat`, zone: 'Whole flat', age, age_text: hmAge(age),
+    minutes: rs.reduce((a, r) => a + r.minutes, 0), steps: rs.map((r) => `${r.zone} (${r.minutes} min)`), howto: HM_CHORE.get(rs[0].chore_id)?.howto ?? null, over: false, session: true };
+}
+/** home.candidates: the jobs that fit, best first; nothing fits: the shortest, over the time. */
+function hmCandidates(minutes) {
+  const avail = hmRows().filter((r) => r.age !== 0 && !state.home.skips.has(hmKey(r.chore_id, r.zone_id)));
+  const fits = avail.filter((r) => r.minutes <= minutes);
+  const jobs = [];
+  if (minutes >= 60 && fits.length) {
+    let total = 0;
+    const chosen = [];
+    for (const r of fits.filter((x) => x.zone_id === fits[0].zone_id)) if (total + r.minutes <= minutes) { chosen.push(r); total += r.minutes; }
+    if (chosen.length >= 2) jobs.push(hmSession(chosen));
+  }
+  jobs.push(...hmWorst(fits).map((r) => hmSingle(r)));
+  if (minutes >= 30 && jobs.length) {
+    const wholes = [...new Set(avail.filter((r) => r.flat).map((r) => r.chore_id))].map((id) => avail.filter((r) => r.chore_id === id))
+      .filter((rs) => rs.length >= 2 && rs.reduce((a, r) => a + r.minutes, 0) <= minutes && rs.some((r) => r.age === null || r.age >= r.interval)).map(hmWhole);
+    jobs.splice(jobs[0].session ? 2 : 1, 0, ...wholes);
+  }
+  if (!jobs.length && avail.length) jobs.push(hmSingle(hmWorst(avail).sort((a, b) => a.minutes - b.minutes)[0], true));
+  return jobs;
+}
+/** home.job_of: a timer's job rebuilt from its pairs (null when they are gone). */
+function hmJobOf(pairs) {
+  const rows = hmRows();
+  const found = pairs.map(([c, z]) => rows.find((r) => r.chore_id === c && r.zone_id === z)).filter(Boolean);
+  if (!found.length) return null;
+  if (found.length === 1) return hmSingle(found[0]);
+  return new Set(found.map((r) => r.chore_id)).size === 1 && found[0].flat ? hmWhole(found) : hmSession(found);
+}
+/** The open timer (home.timer_open) as the door's Timer, with its job; null when there is none or its job is gone. */
+function hmTimer() {
+  const t = state.home.timer;
+  if (!t || t.closed) return null;
+  const job = hmJobOf(t.pairs);
+  if (!job) return null;
+  const now = Date.now();
+  const st = t.endsAt === null ? 'paused' : t.endsAt > now ? 'running' : 'over';
+  const left = st === 'paused' ? t.leftS : st === 'running' ? Math.ceil((t.endsAt - now) / 1000) : 0;
+  return { t: { id: t.id, state: st, left, ends_at: st === 'paused' ? null : new Date(t.endsAt).toISOString(), minutes: t.minutes, title: job.title, pairs: job.pairs }, job };
+}
+const hmMinutes = (v) => (HM_HOURS.includes(Number(v)) ? Number(v) : 15);
+
+/** GET /home?min= as the door answers. */
+function homeOut(min) {
+  if (state.home.empty) return { ...HM_NOW, empty: true, minutes: hmMinutes(min), timer: null, rows: [], count: 0, hidden: 0, recent: [] };
+  const vis = hmVisible();
+  const rows = hmWorst(vis);
+  return { ...HM_NOW, minutes: hmMinutes(min), timer: hmTimer()?.t ?? null, week: state.home.week, rows, count: rows.length, shown: 6,
+    hidden: state.home.pairs.length - vis.length, recent: state.home.recent.filter((e) => e.source !== 'start').slice(0, 5) };
+}
+/** GET /home/pick?min=&n= as the door answers. */
+function pickOut(min, nIn) {
+  const minutes = hmMinutes(min);
+  const n0 = /^\d+$/.test(String(nIn ?? '')) ? Number(nIn) : 0;
+  const base = { ...HM.pick.home_pick, minutes, title: `Your ${{ 5: '5 minutes', 15: '15 minutes', 30: '30 minutes', 60: 'hour' }[minutes]}`, timer: null, job: null, n: null, count: 0, also: [] };
+  if (state.home.empty) return { ...base, empty: 'no_chores' };
+  const open = hmTimer();
+  if (open) return { ...base, minutes: open.t.minutes, title: `Your ${{ 5: '5 minutes', 15: '15 minutes', 30: '30 minutes', 60: 'hour' }[open.t.minutes] ?? `${open.t.minutes} minutes`}`, empty: null, timer: open.t, job: open.job, count: 1 };
+  const jobs = hmCandidates(minutes);
+  if (!jobs.length) return { ...base, empty: 'nothing_waiting' };
+  const n = n0 % jobs.length;
+  const also = [(n + 1) % jobs.length, (n + 2) % jobs.length].filter((i, k, a) => i !== n && a.indexOf(i) === k).map((i) => ({ n: i, title: jobs[i].title }));
+  return { ...base, empty: null, job: jobs[n], n, count: jobs.length, also };
+}
+/** Today's Home card (homepage.card_data); null without chores. */
+function homeCard() {
+  if (state.home.empty) return null;
+  const vis = hmVisible();
+  const rows = hmWorst(vis);
+  const w = state.home.week;
+  return { this_week: w.this, goal: w.goal, text: `this week ${w.this} of ${w.goal}`, waiting: rows[0] ?? null, hidden: state.home.pairs.length - vis.length };
+}
+
+/** A Home save with Undo: Home as it was, and the Undo's own head. */
+const homeSave = (before, answer, undoHead) => {
+  state.before = { day: state.day, usual: state.usual, home: before, homeUndo: undoHead };
+  state.undo = { token: randomBytes(12).toString('base64url'), head: answer.head, expires_at: new Date(Date.now() + 15 * 60_000).toISOString() };
+  return { ...answer, undo: state.undo };
+};
+const homePlain = (answer) => {
+  state.before = null;
+  state.undo = null;
+  return { ...answer, undo: null };
+};
+const hmBad = (message) => [400, { error: 'bad_request', message }];
+const hmIsId = (v) => Number.isInteger(v) && v > 0;
+const hmPairsOk = (v) => Array.isArray(v) && v.length >= 1 && v.length <= 12 && v.every((x) => Array.isArray(x) && x.length === 2 && x.every(hmIsId));
+const hmNames = (pairs) => {
+  const ps = pairs.map(([c, z]) => hmPair(c, z));
+  const byChore = new Map();
+  for (const p of ps) byChore.set(p.chore_id, [...(byChore.get(p.chore_id) ?? []), p]);
+  return [...byChore.values()].map((g) => (g.length > 1 ? `${g[0].name} · ${g.length} zones` : g[0].label)).join(', ');
+};
+/** Rows stamped done (ago days back; 0 = now), with their History entry. */
+function hmStamp(pairs, source, ago = 0) {
+  const at = ago === 0 ? new Date().toISOString() : hmNoon(ago);
+  const ids = [];
+  for (const [c, z] of pairs) {
+    hmPair(c, z).done.push({ ago, at });
+    ids.push(++state.home.doneIds);
+  }
+  const ps = pairs.map(([c, z]) => hmPair(c, z));
+  const day = shiftIso(HM_TODAY, -ago);
+  state.home.recent.unshift({ ids, chore_id: ps[0].chore_id, chore: ps[0].name, zones: ps.map((p) => p.zone), flat: ps[0].flat,
+    label: ps.length > 1 ? `${ps[0].name} · ${ps.length} zones` : ps[0].label, at, day, dated: ago > 0, source, how: ago > 0 ? 'earlier' : source === 'pick' ? 'timer' : 'ticked',
+    time: ago > 0 ? null : hm(), when: ago > 0 ? ddmm(day) : `${ddmm(day)} ${hm()}` });
+  state.home.recent.sort((a, b) => (a.at < b.at ? 1 : -1));
+}
+const hmValid = (pairs) => pairs.filter(([c, z]) => hmPair(c, z));
+const hmCloseTimer = () => {
+  const t = state.home.timer;
+  if (t && !t.closed) { if (t.endsAt !== null && t.endsAt > Date.now()) t.endsAt = null; t.leftS = null; t.closed = true; }
+};
+
+/** POST /home/<action> of the Now and Pick pages: [status, answer]; the core's checks and words (home.py). */
+function homeAction(action, b) {
+  const h = state.home;
+  if (action === 'tick') {
+    if (!hmIsId(b.chore_id) || !hmIsId(b.zone_id)) return hmBad('chore_id must be a number.');
+    const p = hmPair(b.chore_id, b.zone_id);
+    if (!p) return [200, rejected('That chore is not in the list.')];
+    const before = structuredClone(h);
+    if (p.done.some((d) => d.ago === 0)) {
+      p.done = p.done.filter((d) => d.ago !== 0);
+      h.recent = h.recent.filter((e) => !(e.chore_id === p.chore_id && e.day === HM_TODAY && e.zones.length === 1 && e.zones[0] === p.zone));
+      return [200, homeSave(before, { outcome: 'changed', head: `Ticked off: ${p.label}` }, `Undone: ${p.label} is done again.`)];
+    }
+    hmStamp([[p.chore_id, p.zone_id]], 'web');
+    return [200, homeSave(before, { outcome: 'saved', head: `Saved: ${p.label}` }, 'Undone: the tick is gone.')];
+  }
+  const pairsIn = () => (hmPairsOk(b.pairs) ? b.pairs : null);
+  if (['start', 'pickdone', 'picknext', 'skip', 'earlier'].includes(action) && !pairsIn()) return hmBad('pairs must be a list of 1 to 12 [chore_id, zone_id].');
+  if (['pause', 'resume', 'stop', 'picknext'].includes(action) && !hmIsId(b.timer_id)) return hmBad('timer_id must be a number.');
+  const t = h.timer && !h.timer.closed ? h.timer : null;
+  if (action === 'start') {
+    if (!Number.isInteger(b.minutes)) return hmBad('minutes must be a whole number.');
+    const pairs = hmValid(b.pairs);
+    if (!pairs.length || b.minutes < 1 || b.minutes > 240) return [200, rejected('That job is not in the list any more.')];
+    hmCloseTimer();
+    h.timer = { id: ++h.timerIds, minutes: b.minutes, pairs, endsAt: Date.now() + b.minutes * 60_000, leftS: null, closed: false };
+    return [200, homePlain({ outcome: 'changed', head: `Timer started: ${b.minutes} minutes.` })];
+  }
+  if (action === 'pause') {
+    if (!t || t.id !== b.timer_id || t.endsAt === null || t.endsAt <= Date.now()) return [200, rejected('That timer is not running.')];
+    t.leftS = Math.max(0, Math.ceil((t.endsAt - Date.now()) / 1000));
+    t.endsAt = null;
+    return [200, homePlain({ outcome: 'changed', head: 'Timer paused.' })];
+  }
+  if (action === 'resume') {
+    if (!t || t.id !== b.timer_id || t.endsAt !== null || t.leftS === null) return [200, rejected('That timer is not paused.')];
+    t.endsAt = Date.now() + t.leftS * 1000;
+    t.leftS = null;
+    return [200, homePlain({ outcome: 'changed', head: 'Timer running again.' })];
+  }
+  if (action === 'stop') {
+    if (!t || t.id !== b.timer_id) return [200, rejected('That timer is already closed.')];
+    hmCloseTimer();
+    return [200, homePlain({ outcome: 'changed', head: 'Timer closed.' })];
+  }
+  if (action === 'pickdone') {
+    const pairs = hmValid(b.pairs);
+    if (!pairs.length) return [200, rejected('That job is not in the list any more.')];
+    const before = structuredClone(h);
+    const fresh = pairs.filter(([c, z]) => !hmPair(c, z).done.some((d) => d.ago === 0));
+    hmCloseTimer();
+    if (!fresh.length) return [200, homePlain({ outcome: 'changed', head: 'Already ticked today.' })];
+    const said = hmNames(fresh);
+    hmStamp(fresh, 'pick');
+    return [200, homeSave(before, { outcome: 'saved', head: `Saved: ${said}`.slice(0, 160) }, 'Undone: the tick is gone.')];
+  }
+  if (action === 'picknext') {
+    const open = hmTimer();
+    const pairs = hmValid(b.pairs);
+    if (!open || open.t.id !== b.timer_id || open.t.state !== 'running' || !pairs.length) return [200, rejected('That timer is not running.')];
+    const before = structuredClone(h);
+    const fresh = pairs.filter(([c, z]) => !hmPair(c, z).done.some((d) => d.ago === 0));
+    const said = hmNames(fresh.length ? fresh : pairs);
+    if (fresh.length) hmStamp(fresh, 'pick');
+    const nxt = open.t.left >= 180 ? hmCandidates(Math.floor(open.t.left / 60)).filter((j) => !j.over) : [];
+    let head;
+    if (nxt.length) {
+      h.timer.pairs = nxt[0].pairs;
+      head = `Saved: ${said}. Next: ${nxt[0].title}`;
+    } else {
+      hmCloseTimer();
+      head = `Saved: ${said}. Nothing else fits in the time left; the timer is closed.`;
+    }
+    const answer = { outcome: fresh.length ? 'saved' : 'changed', head: head.slice(0, 160) };
+    return [200, fresh.length ? homeSave(before, answer, 'Undone: the tick is gone.') : homePlain(answer)];
+  }
+  if (action === 'skip') {
+    const pairs = hmValid(b.pairs);
+    if (!pairs.length) return [200, rejected('That job is not in the list any more.')];
+    const fresh = pairs.filter(([c, z]) => !h.skips.has(hmKey(c, z)));
+    if (!fresh.length) return [200, homePlain({ outcome: 'changed', head: 'Hidden already.' })];
+    const before = structuredClone(h);
+    for (const [c, z] of fresh) h.skips.add(hmKey(c, z));
+    return [200, homeSave(before, { outcome: 'changed', head: `Not today: ${hmNames(pairs)}`.slice(0, 160) }, 'Undone: the job is back in the list.')];
+  }
+  if (action === 'earlier') {
+    const w = b.when;
+    if (!(Number.isInteger(w) || (typeof w === 'string' && /^\d{4}-\d\d-\d\d$/.test(w)))) return hmBad('when must be 1 to 7 (days ago) or a date yyyy-mm-dd.');
+    const pairs = hmValid(b.pairs);
+    if (!pairs.length) return [200, rejected('Pick a job from the list.')];
+    const ago = Number.isInteger(w) ? (w >= 1 && w <= 7 ? w : null) : Math.round((Date.parse(`${HM_TODAY}T12:00:00Z`) - Date.parse(`${w}T12:00:00Z`)) / 86400_000);
+    if (ago === null || ago < 1 || ago > 365) return [200, rejected('Pick a day before today, in the last year.')];
+    const before = structuredClone(h);
+    const said = hmNames(pairs);
+    hmStamp(pairs, 'web', ago);
+    return [200, homeSave(before, { outcome: 'saved', head: `Saved: ${said} on ${ddmm(shiftIso(HM_TODAY, -ago))}`.slice(0, 160) }, 'Undone: the tick is gone.')];
+  }
+  return [404, { error: 'not_found', message: 'Not found.' }];
+}
+/** The read a Home save answers with when the body names none (docs/API.md): tick and pickdone Now, the others Pick. */
+const homeView = (action) => (['tick', 'pickdone'].includes(action) ? 'home' : 'home_pick');
+
+const KEYED = ['/gym/tick', '/health/day', '/home/tick', '/home/pickdone', '/home/picknext', '/home/earlier', '/body', '/food/labeladd', '/log', '/water', '/again', '/usual', '/habit', '/checkin', '/health', '/held/retry', '/held/delete', '/usual/meal', '/usual/new', '/usual/from_meal'];
 
 reset();
 
@@ -1364,6 +1658,22 @@ createServer(async (req, res) => {
     Object.assign(state.gym, { ex: [], days: [], plan: new Map(), day: null, auto: null, logs: [] }); // no exercises, no days
     state.gymEmpty = true;
     return send(res, 200, { outcome: 'gym-empty' });
+  }
+  // Home (deploy 99): an open timer running (15 minutes on the first job), one about to end (6 seconds left), one paused, no chores
+  if (['/standin/home-running', '/standin/home-ending', '/standin/home-paused'].includes(req.url) && req.method === 'POST') {
+    const job = hmCandidates(15)[0];
+    const s = req.url.endsWith('ending') ? 6 : req.url.endsWith('paused') ? 425 : 900;
+    state.home.timer = { id: ++state.home.timerIds, minutes: 15, pairs: job.pairs, endsAt: req.url.endsWith('paused') ? null : Date.now() + s * 1000,
+      leftS: req.url.endsWith('paused') ? s : null, closed: false };
+    return send(res, 200, { outcome: req.url.slice('/standin/'.length) });
+  }
+  if (req.url === '/standin/home-closed' && req.method === 'POST') {
+    hmCloseTimer(); // the timer stopped elsewhere (app. or another device): the page's next timer button is refused
+    return send(res, 200, { outcome: 'home-closed' });
+  }
+  if (req.url === '/standin/home-empty' && req.method === 'POST') {
+    state.home.empty = true; // no zones or chores: Now's empty card, Pick's, no card on Today
+    return send(res, 200, { outcome: 'home-empty' });
   }
   if (req.url === '/standin/week-done' && req.method === 'POST') {
     state.gym.done.set(1, '2026-11-16'); // Day 1 counts as done this week
@@ -1410,7 +1720,7 @@ createServer(async (req, res) => {
   if (req.url === '/api/v1/session' && req.method === 'GET') {
     return send(res, 200, { signed_in: true, sid: '00000000-0000-0000-0000-000000000000', expires_at: ends() }, signedIn);
   }
-  if (req.url.startsWith('/api/v1/day') && req.method === 'GET') return send(res, 200, { day: dayOut(state.day), undo: undo() }, signedIn);
+  if (req.url.startsWith('/api/v1/day') && req.method === 'GET') return send(res, 200, { day: { ...dayOut(state.day), home: homeCard() }, undo: undo() }, signedIn);
   const url = new URL(req.url, 'http://standin');
   if (url.pathname === '/api/v1/food/day' && req.method === 'GET') {
     return send(res, 200, { food_day: foodDay(url.searchParams.get('day')), undo: undo() }, signedIn);
@@ -1444,6 +1754,10 @@ createServer(async (req, res) => {
     const { v: _v, ...rest } = out;
     return send(res, status, rest, signedIn);
   }
+  if (url.pathname === '/api/v1/home' && req.method === 'GET') return send(res, 200, { home: homeOut(url.searchParams.get('min')), undo: undo() }, signedIn);
+  if (url.pathname === '/api/v1/home/pick' && req.method === 'GET') {
+    return send(res, 200, { home_pick: pickOut(url.searchParams.get('min'), url.searchParams.get('n')), undo: undo() }, signedIn);
+  }
   if (url.pathname === '/api/v1/gym' && req.method === 'GET') return send(res, 200, { gym: gymOut(), undo: undo() }, signedIn);
   if (url.pathname === '/api/v1/gym/plan' && req.method === 'GET') return send(res, 200, { gym_plan: planOut(), undo: undo() }, signedIn);
   if (url.pathname === '/api/v1/gym/exercises' && req.method === 'GET') return send(res, 200, { gym_exercises: exercisesOut(), undo: undo() }, signedIn);
@@ -1461,7 +1775,7 @@ createServer(async (req, res) => {
   if (url.pathname === '/api/v1/foods' && req.method === 'GET') return send(res, 200, { foods: foods(url.searchParams.get('q')) }, signedIn);
   // A save's fresh read: the Food day or the usual meals when the body asks for it (view "food" with view_day, "usual"), else
   // Today; as the core, /usual/meal and /usual/new default to the usual meals and /usual/from_meal to the Food day.
-  const view = body.view ?? ({ '/api/v1/usual/meal': 'usual', '/api/v1/usual/new': 'usual', '/api/v1/usual/from_meal': 'food', '/api/v1/health/day': 'health', '/api/v1/body': 'body', '/api/v1/habit/day': 'habits', '/api/v1/habits/manage': 'habits' })[req.url] ?? (req.url.startsWith('/api/v1/gym/') ? gymView(req.url.slice('/api/v1/gym/'.length), body) : undefined);
+  const view = body.view ?? ({ '/api/v1/usual/meal': 'usual', '/api/v1/usual/new': 'usual', '/api/v1/usual/from_meal': 'food', '/api/v1/health/day': 'health', '/api/v1/body': 'body', '/api/v1/habit/day': 'habits', '/api/v1/habits/manage': 'habits' })[req.url] ?? (req.url.startsWith('/api/v1/gym/') ? gymView(req.url.slice('/api/v1/gym/'.length), body) : req.url.startsWith('/api/v1/home/') ? homeView(req.url.slice('/api/v1/home/'.length)) : undefined);
   const range = [7, 30, 90].includes(body.range) ? body.range : 30;
   const fresh = () =>
     view === 'food' ? { food_day: foodDay(body.view_day) }
@@ -1471,6 +1785,8 @@ createServer(async (req, res) => {
     : view === 'gym' ? { gym: gymOut() }
     : view === 'gym_plan' ? { gym_plan: planOut() }
     : view === 'gym_exercises' ? { gym_exercises: exercisesOut() }
+    : view === 'home' ? { home: homeOut(body.view_min) }
+    : view === 'home_pick' ? { home_pick: pickOut(body.view_min, body.view_n) }
     : view === 'habits' ? { habits: habitsOut(['tracked', 'untracked', 'retired', 'all'].includes(body.show) ? body.show : 'tracked') }
     : { day: dayOut(state.day) };
   if (req.url === '/api/v1/session' && req.method === 'DELETE') {
@@ -1486,8 +1802,9 @@ createServer(async (req, res) => {
       }
       if (state.before.hv) [state.hv, state.sessions] = [state.before.hv, state.before.sessions];
       if (state.before.hab) state.hab = state.before.hab;
-      const head = state.before.gymUndo ?? 'Undone.';
+      const head = state.before.gymUndo ?? state.before.homeUndo ?? 'Undone.';
       if (state.before.gym) state.gym = state.before.gym;
+      if (state.before.home) state.home = state.before.home;
       [state.day, state.usual, state.before, state.undo] = [state.before.day, state.before.usual, null, null];
       return send(res, 200, { ...base, outcome: 'changed', head, undo: null, ...fresh() }, signedIn);
     }
@@ -1525,6 +1842,14 @@ createServer(async (req, res) => {
       if (status !== 200) return send(res, status, out, signedIn);
       const answer = { ...base, ...out, v: 1, tone: out.outcome === 'rejected' ? 'warning' : 'ok' };
       if (path === '/gym/tick' && body.key && answer.outcome !== 'rejected') state.keys.set(body.key, answer);
+      return send(res, 200, { ...answer, ...fresh() }, signedIn);
+    }
+    if (path.startsWith('/home/')) {
+      if (state.slow) await new Promise((r) => setTimeout(r, state.slow)); // POST /standin/slow
+      const [status, out] = homeAction(path.slice('/home/'.length), body);
+      if (status !== 200) return send(res, status, out, signedIn);
+      const answer = { ...base, ...out, v: 1, tone: out.outcome === 'rejected' ? 'warning' : 'ok' };
+      if (KEYED.includes(path) && body.key && answer.outcome !== 'rejected') state.keys.set(body.key, answer);
       return send(res, 200, { ...answer, ...fresh() }, signedIn);
     }
     if (path === '/body/skip') {

@@ -5,7 +5,7 @@
 
   let { data }: PageProps = $props();
 
-  // More (deploy 96, the Spaces menu): the Spaces as a list (Gym, Health, Habits; Home and Medical greyed until they move here),
+  // More (deploy 96, the Spaces menu): the Spaces as a list (Gym, Health, Habits, Home since deploy 99; Medical greyed until it moves here),
   // then one line that the rest is in the full app. On the PC the rail has the Spaces too.
 </script>
 

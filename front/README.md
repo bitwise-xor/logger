@@ -8,7 +8,7 @@ skeleton, the sign-in and an empty Today. Step B (deploy 79): Today read-only fr
 (deploy 80): the taps save in place (water, Again and usual chips, habits, check-in, review, Health card, question buttons,
 Try again / Delete for a message not read yet, Undo). Step D (deploy 81): the logging box. Step E (deploy 84): the Food day.
 Step F (deploy 85): polish (plain messages when the core is down or the door is off, back to your page after a sign-in, phone,
-tablet and PC width). Then the trial runs (below). Deploy 87: the Usual meals page. Deploy 88: Today shows each food's and meal's macros, a pie of the day's kcal from protein, carbs and fat in the Energy card (app.'s macro colours, `--macro-*` in `app.css`), a one-line logging box that grows, and two habits per row. Deploy 90: scan, label photo, look-up and voice in the logging box (step 1a of the move to `logger.`, below). Deploy 92: the Health page with body measurements (step 1b, below). Deploy 94: the Habits page (step 1c, below). Deploy 96: the Gym's Workout page, the Gym card on Today and the Spaces menu (step 2, below). Deploy 97: Gym's other five parts (below).
+tablet and PC width). Then the trial runs (below). Deploy 87: the Usual meals page. Deploy 88: Today shows each food's and meal's macros, a pie of the day's kcal from protein, carbs and fat in the Energy card (app.'s macro colours, `--macro-*` in `app.css`), a one-line logging box that grows, and two habits per row. Deploy 90: scan, label photo, look-up and voice in the logging box (step 1a of the move to `logger.`, below). Deploy 92: the Health page with body measurements (step 1b, below). Deploy 94: the Habits page (step 1c, below). Deploy 96: the Gym's Workout page, the Gym card on Today and the Spaces menu (step 2, below). Deploy 97: Gym's other five parts (below). Deploy 99: Home's Now and Pick pages with the timer, the Home card on Today and Home in the Spaces menu (step 3, below).
 
 ## How it fits
 
@@ -125,9 +125,33 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   `saves.ts` (`PLAN_SAVES`, `EXERCISES_SAVES`). The stand-in answers the five reads and the plan and exercise actions, changing the
   data as the core would (POST `/standin/watch-none`: no watch data; `/standin/gym-empty`: no exercises or days; `/standin/week-done`;
   `/standin/slow` slows every gym save); `SHOOT_ONLY=gymparts` runs only these checks.
+- Home's first pages (deploy 99, the move's step 3; the door's routes came with deploy 98): `src/routes/(app)/home` (Now, `?min=`) and
+  `/home/pick` (`?min=&n=`), from Today's Home card, the More page and the PC rail. Now: the title with the tabs Now · Zones · History
+  (Zones and History, "Show all N chores" and a chore's name open app.'s pages until deploy 100), then in app.'s order the timer card
+  when a timer is open ("N:SS left" counting each second, "(paused)", "time is up", "Open the timer"), "How much time have you got?"
+  (the chips are links to `?min=`; "Pick a job for me"), "This week", "Longest since last done" (six rows: the tick circle, "Chore ·
+  Zone", "age · interval" in the door's words, minutes; "N hidden for today") and "Recently done"; from 1100 px This week and Recently
+  done in a right column of 340 px. A tick (`home_tick`, keyed) fills at once with the blue edge, its button blocked while it is on its
+  way; the answer bar has the door's words and Undo; the six rows keep their places after a save (`keepOrder`), so a second tap takes
+  the tick back (the door's tick toggles). Pick: the job card (zone and age pills, "Job i of N", steps, how-to, the over note), the clock
+  ("MM:00" and Start timer without a timer), Done, Another job, Not today, "Done it earlier?" (Yesterday, 2 days ago, a date) and "Also
+  fits"; with a timer (its job and minutes come from the door) the clock counts down in the browser from the read's seconds left (every
+  quarter second), the screen kept on by the browser's wake lock while it runs (asked again when the page comes back into view, let go
+  at zero or when leaving), Pause or Resume, Done, "Done, next job" (running with 3 minutes or more left), Stop timer; at zero, without
+  a reload, "Time is up · well done", Pause and "Done, next job" go and "Stop timer" reads "Finished"; no sound. When the page comes
+  back into view it reads again (the end lives on the server). Every button saves in place (`home_start`, `home_pause`, `home_resume`,
+  `home_stop`, `home_pickdone`, `home_picknext`, `home_skip`, `home_earlier`; `PICK_SAVES`); a refusal is said next to its button;
+  "Done" ends on Now with its answer bar and Undo carried over; Not today and Done it earlier? stay on Pick with the next job. Only tick,
+  pickdone, picknext and earlier take a key, and no Home save is ever sent again by the page, also not after a sign-in (`mayResend`
+  refuses every `home_` action). Today's Home card (`components/today/HomeCard.svelte`, from `day.home`; none when it is null) sits
+  right after Habits: "this week N of goal", "Waiting longest" with the label and "age · interval" (or "Nothing else is waiting
+  today."), "N hidden for today", "15 minutes" and "Open Home". Plain rules: `src/lib/home.ts`; state: `homepage.svelte.ts`;
+  components: `components/home/`. The stand-in answers `/home`, `/home/pick`, `Day.home` and the Pick and tick saves from
+  `tests/samples/home.json` (POST `/standin/home-running`, `/standin/home-ending`, `/standin/home-paused`, `/standin/home-closed`,
+  `/standin/home-empty`); `SHOOT_ONLY=home` runs only these checks.
 - The Spaces menu (deploy 96): `src/lib/places.ts` says where a page belongs. The PC rail: Today, Trends, Library, then "Spaces"
-  (Gym, Health, Habits; the one you are in highlighted), then More. Phones and tablets keep four tabs; More is the page `/more`
-  (`src/routes/(app)/more`): the Spaces as a list (Home and Medical greyed, "soon"), then one line that the rest is in the full app.
+  (Gym, Health, Habits, Home since deploy 99; the one you are in highlighted), then More. Phones and tablets keep four tabs; More is the page `/more`
+  (`src/routes/(app)/more`): the Spaces as a list (Medical greyed, "soon"; Home since deploy 99), then one line that the rest is in the full app.
   On a Space's page the More tab is highlighted. Trends and Library stay greyed. Deploy 96 also fixed two things on the Habits page:
   after a day tick the open calendar is scrolled above the answer bar (phones and tablets), and app.'s "in the calendar below" is
   worded "in Last 30 days" (`helpText` in `habits.ts`).

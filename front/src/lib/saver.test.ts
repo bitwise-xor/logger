@@ -255,6 +255,53 @@ describe('the saver', () => {
     expect(mayResend('water')).toBe(true);
   });
 
+  // Deploy 99: no Home save is ever sent again by the page, also not after a sign-in; tick, Done, Done next job and Done it earlier?
+  // have a key (a new one per tap), the timer's buttons and Not today none
+  it('gives the keyed Home saves a new key per tap and never keeps a Home save for a re-send after a sign-in', async () => {
+    const n = fakeNet();
+    const store = memory();
+    let k = 0;
+    const s = new Saver({ ...n, storage: store, newKey: () => `home-key-${++k}`, page: '/home/pick' });
+    const taps = [
+      ['home_tick', { chore_id: '3', zone_id: '1' }, true],
+      ['home_tick', { chore_id: '3', zone_id: '1' }, true],
+      ['home_start', { pairs: '3-1', minutes: '15' }, false],
+      ['home_pause', { timer_id: '1' }, false],
+      ['home_resume', { timer_id: '1' }, false],
+      ['home_stop', { timer_id: '1' }, false],
+      ['home_pickdone', { pairs: '3-1', timer_id: '1' }, true],
+      ['home_picknext', { pairs: '3-1', timer_id: '1' }, true],
+      ['home_skip', { pairs: '3-1' }, false],
+      ['home_earlier', { pairs: '3-1', when: '1' }, true],
+    ] as const;
+    let keys = 0;
+    for (const [i, [action, fields, keyed]] of taps.entries()) {
+      const r = s.send(action, { ...fields });
+      await tick();
+      expect(n.calls[i]!.url).toBe(`/home/pick?/${action}`);
+      if (keyed) expect(n.calls[i]!.fields.key, action).toEqual([`home-key-${++keys}`]);
+      else expect(n.calls[i]!.fields, action).not.toHaveProperty('key');
+      n.calls[i]!.answer({ type: 'failure', status: 401, data: { signedOut: true } });
+      expect(await r).toEqual({ kind: 'signed_out' });
+      expect(store.m.has(RESEND_ITEM), action).toBe(false);
+      expect(mayResend(action), action).toBe(false);
+    }
+    expect(await s.resend()).toBeNull();
+    expect(n.calls).toHaveLength(taps.length);
+    // the rule is for every Home save by its name
+    expect(mayResend('home_anything_new')).toBe(false);
+  });
+
+  it('does not send a kept Home tap again, even one kept before this rule (an old tab)', async () => {
+    const n = fakeNet();
+    const store = memory();
+    store.setItem(RESEND_ITEM, JSON.stringify({ action: 'home_tick', fields: { chore_id: '3', zone_id: '1', key: 'old-key-0123456789' }, at: Date.now(), page: '/home' }));
+    const s = new Saver({ ...n, storage: store, page: '/home' });
+    expect(await s.resend()).toBeNull();
+    expect(n.calls).toHaveLength(0);
+    expect(store.m.has(RESEND_ITEM)).toBe(false);
+  });
+
   // Step D: the logging box's typed line
   it('never drops a typed line\'s answer for a tap made while the AI read it (its day is read after that tap\'s)', async () => {
     const n = fakeNet();

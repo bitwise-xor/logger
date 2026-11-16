@@ -5,7 +5,7 @@
 
   let { data, children }: LayoutProps = $props();
 
-  // The places (deploy 96, the Spaces menu): the PC's rail has Today, Trends, Library, then "Spaces" (Gym, Health, Habits), then
+  // The places (deploy 96, the Spaces menu): the PC's rail has Today, Trends, Library, then "Spaces" (Gym, Health, Habits, Home), then
   // More; the Space you are in is the highlighted one. Phones and tablets keep four tabs, Today, Trends, Library and More; More is
   // the page /more with the Spaces, and it is highlighted on a Space's page too. Trends and Library stay greyed (in the full app).
   const here = $derived(placeOf(page.url.pathname));
