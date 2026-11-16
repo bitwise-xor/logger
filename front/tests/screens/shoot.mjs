@@ -55,6 +55,12 @@ async function checkToday(page, name) {
   const chips = await page.locator('[data-card="chips"]').boundingBox();
   assert.ok(needs && timeline && chips);
   if (name === 'pc') assert.ok(timeline.x < needs.x && Math.abs(chips.y - needs.y) < 2, 'PC: the day left, Needs you right, both at the top');
+  // all the macros on the Energy card; on the PC the day starts at the rail and takes the room the right column leaves
+  assert.deepEqual(await page.locator('[data-macro]').evaluateAll((els) => els.map((e) => e.getAttribute('data-macro'))), ['Eaten', 'Protein', 'Fat', 'Carbs'], 'macro lines');
+  if (name === 'pc') {
+    assert.ok(timeline.x < 260 && timeline.width > 600, `PC: the day is wide and starts at the rail (x ${timeline.x}, ${timeline.width} px)`);
+    assert.ok(Math.abs(needs.width - 340) < 2, 'PC: the right column is 340 px');
+  }
   else assert.ok(needs.y < timeline.y && Math.abs(needs.x - timeline.x) < 2, 'phone: one column, Needs you first');
 }
 

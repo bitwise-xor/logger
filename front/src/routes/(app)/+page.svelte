@@ -50,14 +50,14 @@
   </p>
 {:else}
   <!-- Phones: one column in the order below (order-*). The PC: the day on the left, what needs you and the numbers on the right
-       (the mockup's TodayDesktop). The two column boxes are display: contents on phones, so their cards join one list. -->
+       (the mockup's TodayDesktop); the day takes all the room the right column leaves (the owner, 16.11.). The two column boxes are display: contents on phones, so their cards join one list. -->
   <main class="flex flex-col gap-3 desktop:flex-row desktop:items-start desktop:gap-5">
-    <div class="contents desktop:flex desktop:min-w-0 desktop:flex-[3_1_420px] desktop:flex-col desktop:gap-4">
+    <div class="contents desktop:flex desktop:min-w-0 desktop:flex-1 desktop:flex-col desktop:gap-4">
       <div class="order-3 empty:hidden desktop:order-none"><Chips {day} /></div>
       <div class="order-4 empty:hidden desktop:order-none"><DayTimeline {day} /></div>
       <div class="order-5 empty:hidden desktop:order-none"><HealthCard {day} /></div>
     </div>
-    <div class="contents desktop:flex desktop:min-w-0 desktop:flex-[2_1_300px] desktop:flex-col desktop:gap-4">
+    <div class="contents desktop:flex desktop:w-[340px] desktop:min-w-0 desktop:flex-none desktop:flex-col desktop:gap-4">
       <div class="order-1 empty:hidden desktop:order-none"><NeedsCard {day} appUrl={data.appUrl} /></div>
       <div class="order-2 empty:hidden desktop:order-none"><EnergyCard {day} {foodHref} /></div>
       <div class="order-6 empty:hidden desktop:order-none"><HabitsCard {day} /></div>

@@ -175,6 +175,25 @@ export function kcalLeft(e: Day['energy']): { big: string; after: string; target
   return gap >= 0 ? { big: n(gap), after: 'kcal left of', target: n(target) } : { big: n(-gap), after: 'kcal over', target: n(target) };
 }
 
+export interface MacroBar {
+  name: string;
+  value: number;
+  /** null: no target set, the line shows the amount without a bar. */
+  target: number | null;
+  unit: string;
+}
+
+/** The Energy card's lines: kcal (only against a target: the big number has it) and all three macros (the owner, 16.11.). */
+export function macroBars(e: Day['energy']): MacroBar[] {
+  const t = e.targets;
+  return [
+    t.kcal ? { name: 'Eaten', value: e.totals.kcal ?? 0, target: t.kcal, unit: 'kcal' } : null,
+    { name: 'Protein', value: e.totals.protein ?? 0, target: t.protein || null, unit: 'g' },
+    { name: 'Fat', value: e.totals.fat ?? 0, target: t.fat || null, unit: 'g' },
+    { name: 'Carbs', value: e.totals.carbs ?? 0, target: t.carbs || null, unit: 'g' },
+  ].filter((b) => b !== null);
+}
+
 // ---- Your day: one timeline with meal labels ----------------------------------------------------------------------------------
 
 /** The Health card's types: their entries are on the card, not in the timeline (the plan, question 1). */

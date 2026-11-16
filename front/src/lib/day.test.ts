@@ -7,6 +7,7 @@ import {
   headerLine,
   healthLines,
   kcalLeft,
+  macroBars,
   needsCount,
   reviewText,
   timeline,
@@ -92,6 +93,23 @@ describe('kcal left', () => {
     const e = copy().energy;
     e.targets.kcal = null;
     expect(kcalLeft(e)).toEqual({ big: '1,400', after: 'kcal eaten, no target set', target: '' });
+  });
+});
+
+describe('the Energy card lines', () => {
+  it('lists kcal and all three macros against their targets', () => {
+    const t = SAMPLE.energy.totals;
+    expect(macroBars(SAMPLE.energy)).toEqual([
+      { name: 'Eaten', value: t.kcal, target: 2100, unit: 'kcal' },
+      { name: 'Protein', value: t.protein, target: 150, unit: 'g' },
+      { name: 'Fat', value: t.fat, target: 70, unit: 'g' },
+      { name: 'Carbs', value: t.carbs, target: 250, unit: 'g' },
+    ]);
+  });
+  it('still lists a macro without a target (no bar), and leaves kcal to the big number', () => {
+    const e = copy().energy;
+    e.targets = { kcal: null, protein: null, fat: 70, carbs: null };
+    expect(macroBars(e).map((b) => [b.name, b.target])).toEqual([['Protein', null], ['Fat', 70], ['Carbs', null]]);
   });
 });
 
