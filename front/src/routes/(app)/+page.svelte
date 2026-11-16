@@ -8,13 +8,22 @@
   import HealthCard from '#lib/components/today/HealthCard.svelte';
   import NeedsCard from '#lib/components/today/NeedsCard.svelte';
   import { Button } from '#lib/components/ui/button/index.js';
+  import AnswerBar from '#lib/components/today/AnswerBar.svelte';
   import { headerLine } from '#lib/day.js';
   import { dayLine } from '#lib/format.js';
+  import { setToday, Today } from '#lib/today.svelte.js';
+  import { onMount, untrack } from 'svelte';
   import type { PageProps } from './$types';
 
   let { data }: PageProps = $props();
 
-  const day = $derived(data.day);
+  // Step C: the taps save in place; a save's answer brings the fresh day, which replaces the loaded one (src/lib/today.svelte.ts).
+  // The first load is drawn on the server too; later loads (after a sign-in) come through the effect.
+  const today = setToday(untrack(() => new Today(data.day, data.undo)));
+  $effect.pre(() => today.load(data.day, data.undo));
+  onMount(() => void today.resend());
+
+  const day = $derived(today.day);
   // The Food day is app.'s until step E (deploy 82) brings it here.
   const foodHref = $derived(day ? `${data.appUrl}/web/food?day=${day.day}` : `${data.appUrl}/web/food`);
 </script>
@@ -37,9 +46,6 @@
     {data.problem} The <a href="{data.appUrl}/web/">full app</a> may still work.
   </p>
 {:else}
-  <p class="m-0 text-[13px] text-muted">
-    Shown only for now: taps save from the next step. To log, use the <a href="{data.appUrl}/web/">full app</a>.
-  </p>
   <!-- Phones: one column in the order below (order-*). The PC: the day on the left, what needs you and the numbers on the right
        (the mockup's TodayDesktop). The two column boxes are display: contents on phones, so their cards join one list. -->
   <main class="flex flex-col gap-3 desktop:flex-row desktop:items-start desktop:gap-5">
@@ -49,10 +55,13 @@
       <div class="order-5 empty:hidden desktop:order-none"><HealthCard {day} /></div>
     </div>
     <div class="contents desktop:flex desktop:min-w-0 desktop:flex-[2_1_300px] desktop:flex-col desktop:gap-4">
-      <div class="order-1 empty:hidden desktop:order-none"><NeedsCard {day} /></div>
+      <div class="order-1 empty:hidden desktop:order-none"><NeedsCard {day} appUrl={data.appUrl} /></div>
       <div class="order-2 empty:hidden desktop:order-none"><EnergyCard {day} {foodHref} /></div>
       <div class="order-6 empty:hidden desktop:order-none"><HabitsCard {day} /></div>
       <div class="order-7 empty:hidden desktop:order-none"><GratitudeLink {day} href="{data.appUrl}/web/gratitude" /></div>
     </div>
   </main>
 {/if}
+<!-- Room for the answer bar, so it never covers the last card. -->
+{#if today.bar}<div class="h-16 shrink-0" aria-hidden="true"></div>{/if}
+<AnswerBar />

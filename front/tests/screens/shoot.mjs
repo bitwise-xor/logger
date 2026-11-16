@@ -1,12 +1,15 @@
 // Page tests and screenshots of the running front end, at phone (390 px) and PC (1280 px) width, dark and light.
 // Runs in the pinned Playwright container (tools/front-screens), against a front end that talks to the stand-in door
 // (tests/standin/door.mjs: password "test", code "123456"; GET /day answers with tests/samples/day.json, a real door answer).
-// Every check throws on a failure, so the script ends with an error. Usage: node tests/screens/shoot.mjs <base url> <out dir>
+// Step C: the taps save in place: each save changes the page without a reload, a new row gets a blue edge, the answer bar shows
+// the head and Undo, a read-back is confirmed, and a tap that met a gone session is sent again after the sign-in.
+// Every check throws on a failure, so the script ends with an error.
+// Usage: node tests/screens/shoot.mjs <base url> <out dir> <stand-in url>
 import assert from 'node:assert/strict';
 import { mkdirSync, readFileSync } from 'node:fs';
 import { chromium } from 'playwright-core';
 
-const [base = 'http://localhost:3000', out = 'tests/screens/out'] = process.argv.slice(2);
+const [base = 'http://localhost:3000', out = 'tests/screens/out', standin = 'http://localhost:8099'] = process.argv.slice(2);
 mkdirSync(out, { recursive: true });
 const day = JSON.parse(readFileSync(new URL('../samples/day.json', import.meta.url), 'utf8')).day;
 
@@ -52,6 +55,89 @@ async function checkToday(page, name) {
   else assert.ok(needs.y < timeline.y && Math.abs(needs.x - timeline.x) < 2, 'phone: one column, Needs you first');
 }
 
+const text = async (loc) => (await loc.textContent())?.replace(/\s+/g, ' ').trim();
+const standinPost = async (path) => assert.equal((await fetch(`${standin}${path}`, { method: 'POST' })).status, 200, path);
+
+async function signIn(page) {
+  await page.fill('#password', 'test');
+  await page.fill('#code', '123 456');
+  await page.click('button[type=submit]');
+  await page.getByRole('heading', { name: 'Today', exact: true }).waitFor();
+}
+
+/** Step C: every kind of tap, each checked on the page without a reload (a mark on window would be gone after one). */
+async function checkSaves(page, name, theme) {
+  await page.evaluate(() => (window.__noReload = true));
+  const bar = page.locator('[data-bar]');
+  const count = page.locator('[data-count]');
+
+  // water: the glass goes on the bar, the drink is a new row with a blue edge, the answer bar has the head and Undo
+  await page.getByRole('button', { name: `+ ${day.water.glass_ml} ml` }).click();
+  await page.locator('[data-water]').getByText(`${grouped(day.water.ml + day.water.glass_ml)} / ${grouped(day.water.target_ml)} ml`).waitFor();
+  assert.equal(await page.locator('[data-fresh]').count(), 1, 'water: one new row, with a blue edge');
+  assert.equal(await text(bar.locator('[data-bar-head]')), 'Saved.', 'water: the head');
+  await bar.getByRole('button', { name: 'Undo' }).waitFor();
+
+  // an Again chip: a new row with a blue edge (the water row loses its edge)
+  const chip = day.chips.again[0];
+  await page.locator('[data-card="chips"] button', { hasText: chip.name }).first().click();
+  await page.locator('[data-fresh]', { hasText: chip.name }).waitFor();
+  assert.equal(await page.locator('[data-fresh]').count(), 1, 'Again: only the newest row has the blue edge');
+  assert.notEqual(await text(page.locator('[data-kcal-left]')), want.kcalLeft, 'Again: kcal left moved');
+  await page.screenshot({ path: `${out}/today-saved-${name}-${theme}.png`, fullPage: name === 'phone' });
+
+  // a habit: the tick flips
+  const open = day.habits.find((h) => !h.complete);
+  await page.locator(`[data-habit="${open.name}"]`).click();
+  await page.locator(`[data-habit="${open.name}"][aria-pressed="true"]`).waitFor();
+
+  // what needs you: the check-in, all items to review, a question's button, a message not read yet deleted
+  const needs = Number(want.needs);
+  await page.getByRole('button', { name: `Mood 4, ${day.needs.checkin.scale.mood[3]}` }).click();
+  await page.getByText(`Mood 4 · ${day.needs.checkin.scale.mood[3]}`).waitFor();
+  await page.getByRole('button', { name: `All ${day.needs.review.length} look right` }).click();
+  await page.getByText('To review').waitFor({ state: 'detached' });
+  const yesNo = day.needs.questions.find((q) => q.answers.length > 1);
+  await page.getByText(yesNo.text).locator('..').getByRole('button', { name: yesNo.answers[0].label }).click();
+  await page.getByText(yesNo.text).waitFor({ state: 'detached' });
+  await page.locator('[data-card="needs"]').getByRole('button', { name: 'Delete' }).click();
+  await page.getByText('Not read yet').waitFor({ state: 'detached' });
+  assert.equal(await text(count), String(needs - day.needs.review.length - 1 - day.needs.not_read.length), 'Needs you count after the taps');
+
+  // the Health card: an odd weight is read back first; "Yes, save it" saves it; Undo puts it back
+  const weight = day.health.find((h) => h.row === 'weight');
+  await page.locator('[data-health="weight"]').click();
+  await page.locator('[data-health-form="weight"] input[name=v1]').fill('400');
+  await page.locator('[data-health-form="weight"]').getByRole('button', { name: 'Change' }).click();
+  await page.locator('[data-bar="warning"]').getByRole('button', { name: 'Yes, save it' }).waitFor();
+  await page.locator('[data-health="weight"]').scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${out}/today-confirm-${name}-${theme}.png` });
+  await page.locator('[data-bar="warning"]').getByRole('button', { name: 'Yes, save it' }).click();
+  await page.locator('[data-health="weight"]').getByText('400 kg').waitFor();
+  if (name === 'phone') await page.screenshot({ path: `${out}/today-health-${name}-${theme}.png` });
+  await bar.getByRole('button', { name: 'Undo' }).click();
+  await page.locator('[data-health="weight"]').getByText(`${weight.v1} kg`).waitFor();
+  assert.equal(await text(bar.locator('[data-bar-head]')), 'Undone.', 'Undo: the head');
+
+  // the Undo bar comes back after a reload (GET /day's undo) once there is one again
+  await page.getByRole('button', { name: `+ ${day.water.glass_ml} ml` }).click();
+  await bar.getByRole('button', { name: 'Undo' }).waitFor();
+  assert.ok(await page.evaluate(() => window.__noReload === true), 'no reload during the taps');
+  await page.reload();
+  await page.locator('[data-bar]').getByRole('button', { name: 'Undo' }).waitFor();
+
+  // signed out mid-save: the tap is kept, the sign-in page opens, and after the sign-in the tap is sent again, once
+  const before = await text(page.locator('[data-water]'));
+  await standinPost('/standin/drop-sessions');
+  await page.getByRole('button', { name: `+ ${day.water.glass_ml} ml` }).click();
+  await page.getByRole('button', { name: 'Sign in' }).waitFor();
+  await signIn(page);
+  const ml = Number(before.replace(/,/g, '').split(' ')[0]) + day.water.glass_ml;
+  await page.locator('[data-water]').getByText(`${grouped(ml)} / ${grouped(day.water.target_ml)} ml`).waitFor();
+  await page.reload();
+  await page.locator('[data-water]').getByText(`${grouped(ml)} / ${grouped(day.water.target_ml)} ml`).waitFor();
+}
+
 const browser = await chromium.launch();
 const sizes = { phone: { width: 390, height: 844 }, pc: { width: 1280, height: 800 } };
 
@@ -60,6 +146,7 @@ for (const theme of ['dark', 'light']) {
     const context = await browser.newContext({ viewport, deviceScaleFactor: name === 'phone' ? 2 : 1 });
     if (theme === 'light') await context.addInitScript(() => localStorage.setItem('logger-theme', 'light'));
     const page = await context.newPage();
+    await standinPost('/standin/reset');
     await page.goto(`${base}/`);
     await page.screenshot({ path: `${out}/signin-${name}-${theme}.png` });
     await page.fill('#password', 'nope');
@@ -67,12 +154,11 @@ for (const theme of ['dark', 'light']) {
     await page.click('button[type=submit]');
     await page.getByText('Wrong password or code.').waitFor();
     if (name === 'phone') await page.screenshot({ path: `${out}/signin-wrong-${name}-${theme}.png` });
-    await page.fill('#password', 'test');
-    await page.fill('#code', '123 456');
-    await page.click('button[type=submit]');
-    await page.getByRole('heading', { name: 'Today', exact: true }).waitFor();
+    await signIn(page);
     await page.screenshot({ path: `${out}/today-${name}-${theme}.png`, fullPage: true });
     await checkToday(page, name);
+    await checkSaves(page, name, theme);
+    console.log(`saves ${name} ${theme}: checks passed`);
     if (name === 'phone' && theme === 'dark') {
       await page.getByRole('button', { name: 'Sign out' }).click();
       await page.getByRole('button', { name: 'Sign in' }).waitFor();

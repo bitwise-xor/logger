@@ -1,8 +1,10 @@
 <script lang="ts">
   import { n, pct } from '#lib/format.js';
   import { kcalLeft, type Day } from '#lib/day.js';
+  import { getToday } from '#lib/today.svelte.js';
 
   let { day, foodHref }: { day: Day; foodHref: string } = $props();
+  const today = getToday();
 
   const e = $derived(day.energy);
   const left = $derived(kcalLeft(e));
@@ -49,11 +51,15 @@
       {/if}
     </div>
     {#if !day.past}
-      <button
-        type="button"
-        class="min-h-11 cursor-pointer rounded-lg border border-line bg-panel2 px-3 font-medium whitespace-nowrap text-text desktop:min-h-9"
-        >+ {n(day.water.glass_ml)} ml</button
-      >
+      <form method="POST" action="?/water" class="m-0" onsubmit={today.submit('water', 'water')}>
+        <input type="hidden" name="ml" value={day.water.glass_ml} />
+        <button
+          type="submit"
+          disabled={today.busy.water}
+          class="min-h-11 cursor-pointer rounded-lg border border-line bg-panel2 px-3 font-medium whitespace-nowrap text-text disabled:opacity-60 desktop:min-h-9"
+          >+ {n(day.water.glass_ml)} ml</button
+        >
+      </form>
     {/if}
   </div>
   <a href={foodHref} class="hidden font-medium no-underline desktop:inline">Food day, with fat and carbs</a>

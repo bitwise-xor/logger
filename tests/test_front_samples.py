@@ -1,8 +1,10 @@
-"""Sample answers of the JSON door for the new front end's page tests (front/tests/samples/, 16.11.2026, front end step B).
+"""Sample answers of the JSON door for the new front end's page tests (front/tests/samples/, 16.11.2026, front end steps B and C).
 
 The front end's stand-in door (front/tests/standin/door.mjs) answers with these files, so the page tests and the screenshots run
 on the real door's shapes. This test builds a full invented day (meals, drinks, questions, a message not read yet, items to review,
-the check-in, health values, habits, chips), reads it through the door and
+the check-in, health values, habits, chips), reads it through the door (day.json) and makes two saves on it (save.json: a glass of
+water, saved with Undo, and an odd weight correction read back first, with confirm; the stand-in answers every save in this shape),
+and
 - with WRITE_FRONT_SAMPLES=1: writes the answer to the sample file (then look at the diff and commit it);
 - otherwise: checks that the committed sample still has the door's shape (the same keys at every level), so a change of the door
   that the stand-in does not know about fails here.
@@ -18,6 +20,7 @@ from app import todaypage
 from app.rules import BERLIN
 from conftest import owner_sql
 from test_api_door import door, door_on, signed_in  # noqa: F401 - door_on is autouse
+from test_log import fake  # noqa: F401 - the AI is a fake (a save must never reach it)
 from test_api_reads import api, pending  # noqa: F401 - api is a fixture
 from test_webfood import eat_on
 from test_webtoday import day, food, no_targets, raw  # noqa: F401 - no_targets: clean targets and usual meals
@@ -124,3 +127,27 @@ def test_the_day_sample_has_the_doors_shape(api, four_pm):
     sample = json.loads(path.read_text())
     gone = differences(sample, answer, "answer")
     assert not gone, "front/tests/samples/day.json no longer has the door's shape; run this test with WRITE_FRONT_SAMPLES=1:\n" + "\n".join(gone)
+
+
+def test_the_save_sample_has_the_doors_shape(four_pm, fake):
+    """Two answers of a save, without their day (the stand-in sends day.json's): "saved" with Undo, and "needs_confirmation"."""
+    full_day()
+    c, bearer, _ = signed_in()
+    post = lambda path, **body: c.post("/api/v1" + path, headers=bearer, json=body)  # noqa: E731
+    water = post("/water", ml=250, key="sample-water-key-0001", view="day")
+    assert water.status_code == 200, water.text
+    weight = next(h for h in water.json()["day"]["health"] if h["row"] == "weight")
+    odd = post("/health", row="weight", ref=weight["ref"], v1="400", key="sample-health-key-0001", view="day")
+    assert odd.status_code == 200, odd.text
+    answers = {"saved": water.json(), "needs_confirmation": odd.json()}
+    for outcome, a in answers.items():
+        assert a["outcome"] == outcome and a.pop("day")["day"] == day().isoformat(), a
+    assert answers["saved"]["undo"] and answers["needs_confirmation"]["confirm"] and answers["needs_confirmation"]["read_back"]
+    path = SAMPLES / "save.json"
+    if os.environ.get("WRITE_FRONT_SAMPLES") == "1":
+        path.write_text(json.dumps(answers, indent=1, ensure_ascii=False) + "\n")
+        return
+    sample = json.loads(path.read_text())
+    assert sample.keys() == answers.keys()
+    gone = [x for k in answers for x in differences(sample[k], answers[k], f"save.{k}")]
+    assert not gone, "front/tests/samples/save.json no longer has the door's shape; run this test with WRITE_FRONT_SAMPLES=1:\n" + "\n".join(gone)

@@ -1,0 +1,45 @@
+{
+ "saved": {
+  "v": 1,
+  "outcome": "saved",
+  "tone": "ok",
+  "head": "Saved.",
+  "receipt": [
+   "+ f12 Water 250 ml | 0 kcal, P 0.0 | 16.11. drink 12:03",
+   "= 1 item: 0 kcal, protein 0 g",
+   "Day 16.11. (8 items): kcal 1,400 / 2,100 (drinks 45) | P 57.2 / 150 g | F 40.2 / 70 g | C 206.2 / 250 g | sat fat unknown in 8; total sugar unknown in 8; added sugar unknown in 8"
+  ],
+  "notes": [],
+  "reason": null,
+  "questions": [],
+  "read_back": null,
+  "confirm": null,
+  "result": null,
+  "refill": null,
+  "replayed": false,
+  "undo": {
+   "token": "8pb47VxiEW6MRGr8",
+   "head": "Saved: + f12 Water 250 ml | 0 kcal, P 0.0 | 16.11. drink 12:03; = 1 item: 0 kcal, protein 0 g; Day 16.11. (8 items): kcal 1,400 / 2,100 (drinks 45) | P 57.2 / 1",
+   "expires_at": "2026-11-16T11:18:56.077667+00:00"
+  }
+ },
+ "needs_confirmation": {
+  "v": 1,
+  "outcome": "needs_confirmation",
+  "tone": "warning",
+  "head": "Nothing saved yet: please confirm.",
+  "receipt": [],
+  "notes": [],
+  "reason": null,
+  "questions": [],
+  "read_back": "400 is outside the plausible range 30-300 kg",
+  "confirm": {
+   "label": "Yes, save it",
+   "no_label": "No"
+  },
+  "result": null,
+  "refill": null,
+  "replayed": false,
+  "undo": null
+ }
+}

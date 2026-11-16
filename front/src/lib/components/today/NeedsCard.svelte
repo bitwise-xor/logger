@@ -1,8 +1,10 @@
 <script lang="ts">
   import { dayOf, hm } from '#lib/format.js';
   import { needsCount, reviewText, type Answer, type Day } from '#lib/day.js';
+  import { getToday } from '#lib/today.svelte.js';
 
-  let { day }: { day: Day } = $props();
+  let { day, appUrl }: { day: Day; appUrl: string } = $props();
+  const today = getToday();
 
   const needs = $derived(day.needs);
   const count = $derived(needsCount(day));
@@ -23,7 +25,7 @@
     plain: 'border border-amber bg-transparent text-text',
     quiet: 'border-0 bg-transparent text-text underline-offset-2 hover:underline',
   };
-  const btn = 'min-h-11 cursor-pointer rounded-lg px-4 font-medium desktop:min-h-9';
+  const btn = 'min-h-11 cursor-pointer rounded-lg px-4 font-medium disabled:cursor-default disabled:opacity-60 desktop:min-h-9';
 </script>
 
 {#if count === 0}
@@ -46,21 +48,35 @@
           </span>
         {/if}
         {#if q.free}
-          <input
-            type={q.free.type}
-            placeholder={q.free.placeholder}
-            aria-label={q.free.placeholder}
-            class="h-11 rounded-lg border border-line bg-panel px-3 text-base text-text desktop:h-9 desktop:text-sm"
-          />
+          <!-- Typed words go to /answer as the reply. -->
+          <form method="POST" action="?/answer" class="m-0 flex gap-2" data-reset onsubmit={today.submit('answer', `q:${q.id}`)}>
+            <input type="hidden" name="question_id" value={q.id} />
+            <input
+              name="reply"
+              type={q.free.type}
+              inputmode={q.free.type === 'number' ? 'decimal' : undefined}
+              step={q.free.type === 'number' ? 'any' : undefined}
+              placeholder={q.free.placeholder}
+              aria-label={q.free.placeholder}
+              required
+              class="h-11 min-w-0 flex-1 rounded-lg border border-line bg-panel px-3 text-base text-text desktop:h-9 desktop:text-sm"
+            />
+            {#if q.free.unit}<span class="self-center text-[13px] text-muted">{q.free.unit}</span>{/if}
+            <button type="submit" class="{btn} {STYLE.plain}" disabled={today.busy[`q:${q.id}`]}>Send</button>
+          </form>
         {/if}
-        <div class="flex flex-wrap gap-2">
+        <form method="POST" action="?/answer" class="m-0 flex flex-wrap gap-2" onsubmit={today.submit('answer', `q:${q.id}`)}>
+          <input type="hidden" name="question_id" value={q.id} />
           {#each q.answers as a (a.reply)}
-            <button type="button" class="{btn} {STYLE[a.style]}">{a.label}</button>
+            <button type="submit" name="reply" value={a.reply} class="{btn} {STYLE[a.style]}" disabled={today.busy[`q:${q.id}`]}
+              >{a.label}</button
+            >
           {/each}
           {#if q.refill}
-            <button type="button" class="{btn} {STYLE.plain}">{q.refill.label}</button>
+            <!-- Puts the words back in the logging box, which comes in step D (deploy 81). -->
+            <button type="button" class="{btn} {STYLE.plain}" disabled title="With the logging box, in the next step">{q.refill.label}</button>
           {/if}
-        </div>
+        </form>
       </div>
     {/each}
 
@@ -74,8 +90,16 @@
           Sent {hm(m.received_at)}{m.tries ? ` · tried ${m.tries} ${m.tries === 1 ? 'time' : 'times'}` : ''}
         </span>
         <div class="flex flex-wrap gap-2">
-          <button type="button" class="{btn} {STYLE.primary}">Try again</button>
-          <button type="button" class="{btn} {STYLE.quiet}">Delete</button>
+          <form method="POST" action="?/held_retry" class="m-0" onsubmit={today.submit('held_retry', `held:${m.id}`)}>
+            <input type="hidden" name="id" value={m.id} />
+            <button type="submit" class="{btn} {STYLE.primary}" disabled={m.reading || today.busy[`held:${m.id}`]}
+              >{today.busy[`held:${m.id}`] ? 'Reading…' : 'Try again'}</button
+            >
+          </form>
+          <form method="POST" action="?/held_delete" class="m-0" onsubmit={today.submit('held_delete', `held:${m.id}`)}>
+            <input type="hidden" name="id" value={m.id} />
+            <button type="submit" class="{btn} {STYLE.quiet}" disabled={m.reading || today.busy[`held:${m.id}`]}>Delete</button>
+          </form>
         </div>
       </div>
     {/each}
@@ -89,14 +113,26 @@
               {#if r.day !== day.day}<span class="num text-muted">{dayOf(r.day)} </span>{/if}{reviewText(r)}
               {#if r.reason}<span class="text-[13px] text-muted"> · {r.reason}</span>{/if}
             </span>
-            <span class="flex gap-2">
-              <button type="button" class="{btn} {STYLE.plain}">Looks right</button>
-              <button type="button" class="{btn} {STYLE.quiet}">Change</button>
+            <span class="flex items-center gap-2">
+              <form method="POST" action="?/review" class="m-0" onsubmit={today.submit('review', `review:${r.ref}`)}>
+                <input type="hidden" name="action" value="ok" />
+                <input type="hidden" name="ref" value={r.ref} />
+                <button type="submit" class="{btn} {STYLE.plain}" disabled={today.busy[`review:${r.ref}`] || today.busy['review:all']}
+                  >Looks right</button
+                >
+              </form>
+              <!-- Changing an entry is app.'s for now (the Food day comes in step E). -->
+              <a href="{appUrl}/web/" class="{btn} {STYLE.quiet} inline-flex items-center no-underline">Change</a>
             </span>
           </div>
         {/each}
         {#if needs.review.length >= 2}
-          <div><button type="button" class="{btn} {STYLE.plain}">All {needs.review.length} look right</button></div>
+          <!-- Clears only the items shown (app.'s "All N look right", webactions.review_all). -->
+          <form method="POST" action="?/review" class="m-0" onsubmit={today.submit('review', 'review:all')}>
+            <input type="hidden" name="action" value="all" />
+            {#each needs.review as r (r.ref)}<input type="hidden" name="refs" value={r.ref} />{/each}
+            <button type="submit" class="{btn} {STYLE.plain}" disabled={today.busy['review:all']}>All {needs.review.length} look right</button>
+          </form>
         {/if}
       </div>
     {/if}
@@ -110,21 +146,26 @@
           {#if c.got}
             <span class="text-[13px]">{c.label} <span class="num">{c.got}</span> · {c.words[c.got - 1]}</span>
           {:else}
-            <div class="flex flex-col gap-1.5">
+            <form method="POST" action="?/checkin" class="m-0 flex flex-col gap-1.5" onsubmit={today.submit('checkin', `checkin:${c.key}`)}>
+              <input type="hidden" name="type" value={c.key} />
+              <input type="hidden" name="day" value={needs.checkin.day} />
               <span class="text-[13px] text-muted">{c.label}</span>
               <div class="grid grid-cols-5 gap-1.5">
                 {#each c.words as w, i (w)}
                   <button
-                    type="button"
+                    type="submit"
+                    name="value"
+                    value={i + 1}
+                    disabled={today.busy[`checkin:${c.key}`]}
                     aria-label="{c.label} {i + 1}, {w}"
-                    class="flex min-h-11 cursor-pointer flex-col items-center justify-center rounded-lg border border-amber bg-transparent px-1 py-1 text-text"
+                    class="flex min-h-11 cursor-pointer flex-col items-center justify-center rounded-lg border border-amber bg-transparent px-1 py-1 text-text disabled:opacity-60"
                   >
                     <b class="num text-sm font-medium">{i + 1}</b>
                     <span class="text-[11px] leading-tight text-muted">{w}</span>
                   </button>
                 {/each}
               </div>
-            </div>
+            </form>
           {/if}
         {/each}
       </div>

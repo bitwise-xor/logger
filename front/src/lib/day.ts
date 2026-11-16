@@ -331,3 +331,29 @@ export function chipNames(names: string[]): string[] {
   const low = short.map((x) => x.toLowerCase());
   return short.map((x, i) => (low.filter((y) => y === x.toLowerCase()).length === 1 ? x : names[i]!));
 }
+
+// ---- saving in place (step C) -------------------------------------------------------------------------------------------------
+
+/** Every save's answer (docs/API.md, "Saves"): what happened, in a short line, and the fresh day. */
+export interface SaveAnswer {
+  outcome: string;
+  tone: 'ok' | 'warning';
+  head: string;
+  receipt: string[];
+  notes: string[];
+  reason: string | null;
+  questions: Question[];
+  read_back: string | null;
+  confirm: null | { label: string; no_label: string };
+  result: string | null;
+  refill: null | { label: string; text: string };
+  replayed: boolean;
+  undo: Undo | null;
+  day?: Day;
+}
+
+/** The rows a save added (in the fresh day, not in the one shown before): they get a blue edge (the mockup). */
+export function freshRefs(before: Day, after: Day): Set<string> {
+  const had = new Set(before.rows.map((r) => r.ref));
+  return new Set(after.rows.filter((r) => !had.has(r.ref)).map((r) => r.ref));
+}

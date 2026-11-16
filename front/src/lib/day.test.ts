@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   chipNames,
+  freshRefs,
   habitsDone,
   headerLine,
   healthLines,
@@ -204,5 +205,15 @@ describe('needs you, habits, chips', () => {
   it('shortens chip names as app. does', () => {
     expect(chipNames(['Skyr, plain (Brand A)', 'Oats'])).toEqual(['Skyr, plain', 'Oats']);
     expect(chipNames(['Skyr (Brand A)', 'Skyr (Brand B)'])).toEqual(['Skyr (Brand A)', 'Skyr (Brand B)']);
+  });
+});
+
+describe('saving in place', () => {
+  it('marks the rows a save added (the blue edge), and nothing else', () => {
+    const added = { ...(SAMPLE.rows.find((r) => r.kind === 'food') as FoodRow), ref: 'f999999' };
+    const after: Day = { ...SAMPLE, rows: [...SAMPLE.rows, added] };
+    expect([...freshRefs(SAMPLE, after)]).toEqual(['f999999']);
+    expect(freshRefs(SAMPLE, SAMPLE).size).toBe(0);
+    expect(freshRefs(after, SAMPLE).size).toBe(0); // an Undo takes a row away: nothing is new
   });
 });

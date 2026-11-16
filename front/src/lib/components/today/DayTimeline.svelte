@@ -1,8 +1,10 @@
 <script lang="ts">
   import { timeline, type Day } from '#lib/day.js';
+  import { getToday } from '#lib/today.svelte.js';
 
   let { day }: { day: Day } = $props();
 
+  const today = getToday();
   const blocks = $derived(timeline(day));
 </script>
 
@@ -20,8 +22,13 @@
     </div>
     {#each b.lines as r (r.ref)}
       <div
-        class="grid min-h-11 grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-2.5 rounded-lg border border-line bg-panel px-3 py-2 desktop:grid-cols-[48px_minmax(0,1fr)_auto] desktop:gap-3"
+        class="grid min-h-11 grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-2.5 rounded-lg border bg-panel px-3 py-2 transition-colors duration-[600ms] desktop:grid-cols-[48px_minmax(0,1fr)_auto] desktop:gap-3 {today.fresh.has(
+          r.ref,
+        )
+          ? 'border-blue'
+          : 'border-line'}"
         data-row={r.ref}
+        data-fresh={today.fresh.has(r.ref) ? '' : undefined}
       >
         <span class="num text-xs text-muted">{r.time}</span>
         <span class="flex min-w-0 flex-col">
