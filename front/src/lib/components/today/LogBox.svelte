@@ -14,7 +14,7 @@
     return () => today.bindBox(null);
   });
 
-  // The field grows with its lines (several lines on the PC, each can be its own entry), up to a few, then it scrolls.
+  // Two lines at rest (the mockup's PC box, rows 2); it grows with its lines (each can be its own entry), then it scrolls.
   $effect(() => {
     void today.box;
     if (!field) return;
@@ -82,19 +82,22 @@
         bind:value={today.box}
         id="log-text"
         name="text"
-        rows="1"
+        rows="2"
         maxlength="4000"
         placeholder="What to log"
         autocomplete="off"
         enterkeyhint="send"
         onkeydown={keydown}
-        class="min-h-11 min-w-0 flex-1 resize-none rounded-lg border border-line bg-panel px-3 py-[9px] text-base leading-6 text-text placeholder:text-muted focus-visible:border-blue focus-visible:outline-none tablet:text-sm"
+        class="min-h-[68px] min-w-0 flex-1 resize-none rounded-lg border border-line bg-panel px-3 py-[9px] text-base leading-6 text-text placeholder:text-muted focus-visible:border-blue focus-visible:outline-none tablet:text-sm"
       ></textarea>
       <button
         type="submit"
         class="h-11 shrink-0 cursor-pointer rounded-lg border-0 bg-text px-[18px] font-medium text-bg">Log</button
       >
     </div>
-    <a href="{appUrl}/web/" class="self-start text-xs text-muted underline-offset-2 hover:underline">Barcode and label: full app</a>
+    <p class="m-0 text-xs text-muted">
+      <span class="hidden desktop:inline">Enter logs, Shift and Enter starts a new line. Each line can be its own entry. </span>
+      <a href="{appUrl}/web/" class="text-muted underline-offset-2 hover:underline">Barcode and label: full app</a>
+    </p>
   </form>
 </div>

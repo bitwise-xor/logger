@@ -164,6 +164,8 @@ async function checkLogBox(page, name, theme) {
     assert.ok(form.y + form.height < card.y, 'PC: the box is above the cards');
   }
   assert.equal(await page.getByRole('link', { name: 'Barcode and label: full app' }).count(), 1, 'the link to the full app');
+  const rest = await box.boundingBox();
+  assert.ok(rest.height >= 66 && rest.height <= 72, `the box is two lines tall at rest (${rest.height} px)`);
   // Shift+Enter is a new line, not a send
   await box.fill('40 g radishes');
   await box.press('Shift+Enter');
