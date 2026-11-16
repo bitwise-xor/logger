@@ -70,6 +70,24 @@ export abstract class Answers {
     return !!a.confirm;
   }
 
+  /**
+   * A refusal the page shows next to what was typed instead of in the bar (deploy 87: a usual meal's Save, "Save as usual meal"):
+   * the page's take() keeps the edits and says why there.
+   */
+  protected inlineRefusal(_action: string): boolean {
+    return false;
+  }
+
+  /**
+   * After the sign-in: a tap of this page that met a gone session is sent again, with its key (src/lib/saver.ts). Today has its
+   * own (a typed line goes the box's way).
+   */
+  async resend() {
+    const kept = this.saver.takeKept();
+    if (!kept?.fresh) return;
+    this.handle(await this.saver.send<SaveAnswer>(kept.action, kept.fields), kept.action, kept.fields);
+  }
+
   /** The session's Undo after a load (a reload, another day): the bar with Undo while it lasts. */
   protected loadUndo(undo: Undo | null) {
     this.undoToken = undo?.token ?? null;
@@ -138,6 +156,10 @@ export abstract class Answers {
     }
     const a = sent.answer;
     this.take(a, action, fields);
+    if (a.outcome === 'rejected' && this.inlineRefusal(action)) {
+      this.closeBar();
+      return a;
+    }
     // The Undo button only for the save that made this Undo: an older one would undo something else than the line says.
     const madeUndo = a.undo && a.undo.token !== this.undoToken ? a.undo : null;
     this.undoToken = a.undo?.token ?? null;

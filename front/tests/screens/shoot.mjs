@@ -13,6 +13,11 @@
 // (and links to app. when the door is off), Today, the Food day and the sign-in page say it instead of the page, "Try again"
 // brings the page back with the session kept; after a sign-in the page you were on comes back (`next`); and every page at a
 // tablet width (800 px) too, with no sideways scroll and tap targets of 44 px on phones and tablets.
+// Deploy 87: the Usual meals page (/food/usual) from the Food day's "Usual meals": the cards against the usual sample, a meal
+// opened (beside the list on the PC, its own screen on phones and tablets), an amount changed with +, a food swapped and one
+// added through the search, renamed, saved in place with Undo (and undone), a name another meal has refused with the edits kept,
+// a meal deleted and brought back, a new usual drink; on the Food day "Save as usual meal" on each meal but the drinks (a used
+// name refused, then saved); and Today's "Edit" by the usual chips.
 // Every check throws on a failure, so the script ends with an error.
 // Usage: node tests/screens/shoot.mjs <base url> <out dir> <stand-in url>
 import assert from 'node:assert/strict';
@@ -25,6 +30,7 @@ const day = JSON.parse(readFileSync(new URL('../samples/day.json', import.meta.u
 const FOOD = JSON.parse(readFileSync(new URL('../samples/food.json', import.meta.url), 'utf8'));
 const foodDay = FOOD.food_day.food_day;
 const foodBefore = FOOD.before.food_day;
+const USUAL = JSON.parse(readFileSync(new URL('../samples/usual.json', import.meta.url), 'utf8')).usual.usual;
 
 // What the page must show, worked out here from the sample on its own (not with the page's code).
 const even = (x) => {
@@ -404,7 +410,7 @@ async function checkFood(page, name, theme) {
   if (name !== 'pc') {
     // step F: scrolled to the end, the bar covers nothing (the page leaves room for it)
     await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-    const last = await page.getByRole('link', { name: 'Usual meals: full app' }).boundingBox();
+    const last = await page.getByRole('link', { name: 'Usual meals', exact: true }).boundingBox();
     const shown = await bar.boundingBox();
     assert.ok(last.y + last.height <= shown.y + 1, `the answer bar covers nothing at the end (${last.y + last.height} > ${shown.y})`);
   }
@@ -434,6 +440,167 @@ async function checkFood(page, name, theme) {
   await page.getByRole('link', { name: '+ Add food' }).click();
   await page.getByRole('heading', { name: 'Today', exact: true }).waitFor();
   await page.waitForFunction(() => document.activeElement?.id === 'log-text');
+}
+
+/** Deploy 87: the Usual meals page, "Save as usual meal" on the Food day, and Today's "Edit" link. */
+async function checkUsual(page, name, theme) {
+  await standinPost('/standin/reset');
+  await page.goto(`${base}/food`);
+  await page.getByRole('link', { name: 'Usual meals', exact: true }).click();
+  await page.getByRole('heading', { name: 'Usual meals', exact: true }).waitFor();
+  await page.evaluate(() => (window.__noReload = true));
+  const pc = name === 'pc';
+  const bar = page.locator('[data-bar]');
+  const head = bar.locator('[data-bar-head]');
+  const card = (id) => page.locator(`[data-usual="${id}"]`);
+  const ed = page.locator('[data-usual-editor]');
+  const row = (id) => (id === 'added' ? ed.locator('[data-usual-row^="n"]').last() : ed.locator(`[data-usual-row="${id}"]`));
+  const shot = (what, fullPage = false) => page.screenshot({ path: `${out}/${what}-${name}-${theme}.png`, fullPage });
+  const breakfast = USUAL.find((u) => u.name === 'Usual breakfast');
+  const cocoa = USUAL.find((u) => u.name === 'Cocoa');
+  const [oats, skyr] = breakfast.items;
+  const items = (u) => u.items.map((i) => `${i.food} ${grouped(i.amount)} ${i.unit}`).join(' · ');
+  const total = (kcal, protein) => `${grouped(kcal)} kcal · ${grouped(protein)} g protein`;
+  const openCard = async (u) => {
+    await card(u.meal_id).click();
+    await page.locator(`[data-usual-editor="${u.meal_id}"]`).waitFor();
+  };
+  const pick = async (words, id) => {
+    await ed.locator('#usual-q').fill(words);
+    await ed.locator(`[data-hit="${id}"]`).click();
+    await ed.locator('[data-usual-search]').waitFor({ state: 'detached' });
+  };
+
+  // the list: every sample meal with its foods, kcal and protein (worked out here from the sample), by name
+  for (const u of USUAL) {
+    assert.equal(await text(card(u.meal_id).locator('[data-usual-name]')), u.name, `${u.name}: name`);
+    assert.equal(await text(card(u.meal_id).locator('[data-usual-items]')), items(u), `${u.name}: foods`);
+    assert.equal(await text(card(u.meal_id).locator('[data-usual-kcal]')), `${grouped(u.nutrients.kcal)} kcal`, `${u.name}: kcal`);
+    assert.equal(await text(card(u.meal_id).locator('[data-usual-protein]')), `${grouped(u.nutrients.protein)} g P`, `${u.name}: protein`);
+  }
+  const names = await page.locator('[data-usual-name]').allTextContents();
+  assert.deepEqual(names, [...names].sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' })), 'cards by name');
+  assert.equal(await page.locator('[data-count]').count(), 1, 'the count line');
+  // the PC: the first meal open beside the list; phones and tablets: the list alone
+  assert.equal(await ed.count(), pc ? 1 : 0, pc ? 'PC: a meal open beside the list' : 'phone: the list alone');
+  await shot('usual', true);
+  await checkWidth(page, 'usual meals');
+
+  // a meal opened: its total as saved; + on oats, Skyr swapped, rye bread added, renamed; each change shows
+  await openCard(breakfast);
+  if (pc) {
+    const list = await page.locator('[data-card="usual-list"]').boundingBox();
+    const box = await ed.boundingBox();
+    assert.ok(box.x > list.x + list.width, 'PC: the open meal right of the list');
+  } else assert.ok(!(await page.locator('[data-card="usual-list"]').isVisible()), 'phone: the open meal is its own screen');
+  assert.equal(await text(ed.locator('[data-usual-total]')), total(breakfast.nutrients.kcal, breakfast.nutrients.protein), 'the total as saved');
+  await row(`i${oats.item_id}`).getByRole('button', { name: `More ${oats.food}` }).click();
+  assert.equal(await row(`i${oats.item_id}`).locator('[data-row-amount]').inputValue(), String(oats.amount + 5), '+ adds 5 g');
+  assert.equal(await text(row(`i${oats.item_id}`).locator('[data-status]')), `Changed · was ${oats.amount} g`, 'the changed row says so');
+  await row(`i${skyr.item_id}`).getByRole('button', { name: `Swap ${skyr.food}` }).click();
+  await ed.getByText(`Swap ${skyr.food} for`).waitFor();
+  await page.waitForFunction(() => document.activeElement?.id === 'usual-q');
+  await ed.locator('#usual-q').fill('oats');
+  await ed.locator('[data-hit]').first().waitFor();
+  await checkWidth(page, 'usual meals, the search');
+  await pick('oats with', 2);
+  assert.equal(await text(row(`i${skyr.item_id}`).locator('[data-row-food]')), 'Oats with milk and banana', 'swapped');
+  assert.equal(await text(row(`i${skyr.item_id}`).locator('[data-status]')), `Swapped · was ${skyr.food}`, 'the swapped row says so');
+  await ed.locator('[data-add-food]').click();
+  await pick('rye', 7);
+  await row('added').waitFor();
+  assert.equal(await text(row('added').locator('[data-status]')), 'New', 'the added row says so');
+  await ed.locator('#usual-name').fill('Big breakfast');
+  assert.match(await text(ed.locator('[data-usual-changes]')), /^4 changes, not saved yet/, 'four changes counted');
+  await ed.locator('[data-usual-was]').waitFor();
+  await ed.scrollIntoViewIfNeeded();
+  await shot('usual-edit', !pc);
+  await checkWidth(page, 'usual meals, a meal open');
+
+  // saved in place: the card renamed with a blue edge, Undo in the bar; then undone
+  await ed.locator('[data-usual-save]').click();
+  await card(breakfast.meal_id).locator('[data-usual-name]').getByText('Big breakfast').waitFor();
+  assert.equal(await text(head), 'Changed the usual meal "Big breakfast".', 'save: the head');
+  await bar.getByRole('button', { name: 'Undo' }).waitFor();
+  assert.equal(await page.locator(`[data-usual="${breakfast.meal_id}"][data-fresh]`).count(), 1, 'the saved card has a blue edge');
+  assert.equal(await text(card(breakfast.meal_id).locator('[data-usual-items]')), `${oats.food} ${oats.amount + 5} g · Oats with milk and banana ${skyr.amount} g · Rye bread 100 g`, 'the saved foods');
+  assert.equal(await ed.count(), pc ? 1 : 0, pc ? 'PC: the saved meal stays open' : 'phone: back to the list');
+  await shot('usual-saved');
+  await bar.getByRole('button', { name: 'Undo' }).click();
+  await card(breakfast.meal_id).locator('[data-usual-name]').getByText('Usual breakfast').waitFor();
+  assert.equal(await text(head), 'Undone.', 'Undo: the head');
+  assert.equal(await text(card(breakfast.meal_id).locator('[data-usual-items]')), items(breakfast), 'Undo: the foods as before');
+
+  // a name another meal has: refused next to Save, in plain words, every edit kept
+  await openCard(breakfast);
+  await ed.locator('#usual-name').fill('cocoa');
+  await row(`i${oats.item_id}`).getByRole('button', { name: `Less ${oats.food}` }).click();
+  await ed.locator('[data-usual-save]').click();
+  await ed.locator('[data-usual-err]').getByText('There is already a usual meal called "Cocoa". Pick another name.').waitFor();
+  assert.equal(await ed.locator('#usual-name').inputValue(), 'cocoa', 'refused: the name kept');
+  assert.equal(await row(`i${oats.item_id}`).locator('[data-row-amount]').inputValue(), String(oats.amount - 5), 'refused: the amount kept');
+  assert.equal(await page.locator('[data-bar="warning"]').count(), 0, 'refused: said next to Save, not in the bar');
+  await shot('usual-refused', !pc);
+  await ed.getByRole('button', { name: 'Cancel' }).click();
+
+  // the only food removed: Save says to use Delete; Put back; then Delete, and Undo brings it back
+  await openCard(cocoa);
+  const milk = cocoa.items[0];
+  await row(`i${milk.item_id}`).getByRole('button', { name: `Remove ${milk.food}` }).click();
+  assert.equal(await text(row(`i${milk.item_id}`).locator('[data-status]')), 'Removed', 'the removed row says so');
+  await ed.locator('[data-usual-save]').click();
+  await ed.locator('[data-usual-err]').getByText('use Delete', { exact: false }).waitFor();
+  await row(`i${milk.item_id}`).getByRole('button', { name: 'Put back' }).click();
+  await ed.locator('[data-usual-delete]').click();
+  await card(cocoa.meal_id).waitFor({ state: 'detached' });
+  assert.equal(await text(head), 'Deleted the usual meal "Cocoa". Past meals keep their values.', 'delete: the head');
+  await bar.getByRole('button', { name: 'Undo' }).click();
+  await card(cocoa.meal_id).waitFor();
+
+  // a new usual drink: name, Drink, a food from the search (200 ml), + to 225 ml; saved with Undo
+  await page.locator('[data-new-usual]:visible').click();
+  await page.locator('[data-usual-editor="new"]').waitFor();
+  await ed.locator('#usual-name').fill('Protein shake');
+  await ed.getByRole('button', { name: 'Drink', exact: true }).click();
+  await ed.locator('[data-add-food]').click();
+  await pick('milk', milk.food_id);
+  await row('added').getByRole('button', { name: `More ${milk.food}` }).click();
+  assert.equal(await row('added').locator('[data-row-amount]').inputValue(), '225', 'a drink starts at 200 ml');
+  await shot('usual-new', !pc);
+  await checkWidth(page, 'usual meals, a new one');
+  await ed.locator('[data-usual-save]').click();
+  await page.locator('[data-usual-name]').getByText('Protein shake').waitFor();
+  assert.match(await text(head), /^Saved "Protein shake" as a usual drink \(1 item\)/, 'new: the head');
+  await bar.getByRole('button', { name: 'Undo' }).waitFor();
+  assert.ok(await page.evaluate(() => window.__noReload === true), 'no reload during the saves');
+
+  // the Food day: "Save as usual meal" on each meal but the drinks; a used name refused (the name kept), then saved
+  await page.getByRole('link', { name: '‹ Food day' }).click();
+  await page.getByRole('heading', { name: 'Food', exact: true }).waitFor();
+  const meals = [...new Set(foodDay.rows.map((r) => r.meal))].filter((m) => m !== 0);
+  assert.equal(await page.locator('[data-save-usual]').count(), meals.length, 'Save as usual meal on each meal, not the drinks');
+  const meal = Math.max(...meals);
+  await page.locator(`[data-save-usual="${meal}"]`).click();
+  const naming = page.locator(`[data-name-usual="${meal}"]`);
+  await naming.locator('input[name=name]').fill('Lunch box');
+  await naming.getByRole('button', { name: 'Save', exact: true }).click();
+  await naming.locator('[data-usual-err]').getByText('There is already a usual meal called "Lunch box".', { exact: false }).waitFor();
+  assert.equal(await naming.locator('input[name=name]').inputValue(), 'Lunch box', 'refused: the name kept');
+  await naming.locator('input[name=name]').fill('Lunch at work');
+  await shot('food-usual');
+  await checkWidth(page, 'food, save as usual meal');
+  await naming.getByRole('button', { name: 'Save', exact: true }).click();
+  await naming.waitFor({ state: 'detached' });
+  const n = foodDay.rows.filter((r) => r.meal === meal).length;
+  assert.match(await text(head), new RegExp(`^Saved "Lunch at work" as a usual meal \\(${n} items\\)`), 'from a meal: the head');
+  await bar.getByRole('button', { name: 'Undo' }).waitFor();
+  await page.getByRole('link', { name: 'Usual meals', exact: true }).click();
+  await page.locator('[data-usual-name]').getByText('Lunch at work').waitFor();
+
+  // Today: "Edit" by the usual chips leads here
+  await page.goto(`${base}/`);
+  await page.locator('[data-usual-edit]').click();
+  await page.getByRole('heading', { name: 'Usual meals', exact: true }).waitFor();
 }
 
 /** Step F: the core down, the door off, and the way back; the sign-in page in both; `next` after a sign-in. */
@@ -569,6 +736,8 @@ for (const theme of ['dark', 'light']) {
     console.log(`logging box ${name} ${theme}: checks passed`);
     await checkFood(page, name, theme);
     console.log(`food day ${name} ${theme}: checks passed`);
+    await checkUsual(page, name, theme);
+    console.log(`usual meals ${name} ${theme}: checks passed`);
     await checkProblems(page, name, theme);
     console.log(`core down, door off, next ${name} ${theme}: checks passed`);
     if (name === 'phone' && theme === 'dark') {

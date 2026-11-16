@@ -210,4 +210,38 @@ describe('the saver', () => {
     expect(s.takeKept()).toBeNull();
     expect(n.calls).toHaveLength(1);
   });
+
+  it('the usual meals (deploy 87): a Save is keyed, the newest answer wins, and a kept one is sent again only by its own page', async () => {
+    const n = fakeNet();
+    const store = memory();
+    let i = 0;
+    const s = new Saver({ ...n, storage: store, newKey: () => `usual-key-${++i}`, page: '/food/usual' });
+    const first = s.send('usual_meal', { meal_id: '84', action: 'save', name: 'A', food_id: ['10'], amount: ['60'] });
+    const second = s.send('usual_meal', { meal_id: '84', action: 'save', name: 'B', food_id: ['10'], amount: ['65'] });
+    await tick();
+    expect(n.calls[0]!.url).toBe('/food/usual?/usual_meal');
+    expect(n.calls[0]!.fields.key).toEqual(['usual-key-1']);
+    expect(n.calls[1]!.fields.key).toEqual(['usual-key-2']);
+    n.calls[1]!.answer(ok('Changed the usual meal "B".'));
+    n.calls[0]!.answer(ok('Changed the usual meal "A".'));
+    expect(await second).toMatchObject({ kind: 'answer' });
+    expect(await first).toEqual({ kind: 'stale' });
+
+    const gone = s.send('usual_new', { name: 'Shake', drink: '1', food_id: ['11'], amount: ['300'] });
+    await tick();
+    n.calls[2]!.answer({ type: 'failure', status: 401, data: { signedOut: true, message: 'Sign in again.' } });
+    expect(await gone).toEqual({ kind: 'signed_out' });
+    // Today (another page) leaves it kept; the Usual meals page sends it again, with its key
+    const today = new Saver({ ...n, storage: store, page: '/' });
+    expect(today.takeKept()).toBeNull();
+    expect(store.m.has(RESEND_ITEM)).toBe(true);
+    const back = new Saver({ ...n, storage: store, page: '/food/usual' });
+    const again = back.resend();
+    await tick();
+    expect(n.calls[3]!.url).toBe('/food/usual?/usual_new');
+    expect(n.calls[3]!.fields.key).toEqual(['usual-key-3']);
+    expect(n.calls[3]!.fields.food_id).toEqual(['11']);
+    n.calls[3]!.answer(ok('Saved.'));
+    expect(await again).toMatchObject({ kind: 'answer' });
+  });
 });

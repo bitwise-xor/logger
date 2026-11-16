@@ -14,7 +14,7 @@
 </script>
 
 <section aria-labelledby="food-rows-h" class="flex flex-col gap-1.5 desktop:gap-0 desktop:overflow-hidden desktop:rounded-card desktop:border desktop:border-line desktop:bg-panel" data-card="food-rows">
-  <h2 id="food-rows-h" class="m-0 text-xs font-normal text-muted desktop:sr-only">Tap a food to change its amount, time or note, or to delete it.</h2>
+  <h2 id="food-rows-h" class="m-0 text-xs font-normal text-muted desktop:sr-only">Tap a food to change its amount, time or note, or to delete it. "Save as usual meal" keeps a meal's foods and amounts under a name.</h2>
   {#if blocks.length === 0}
     <p class="m-0 text-muted desktop:px-3.5 desktop:py-3">Nothing logged {day.past ? 'on this day' : 'yet today'}.</p>
   {:else}
@@ -23,12 +23,56 @@
     </div>
   {/if}
   {#each blocks as b (b.key)}
+    {@const naming = food.naming === b.meal}
     <div
-      class="flex justify-between px-0.5 pt-2 text-xs font-medium tracking-[0.06em] text-muted uppercase desktop:border-t desktop:border-line desktop:bg-panel2 desktop:px-3.5 desktop:py-2"
+      class="flex min-h-11 items-center gap-2 px-0.5 pt-1 text-xs font-medium tracking-[0.06em] text-muted uppercase desktop:min-h-0 desktop:border-t desktop:border-line desktop:bg-panel2 desktop:px-3.5 desktop:py-1"
       data-meal-label
     >
       <span>{b.label}</span><span class="num">{b.total}</span>
+      <span class="flex-1"></span>
+      {#if b.meal !== 0}
+        <button
+          type="button"
+          class="min-h-11 cursor-pointer border-0 bg-transparent px-1 text-[13px] font-medium tracking-normal text-blue normal-case desktop:min-h-8"
+          aria-expanded={naming}
+          onclick={() => food.nameMeal(b.meal)}
+          data-save-usual={b.meal}>Save as usual meal</button
+        >
+      {/if}
     </div>
+    {#if naming}
+      <form
+        method="POST"
+        action="?/usual_from_meal"
+        class="m-0 flex flex-col gap-2 rounded-lg border border-blue bg-panel2 px-3 py-2.5 desktop:rounded-none desktop:border-0 desktop:border-t desktop:border-line desktop:px-3.5"
+        onsubmit={food.submit('usual_from_meal', `from_meal:${b.meal}`)}
+        data-name-usual={b.meal}
+      >
+        <input type="hidden" name="day" value={day.day} />
+        <input type="hidden" name="meal" value={b.meal} />
+        <label for="usual-name-{b.meal}" class="text-xs text-muted">Name for the usual meal ({b.lines.map((l) => l.name).join(', ')})</label>
+        <input
+          id="usual-name-{b.meal}"
+          name="name"
+          maxlength="60"
+          autocomplete="off"
+          required
+          placeholder="e.g. Lunch at work"
+          bind:value={food.usualName}
+          oninput={() => (food.usualErr = null)}
+          class="h-11 w-full rounded-lg border border-line bg-panel px-3 text-[15px] text-text desktop:h-9 desktop:max-w-96"
+        />
+        {#if food.usualErr}<p role="alert" class="m-0 rounded-lg bg-amber-bg px-2.5 py-2 text-amber" data-usual-err>{food.usualErr}</p>{/if}
+        <div class="flex gap-2">
+          <button type="submit" class="min-h-11 cursor-pointer rounded-lg border-0 bg-text px-4 font-medium text-bg disabled:opacity-60 desktop:min-h-9" disabled={!!food.busy[`from_meal:${b.meal}`]}
+            >Save</button
+          >
+          <button type="button" class="min-h-11 cursor-pointer rounded-lg border border-line bg-panel px-4 text-text desktop:min-h-9" onclick={() => food.nameMeal(b.meal)}
+            >Cancel</button
+          >
+        </div>
+      </form>
+    {/if}
     {#each b.lines as l (l.ref)}
       {@const open = food.open === l.ref}
       {@const fresh = food.fresh.has(l.ref)}

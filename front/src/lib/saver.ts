@@ -40,7 +40,11 @@ export interface SaverDeps {
 }
 
 /** The actions whose door route takes a key (src/lib/server/saves.ts, `keyed`): only these are re-sent after a sign-in. */
-export const KEYED = new Set(['log', 'water', 'again', 'usual', 'habit', 'checkin', 'health', 'held_retry', 'held_delete']);
+export const KEYED = new Set([
+  'log', 'water', 'again', 'usual', 'habit', 'checkin', 'health', 'held_retry', 'held_delete',
+  // the usual meals (deploy 87): the Usual meals page's and the Food day's "Save as usual meal"
+  'usual_meal', 'usual_new', 'usual_from_meal',
+]);
 /** The actions the AI reads (up to about 40 s): their answer is never dropped for a tap made while they were read. */
 export const SLOW = new Set(['log', 'held_retry']);
 export const RESEND_ITEM = 'logger-resend';
@@ -56,6 +60,8 @@ export interface Kept {
   action: string;
   fields: FieldValues;
   at: number;
+  /** The page whose form action it is (deploy 87; none: Today, "/"): only that page sends it again. */
+  page?: string;
 }
 
 export class Saver {
@@ -94,7 +100,7 @@ export class Saver {
     if (result.type === 'success') return this.#take(seq, action, { kind: 'answer', answer: result.data?.answer as A });
     if (result.type === 'failure' && result.data?.signedOut) {
       // Kept whatever its age in the race: a sign-in is needed either way.
-      if (KEYED.has(action)) this.#keep({ action, fields: all, at: this.#d.now() });
+      if (KEYED.has(action)) this.#keep({ action, fields: all, at: this.#d.now(), page: this.#d.page });
       return { kind: 'signed_out' };
     }
     if (result.type === 'redirect') return { kind: 'signed_out' };
@@ -115,11 +121,12 @@ export class Saver {
 
   /**
    * The tap kept when the session was gone, taken out (it is sent once at most). fresh: it may be sent again (within 10
-   * minutes, with a key); a stale typed line's words can still go back into the logging box.
+   * minutes, with a key); a stale typed line's words can still go back into the logging box. A tap of another page stays kept
+   * for that page (the sign-in leads back to it).
    */
   takeKept(): (Kept & { fresh: boolean }) | null {
     const kept = this.#kept();
-    if (!kept) return null;
+    if (!kept || (kept.page ?? '/') !== this.#d.page) return null;
     try {
       this.#d.storage?.removeItem(RESEND_ITEM);
     } catch {

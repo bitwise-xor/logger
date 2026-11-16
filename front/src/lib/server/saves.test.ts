@@ -2,7 +2,7 @@
 // day asked for, and a gone session told apart from other problems.
 import { describe, expect, it } from 'vitest';
 import { makeDoor, type Fetch } from './door.js';
-import { bodyFor, FOOD_SAVES, runSave, SAVE_NAMES, SAVES, TODAY_SAVES } from './saves.js';
+import { bodyFor, FOOD_SAVES, runSave, SAVE_NAMES, SAVES, TODAY_SAVES, USUAL_SAVES } from './saves.js';
 
 const TOKEN = 'f'.repeat(40);
 const SESSION = 's'.repeat(43);
@@ -184,10 +184,79 @@ describe('the Food day saves (step E)', () => {
     expect(seen).toMatchObject([{ path: '/api/v1/food/note', body: { ref: 'f7', note: 'x', view: 'food', view_day: '2026-11-15' } }]);
   });
 
-  it('offers the Food day its saves and Undo, and Today all the others', () => {
-    expect(FOOD_SAVES).toEqual(['food_entry', 'food_note', 'undo']);
+  it('offers the Food day and the Usual meals page their saves and Undo, and Today all the others', () => {
+    expect(FOOD_SAVES).toEqual(['food_entry', 'food_note', 'usual_from_meal', 'undo']);
+    expect(USUAL_SAVES).toEqual(['usual_meal', 'usual_new', 'undo']);
     expect(TODAY_SAVES).not.toContain('food_entry');
+    expect(TODAY_SAVES).not.toContain('usual_meal');
+    expect(TODAY_SAVES).toContain('usual');
     expect(TODAY_SAVES).toContain('undo');
-    expect(new Set([...TODAY_SAVES, ...FOOD_SAVES])).toEqual(new Set(SAVE_NAMES));
+    expect(new Set([...TODAY_SAVES, ...FOOD_SAVES, ...USUAL_SAVES])).toEqual(new Set(SAVE_NAMES));
+  });
+});
+
+describe('the usual meals (deploy 87)', () => {
+  it('a changed meal: numbers where the door wants numbers, the whole list in order, always confirmed, keyed', () => {
+    const body = bodyFor(
+      'usual_meal',
+      form({ meal_id: '84', action: 'save', name: ' Big breakfast ', food_id: ['10', '8', '2'], amount: ['90', '200', '12.5'], key: KEY }),
+      undefined,
+      undefined,
+      'usual',
+    );
+    expect(body).toEqual({
+      meal_id: 84,
+      action: 'save',
+      confirmed: true,
+      name: 'Big breakfast',
+      items: [
+        { food_id: 10, amount: 90 },
+        { food_id: 8, amount: 200 },
+        { food_id: 2, amount: 12.5 },
+      ],
+      view: 'usual',
+      key: KEY,
+    });
+  });
+
+  it('a delete sends no name or foods; an odd amount goes as typed, for the door to refuse in plain words', () => {
+    expect(bodyFor('usual_meal', form({ meal_id: '84', action: 'delete', key: KEY }), undefined, undefined, 'usual')).toEqual({
+      meal_id: 84,
+      action: 'delete',
+      confirmed: true,
+      view: 'usual',
+      key: KEY,
+    });
+    const odd = bodyFor('usual_meal', form({ meal_id: '84', action: 'save', name: 'X', food_id: ['10'], amount: ['lots'] }), undefined);
+    expect(odd.items).toEqual([{ food_id: 10, amount: 'lots' }]);
+  });
+
+  it('a new meal or drink, and a meal of the Food day saved as a usual meal', () => {
+    expect(bodyFor('usual_new', form({ name: 'Shake', drink: '1', food_id: ['11'], amount: ['300'], key: KEY }), undefined, undefined, 'usual')).toEqual({
+      name: 'Shake',
+      drink: true,
+      items: [{ food_id: 11, amount: 300 }],
+      view: 'usual',
+      key: KEY,
+    });
+    expect(bodyFor('usual_new', form({ name: 'Bowl', food_id: ['10'], amount: ['60'], key: KEY }), undefined).drink).toBe(false);
+    expect(bodyFor('usual_from_meal', form({ day: '2026-11-16', meal: '2', name: 'Lunch box', key: KEY }), '2026-11-16', undefined, 'food')).toEqual({
+      day: '2026-11-16',
+      meal: 2,
+      name: 'Lunch box',
+      view: 'food',
+      view_day: '2026-11-16',
+      key: KEY,
+    });
+  });
+
+  it('goes to the door’s routes and brings the fresh list back', async () => {
+    const usual = [{ meal_id: 84, name: 'Big breakfast', drink: false, items: [], nutrients: {} }];
+    const { door, seen } = net(200, { v: 1, outcome: 'changed', head: 'Changed the usual meal "Big breakfast".', usual });
+    const r = await runSave(door, SESSION, 'usual_meal', form({ meal_id: '84', action: 'delete', key: KEY }), undefined, 'usual');
+    expect(r).toMatchObject({ ok: true, answer: { usual } });
+    await runSave(door, SESSION, 'usual_new', form({ name: 'Shake', food_id: ['11'], amount: ['300'], key: KEY }), undefined, 'usual');
+    await runSave(door, SESSION, 'usual_from_meal', form({ day: '2026-11-16', meal: '1', name: 'Bowl', key: KEY }), '2026-11-16', 'food');
+    expect(seen.map((x) => x.path)).toEqual(['/api/v1/usual/meal', '/api/v1/usual/new', '/api/v1/usual/from_meal']);
   });
 });

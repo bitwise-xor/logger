@@ -111,6 +111,8 @@ export interface FoodLine {
 
 export interface FoodBlock {
   key: string;
+  /** The meal's number: 1, 2, …; 0 is the drinks (which cannot be saved as a usual meal). */
+  meal: number;
   label: string;
   total: string;
   lines: FoodLine[];
@@ -148,6 +150,7 @@ export function foodBlocks(fd: FoodDay): FoodBlock[] {
     const meal = meals.get(b.meal!);
     return {
       key: b.key,
+      meal: b.meal!,
       label: mealLabel(b.meal!, meal?.label),
       total: meal ? `${n(meal.nutrients.kcal)} kcal` : '',
       lines: b.rows.map(foodLine),

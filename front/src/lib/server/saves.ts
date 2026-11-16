@@ -1,11 +1,13 @@
 /**
- * Today's saves (step C, deploy 80; the logging box's typed line since step D, deploy 81) and the Food day's (step E, deploy 84):
+ * Today's saves (step C, deploy 80; the logging box's typed line since step D, deploy 81), the Food day's (step E, deploy 84) and
+ * the Usual meals page's (deploy 87):
  * which form action calls which door route with which body (docs/API.md, "Saves").
  *
  * Every tap on Today is a SvelteKit form action (src/routes/(app)/+page.server.ts). The browser sends the form's fields and a
  * new `key` per tap (the same key again when it re-sends that tap after a sign-in, src/lib/saver.ts); this file turns the fields
  * into the door's JSON body, adds the key where the door's route takes one, and asks for the fresh day in the answer
- * (`view: "day"`, or `view: "food"` with the day shown for the Food day), so the page can replace what it shows without a reload.
+ * (`view: "day"`, `view: "food"` with the day shown for the Food day, or `view: "usual"`), so the page can replace what it shows
+ * without a reload.
  *
  * Plain TypeScript with no SvelteKit import, so the tests can hand it a door with a fake network.
  */
@@ -42,6 +44,22 @@ const int = (f: Fields, name: string): number | undefined => {
   const t = str(f, name, 20);
   return t !== undefined && /^\d{1,12}$/.test(t) ? Number(t) : undefined;
 };
+
+/** An amount as a number ("60", "12.5"); anything else is sent as it is, and the door refuses it in plain words. */
+const amount = (v: FormDataEntryValue): number | string => {
+  const t = typeof v === 'string' ? v.trim().slice(0, 20) : '';
+  return /^\d{1,6}(\.\d{1,3})?$/.test(t) ? Number(t) : t;
+};
+
+/** A usual meal's foods (deploy 87): the form's food_id and amount fields, pair by pair, in their order (at most 40, as the door). */
+function items(f: Fields): { food_id: number | string; amount: number | string }[] {
+  const ids = f.getAll('food_id').slice(0, 40);
+  const amounts = f.getAll('amount');
+  return ids.map((id, k) => {
+    const t = typeof id === 'string' ? id.trim() : '';
+    return { food_id: /^\d{1,12}$/.test(t) ? Number(t) : t, amount: amount(amounts[k] ?? '') };
+  });
+}
 
 export const SAVES = {
   // A typed line, as many lines as the box holds (each can be its own entry); 4000 characters as app.'s box (webentry.MAX_TEXT).
@@ -100,14 +118,38 @@ export const SAVES = {
   },
   // A row's note; empty removes it (300 characters, as app.).
   food_note: { path: '/food/note', keyed: false, body: (f) => ({ ref: str(f, 'ref', 12), note: str(f, 'note', 300) ?? '' }) },
+  // The Usual meals page (deploy 87): one Save changes a meal (its name and the whole list of foods, in order) or deletes it;
+  // made at once with Undo, so the front end always sends confirmed (the door would read it back first otherwise).
+  usual_meal: {
+    path: '/usual/meal',
+    keyed: true,
+    body: (f) => {
+      const action = str(f, 'action', 10);
+      const base = { meal_id: int(f, 'meal_id'), action, confirmed: true };
+      return action === 'save' ? { ...base, name: str(f, 'name', 200) ?? '', items: items(f) } : base;
+    },
+  },
+  // A new usual meal or drink from foods (1 to 8, as app.).
+  usual_new: {
+    path: '/usual/new',
+    keyed: true,
+    body: (f) => ({ name: str(f, 'name', 200) ?? '', drink: f.get('drink') === '1', items: items(f) }),
+  },
+  // "Save as usual meal" on a meal of the Food day (not the drinks, meal 0): the day, the meal's number and a name.
+  usual_from_meal: {
+    path: '/usual/from_meal',
+    keyed: true,
+    body: (f) => ({ day: str(f, 'day', 10), meal: int(f, 'meal'), name: str(f, 'name', 200) ?? '' }),
+  },
 } satisfies Record<string, Save>;
 
 export type SaveName = keyof typeof SAVES;
 export const SAVE_NAMES = Object.keys(SAVES) as SaveName[];
-/** The Food day's form actions (src/routes/(app)/food); Today has all the others. */
-export const FOOD_SAVES: SaveName[] = ['food_entry', 'food_note', 'undo'];
-export const TODAY_SAVES: SaveName[] = SAVE_NAMES.filter((n) => n !== 'food_entry' && n !== 'food_note');
-export type View = 'day' | 'food';
+/** The Food day's form actions (src/routes/(app)/food), the Usual meals page's (src/routes/(app)/food/usual); Today has all the others. */
+export const FOOD_SAVES: SaveName[] = ['food_entry', 'food_note', 'usual_from_meal', 'undo'];
+export const USUAL_SAVES: SaveName[] = ['usual_meal', 'usual_new', 'undo'];
+export const TODAY_SAVES: SaveName[] = SAVE_NAMES.filter((n) => n === 'undo' || (!FOOD_SAVES.includes(n) && !USUAL_SAVES.includes(n)));
+export type View = 'day' | 'food' | 'usual';
 
 /** A key as the browser makes them (src/lib/saver.ts): a random UUID or base64url; anything else is replaced. */
 const KEY = /^[A-Za-z0-9_-]{16,64}$/;

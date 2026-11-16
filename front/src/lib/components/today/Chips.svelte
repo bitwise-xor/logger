@@ -33,5 +33,9 @@
         >
       </form>
     {/each}
+    {#if day.chips.usual.length}
+      <!-- deploy 87: the usual meals are changed on their own page -->
+      <a href="/food/usual" class="inline-flex min-h-11 items-center px-1.5 text-[13px] font-medium desktop:min-h-9" aria-label="Edit usual meals" data-usual-edit>Edit</a>
+    {/if}
   </div>
 {/if}

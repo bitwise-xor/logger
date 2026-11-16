@@ -4,6 +4,7 @@
  */
 import { dayOf, hm, hours, n, plain } from './format.js';
 import type { FoodDay } from './food.js';
+import type { Usual } from './usual.js';
 
 // ---- the door's shapes (docs/API.md; front/tests/samples/day.json is a real answer) ----------------------------------------
 
@@ -390,6 +391,8 @@ export interface SaveAnswer {
   day?: Day;
   /** A save of the Food day (step E) asks for the fresh food day instead ("view": "food"). */
   food_day?: FoodDay;
+  /** A save of the Usual meals page (deploy 87): every usual meal, fresh ("view": "usual"). */
+  usual?: Usual[];
 }
 
 /** The rows a save added (in the fresh day, not in the one shown before): they get a blue edge (the mockup). */

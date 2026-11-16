@@ -13,6 +13,11 @@
 // POST /food/entry (save: amount, unit, time, another food named like one of the day's; delete) and /food/note, each answering
 // with the food day when the body asks for view "food". An amount over 2000 g (or ml) is read back first: a stand-in rule only,
 // to try the confirm (the real door reads back only an odd value).
+// Deploy 87: GET /usual (tests/samples/usual.json's list, and three more meals made here from the catalogue), GET /foods?q= (a
+// catalogue made of the samples' foods, each with per_100 worked out from its values), and POST /usual/meal (save: name and the
+// whole list; delete), /usual/new and /usual/from_meal, checked as webfood checks them (a name of 2 to 60 characters no other
+// usual meal has, in any case; foods of the catalogue; amounts above 0 and at most 5000; 1 to 8 foods for a new one; not the
+// drinks), answering with the list for view "usual" (from_meal: the food day). Undo puts the list back too.
 // Usage: node tests/standin/door.mjs [port]  (FRONT_TOKEN from the environment). POST /standin/reset starts the day again,
 // POST /standin/drop-sessions signs every session out (for the re-send after a sign-in), POST /standin/ai-down and
 // /standin/ai-up make /log hold its lines or read them again.
@@ -32,13 +37,14 @@ const read = (name) => JSON.parse(readFileSync(new URL(`../samples/${name}`, imp
 const SAVE = read('save.json');
 const LOG = read('log.json');
 const FOOD = read('food.json');
+const USUAL = read('usual.json');
 const READ_MS = 1200; // the AI's moment: long enough to see the "being read" row
 
-let state; // { day, undo: {token, head, expires_at} | null, before: the day before the last save (for Undo), keys: Map, lines: Map, aiDown }
+let state; // { day, usual, undo: {token, head, expires_at} | null, before: {day, usual} before the last save (for Undo), keys: Map, lines: Map, aiDown }
 let ids = 9000;
 let mode = 'up'; // 'up' | 'core-down' | 'door-off' (step F)
 function reset() {
-  state = { day: read('day.json').day, undo: null, before: null, keys: new Map(), lines: new Map(), aiDown: false };
+  state = { day: read('day.json').day, usual: usualStart(), undo: null, before: null, keys: new Map(), lines: new Map(), aiDown: false };
   // the notes of the food sample's rows (the same invented day), kept on the rows so an Undo puts them back too
   const notes = new Map(FOOD.food_day.food_day.rows.map((r) => [r.ref, r.note]));
   for (const r of state.day.rows) if (r.kind === 'food') r.note = notes.get(r.ref) ?? null;
@@ -123,7 +129,115 @@ function foodSave(path, b, d) {
   recount(d);
   return { outcome: 'changed', head: `Changed ${row.food}.` };
 }
-reset();
+// ---- the usual meals (deploy 87) -----------------------------------------------------------------------------------------------
+
+const r1 = (x) => Math.round(x * 10) / 10;
+const per100 = (nu, amount) => Object.fromEntries(Object.entries(nu).map(([k, v]) => [k, r1((v * 100) / amount)]));
+/** The catalogue: the foods of the samples (usual.json's search and meals, the day's rows), per 100 g or ml. */
+const CATALOGUE = (() => {
+  const m = new Map();
+  const put = (food_id, name, unit, per_100) => m.has(food_id) || m.set(food_id, { food_id, name, unit, drink: unit === 'ml', per_100 });
+  for (const f of USUAL.foods.foods) put(f.food_id, f.name, f.unit, f.per_100);
+  for (const u of USUAL.usual.usual) for (const i of u.items) put(i.food_id, i.food, i.unit, per100(i.nutrients, i.amount));
+  for (const r of read('day.json').day.rows) if (r.kind === 'food' && r.amount > 0) put(r.food_id, r.food, r.unit, per100(r.nutrients, r.amount));
+  return m;
+})();
+const ofFood = (food_id, amount) => {
+  const f = CATALOGUE.get(food_id);
+  return Object.fromEntries(Object.entries(f.per_100).map(([k, v]) => [k, r1((v * amount) / 100)]));
+};
+let itemIds = 100;
+/** A usual meal as GET /usual sends it, from [food_id, amount] pairs. */
+function usualMeal(meal_id, name, drink, pairs, ids = []) {
+  const items = pairs.map(([food_id, amount], k) => {
+    const f = CATALOGUE.get(food_id);
+    return { item_id: ids[k] ?? ++itemIds, food_id, food: f.name, amount, unit: f.unit, nutrients: ofFood(food_id, amount) };
+  });
+  return { meal_id, name, drink, items, nutrients: items.reduce((a, i) => add(a, i.nutrients), ZERO) };
+}
+const byName = (list) => list.sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }));
+/** The sample's list, and three more made here from the catalogue (the day's foods), so the page has something to show. */
+function usualStart() {
+  const more = [
+    usualMeal(86, 'Lunch box', false, [[6, 350], [7, 80]]),
+    usualMeal(87, 'Evening snack', false, [[3, 150], [5, 40]]),
+    usualMeal(88, 'Coffee with milk', true, [[1, 250]]),
+  ];
+  return byName([...structuredClone(USUAL.usual.usual), ...more]);
+}
+const rejected = (reason) => ({ outcome: 'rejected', head: 'Nothing saved.', reason });
+const taken = (list, name, other) => list.find((u) => u.meal_id !== other && u.name.toLowerCase() === name.toLowerCase());
+const cleanName = (x) => String(x ?? '').split(/\s+/).filter(Boolean).join(' ').slice(0, 60);
+/** items: [{food_id, amount}], each a food of the catalogue with an amount above 0 and at most 5000; or the reason it is not. */
+function pairsOf(items, most) {
+  if (!Array.isArray(items) || items.length > most) return `At most ${most} foods.`;
+  for (const i of items) {
+    if (!CATALOGUE.has(i?.food_id)) return `Pick each food from the catalogue (N${i?.food_id} is not in it, or it is hidden).`;
+    if (typeof i.amount !== 'number' || !(i.amount > 0 && i.amount <= 5000)) return 'Give every food an amount above 0 and at most 5000.';
+  }
+  return items.map((i) => [i.food_id, i.amount]);
+}
+
+/** POST /usual/meal, /usual/new and /usual/from_meal: changes state.usual (and answers), or refuses. */
+function usualSave(path, b) {
+  const list = structuredClone(state.usual);
+  let head;
+  if (path === '/usual/meal') {
+    const u = list.find((x) => x.meal_id === b.meal_id);
+    if (!u) return rejected('That usual meal is not there any more.');
+    if (b.action === 'delete') {
+      if (b.confirmed !== true) return { ...SAVE.needs_confirmation, read_back: `Delete the usual meal "${u.name}"?`, confirm: { label: 'Yes, delete', no_label: 'No' } };
+      list.splice(list.indexOf(u), 1);
+      head = `Deleted the usual meal "${u.name}". Past meals keep their values.`;
+    } else {
+      const pairs = pairsOf(b.items, 40);
+      if (typeof pairs === 'string') return rejected(pairs);
+      if (!pairs.length) return rejected('A usual meal needs at least one food. To remove it, use Delete.');
+      const name = cleanName(b.name);
+      if (name.length < 2) return rejected('Give the usual meal a name.');
+      const other = taken(list, name, u.meal_id);
+      if (other) return rejected(`There is already a usual meal called "${other.name}". Pick another name.`);
+      const same = name === u.name && JSON.stringify(pairs) === JSON.stringify(u.items.map((i) => [i.food_id, i.amount]));
+      if (same) return { outcome: 'unchanged', head: 'Nothing changed.', reason: 'Nothing changed.' };
+      if (b.confirmed !== true) return { ...SAVE.needs_confirmation, read_back: `Change the usual meal "${u.name}"?` };
+      // as the core: the items that stay keep their ids
+      const ids = pairs.map(([fid]) => u.items.find((i) => i.food_id === fid)?.item_id);
+      list.splice(list.indexOf(u), 1, usualMeal(u.meal_id, name, u.drink, pairs, ids));
+      head = `Changed the usual meal "${name}".`;
+    }
+  } else if (path === '/usual/new') {
+    const pairs = pairsOf(b.items, 8);
+    if (typeof pairs === 'string') return rejected(pairs);
+    const name = cleanName(b.name);
+    if (name.length < 2) return rejected('Give the usual meal a name.');
+    const other = taken(list, name);
+    if (other) return rejected(`There is already a usual meal called "${other.name}". Pick another name.`);
+    if (!pairs.length) return rejected('Add at least one food with its amount.');
+    list.push(usualMeal(++ids, name, b.drink === true, pairs));
+    head = `Saved "${name}" as a usual ${b.drink ? 'drink' : 'meal'} (${pairs.length} item${pairs.length === 1 ? '' : 's'}). It shows on Today and in the list below.`;
+  } else {
+    if (!Number.isInteger(b.meal) || b.meal === 0) return rejected("Pick a meal: the day's drinks cannot be saved as a usual meal.");
+    const name = cleanName(b.name);
+    if (name.length < 2) return rejected('Give the usual meal a name.');
+    if (b.day !== state.day.day) return rejected('Unknown day.');
+    const other = taken(list, name);
+    if (other) return rejected(`There is already a usual meal called "${other.name}". Pick another name.`);
+    const rows = state.day.rows.filter((r) => r.kind === 'food' && r.meal === b.meal && CATALOGUE.has(r.food_id));
+    if (!rows.length) return rejected('That meal has no foods.');
+    list.push(usualMeal(++ids, name, false, rows.map((r) => [r.food_id, r.amount])));
+    head = `Saved "${name}" as a usual meal (${rows.length} items). It shows on Today and under Food › Usual meals.`;
+  }
+  state.before = { day: state.day, usual: state.usual };
+  state.usual = byName(list);
+  state.undo = { token: randomBytes(12).toString('base64url'), head, expires_at: new Date(Date.now() + 15 * 60_000).toISOString() };
+  return { outcome: 'changed', head, undo: state.undo, tone: 'ok' };
+}
+
+/** GET /foods?q=: up to 20 foods whose name has the words (any case); none = all, as "the most eaten". */
+function foods(q) {
+  const words = String(q ?? '').toLowerCase().split(/\s+/).filter(Boolean);
+  return [...CATALOGUE.values()].filter((f) => words.every((w) => f.name.toLowerCase().includes(w))).slice(0, 20);
+}
 
 function send(res, status, body, headers = {}) {
   res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...headers });
@@ -269,13 +383,15 @@ function save(path, b) {
   } else {
     return null;
   }
-  state.before = state.day;
+  state.before = { day: state.day, usual: state.usual };
   state.day = d;
   state.undo = { token: randomBytes(12).toString('base64url'), head: `Saved: ${head}`, expires_at: new Date(Date.now() + 15 * 60_000).toISOString() };
   return { outcome, head, undo: state.undo, tone: 'ok' };
 }
 
-const KEYED = ['/log', '/water', '/again', '/usual', '/habit', '/checkin', '/health', '/held/retry', '/held/delete'];
+const KEYED = ['/log', '/water', '/again', '/usual', '/habit', '/checkin', '/health', '/held/retry', '/held/delete', '/usual/meal', '/usual/new', '/usual/from_meal'];
+
+reset();
 
 createServer(async (req, res) => {
   let raw = '';
@@ -329,8 +445,12 @@ createServer(async (req, res) => {
     const entry = foodEntry(url.searchParams.get('ref'));
     return entry ? send(res, 200, { entry }, signedIn) : send(res, 404, { error: 'no_entry', message: 'No such entry.' }, signedIn);
   }
-  // A save's fresh day: the Food day when the body asks for it (view "food", view_day), else Today.
-  const fresh = () => (body.view === 'food' ? { food_day: foodDay(body.view_day) } : { day: dayOut(state.day) });
+  if (url.pathname === '/api/v1/usual' && req.method === 'GET') return send(res, 200, { usual: state.usual, undo: undo() }, signedIn);
+  if (url.pathname === '/api/v1/foods' && req.method === 'GET') return send(res, 200, { foods: foods(url.searchParams.get('q')) }, signedIn);
+  // A save's fresh read: the Food day or the usual meals when the body asks for it (view "food" with view_day, "usual"), else
+  // Today; as the core, /usual/meal and /usual/new default to the usual meals and /usual/from_meal to the Food day.
+  const view = body.view ?? ({ '/api/v1/usual/meal': 'usual', '/api/v1/usual/new': 'usual', '/api/v1/usual/from_meal': 'food' })[req.url];
+  const fresh = () => (view === 'food' ? { food_day: foodDay(body.view_day) } : view === 'usual' ? { usual: state.usual } : { day: dayOut(state.day) });
   if (req.url === '/api/v1/session' && req.method === 'DELETE') {
     sessions.delete(bearer);
     return send(res, 200, { outcome: 'signed_out' });
@@ -342,7 +462,7 @@ createServer(async (req, res) => {
       if (!undo() || body.token !== state.undo.token) {
         return send(res, 200, { ...base, outcome: 'rejected', tone: 'warning', head: 'Nothing undone.', reason: 'There is nothing to undo any more.', ...fresh() }, signedIn);
       }
-      [state.day, state.before, state.undo] = [state.before, null, null];
+      [state.day, state.usual, state.before, state.undo] = [state.before.day, state.before.usual, null, null];
       return send(res, 200, { ...base, outcome: 'changed', head: 'Undone.', undo: null, ...fresh() }, signedIn);
     }
     // The key rule, as logbook's: the same key again answers as before and saves nothing twice.
@@ -354,14 +474,14 @@ createServer(async (req, res) => {
       if (!sessions.has(bearer)) return send(res, 401, { error: 'signed_out', message: 'Sign in again.' });
       const r = logLine(body);
       if (r.day) {
-        if (r.undo) [state.before, state.undo] = [state.day, { token: randomBytes(12).toString('base64url'), head: r.undo, expires_at: new Date(Date.now() + 15 * 60_000).toISOString() }];
+        if (r.undo) [state.before, state.undo] = [{ day: state.day, usual: state.usual }, { token: randomBytes(12).toString('base64url'), head: r.undo, expires_at: new Date(Date.now() + 15 * 60_000).toISOString() }];
         state.day = r.day;
       }
       const answer = { ...r.answer, v: 1, replayed: false, undo: r.undo ? state.undo : null };
       if (body.key && !['rejected', 'needs_confirmation', 'held'].includes(answer.outcome)) state.keys.set(body.key, answer);
       return send(res, 200, { ...answer, ...fresh() }, signedIn);
     }
-    const out = save(path, body);
+    const out = path.startsWith('/usual/') ? usualSave(path, body) : save(path, body);
     if (!out) return send(res, 404, { error: 'not_found', message: 'Not found.' });
     const answer = { ...base, ...out, tone: out.tone ?? (['saved', 'changed', 'removed', 'unchanged', 'cancelled'].includes(out.outcome) ? 'ok' : 'warning') };
     if (KEYED.includes(path) && body.key && answer.outcome !== 'rejected' && answer.outcome !== 'needs_confirmation') state.keys.set(body.key, answer);

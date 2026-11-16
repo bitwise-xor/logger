@@ -8,7 +8,7 @@ skeleton, the sign-in and an empty Today. Step B (deploy 79): Today read-only fr
 (deploy 80): the taps save in place (water, Again and usual chips, habits, check-in, review, Health card, question buttons,
 Try again / Delete for a message not read yet, Undo). Step D (deploy 81): the logging box. Step E (deploy 84): the Food day.
 Step F (deploy 85): polish (plain messages when the core is down or the door is off, back to your page after a sign-in, phone,
-tablet and PC width). Then the trial runs (below).
+tablet and PC width). Then the trial runs (below). Deploy 87: the Usual meals page.
 
 ## How it fits
 
@@ -86,7 +86,10 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   POST `/standin/ai-down` and `/standin/ai-up` make it hold lines). The Food day: `GET /food/day` is today's day above with the
   notes of `tests/samples/food.json` (real answers of the door: the day, the day before, an entry with its units, a change and a
   note), an earlier day is that file's day before, and `/food/entry` and `/food/note` change the day as the core would (an
-  amount over 2000 g is read back first: a stand-in rule, to try the confirm). Step F: POST `/standin/core-down` (every
+  amount over 2000 g is read back first: a stand-in rule, to try the confirm). Deploy 87: `GET /usual` is
+  `tests/samples/usual.json`'s list and three more meals made from the samples' foods, `GET /foods?q=` a catalogue of the
+  samples' foods with `per_100`, and `/usual/meal`, `/usual/new` and `/usual/from_meal` change the list as the core would (its
+  checks and words), with Undo. Step F: POST `/standin/core-down` (every
   door call gets no answer), `/standin/door-off` (every door call answers 404 `not_found`) and `/standin/up` (or `/standin/reset`). `tests/test_front_samples.py` checks on every Python run that the samples still have the
   door's shape; after a change of the door, write it again with
   `WRITE_FRONT_SAMPLES=1 .venv/bin/python -m pytest -q tests/test_front_samples.py` and commit the diff.
@@ -96,10 +99,10 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
 ## The trial
 
 From deploy 85 the trial runs: the owner uses `logger.` for Today and the Food day on the phone and the PC, next to `app.`,
-which stays complete and is where everything else lives (Trends, Library, More, usual meals, Settings, notifications). What to
+which stays complete and is where everything else lives (Trends, Library, More, Settings, notifications; usual meals also
+here since deploy 87). What to
 look for: anything that differs from `app.` (numbers, a save that does not show up there), anything slow or unclear, and how the
-two compare on the phone. Notes go into the plan doc; the decision about the rest of the app comes after it. Next build (its own
-step, planned in the plan doc first): editing usual meals, which needs new door routes.
+two compare on the phone. Notes go into the plan doc; the decision about the rest of the app comes after it.
 - If the front end misbehaves: roll back (`docker tag logger-v2-front:front-fixesN logger-v2-front:pilot; docker compose up -d
   front`) or stop it (`docker compose stop front`); `app.` does not depend on it. Switching the door off (empty `FRONT_TOKEN` in
   `.env`, one restart of the core) shows "switched off" on `logger.`.

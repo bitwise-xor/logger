@@ -17,6 +17,8 @@
   // page has none: "+ Add food" leads to it).
   const food = setFoodPage(untrack(() => new FoodPage(data.foodDay, data.undo, data.open)));
   $effect.pre(() => food.load(data.foodDay, data.undo, data.open));
+  // A "Save as usual meal" that met a gone session: sent again after the sign-in (deploy 87).
+  onMount(() => void food.resend());
 
   const fd = $derived(food.day);
   const links = $derived(fd ? dayLinks(fd) : null);
@@ -78,7 +80,7 @@
     <FoodRows day={fd} />
     <div class="flex flex-wrap gap-1.5">
       <a href="/#log-text" class="{pill} bg-text font-medium text-bg desktop:hidden">+ Add food</a>
-      <a href="{data.appUrl}/web/food/usual" class="{pill} border border-line bg-panel text-text desktop:min-h-9">Usual meals: full app</a>
+      <a href="/food/usual" class="{pill} border border-line bg-panel text-text desktop:min-h-9" data-usual-link>Usual meals</a>
     </div>
   </main>
 {/if}

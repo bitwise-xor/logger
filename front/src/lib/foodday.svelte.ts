@@ -15,6 +15,10 @@ export class FoodPage extends Answers {
   fresh = $state.raw<Set<string>>(new Set());
   /** The row open to change (its ref), or none. */
   open = $state<string | null>(null);
+  /** "Save as usual meal" (deploy 87): the meal being named (its number), the name typed, and why a save was refused. */
+  naming = $state<number | null>(null);
+  usualName = $state('');
+  usualErr = $state<string | null>(null);
 
   #loaded: FoodDay | null = null;
   #entries = new Map<string, Promise<FoodEntry | null>>();
@@ -32,7 +36,19 @@ export class FoodPage extends Answers {
     this.fresh = new Set();
     this.#entries.clear();
     this.open = open && day?.rows.some((r) => r.ref === open) ? open : null;
+    [this.naming, this.usualName, this.usualErr] = [null, '', null];
     this.loadUndo(undo);
+  }
+
+  /** "Save as usual meal" on a meal label: its name field opens (another closes), or closes when it was open. */
+  nameMeal(meal: number) {
+    this.naming = this.naming === meal ? null : meal;
+    this.usualName = '';
+    this.usualErr = null;
+  }
+
+  protected inlineRefusal(action: string) {
+    return action === 'usual_from_meal';
   }
 
   /** A row tapped: it opens (another one closes), or closes when it was open. */
@@ -62,6 +78,10 @@ export class FoodPage extends Answers {
 
   /** The fresh food day: the changed row (or one an Undo brought back) gets a blue edge; a change that went through closes the row. */
   protected take(a: SaveAnswer, action: string, fields: FieldValues) {
+    if (action === 'usual_from_meal') {
+      if (a.outcome === 'rejected') this.usualErr = a.reason ?? a.head;
+      else if (a.outcome === 'changed') [this.naming, this.usualName, this.usualErr] = [null, '', null];
+    }
     const fd = a.food_day;
     if (!fd) return;
     const had = new Set(this.day?.rows.map((r) => r.ref) ?? []);
