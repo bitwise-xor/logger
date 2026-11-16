@@ -188,6 +188,12 @@ export function rowActions(h: ListHabit) {
   };
 }
 
+/**
+ * The line under the filter (deploy 96): the door's words (app.'s HELP), but app.'s "in the calendar below" is worded for this page,
+ * where the calendar is the "Last 30 days" card, above the list on phones and to its left on the PC.
+ */
+export const helpText = (h: Pick<Habits, 'help' | 'days'>) => h.help.replace('in the calendar below', `in Last ${h.days} days`);
+
 /** The names whose row is new or different in the fresh list (they get a blue edge). */
 export function changedNames(before: Habits | null, after: Habits): Set<string> {
   const was = new Map(before?.list.flatMap((g) => g.habits).map((h): [string, string] => [h.name, JSON.stringify(h)]));

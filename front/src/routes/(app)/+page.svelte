@@ -4,6 +4,7 @@
   import DayTimeline from '#lib/components/today/DayTimeline.svelte';
   import EnergyCard from '#lib/components/today/EnergyCard.svelte';
   import GratitudeLink from '#lib/components/today/GratitudeLink.svelte';
+  import GymCard from '#lib/components/today/GymCard.svelte';
   import HabitsCard from '#lib/components/today/HabitsCard.svelte';
   import HealthCard from '#lib/components/today/HealthCard.svelte';
   import NeedsCard from '#lib/components/today/NeedsCard.svelte';
@@ -55,13 +56,15 @@
     <div class="contents desktop:flex desktop:min-w-0 desktop:flex-1 desktop:flex-col desktop:gap-4">
       <div class="order-3 empty:hidden desktop:order-none"><Chips {day} /></div>
       <div class="order-4 empty:hidden desktop:order-none"><DayTimeline {day} /></div>
-      <div class="order-5 empty:hidden desktop:order-none"><HealthCard {day} /></div>
+      <!-- the Gym card (deploy 96): under the day, as the gym mockup's Today -->
+      <div class="order-5 empty:hidden desktop:order-none"><GymCard {day} /></div>
+      <div class="order-6 empty:hidden desktop:order-none"><HealthCard {day} /></div>
     </div>
     <div class="contents desktop:flex desktop:w-[340px] desktop:min-w-0 desktop:flex-none desktop:flex-col desktop:gap-4">
       <div class="order-1 empty:hidden desktop:order-none"><NeedsCard {day} appUrl={data.appUrl} /></div>
       <div class="order-2 empty:hidden desktop:order-none"><EnergyCard {day} {foodHref} /></div>
-      <div class="order-6 empty:hidden desktop:order-none"><HabitsCard {day} /></div>
-      <div class="order-7 empty:hidden desktop:order-none"><GratitudeLink {day} href="{data.appUrl}/web/gratitude" /></div>
+      <div class="order-7 empty:hidden desktop:order-none"><HabitsCard {day} /></div>
+      <div class="order-8 empty:hidden desktop:order-none"><GratitudeLink {day} href="{data.appUrl}/web/gratitude" /></div>
     </div>
   </main>
 {/if}

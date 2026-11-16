@@ -33,6 +33,8 @@
 // (Monday first, cells of 44 px, "1/2" for a twice-a-day habit, a day ticked and unticked with Undo, a tap blocked while its save
 // is on the way, a read-only one with its line), the filter with counts, an edit kept after a refusal, a new habit, a delete with
 // its question, Track, Retire and Bring back, and the settings line; one column on phones and tablets, two from 1100 px.
+// Deploy 96: the Gym's Workout page, Today's Gym card and the Spaces menu (checkGym says what), and on the Habits page the open
+// calendar not covered by the answer bar after a tick, and the line under the filter worded for this page.
 // Every check throws on a failure, so the script ends with an error.
 // Usage: node tests/screens/shoot.mjs <base url> <out dir> <stand-in url>
 import assert from 'node:assert/strict';
@@ -49,6 +51,7 @@ const USUAL = JSON.parse(readFileSync(new URL('../samples/usual.json', import.me
 const SCAN = JSON.parse(readFileSync(new URL('../samples/scan.json', import.meta.url), 'utf8'));
 const HEALTH = JSON.parse(readFileSync(new URL('../samples/health.json', import.meta.url), 'utf8'));
 const HABITS = JSON.parse(readFileSync(new URL('../samples/habits.json', import.meta.url), 'utf8'));
+const GYM = JSON.parse(readFileSync(new URL('../samples/gym.json', import.meta.url), 'utf8'));
 
 // What the page must show, worked out here from the sample on its own (not with the page's code).
 const even = (x) => {
@@ -194,7 +197,7 @@ async function checkSaves(page, name, theme) {
   if (name !== 'pc') {
     // step F: scrolled to the end, the logging box and its answer bar cover nothing (the page leaves room for both)
     await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-    const last = await page.getByText('Trends, Library and More are').boundingBox();
+    const last = await page.getByText('Trends, Library and the rest are').boundingBox();
     const dock = await page.locator('[data-logbox]').boundingBox();
     assert.ok(last.y + last.height <= dock.y + 1, `the logging box covers nothing at the end (${last.y + last.height} > ${dock.y})`);
   }
@@ -1222,8 +1225,21 @@ async function checkHabits(page, name, theme) {
   const none = reading.days.find((d) => d.state === 'none' && d.day !== '2026-11-16').day;
   const dm = `${none.slice(8, 10)}.${none.slice(5, 7)}.${none.slice(0, 4)}`;
   const cell = cal.locator(`[data-day="${none}"]`);
+  if (!pc) {
+    // deploy 96: the calendar's last week just above the tab bar, so the answer bar of the tick would cover its lower weeks
+    await cal.evaluate((e) => window.scrollBy(0, e.getBoundingClientRect().bottom - (window.innerHeight - 60)));
+  }
   await cell.click();
   await cell.locator('[data-mark]', { hasText: '1/2' }).waitFor();
+  if (!pc) {
+    await bar.waitFor();
+    await page.waitForFunction(() => {
+      const c = document.querySelector('[data-calendar="sample_reading"]').getBoundingClientRect();
+      const b = document.querySelector('[data-bar]').getBoundingClientRect();
+      return c.bottom <= b.top + 1 && c.top >= 0;
+    }, null, { timeout: 3000 });
+    await page.screenshot({ path: `${out}/habits-calendar-tick-${name}-${theme}.png` });
+  }
   assert.equal(await cell.getAttribute('data-state'), 'partly');
   await headIs('Saved.');
   await bar.getByRole('button', { name: 'Undo' }).waitFor();
@@ -1296,7 +1312,9 @@ async function checkHabits(page, name, theme) {
   assert.deepEqual(await reads.locator('[data-act]').evaluateAll((els) => els.map((e) => e.getAttribute('data-act'))), ['untrack', 'edit', 'retire'], 'a habit with history: no Delete');
   assert.deepEqual(await page.locator('[data-habit-row="meds"] [data-act]').evaluateAll((els) => els.map((e) => e.getAttribute('data-act'))), ['untrack', 'edit', 'retire', 'delete']);
   assert.equal(await text(page.locator('[data-habit-row="sample_soft_drink"] [data-avoid]')), 'avoid');
-  assert.equal(await text(page.locator('[data-help]')), hb.help);
+  // deploy 96: app.'s "in the calendar below" worded for this page, where the calendar is the Last 30 days card
+  assert.equal(await text(page.locator('[data-help]')), hb.help.replace('in the calendar below', 'in Last 30 days'));
+  assert.ok(!(await text(page.locator('[data-help]'))).includes('below'), 'no "below" in the line');
   await page.locator('[data-show="untracked"]').click();
   await page.waitForURL(/\/habits\?show=untracked$/);
   await page.locator('[data-habit-row="surya_kriya"]').waitFor();
@@ -1451,6 +1469,309 @@ async function checkHabits(page, name, theme) {
   await standinPost('/standin/reset');
 }
 
+/**
+ * Deploy 96: the Gym's Workout page (/gym) from Today's Gym card: the read against the gym sample (title, status, chips, why, the
+ * rows in order with their numbers, "+5 kg", the Last lines, Other exercises folded, This week's split, the last 4 weeks), one tap
+ * logging a row (blue edge, the count up) and its Undo, a row opened (+ and −, typing, Log), "Add another row", a logged row removed
+ * and a done circle taking an exercise off (the last one ends the workout), a refusal in plain words (the page's check and the
+ * door's), "+ Add exercise", another day and Free workout swapping the list, a tap blocked while its save is on the way, no re-send
+ * after a sign-in; the Spaces menu: the PC rail's group with the Space highlighted, /more on phones and tablets with the More tab
+ * highlighted on /gym, /health and /habits.
+ */
+async function checkGym(page, name, theme) {
+  await standinPost('/standin/reset');
+  const W = GYM.gym.gym;
+  const plan = GYM.plan.gym_plan;
+  const pc = name === 'pc';
+  const bar = page.locator('[data-bar]');
+  const headIs = async (want) => {
+    await page.locator('[data-bar-head]', { hasText: want }).waitFor();
+    assert.equal(await text(page.locator('[data-bar-head]')), want, 'the answer bar');
+  };
+  const gx = (id) => page.locator(`[data-gx="${id}"]`);
+  const names = (list) => page.locator(`[data-list="${list}"] [data-gx-name] span span:first-child`).allTextContents().then((x) => x.map((t) => t.trim()));
+  const status = () => text(page.locator('[data-status]'));
+
+  // Today's Gym card, from the day sample's gym: placed under the day (the gym mockup's Today), its lines, the 14 squares
+  await page.goto(`${base}/`);
+  const g = day.gym;
+  const gc = page.locator('[data-card="gym"]');
+  await gc.waitFor();
+  assert.equal(await text(gc.locator('[data-gym-day]')), `Today: ${g.day_label}`);
+  const wd = (iso) => new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', timeZone: 'UTC' });
+  assert.equal(await text(gc.locator('[data-gym-last]')), `Last workout ${wd(g.last_workout)} ${g.last_workout.slice(8, 10)}.${g.last_workout.slice(5, 7)}.`);
+  assert.deepEqual(await gc.locator('[data-sq]').evaluateAll((els) => els.map((e) => e.getAttribute('data-sq'))), g.days.map((d) => (d.on ? 'on' : 'off')), 'the 14 squares');
+  assert.equal(await gc.locator('[data-gym-days]').getAttribute('aria-label'), `Last 14 days: ${g.n14} workouts`);
+  assert.equal(await text(gc.locator('[data-gym-weeks]')), `Last week ${g.last_week} · this week ${g.this_week}`);
+  const [tl, gb, hc] = await Promise.all(['timeline', 'gym', 'health'].map((c) => page.locator(`[data-card="${c}"]`).boundingBox()));
+  assert.ok(gb.y > tl.y + tl.height - 1 && hc.y > gb.y + gb.height - 1 && Math.abs(gb.x - tl.x) < 2, `${name}: the Gym card under the day, above Health`);
+  if (name === 'phone') await gc.screenshot({ path: `${out}/today-gym-card-${name}-${theme}.png` });
+  await gc.locator('[data-gym-open]').click();
+  await page.waitForURL(/\/gym$/);
+  await page.locator('[data-card="workout"]').waitFor();
+  await page.evaluate(() => (window.__noReload = true));
+
+  // the read, against the sample
+  assert.equal(await text(page.locator('h1')), 'Gym');
+  assert.deepEqual(await page.locator('[data-part]').evaluateAll((els) => els.map((e) => e.getAttribute('data-part'))), ['workout', 'plan', 'progress', 'history', 'exercises', 'activity']);
+  assert.equal(await page.locator('[data-part="workout"]').getAttribute('aria-current'), 'page');
+  for (const p of ['plan', 'progress', 'history', 'exercises', 'activity']) {
+    assert.match(await page.locator(`[data-part="${p}"]`).getAttribute('href'), new RegExp(`/web/gym/${p}$`), `${p} opens app.'s tab`);
+    assert.equal(await page.locator(`[data-part="${p}"]`).getAttribute('title'), 'In the full app');
+  }
+  assert.equal(await text(page.locator('[data-title]')), W.title);
+  assert.equal(await status(), W.status);
+  assert.deepEqual(await page.locator('[data-chip]').allTextContents().then((x) => x.map((t) => t.trim())), W.chips.map((c) => c.label), 'the chips');
+  assert.equal(await page.locator('[data-chip="1"]').getAttribute('aria-pressed'), 'true');
+  assert.equal(await text(page.locator('[data-why]')), W.why);
+  assert.deepEqual(await names('exercises'), W.exercises.map((r) => r.name), "the day's exercises in the plan's order");
+  for (const r of W.exercises) {
+    assert.equal(await text(gx(r.exercise_id).locator('[data-gx-text]')), r.text, `${r.name}: its numbers`);
+    assert.equal(await text(gx(r.exercise_id).locator('[data-last]')), r.last_text, `${r.name}: the Last line`);
+    assert.equal(await gx(r.exercise_id).locator('[data-circle]').getAttribute('aria-pressed'), String(r.logged.length > 0), `${r.name}: the circle`);
+    assert.equal(await gx(r.exercise_id).locator('[data-up]').count(), r.up_kg === null ? 0 : 1);
+  }
+  assert.equal(await text(gx(1).locator('[data-up]')), '+5 kg');
+  assert.equal(await text(page.locator('[data-other]')), `Other exercises (${W.other.length}) ›`);
+  assert.equal(await page.locator('[data-list="other"]').count(), 0, 'Other exercises folded');
+  assert.deepEqual(await page.locator('[data-split]').evaluateAll((els) => els.map((e) => e.getAttribute('data-split'))), W.week_split.map((x) => String(x.day_id)));
+  assert.equal(await text(page.locator('[data-split="1"] [data-split-note]')), 'Today');
+  assert.equal(await text(page.locator('[data-good]')), `${W.weeks.good} of 4 weeks with 2+ workouts`);
+  assert.deepEqual(await page.locator('[data-week-n]').allTextContents(), W.weeks.weeks.map((w) => String(w.n)));
+  assert.deepEqual(await page.locator('[data-card="weeks"] [data-sq]').evaluateAll((els) => els.map((e) => e.getAttribute('data-sq'))), W.weeks.weeks.flatMap((w) => w.days.map((d) => (d.on ? 'on' : d.later ? 'later' : 'off'))));
+  // one column on phones and tablets; from 1100 px the exercises left, the split and the weeks right in 340 px
+  const [wk, sp, w4] = await Promise.all(['workout', 'split', 'weeks'].map((c) => page.locator(`[data-card="${c}"]`).boundingBox()));
+  if (pc) assert.ok(sp.x > wk.x + wk.width - 1 && Math.abs(sp.y - wk.y) < 2 && Math.abs(sp.width - 340) < 2 && w4.y > sp.y + sp.height - 1, 'pc: the exercises left, the split and the weeks right (340 px)');
+  else assert.ok(sp.y > wk.y + wk.height - 1 && w4.y > sp.y + sp.height - 1 && Math.abs(sp.x - wk.x) < 2, `${name}: one column`);
+  // the parts row scrolls inside itself, never the page
+  const parts = await page.locator('[data-parts]').evaluate((e) => ({ overflow: getComputedStyle(e).overflowX, right: e.getBoundingClientRect().right }));
+  assert.ok(parts.overflow === 'auto' && parts.right <= page.viewportSize().width + 1, 'the parts row scrolls in itself');
+  await page.screenshot({ path: `${out}/gym-${name}-${theme}.png`, fullPage: true });
+  await checkWidth(page, 'gym');
+
+  // the places: on the PC the rail's Spaces group with Gym highlighted; on phones and tablets the More tab
+  if (pc) {
+    assert.ok(await page.locator('[data-rail-group]').isVisible(), 'the rail has the Spaces group');
+    assert.deepEqual(await page.locator('[data-rail-space]').allTextContents().then((x) => x.map((t) => t.trim())), ['Gym', 'Health', 'Habits']);
+    assert.equal(await page.locator('[data-rail-space="gym"]').getAttribute('aria-current'), 'page');
+    assert.equal(await page.locator('[data-place="today"]').getAttribute('aria-current'), null);
+    const order = await page.locator('[data-places] > a, [data-places] > span').evaluateAll((els) => els.filter((e) => e.offsetParent && e.textContent.trim()).map((e) => e.textContent.trim()));
+    assert.deepEqual(order, ['Logger', 'Today', 'Trends', 'Library', 'Spaces', 'Gym', 'Health', 'Habits', 'More'], 'the rail');
+  } else {
+    assert.equal(await page.locator('[data-rail-group]').isVisible(), false);
+    assert.equal(await page.locator('[data-place="more"]').getAttribute('aria-current'), 'true', 'the More tab is highlighted on /gym');
+  }
+
+  // one tap logs the read's numbers: the circle fills, the blue edge, "n done" goes up; Undo takes it back
+  const press = W.exercises.find((r) => r.name === 'Shoulder press');
+  await gx(press.exercise_id).locator('[data-circle]').click();
+  await gx(press.exercise_id).locator('[data-circle][aria-pressed="true"]').waitFor();
+  await headIs(`Saved: Shoulder press ${press.text}`);
+  assert.match(await status(), new RegExp(`· ${W.done + 1} done$`), 'the count goes up');
+  assert.match(await gx(press.exercise_id).getAttribute('class'), /border-blue/, 'the blue edge');
+  if (pc) await page.screenshot({ path: `${out}/gym-logged-${name}-${theme}.png` });
+  await bar.getByRole('button', { name: 'Undo' }).click();
+  await headIs("Undone: the exercise is off today's workout.");
+  await gx(press.exercise_id).locator('[data-circle][aria-pressed="false"]').waitFor();
+  assert.equal(await status(), W.status);
+
+  // a row opened: − and + with the read's steps, typing, Log
+  await gx(press.exercise_id).locator('[data-gx-name]').click();
+  const ed = page.locator(`[data-gx-editor="${press.exercise_id}"]`);
+  await ed.waitFor();
+  assert.equal(await gx(press.exercise_id).locator('[data-gx-name]').getAttribute('aria-expanded'), 'true');
+  assert.equal(await ed.locator('[data-field="kg"]').inputValue(), String(press.values.kg));
+  await ed.locator('[data-more="kg"]').click();
+  assert.equal(await ed.locator('[data-field="kg"]').inputValue(), String(press.values.kg + 2.5), '+ adds 2.5 kg');
+  await ed.locator('[data-less="kg"]').click();
+  await ed.locator('[data-less="kg"]').click();
+  assert.equal(await ed.locator('[data-field="kg"]').inputValue(), String(press.values.kg - 2.5), '− takes 2.5 kg off');
+  await ed.locator('[data-more="reps"]').click();
+  await ed.locator('[data-field="sets"]').fill('4');
+  const typed = `4 × ${press.values.reps + 1} at ${press.values.kg - 2.5} kg`;
+  assert.equal(await text(ed.locator('[data-draft-text]')), typed);
+  assert.equal(await text(ed.locator('[data-log]')), 'Log');
+  if (name === 'phone') await gx(press.exercise_id).screenshot({ path: `${out}/gym-row-open-${name}-${theme}.png` });
+  await checkWidth(page, 'gym, a row open');
+  await ed.locator('[data-log]').click();
+  await headIs(`Saved: Shoulder press ${typed}`);
+  await gx(press.exercise_id).locator('[data-circle][aria-pressed="true"]').waitFor();
+  assert.equal(await text(gx(press.exercise_id).locator('[data-gx-text]')), typed);
+  assert.equal(await ed.count(), 0, 'the row closes after Log');
+  assert.match(await status(), new RegExp(`· ${W.done + 1} done$`));
+
+  // "Add another row" when it is logged already; then each logged row has its own remove
+  await gx(press.exercise_id).locator('[data-gx-name]').click();
+  assert.equal(await text(ed.locator('[data-log]')), 'Add another row');
+  assert.equal(await ed.locator('[data-field="sets"]').inputValue(), '4', "it opens with today's last row");
+  await ed.locator('[data-log]').click();
+  await gx(press.exercise_id).locator('[data-gx-text]', { hasText: `${typed}, ${typed}` }).waitFor();
+  await headIs(`Saved: Shoulder press ${typed}`);
+  assert.equal(await text(gx(press.exercise_id).locator('[data-gx-text]')), `${typed}, ${typed}`, 'a second row');
+  assert.match(await status(), new RegExp(`· ${W.done + 1} done$`), 'a second row is not another exercise');
+  await gx(press.exercise_id).locator('[data-gx-name]').click();
+  const sets = ed.locator('[data-remove]');
+  assert.equal(await sets.count(), 2);
+  await sets.first().click();
+  await headIs(`Removed: Shoulder press ${typed}`);
+  await page.locator(`[data-gx-editor="${press.exercise_id}"] [data-remove]`).nth(1).waitFor({ state: 'detached' });
+  assert.equal(await text(gx(press.exercise_id).locator('[data-gx-text]')), typed);
+  await bar.getByRole('button', { name: 'Undo' }).click();
+  await headIs("Undone: it is back in today's workout.");
+  assert.equal(await text(gx(press.exercise_id).locator('[data-gx-text]')), `${typed}, ${typed}`);
+
+  // a refusal in plain words: the page's check (kg cleared) and nothing is sent
+  if (await ed.count() === 0) await gx(press.exercise_id).locator('[data-gx-name]').click();
+  await ed.locator('[data-field="kg"]').fill('');
+  await ed.locator('[data-log]').click();
+  await headIs('Nothing saved.');
+  assert.equal(await bar.getAttribute('data-bar'), 'warning');
+  assert.equal(await text(bar.locator('p').first()), 'Give the weight in kg.');
+  await ed.locator('[data-field="kg"]').fill('2000');
+  await ed.locator('[data-log]').click();
+  await page.locator('[data-bar] p', { hasText: 'Numbers only' }).waitFor();
+  assert.equal(await text(bar.locator('p').first()), W.numbers);
+  assert.equal(await text(gx(press.exercise_id).locator('[data-gx-text]')), `${typed}, ${typed}`, 'nothing logged');
+
+  // a done circle takes the exercise off (all its rows); the last one ends the workout ("not started")
+  for (const r of [press, ...W.exercises.filter((x) => x.logged.length)]) {
+    await gx(r.exercise_id).locator('[data-circle][aria-pressed="true"]').click();
+    await gx(r.exercise_id).locator('[data-circle][aria-pressed="false"]').waitFor();
+    await page.locator('[data-bar-head]', { hasText: `Removed: ${r.name}` }).waitFor();
+  }
+  assert.equal(await status(), 'not started: the first tick starts it', 'the last remove empties the workout');
+  assert.equal(await text(page.locator('[data-why]')), 'Your 1st workout this week: the first day not done yet. Tap another day to switch.');
+  await bar.getByRole('button', { name: 'Undo' }).click();
+  await page.locator('[data-status]', { hasText: /^started / }).waitFor();
+
+  // a tap is blocked while its save is on the way: a double tap logs one row
+  await standinPost('/standin/reset');
+  await page.reload();
+  await page.locator('[data-card="workout"]').waitFor();
+  await standinPost('/standin/slow');
+  const pushup = W.exercises.find((r) => r.name === 'Push-up');
+  await gx(pushup.exercise_id).locator('[data-circle]').dblclick();
+  await gx(pushup.exercise_id).locator('[data-circle][aria-pressed="true"]').waitFor();
+  await page.waitForTimeout(1200);
+  assert.equal(await text(gx(pushup.exercise_id).locator('[data-gx-text]')), pushup.text, 'two taps made one row');
+  assert.equal(await gx(pushup.exercise_id).locator('[data-circle]').getAttribute('aria-pressed'), 'true');
+  await standinPost('/standin/reset');
+  await page.reload();
+  await page.locator('[data-card="workout"]').waitFor();
+  await page.evaluate(() => (window.__noReload = true));
+
+  // Other exercises (folded) open; a ready one there logs too
+  await page.locator('[data-other]').click();
+  assert.deepEqual(await names('other'), W.other.map((r) => r.name));
+  await page.locator('[data-other]').click();
+
+  // + Add exercise: the door's refusal next to the form (the words stay), then a new one on today's day, opened by its circle
+  await page.locator('[data-add]').click();
+  const add = page.locator('[data-add-form]');
+  await add.locator('input[name="name"]').fill('Bench press');
+  await add.getByRole('button', { name: 'Add', exact: true }).click();
+  assert.equal(await text(page.locator('[data-add-err]', { hasText: 'already' })), 'Bench press is already in your list.');
+  assert.equal(await add.locator('input[name="name"]').inputValue(), 'Bench press', 'the words stay');
+  await add.locator('input[name="name"]').fill('Cable fly');
+  await add.getByText('Machine cardio').click();
+  await add.getByText('Weights').click();
+  await add.getByRole('button', { name: 'Add', exact: true }).click();
+  await headIs(`Added Cable fly (weights). It is on today’s ${W.day.name} now.`);
+  assert.equal(await page.locator('[data-add-form]').count(), 0, 'the form closes');
+  assert.deepEqual(await names('exercises'), [...W.exercises.map((r) => r.name), 'Cable fly'], "on today's day");
+  const fly = page.locator('[data-gx]', { has: page.getByText('Cable fly', { exact: true }) });
+  assert.match(await fly.getAttribute('class'), /border-blue/);
+  assert.equal(await fly.locator('[data-circle]').getAttribute('data-circle'), 'off', 'a weight not set yet: the circle is off');
+  assert.equal(await text(fly.locator('[data-gx-text]')), 'first time: set the numbers');
+  assert.equal(await text(fly.locator('[data-last]')), 'Not done before');
+  await fly.locator('[data-circle]').click();
+  await fly.locator('[data-gx-editor]').waitFor();
+  assert.equal(await fly.locator('[data-field="kg"]').inputValue(), '', 'the row opens instead');
+  await fly.locator('[data-field="kg"]').fill('20');
+  await fly.locator('[data-log]').click();
+  await headIs('Saved: Cable fly 3 × 8 at 20 kg');
+
+  // another day of the split: its list; Free workout: every exercise
+  await standinPost('/standin/reset');
+  await page.reload();
+  await page.locator('[data-card="workout"]').waitFor();
+  await page.evaluate(() => (window.__noReload = true));
+  const pull = W.chips.find((c) => c.day_id === 2);
+  const doneToday = W.exercises.filter((r) => r.logged.length).map((r) => r.exercise_id);
+  const pullIds = plan.days.find((d) => d.day_id === 2).items.map((i) => i.exercise_id);
+  const nameOf = new Map([...W.exercises, ...W.other].map((r) => [r.exercise_id, r.name]));
+  await page.locator('[data-chip="2"]').click();
+  await headIs(`Today: ${pull.label}.`);
+  assert.equal(await text(page.locator('[data-title]')), pull.label);
+  assert.equal(await page.locator('[data-chip="2"]').getAttribute('aria-pressed'), 'true');
+  assert.equal(await text(page.locator('[data-why]')), `Picked by you instead of ${W.day.label}.`);
+  assert.deepEqual(await names('exercises'), [...pullIds, ...doneToday.filter((i) => !pullIds.includes(i))].map((i) => nameOf.get(i)), 'the list swaps');
+  assert.equal(await bar.getByRole('button', { name: 'Undo' }).count(), 0, 'a pick has no Undo');
+  await page.locator('[data-chip="free"]').click();
+  await headIs('Today: Free workout.');
+  assert.equal(await text(page.locator('[data-title]')), 'Free workout');
+  assert.equal(await text(page.locator('[data-why]')), 'Free workout: all your exercises.');
+  assert.equal(await page.locator('[data-list="exercises"] [data-gx]').count(), W.exercises.length + W.other.length, 'every active exercise');
+  assert.equal(await page.locator('[data-other]').count(), 0);
+  await checkWidth(page, 'gym, free workout');
+  await standinPost('/standin/reset');
+
+  // never sent again: a tick that met a gone session is not logged after the sign-in
+  await page.reload();
+  await page.locator('[data-card="workout"]').waitFor();
+  await standinPost('/standin/drop-sessions');
+  await gx(press.exercise_id).locator('[data-circle]').click();
+  await page.getByRole('button', { name: 'Sign in' }).waitFor();
+  await page.fill('#password', 'test');
+  await page.fill('#code', '123 456');
+  await page.click('button[type=submit]');
+  await page.waitForURL(/\/gym$/);
+  await page.locator('[data-card="workout"]').waitFor();
+  await page.waitForTimeout(500);
+  assert.equal(await gx(press.exercise_id).locator('[data-circle]').getAttribute('aria-pressed'), 'false', 'not sent again after the sign-in');
+  assert.equal(await status(), W.status);
+
+  // the Spaces menu: /more on phones and tablets (More highlighted there and on every Space); the rail on the PC
+  if (!pc) {
+    await page.locator('[data-place="more"]').click();
+    await page.waitForURL(/\/more$/);
+    assert.equal(await page.locator('[data-place="more"]').getAttribute('aria-current'), 'page');
+    assert.deepEqual(await page.locator('[data-space]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-space'), e.tagName, e.hasAttribute('data-soon')])), [
+      ['gym', 'A', false], ['health', 'A', false], ['habits', 'A', false], ['home', 'DIV', true], ['medical', 'DIV', true],
+    ]);
+    assert.match(await text(page.locator('[data-space="home"]')), /soon$/);
+    assert.equal(await text(page.locator('[data-rest]')), 'The rest is in the full app.');
+    assert.match(await page.locator('[data-rest] a').getAttribute('href'), /\/web\/$/);
+    if (name === 'phone') await page.screenshot({ path: `${out}/more-${name}-${theme}.png` });
+    await checkWidth(page, 'more');
+    for (const sp of ['health', 'habits', 'gym']) {
+      await page.goto(`${base}/more`);
+      await page.locator(`[data-space="${sp}"]`).click();
+      await page.waitForURL(new RegExp(`/${sp}$`));
+      await page.locator('h1').waitFor();
+      assert.equal(await page.locator('[data-place="more"]').getAttribute('aria-current'), 'true', `More highlighted on /${sp}`);
+      assert.match(await page.locator('[data-place="more"]').getAttribute('class'), /text-blue/);
+      assert.equal(await page.locator('[data-place="today"]').getAttribute('aria-current'), null);
+    }
+    assert.deepEqual(await page.locator('[data-places] > *').evaluateAll((els) => els.filter((e) => e.offsetParent).map((e) => e.textContent.trim())), ['Today', 'Trends', 'Library', 'More'], 'four tabs');
+  } else {
+    for (const sp of ['health', 'habits']) {
+      await page.locator(`[data-rail-space="${sp}"]`).click();
+      await page.waitForURL(new RegExp(`/${sp}$`));
+      await page.locator('h1').waitFor();
+      assert.equal(await page.locator(`[data-rail-space="${sp}"]`).getAttribute('aria-current'), 'page');
+      assert.equal(await page.locator('[data-rail-space="gym"]').getAttribute('aria-current'), null);
+    }
+    await page.locator('[data-place="more"]').click();
+    await page.waitForURL(/\/more$/);
+    assert.equal(await page.locator('[data-place="more"]').getAttribute('aria-current'), 'page');
+    assert.equal(await page.locator('[data-space]').count(), 5);
+  }
+  await page.goto(`${base}/`);
+  assert.equal(await page.locator('[data-place="today"]').getAttribute('aria-current'), 'page');
+  await standinPost('/standin/reset');
+}
+
 async function checkWidth(page, what) {
   const sideways = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   assert.ok(sideways <= 0, `${what}: no sideways scroll (${sideways} px too wide)`);
@@ -1542,6 +1863,10 @@ for (const theme of ['dark', 'light']) {
     if (only('habits')) {
       await checkHabits(page, name, theme);
       console.log(`habits page ${name} ${theme}: checks passed`);
+    }
+    if (only('gym')) {
+      await checkGym(page, name, theme);
+      console.log(`gym workout, today's gym card, spaces menu ${name} ${theme}: checks passed`);
     }
     if (only('problems')) {
       await checkProblems(page, name, theme);

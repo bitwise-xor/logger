@@ -187,6 +187,39 @@ describe('the saver', () => {
     await r;
   });
 
+  // Deploy 96: no gym save is sent again by the page, also not after a sign-in; only the tick has a key, a new one per tap
+  it('gives a gym tick a new key per tap and never keeps a gym save for a re-send after a sign-in', async () => {
+    const n = fakeNet();
+    const store = memory();
+    let k = 0;
+    const s = new Saver({ ...n, storage: store, newKey: () => `gym-key-${++k}`, page: '/gym' });
+    const a = s.send('gym_tick', { exercise_id: '2', sets: '3', reps: '10', kg: '45' });
+    await tick();
+    expect(n.calls[0]!.url).toBe('/gym?/gym_tick');
+    expect(n.calls[0]!.fields.key).toEqual(['gym-key-1']);
+    n.calls[0]!.answer({ type: 'failure', status: 401, data: { signedOut: true } });
+    expect(await a).toEqual({ kind: 'signed_out' });
+    expect(store.m.has(RESEND_ITEM)).toBe(false);
+    expect(await s.resend()).toBeNull();
+
+    const b = s.send('gym_tick', { exercise_id: '2', sets: '3', reps: '10', kg: '45' });
+    await tick();
+    expect(n.calls[1]!.fields.key).toEqual(['gym-key-2']);
+    n.calls[1]!.answer(ok('Saved: Shoulder press 3 × 10 at 45 kg'));
+    await b;
+
+    for (const [i, [action, fields]] of ([['gym_remove', { set_id: '62' }], ['gym_pick', { day_id: '2' }], ['gym_new', { name: 'Cable fly', kind: 'weights' }]] as const).entries()) {
+      const c = s.send(action, { ...fields });
+      await tick();
+      expect(n.calls[2 + i]!.fields).not.toHaveProperty('key');
+      n.calls[2 + i]!.answer({ type: 'failure', status: 401, data: { signedOut: true } });
+      expect(await c).toEqual({ kind: 'signed_out' });
+      expect(store.m.has(RESEND_ITEM)).toBe(false);
+    }
+    expect(await s.resend()).toBeNull();
+    expect(n.calls).toHaveLength(5);
+  });
+
   // Step D: the logging box's typed line
   it('never drops a typed line\'s answer for a tap made while the AI read it (its day is read after that tap\'s)', async () => {
     const n = fakeNet();

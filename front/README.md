@@ -8,7 +8,7 @@ skeleton, the sign-in and an empty Today. Step B (deploy 79): Today read-only fr
 (deploy 80): the taps save in place (water, Again and usual chips, habits, check-in, review, Health card, question buttons,
 Try again / Delete for a message not read yet, Undo). Step D (deploy 81): the logging box. Step E (deploy 84): the Food day.
 Step F (deploy 85): polish (plain messages when the core is down or the door is off, back to your page after a sign-in, phone,
-tablet and PC width). Then the trial runs (below). Deploy 87: the Usual meals page. Deploy 88: Today shows each food's and meal's macros, a pie of the day's kcal from protein, carbs and fat in the Energy card (app.'s macro colours, `--macro-*` in `app.css`), a one-line logging box that grows, and two habits per row. Deploy 90: scan, label photo, look-up and voice in the logging box (step 1a of the move to `logger.`, below). Deploy 92: the Health page with body measurements (step 1b, below). Deploy 94: the Habits page (step 1c, below).
+tablet and PC width). Then the trial runs (below). Deploy 87: the Usual meals page. Deploy 88: Today shows each food's and meal's macros, a pie of the day's kcal from protein, carbs and fat in the Energy card (app.'s macro colours, `--macro-*` in `app.css`), a one-line logging box that grows, and two habits per row. Deploy 90: scan, label photo, look-up and voice in the logging box (step 1a of the move to `logger.`, below). Deploy 92: the Health page with body measurements (step 1b, below). Deploy 94: the Habits page (step 1c, below). Deploy 96: the Gym's Workout page, the Gym card on Today and the Spaces menu (step 2, below).
 
 ## How it fits
 
@@ -94,6 +94,29 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   link to Settings). From 1100 px the ticks and the 30 days are on the left and "Your habits" on the right. The stand-in answers
   `/habits`, `/habit/day` and `/habits/manage` from `tests/samples/habits.json` and changes the data as the core would (POST
   `/standin/slow` slows day taps, `/standin/locked` marks Medication not editable); `SHOOT_ONLY=habits` (passed to the Playwright container with `-e`) runs only that page's checks.
+- The Gym's Workout page (deploy 96, the move's step 2; the door's routes came with deploy 95): `src/routes/(app)/gym`, from Today's
+  Gym card ("Open today's workout"), the More page and the PC rail. The title "Gym" with its parts (Workout · Plan · Progress · History ·
+  Exercises · Activity; the row scrolls sideways inside itself); until deploy 97 the other five open app.'s tabs ("In the full app",
+  `GymParts.svelte`). Today's day of the split with its status, the chips to pick another day or Free workout (`gym_pick`, no Undo)
+  and the "why" line; a row per exercise (`components/gym/GymRow.svelte`): the round button logs the read's ready numbers in one tap
+  (`gym_tick`), takes a done exercise off (`gym_remove` with `exercise_id`: all of today's rows, as app.), or, where the read says
+  the numbers are not ready, opens the row; the row opens to − and + (and typing) with the read's steps and limits, "Log" or "Add
+  another row", and × per logged row (`gym_remove` with `set_id`). A tick and a remove have Undo; the logged row gets the blue edge.
+  A tick's numbers are checked first in the door's words (`problem` in `src/lib/gym.ts`, a refusal in the answer bar); "+ Add
+  exercise" (`gym_new`, `today: true`; a refusal next to the form, which keeps the words). "Other exercises (n)" folded, "This
+  week's split" and "Last 4 weeks" (`GymSide.svelte`): under the list on phones and tablets, a right column of 340 px from 1100 px.
+  Only `gym_tick` takes a key (a new one per tap); a button is blocked while its save is on the way, and no gym save is ever sent
+  again by the page, also not after a sign-in (`NEVER_RESENT` in `saver.ts`). `src/lib/gym.ts` has the plain rules,
+  `gympage.svelte.ts` the state. Today's Gym card (`components/today/GymCard.svelte`, from `day.gym`; none on a past day) sits under
+  the day: today's day, the last workout, the 14 squares, "Last week n · this week n", "Open today's workout". The stand-in answers
+  GET `/gym` and POST `/gym/tick`, `/gym/remove`, `/gym/pick`, `/gym/new` from `tests/samples/gym.json` and changes the data as the
+  core would (Undo of a tick or a remove; POST `/standin/slow` slows ticks too); `SHOOT_ONLY=gym` runs only these checks.
+- The Spaces menu (deploy 96): `src/lib/places.ts` says where a page belongs. The PC rail: Today, Trends, Library, then "Spaces"
+  (Gym, Health, Habits; the one you are in highlighted), then More. Phones and tablets keep four tabs; More is the page `/more`
+  (`src/routes/(app)/more`): the Spaces as a list (Home and Medical greyed, "soon"), then one line that the rest is in the full app.
+  On a Space's page the More tab is highlighted. Trends and Library stay greyed. Deploy 96 also fixed two things on the Habits page:
+  after a day tick the open calendar is scrolled above the answer bar (phones and tablets), and app.'s "in the calendar below" is
+  worded "in Last 30 days" (`helpText` in `habits.ts`).
 - The chart part (deploy 92; for Trends and Gym too): `components/chart/Chart.svelte` draws a chart description of the door
   (`ChartData` in `src/lib/chart.ts`: `start`, `days`, `series` of `line`, `dot`, `ring`, `bar` with points `[day, value,
   text, base]`, and `lines`, `min`, `max`, `prefix`, `unit`, `decimals`, `band`, `pointLabels`, `xAtPoints`, `years`) as SVG,

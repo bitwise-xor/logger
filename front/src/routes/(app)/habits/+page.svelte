@@ -23,9 +23,25 @@
 
   // The answer bar floats above the tab bar on phones; the page leaves room for it (the layout's --dock).
   let barHeight = $state(0);
+  let dock = $state<HTMLElement | null>(null);
   $effect(() => {
     document.documentElement.style.setProperty('--dock', `${barHeight}px`);
     return () => document.documentElement.style.removeProperty('--dock');
+  });
+
+  // Deploy 96: after a day of an open calendar is ticked, the answer bar must not hide the calendar's lower weeks. On phones and
+  // tablets (the bar floats above the tab bar) the open calendar is scrolled into the room above the bar: its bottom just above it,
+  // as long as its top stays on screen (a calendar taller than the room keeps its top in view).
+  $effect(() => {
+    const mark = page.changedDay;
+    const name = page.open;
+    const top = barHeight && dock ? dock.getBoundingClientRect().top : 0;
+    if (!mark || !name || !top || window.innerWidth >= 1100) return;
+    const cal = document.querySelector(`[data-calendar="${CSS.escape(name)}"]`);
+    if (!cal) return;
+    const r = cal.getBoundingClientRect();
+    const by = Math.min(r.bottom + 8 - top, r.top - 8);
+    if (by > 0) window.scrollBy({ top: by, behavior: 'smooth' });
   });
 </script>
 
@@ -73,6 +89,7 @@
 <!-- The answer bar: above the tab bar on phones, at the bottom right on the PC (as on the Health page). -->
 <div
   bind:clientHeight={barHeight}
+  bind:this={dock}
   class="pointer-events-none fixed inset-x-0 bottom-[calc(52px+env(safe-area-inset-bottom))] z-20 px-3.5 pb-2 desktop:static desktop:p-0"
 >
   <AnswerBar answers={page} />

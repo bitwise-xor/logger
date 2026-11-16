@@ -6,6 +6,7 @@ import { dayOf, hm, hours, n, plain } from './format.js';
 import type { FoodDay } from './food.js';
 import type { Body, BodyDue, Health } from './health.js';
 import type { Habits } from './habits.js';
+import type { GymCard, Workout } from './gym.js';
 import type { Usual } from './usual.js';
 
 // ---- the door's shapes (docs/API.md; front/tests/samples/day.json is a real answer) ----------------------------------------
@@ -156,6 +157,8 @@ export interface Day {
   health: HealthItem[];
   habits: Habit[];
   gratitude: { count: number; goal: number };
+  /** Today's Gym card (deploy 95/96); null for a past day. */
+  gym?: GymCard | null;
 }
 
 export interface Undo {
@@ -447,6 +450,8 @@ export interface SaveAnswer {
   body?: Body;
   /** A save of the Habits page (deploy 94): the habits read ("view": "habits", with "show"). */
   habits?: Habits;
+  /** A save of the Gym's Workout page (deploy 96): the Workout read ("view": "gym"). */
+  gym?: Workout;
 }
 
 /** The rows a save added (in the fresh day, not in the one shown before): they get a blue edge (the mockup). */

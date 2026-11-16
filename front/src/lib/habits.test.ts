@@ -18,6 +18,7 @@ import {
   editFields,
   fullText,
   groupTitle,
+  helpText,
   habitsHref,
   isFull,
   newDraft,
@@ -256,5 +257,16 @@ describe('the forms', () => {
     expect(whereOf(newFields({ ...newDraft(habits), label: 'A' }))).toBe('new');
     expect(whereOf(deleteFields('meds'))).toBe('row:meds');
     expect(whereOf(trackFields('meds', true))).toBe('row:meds');
+  });
+});
+
+describe('the line under the filter (deploy 96)', () => {
+  it('says where the calendar is on this page instead of app.’s "below"', () => {
+    const h = SAMPLE.habits.habits as Habits;
+    expect(h.help).toContain('in the calendar below');
+    expect(helpText(h)).toBe('Tracked habits show on Today (unless hidden under Settings > Today page) and in Last 30 days.');
+    expect(helpText({ help: 'Retired: hidden everywhere; the history stays. Bring one back any time.', days: 30 })).toBe(
+      'Retired: hidden everywhere; the history stays. Bring one back any time.',
+    );
   });
 });

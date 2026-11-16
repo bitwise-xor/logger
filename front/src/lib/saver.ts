@@ -50,13 +50,17 @@ export const KEYED = new Set([
   'health_day', 'body',
   // the Habits page's day tap and list forms (deploy 94): each gets a new key
   'habit_day', 'habits_manage',
+  // the Gym's tick (deploy 96): the only gym save the door takes a key for
+  'gym_tick',
 ]);
 /**
  * A keyed action that is never sent again by the page (deploy 94): a day tick of the Habits page. Its message carries the time
  * of the click, so the door does not replay a re-sent key: sent again while the day still needs a tick it is refused, sent after
  * the day is done it unticks. A tap that met a gone session is not kept; the page says to tap again after the sign-in.
+ * Deploy 96: no gym save is sent again by the page either (a set is logged by a tap seen to work, never behind your back); the tick is
+ * the only keyed one, the others take no key and are never kept anyway.
  */
-export const NEVER_RESENT = new Set(['habit_day']);
+export const NEVER_RESENT = new Set(['habit_day', 'gym_tick']);
 export const mayResend = (action: string) => KEYED.has(action) && !NEVER_RESENT.has(action);
 /** The actions the AI reads (up to about 40 s; the look-up since deploy 90): their answer is never dropped for a tap made while they were read. */
 export const SLOW = new Set(['log', 'held_retry', 'lookup']);

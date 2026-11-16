@@ -1,6 +1,6 @@
 <script lang="ts">
   import HabitRow from '#lib/components/habits/HabitRow.svelte';
-  import { chips, groupTitle, type Habits } from '#lib/habits.js';
+  import { chips, groupTitle, helpText, type Habits } from '#lib/habits.js';
   import { getHabitsPage } from '#lib/habitspage.svelte.js';
 
   // "Your habits": the filter (tracked, not tracked, retired, all, each with its count), the habits by group, and "+ New habit"
@@ -90,7 +90,7 @@
       >
     {/each}
   </nav>
-  <p class="m-0 text-xs text-muted" data-help>{habits.help}</p>
+  <p class="m-0 text-xs text-muted" data-help>{helpText(habits)}</p>
 
   {#each habits.list as g (g.group)}
     <div class="flex flex-col" data-group={g.group}>

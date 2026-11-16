@@ -46,6 +46,12 @@
 // /habits/manage (track, retire, restore, edit, delete with confirmed, new: the core's checks and words, no Undo), and Today's POST
 // /habit with view "habits". The habits are the sample's list (names from the sample), kept as ticks per day; POST /standin/slow
 // makes the day taps take a moment (to try a button blocked while its save is on the way), POST /standin/locked marks Medication as not editable.
+// Deploy 96: the Gym's Workout page, from tests/samples/gym.json (real answers of the door for an invented split): GET /gym worked out
+// from the exercises and today's rows as they stand (the read's order: the day's plan, then any other done today; the rest under
+// "Other exercises"; Free workout: all), POST /gym/tick (gym.values' checks and words; the first tick starts the workout, a second
+// tick of an exercise is another row; keyed), /gym/remove (one row by set_id, or all of an exercise's by exercise_id; the last one
+// ends the workout), /gym/pick (another day or Free workout swaps the list; no Undo) and /gym/new (with today: on today's day;
+// the core's words; no Undo); Undo of a tick or a remove puts the rows back. GET /day's gym card is the day sample's.
 import { createServer } from 'node:http';
 import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
@@ -63,6 +69,7 @@ const USUAL = read('usual.json');
 const SCAN = read('scan.json');
 const HEALTH = read('health.json');
 const HABITS = read('habits.json');
+const GYM = read('gym.json');
 const READ_MS = 1200; // the AI's moment: long enough to see the "being read" row
 
 let state; // { day, usual, undo: {token, head, expires_at} | null, before: {day, usual} before the last save (for Undo), keys: Map, lines: Map, aiDown }
@@ -71,7 +78,7 @@ let mode = 'up'; // 'up' | 'core-down' | 'door-off' (step F)
 function reset() {
   state = { day: read('day.json').day, usual: usualStart(), undo: null, before: null, keys: new Map(), lines: new Map(), aiDown: false,
     scanned: new Map([[SCAN.barcode.code, SCAN.barcode.food]]), labelFail: false,
-    hv: healthStart(), sessions: sessionsStart(), hab: habitsStart(), dayKeys: new Set(), slow: 0, locked: new Set() };
+    hv: healthStart(), sessions: sessionsStart(), hab: habitsStart(), dayKeys: new Set(), slow: 0, locked: new Set(), gym: gymStart() };
   state.day.needs.body_due = structuredClone(HEALTH.day_body_due);
   // the notes of the food sample's rows (the same invented day), kept on the rows so an Undo puts them back too
   const notes = new Map(FOOD.food_day.food_day.rows.map((r) => [r.ref, r.note]));
@@ -913,7 +920,199 @@ function habitsManage(b) {
   return [200, { outcome: 'changed', head, undo: null }];
 }
 
-const KEYED = ['/health/day', '/body', '/food/labeladd', '/log', '/water', '/again', '/usual', '/habit', '/checkin', '/health', '/held/retry', '/held/delete', '/usual/meal', '/usual/new', '/usual/from_meal'];
+
+// ---- the Gym's Workout page (deploy 96) --------------------------------------------------------------------------------------
+
+const GW = GYM.gym.gym;
+const GPL = GYM.plan.gym_plan;
+const GEX = GYM.exercises.gym_exercises;
+const KINDS = { weights: 'Weights', bodyweight: 'Bodyweight', cardio: 'Machine cardio' };
+const GDEFAULT = { weights: { sets: 3, reps: 8, kg: null, minutes: null, km: null }, bodyweight: { sets: 3, reps: 10, kg: null, minutes: null, km: null }, cardio: { sets: null, reps: null, kg: null, minutes: 20, km: null } };
+const GVALS = ['sets', 'reps', 'kg', 'minutes', 'km'];
+const gnum = (x) => String(+x);
+function gfmt(kind, v) {
+  if (kind === 'cardio') return [v.minutes != null ? `${gnum(v.minutes)} min` : '', v.km != null ? `${gnum(v.km)} km` : ''].filter(Boolean).join(' · ');
+  return (v.sets && v.reps ? `${v.sets} × ${v.reps}` : '') + (kind === 'weights' && v.kg != null ? ` at ${gnum(v.kg)} kg` : '');
+}
+const gpick = (v) => Object.fromEntries(GVALS.map((k) => [k, v[k] ?? null]));
+
+/** The exercises (the Exercises sample's list, with each one's last session from the Workout sample), today's rows, the plan's days. */
+function gymStart() {
+  const rows = new Map([...GW.exercises, ...GW.other].map((r) => [r.exercise_id, r]));
+  return {
+    ex: GEX.exercises.map((e) => ({ id: e.exercise_id, name: e.name, kind: e.kind, active: e.active, last: rows.get(e.exercise_id)?.last ?? null, lastText: rows.get(e.exercise_id)?.last_text ?? null })),
+    logs: [...rows.values()].flatMap((r) => r.logged.map((s) => ({ ...s, exercise_id: r.exercise_id }))),
+    plan: new Map(GPL.days.map((d) => [d.day_id, d.items.map((i) => ({ item_id: i.item_id, exercise_id: i.exercise_id, sets: i.sets, reps: i.reps }))])),
+    day: GW.day.day_id, auto: GW.day.day_id, startedAt: GW.started_at, setIds: 100, itemIds: 100,
+  };
+}
+
+const gLabel = (id) => GW.chips.find((c) => c.day_id === id)?.label ?? 'Free workout';
+const gDayName = (id) => GPL.days.find((d) => d.day_id === id)?.name;
+
+/** gym.values: the numbers of one row checked for the exercise's kind; a string is the refusal. */
+function gValues(kind, b) {
+  const num = (k, lo, hi, whole = false) => {
+    const v = b[k];
+    if (v === null || v === undefined || v === '') return null;
+    if (typeof v !== 'number' || v < lo || v > hi || (whole && !Number.isInteger(v))) throw GW.numbers;
+    return v;
+  };
+  try {
+    if (kind === 'cardio') {
+      const [minutes, km] = [num('minutes', 0.1, 600), num('km', 0, 200)];
+      return minutes === null ? 'Give the minutes.' : { sets: null, reps: null, kg: null, minutes, km };
+    }
+    const [sets, reps, kg] = [num('sets', 1, 50, true), num('reps', 1, 500, true), kind === 'weights' ? num('kg', 0, 1000) : null];
+    if (sets === null || reps === null) return 'Give sets and reps.';
+    if (kind === 'weights' && kg === null) return 'Give the weight in kg.';
+    return { sets, reps, kg, minutes: null, km: null };
+  } catch (reason) {
+    return reason;
+  }
+}
+
+/** One row as gympage.row_data makes it. */
+function gRow(x, plan, first) {
+  const g = state.gym;
+  const mine = g.logs.filter((s) => s.exercise_id === x.id);
+  const prev = x.last?.rows ?? [];
+  const top = prev.length ? prev.reduce((a, r) => ((r.kg ?? 0) > (a.kg ?? 0) || ((r.kg ?? 0) === (a.kg ?? 0) && (r.minutes ?? 0) > (a.minutes ?? 0)) ? r : a)) : null;
+  let pre = mine.at(-1) ?? top;
+  const values = pre ? gpick(pre) : { ...GDEFAULT[x.kind] };
+  if (!pre && plan?.sets && x.kind !== 'cardio') Object.assign(values, { sets: plan.sets, reps: plan.reps });
+  if (!pre && typeof gValues(x.kind, values) !== 'string') pre = values;
+  let up = null;
+  if (mine.length && prev.length && x.kind === 'weights') {
+    const [now, then] = [Math.max(...mine.map((r) => r.kg ?? 0)), Math.max(...prev.map((r) => r.kg ?? 0))];
+    if (now > then) up = now - then;
+  }
+  return {
+    exercise_id: x.id, name: x.name, kind: x.kind, active: x.active, done: mine.length > 0,
+    logged: mine.map(({ exercise_id: _e, ...s }) => s), values, ready: !!pre,
+    text: mine.length ? mine.map((s) => s.text).join(', ') : pre ? gfmt(x.kind, values) : 'first time: set the numbers',
+    up_kg: up, last: x.last, last_text: x.last ? x.lastText : 'Not done before' + (plan?.sets ? ` · plan ${plan.sets} × ${plan.reps}` : ''),
+    plan: plan ? { item_id: plan.item_id, sets: plan.sets, reps: plan.reps } : null, open: !(pre || mine.length || !first),
+  };
+}
+
+/** GET /gym as the door answers: the sample's shape, worked out from the exercises and today's rows as they stand now. */
+function gymOut() {
+  const g = state.gym;
+  const started = g.logs.length > 0;
+  const doneIds = new Set(g.logs.map((s) => s.exercise_id));
+  const free = g.day === null;
+  let shown;
+  let rest = [];
+  if (!free) {
+    const plan = g.plan.get(g.day) ?? [];
+    const pids = new Set(plan.map((i) => i.exercise_id));
+    const byId = new Map(g.ex.map((x) => [x.id, x]));
+    const list = plan.map((i) => byId.get(i.exercise_id)).filter((x) => x && (x.active || doneIds.has(x.id)));
+    list.push(...g.ex.filter((x) => doneIds.has(x.id) && !pids.has(x.id)));
+    const newId = list.find((x) => !doneIds.has(x.id) && !x.last)?.id;
+    shown = list.map((x) => gRow(x, plan.find((i) => i.exercise_id === x.id) ?? null, x.id === newId));
+    rest = g.ex.filter((x) => x.active && !list.includes(x)).map((x) => gRow(x, null, false));
+  } else {
+    shown = g.ex.filter((x) => x.active || doneIds.has(x.id)).map((x) => gRow(x, null, true));
+  }
+  const hand = free || g.day !== g.auto;
+  const weeks = structuredClone(GW.weeks);
+  const now = weeks.weeks.at(-1);
+  now.days.find((d) => d.today).on = started;
+  now.n = now.days.filter((d) => d.on).length;
+  weeks.good = weeks.weeks.filter((w) => w.n >= 2).length;
+  return {
+    ...GW,
+    title: free ? 'Free workout' : gLabel(g.day),
+    started_at: started ? g.startedAt : null,
+    done: doneIds.size,
+    status: started ? `started ${hm(new Date(g.startedAt))} · ${doneIds.size} done` : 'not started: the first tick starts it',
+    day: free ? null : { day_id: g.day, name: gDayName(g.day), label: gLabel(g.day) },
+    free, picked_by_hand: hand,
+    chips: GW.chips.map((c) => ({ ...c, on: c.day_id === g.day })),
+    why: free ? 'Free workout: all your exercises.' : hand ? `Picked by you instead of ${gLabel(g.auto)}.` : started ? 'Today’s day. Tap another day to switch.' : 'Your 1st workout this week: the first day not done yet. Tap another day to switch.',
+    exercises: shown, other: rest,
+    empty: shown.length ? null : free ? 'No exercises yet: add your first one below.' : 'No exercises on this day yet: add them on the Plan tab.',
+    hint: shown.length || rest.length ? GW.hint : null,
+    week_split: GW.week_split.map((x) => ({ ...x, today: x.day_id === g.day })),
+    weeks,
+    retired: g.ex.filter((x) => !x.active).map((x) => x.name),
+  };
+}
+
+/** A gym save with Undo (a tick, a remove): the gym and the day as they were, and the head of its undo. */
+const gymSave = (before, answer, undoHead) => {
+  state.before = { day: state.day, usual: state.usual, gym: before, gymUndo: undoHead };
+  state.undo = { token: randomBytes(12).toString('base64url'), head: answer.head, expires_at: new Date(Date.now() + 15 * 60_000).toISOString() };
+  return { ...answer, undo: state.undo };
+};
+/** A gym save without Undo (pick, new): the session's earlier Undo goes, as on app. */
+const gymPlain = (answer) => {
+  state.before = null;
+  state.undo = null;
+  return { ...answer, undo: null };
+};
+
+/** POST /gym/<action>: [status, answer]; the core's checks and words (gym.py). */
+function gymAction(action, b) {
+  const g = state.gym;
+  const isId = (v) => Number.isInteger(v) && v >= 1;
+  if (action === 'tick') {
+    if (!isId(b.exercise_id)) return [400, { error: 'bad_request', message: 'exercise_id must be a number.' }];
+    for (const k of GVALS) if (b[k] !== undefined && b[k] !== null && typeof b[k] !== 'number') return [400, { error: 'bad_request', message: `${k} must be a number.` }];
+    const x = g.ex.find((e) => e.id === b.exercise_id);
+    if (!x) return [200, rejected('Unknown exercise.')];
+    const v = gValues(x.kind, b);
+    if (typeof v === 'string') return [200, rejected(v)];
+    const before = structuredClone(g);
+    if (!g.logs.length) g.startedAt = new Date().toISOString();
+    const text = gfmt(x.kind, v);
+    g.logs.push({ set_id: ++g.setIds, ...v, text, exercise_id: x.id });
+    return [200, gymSave(before, { outcome: 'saved', head: `Saved: ${x.name} ${text}` }, "Undone: the exercise is off today's workout.")];
+  }
+  if (action === 'remove') {
+    const hasSet = b.set_id !== undefined && b.set_id !== null;
+    if (hasSet === (b.exercise_id !== undefined && b.exercise_id !== null)) return [400, { error: 'bad_request', message: "Send set_id (one row) or exercise_id (all of today's rows of it)." }];
+    const gone = g.logs.filter((s) => (hasSet ? s.set_id === b.set_id : s.exercise_id === b.exercise_id));
+    if (!gone.length) return [200, rejected("That is not in today's workout.")];
+    const before = structuredClone(g);
+    g.logs = g.logs.filter((s) => !gone.includes(s));
+    const said = gone.map((s) => `${g.ex.find((x) => x.id === s.exercise_id).name} ${s.text}`).join(', ');
+    return [200, gymSave(before, { outcome: 'changed', head: `Removed: ${said}`.slice(0, 160) }, "Undone: it is back in today's workout.")];
+  }
+  if (action === 'pick') {
+    if (!('day_id' in b)) return [400, { error: 'bad_request', message: 'day_id is missing (null = Free workout).' }];
+    if (b.day_id !== null && !g.plan.has(b.day_id)) return [200, rejected('Unknown day.')];
+    g.day = b.day_id;
+    return [200, gymPlain({ outcome: 'changed', head: `Today: ${b.day_id === null ? 'Free workout' : gLabel(b.day_id)}.` })];
+  }
+  if (action === 'new') {
+    const name = String(b.name ?? '').split(/\s+/).filter(Boolean).join(' ');
+    if (name.length > 60) return [400, { error: 'bad_request', message: 'name must be 60 characters or fewer.' }];
+    if (!name) return [200, rejected("Type the exercise's name.")];
+    const onToday = (id) => {
+      if (b.today !== true || g.day === null) return '';
+      const items = g.plan.get(g.day);
+      if (items.some((i) => i.exercise_id === id)) return '';
+      items.push({ item_id: ++g.itemIds, exercise_id: id, sets: null, reps: null });
+      return ` It is on today’s ${gDayName(g.day)} now.`;
+    };
+    const old = g.ex.find((x) => x.name.toLowerCase() === name.toLowerCase());
+    if (old?.active) return [200, rejected(`${old.name} is already in your list.`)];
+    if (old) {
+      old.active = true;
+      return [200, gymPlain({ outcome: 'changed', head: `${old.name} is back in your list (${KINDS[old.kind].toLowerCase()}).${onToday(old.id)}` })];
+    }
+    if (!KINDS[b.kind]) return [200, rejected('Pick weights, bodyweight or machine cardio.')];
+    const x = { id: Math.max(...g.ex.map((e) => e.id)) + 1, name, kind: b.kind, active: true, last: null, lastText: null };
+    g.ex.push(x);
+    return [200, gymPlain({ outcome: 'changed', head: `Added ${name} (${KINDS[b.kind].toLowerCase()}).${onToday(x.id)}` })];
+  }
+  return [404, { error: 'not_found', message: 'Not found.' }];
+}
+
+const KEYED = ['/gym/tick', '/health/day', '/body', '/food/labeladd', '/log', '/water', '/again', '/usual', '/habit', '/checkin', '/health', '/held/retry', '/held/delete', '/usual/meal', '/usual/new', '/usual/from_meal'];
 
 reset();
 
@@ -931,7 +1130,7 @@ createServer(async (req, res) => {
     return send(res, 200, { outcome: 'reset' });
   }
   if (req.url === '/standin/slow' && req.method === 'POST') {
-    state.slow = 700; // the next day taps of the Habits page take a moment
+    state.slow = 700; // the next day taps of the Habits page (and the Gym's ticks) take a moment
     return send(res, 200, { outcome: 'slow' });
   }
   if (req.url === '/standin/locked' && req.method === 'POST') {
@@ -1009,16 +1208,18 @@ createServer(async (req, res) => {
     const { v: _v, ...rest } = out;
     return send(res, status, rest, signedIn);
   }
+  if (url.pathname === '/api/v1/gym' && req.method === 'GET') return send(res, 200, { gym: gymOut(), undo: undo() }, signedIn);
   if (url.pathname === '/api/v1/foods' && req.method === 'GET') return send(res, 200, { foods: foods(url.searchParams.get('q')) }, signedIn);
   // A save's fresh read: the Food day or the usual meals when the body asks for it (view "food" with view_day, "usual"), else
   // Today; as the core, /usual/meal and /usual/new default to the usual meals and /usual/from_meal to the Food day.
-  const view = body.view ?? ({ '/api/v1/usual/meal': 'usual', '/api/v1/usual/new': 'usual', '/api/v1/usual/from_meal': 'food', '/api/v1/health/day': 'health', '/api/v1/body': 'body', '/api/v1/habit/day': 'habits', '/api/v1/habits/manage': 'habits' })[req.url];
+  const view = body.view ?? ({ '/api/v1/usual/meal': 'usual', '/api/v1/usual/new': 'usual', '/api/v1/usual/from_meal': 'food', '/api/v1/health/day': 'health', '/api/v1/body': 'body', '/api/v1/habit/day': 'habits', '/api/v1/habits/manage': 'habits' })[req.url] ?? (req.url.startsWith('/api/v1/gym/') ? 'gym' : undefined);
   const range = [7, 30, 90].includes(body.range) ? body.range : 30;
   const fresh = () =>
     view === 'food' ? { food_day: foodDay(body.view_day) }
     : view === 'usual' ? { usual: state.usual }
     : view === 'health' ? { health: healthOut(range, body.all === true) }
     : view === 'body' ? { body: bodyOut(req.url === '/api/v1/body' ? body.day : body.view_day) }
+    : view === 'gym' ? { gym: gymOut() }
     : view === 'habits' ? { habits: habitsOut(['tracked', 'untracked', 'retired', 'all'].includes(body.show) ? body.show : 'tracked') }
     : { day: dayOut(state.day) };
   if (req.url === '/api/v1/session' && req.method === 'DELETE') {
@@ -1034,8 +1235,10 @@ createServer(async (req, res) => {
       }
       if (state.before.hv) [state.hv, state.sessions] = [state.before.hv, state.before.sessions];
       if (state.before.hab) state.hab = state.before.hab;
+      const head = state.before.gymUndo ?? 'Undone.';
+      if (state.before.gym) state.gym = state.before.gym;
       [state.day, state.usual, state.before, state.undo] = [state.before.day, state.before.usual, null, null];
-      return send(res, 200, { ...base, outcome: 'changed', head: 'Undone.', undo: null, ...fresh() }, signedIn);
+      return send(res, 200, { ...base, outcome: 'changed', head, undo: null, ...fresh() }, signedIn);
     }
     // The key rule, as logbook's: the same key again answers as before and saves nothing twice.
     if (KEYED.includes(path) && body.key && state.keys.has(body.key)) {
@@ -1064,6 +1267,14 @@ createServer(async (req, res) => {
       const [status, out] = habitsManage(body);
       if (status !== 200) return send(res, status, out, signedIn);
       return send(res, 200, { ...base, ...out, tone: out.outcome === 'changed' ? 'ok' : 'warning', ...(out.undo === null ? { undo: null } : {}), ...fresh() }, signedIn);
+    }
+    if (path.startsWith('/gym/')) {
+      if (state.slow && path === '/gym/tick') await new Promise((r) => setTimeout(r, state.slow)); // POST /standin/slow
+      const [status, out] = gymAction(path.slice('/gym/'.length), body);
+      if (status !== 200) return send(res, status, out, signedIn);
+      const answer = { ...base, ...out, v: 1, tone: out.outcome === 'rejected' ? 'warning' : 'ok' };
+      if (path === '/gym/tick' && body.key && answer.outcome !== 'rejected') state.keys.set(body.key, answer);
+      return send(res, 200, { ...answer, ...fresh() }, signedIn);
     }
     if (path === '/body/skip') {
       state.day = { ...structuredClone(state.day), needs: { ...state.day.needs, body_due: null } };

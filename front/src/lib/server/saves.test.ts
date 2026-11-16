@@ -2,7 +2,7 @@
 // day asked for, and a gone session told apart from other problems.
 import { describe, expect, it } from 'vitest';
 import { makeDoor, type Fetch } from './door.js';
-import { bodyFor, FOOD_SAVES, HABITS_SAVES, HEALTH_SAVES, runSave, SAVE_NAMES, SAVES, TODAY_SAVES, USUAL_SAVES } from './saves.js';
+import { bodyFor, FOOD_SAVES, GYM_SAVES, HABITS_SAVES, HEALTH_SAVES, runSave, SAVE_NAMES, SAVES, TODAY_SAVES, USUAL_SAVES } from './saves.js';
 
 const TOKEN = 'f'.repeat(40);
 const SESSION = 's'.repeat(43);
@@ -191,7 +191,7 @@ describe('the Food day saves (step E)', () => {
     expect(TODAY_SAVES).not.toContain('usual_meal');
     expect(TODAY_SAVES).toContain('usual');
     expect(TODAY_SAVES).toContain('undo');
-    expect(new Set([...TODAY_SAVES, ...FOOD_SAVES, ...USUAL_SAVES, ...HEALTH_SAVES, ...HABITS_SAVES])).toEqual(new Set(SAVE_NAMES));
+    expect(new Set([...TODAY_SAVES, ...FOOD_SAVES, ...USUAL_SAVES, ...HEALTH_SAVES, ...HABITS_SAVES, ...GYM_SAVES])).toEqual(new Set(SAVE_NAMES));
   });
 });
 
@@ -463,5 +463,70 @@ describe('the Habits page (deploy 94)', () => {
     expect(r).toMatchObject({ ok: true, answer: { reason: 'Only the last 30 days can be changed here.' } });
     await runSave(door, SESSION, 'habits_manage', form({ action: 'retire', name: 'a', key: KEY }), undefined, 'habits');
     expect(seen.map((x) => x.path)).toEqual(['/api/v1/habit/day', '/api/v1/habits/manage']);
+  });
+});
+
+describe('the Gym’s Workout page (deploy 96)', () => {
+  it('offers the Workout page its saves and keeps them off Today', () => {
+    expect(GYM_SAVES).toEqual(['gym_tick', 'gym_remove', 'gym_pick', 'gym_new', 'undo']);
+    for (const n of ['gym_tick', 'gym_remove', 'gym_pick', 'gym_new']) expect(TODAY_SAVES).not.toContain(n);
+  });
+
+  it('only the tick takes a key (app.’s rule)', () => {
+    expect(SAVES.gym_tick.keyed).toBe(true);
+    for (const n of ['gym_remove', 'gym_pick', 'gym_new'] as const) {
+      expect(SAVES[n].keyed).toBe(false);
+      expect(bodyFor(n, form({ key: KEY, exercise_id: '1', day_id: '2', name: 'x', kind: 'weights' }), undefined, undefined, 'gym')).not.toHaveProperty('key');
+    }
+  });
+
+  it('a tick: the exercise and every number as a JSON number, an empty one null, keyed, the Workout read', () => {
+    expect(bodyFor('gym_tick', form({ exercise_id: '2', sets: '3', reps: '10', kg: '62.5', key: KEY }), undefined, undefined, 'gym')).toEqual({
+      exercise_id: 2,
+      sets: 3,
+      reps: 10,
+      kg: 62.5,
+      minutes: null,
+      km: null,
+      view: 'gym',
+      key: KEY,
+    });
+    expect(bodyFor('gym_tick', form({ exercise_id: '8', minutes: '25', km: '', key: KEY }), undefined, undefined, 'gym')).toMatchObject({ minutes: 25, km: null, sets: null });
+    // words are sent as typed: the door refuses them in plain words
+    expect(bodyFor('gym_tick', form({ exercise_id: '8', minutes: 'ten', key: KEY }), undefined, undefined, 'gym')).toMatchObject({ minutes: 'ten' });
+    // a tick sent without the page's script gets a key made here
+    expect(bodyFor('gym_tick', form({ exercise_id: '2', sets: '3', reps: '10', kg: '45' }), undefined, () => 'server-made-key-0123', 'gym').key).toBe('server-made-key-0123');
+  });
+
+  it('a remove: one row by set_id, or all of an exercise’s rows by exercise_id, never both', () => {
+    expect(bodyFor('gym_remove', form({ set_id: '62' }), undefined, undefined, 'gym')).toEqual({ set_id: 62, view: 'gym' });
+    expect(bodyFor('gym_remove', form({ exercise_id: '1' }), undefined, undefined, 'gym')).toEqual({ exercise_id: 1, view: 'gym' });
+    expect(bodyFor('gym_remove', form({ set_id: '62', exercise_id: '1' }), undefined, undefined, 'gym')).toEqual({ set_id: 62, view: 'gym' });
+  });
+
+  it('the day pick: a day of the split, or Free workout as null', () => {
+    expect(bodyFor('gym_pick', form({ day_id: '2' }), undefined, undefined, 'gym')).toEqual({ day_id: 2, view: 'gym' });
+    expect(bodyFor('gym_pick', form({ day_id: '' }), undefined, undefined, 'gym')).toEqual({ day_id: null, view: 'gym' });
+  });
+
+  it('+ Add exercise: the name, its kind, the other words as a list, for today', () => {
+    expect(bodyFor('gym_new', form({ name: ' Cable fly ', kind: 'weights', words: 'fly, chest  press,', today: '1' }), undefined, undefined, 'gym')).toEqual({
+      name: 'Cable fly',
+      kind: 'weights',
+      words: ['fly', 'chest press'],
+      today: true,
+      view: 'gym',
+    });
+  });
+
+  it('each goes to its /gym/<action>, and Undo asks for the Workout read', async () => {
+    const { door, seen } = net(200, { v: 1, outcome: 'saved', head: 'Saved: Shoulder press 3 × 10 at 45 kg', gym: {} });
+    await runSave(door, SESSION, 'gym_tick', form({ exercise_id: '2', sets: '3', reps: '10', kg: '45', key: KEY }), undefined, 'gym');
+    await runSave(door, SESSION, 'gym_remove', form({ set_id: '62' }), undefined, 'gym');
+    await runSave(door, SESSION, 'gym_pick', form({ day_id: '' }), undefined, 'gym');
+    await runSave(door, SESSION, 'gym_new', form({ name: 'Cable fly', kind: 'weights' }), undefined, 'gym');
+    await runSave(door, SESSION, 'undo', form({ token: 'T4v0N4V_gRMyUTvZ' }), undefined, 'gym');
+    expect(seen.map((x) => x.path)).toEqual(['/api/v1/gym/tick', '/api/v1/gym/remove', '/api/v1/gym/pick', '/api/v1/gym/new', '/api/v1/undo']);
+    expect(seen.at(-1)!.body).toEqual({ token: 'T4v0N4V_gRMyUTvZ', view: 'gym' });
   });
 });

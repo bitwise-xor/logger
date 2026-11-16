@@ -17,6 +17,7 @@ import { problemOf, problemText, type ProblemKind } from '../problems.js';
 import { labeladdBody } from '../scan.js';
 import { bodyValues, healthValues } from '../health.js';
 import { SHOWS } from '../habits.js';
+import { VALS, wordsOf } from '../gym.js';
 
 /** The form's fields: what `FormData` offers (and a plain test double). */
 export interface Fields {
@@ -175,6 +176,28 @@ export const SAVES = {
   habits_manage: { path: '/habits/manage', keyed: true, body: (f) => manageBody(f) },
   // Today's "Not today" on "Body measurements due": hidden until the next health day (no key, no Undo).
   body_skip: { path: '/body/skip', keyed: false, body: () => ({}) },
+  // The Gym's Workout page (deploy 96): the door's /gym/<action> takes numbers as JSON numbers and ids as numbers. Only the tick
+  // takes a key (app.'s rule); the page never sends a gym save again by itself (saver.ts, NEVER_RESENT). Each answers with the
+  // Workout read (view "gym").
+  gym_tick: {
+    path: '/gym/tick',
+    keyed: true,
+    body: (f) => ({ exercise_id: int(f, 'exercise_id'), ...Object.fromEntries(VALS.map((k) => [k, gymNumber(f, k)])) }),
+  },
+  // one logged row (set_id), or all of today's rows of an exercise (a done circle: exercise_id); the door wants one of them
+  gym_remove: {
+    path: '/gym/remove',
+    keyed: false,
+    body: (f) => (str(f, 'set_id', 12) !== undefined ? { set_id: int(f, 'set_id') } : { exercise_id: int(f, 'exercise_id') }),
+  },
+  // a day of the split, or Free workout (day_id null: the field empty)
+  gym_pick: { path: '/gym/pick', keyed: false, body: (f) => ({ day_id: str(f, 'day_id', 12) === undefined ? null : int(f, 'day_id') }) },
+  // + Add exercise on the Workout page: today true puts it on today's day of the split; other words typed with commas
+  gym_new: {
+    path: '/gym/new',
+    keyed: false,
+    body: (f) => ({ name: str(f, 'name', 60) ?? '', kind: str(f, 'kind', 20), words: wordsOf(str(f, 'words', 600) ?? ''), today: true }),
+  },
 } satisfies Record<string, Save>;
 
 /**
@@ -204,6 +227,13 @@ function manageBody(f: Fields): Body {
   }
 }
 
+/** A number of a gym form: empty is null (not given); a number as a JSON number; anything else as typed (the door refuses it). */
+function gymNumber(f: Fields, name: string): number | string | null {
+  const t = str(f, name, 20);
+  if (t === undefined) return null;
+  return /^\d{1,6}(\.\d{1,3})?$/.test(t) ? Number(t) : t;
+}
+
 /** The two yeses of a read-back (deploy 92): confirmed (an odd value) and confirm_delete (a value cleared). */
 function yes(f: Fields): Body {
   return { confirmed: f.get('confirmed') === '1' ? true : undefined, confirm_delete: f.get('confirm_delete') === '1' ? true : undefined };
@@ -219,10 +249,14 @@ export const HEALTH_SAVES: SaveName[] = ['health_day', 'body', 'undo'];
 /** The Habits page's (deploy 94, src/routes/(app)/habits): Today's tick (the same save, asked for the habits read), a calendar day, the list's forms, Undo. */
 export const HABITS_SAVES: SaveName[] = ['habit', 'habit_day', 'habits_manage', 'undo'];
 const HABITS_ONLY: SaveName[] = ['habit_day', 'habits_manage'];
+/** The Gym's Workout page's (deploy 96, src/routes/(app)/gym): a tick, a remove, the day pick, + Add exercise, Undo. */
+export const GYM_SAVES: SaveName[] = ['gym_tick', 'gym_remove', 'gym_pick', 'gym_new', 'undo'];
 export const TODAY_SAVES: SaveName[] = SAVE_NAMES.filter(
-  (n) => n === 'undo' || (!FOOD_SAVES.includes(n) && !USUAL_SAVES.includes(n) && !HEALTH_SAVES.includes(n) && !HABITS_ONLY.includes(n)),
+  (n) =>
+    n === 'undo' ||
+    (!FOOD_SAVES.includes(n) && !USUAL_SAVES.includes(n) && !HEALTH_SAVES.includes(n) && !HABITS_ONLY.includes(n) && !GYM_SAVES.includes(n)),
 );
-export type View = 'day' | 'food' | 'usual' | 'health' | 'body' | 'habits';
+export type View = 'day' | 'food' | 'usual' | 'health' | 'body' | 'habits' | 'gym';
 
 /** A key as the browser makes them (src/lib/saver.ts): a random UUID or base64url; anything else is replaced. */
 const KEY = /^[A-Za-z0-9_-]{16,64}$/;
