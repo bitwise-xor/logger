@@ -48,6 +48,38 @@ services:
       - internal
       - proxy
 
+  # The new front end at logger. (front/, docs/API.md): a small SvelteKit server that Caddy reaches on the proxy network and
+  # that calls the core's JSON door at http://logger-v2-core:8000. It never touches the database. Deployed by
+  # tools/deploy-front.sh (tools/deploy.sh builds the core only). Memory as the hub's: a limit with the same swap limit.
+  front:
+    build: ./front
+    image: logger-v2-front:pilot
+    container_name: logger-v2-front
+    restart: unless-stopped
+    mem_limit: 256m
+    memswap_limit: 256m
+    environment:
+      ORIGIN: https://logger.19hospitalroad.fyi  # form posts from any other origin are refused
+      DOOR_URL: http://logger-v2-core:8000
+      FRONT_TOKEN: ${FRONT_TOKEN:-}  # the same token as the core's; empty = the door is off and the sign-in says so
+      NODE_OPTIONS: --max-old-space-size=192
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    # Port 3000 for Caddy only (home network and tailnet). Nothing is published.
+    networks:
+      - proxy
+
 networks:
   internal:
   proxy:

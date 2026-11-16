@@ -1,0 +1,3 @@
+# One package (front/ itself). As in the hub: no install scripts run.
+allowBuilds:
+  esbuild: false

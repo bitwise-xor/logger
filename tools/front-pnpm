@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# Runs pnpm for the new front end (front/) inside the pinned Node 24 container, so the VM needs only Docker.
+# Usage: tools/front-pnpm <pnpm arguments>   (e.g. tools/front-pnpm install, tools/front-pnpm test, tools/front-pnpm build)
+# front/ is bind-mounted at /work and files stay owned by the calling user. corepack, its pnpm shim, the pnpm store and
+# HOME live in the cache folder (~/.cache/logger-front-toolchain). No network but the package registry's, no .env.
+set -euo pipefail
+
+# The same image (version and digest) as the hub's Dockerfile and ops/dev/pnpm and front/Dockerfile: one copy on disk.
+# Bump version and digest together, here and in front/Dockerfile.
+IMAGE="node:24.22.2-slim@sha256:c86ecead9e55a5210ac1727de38a4ca840bf03dcaf34dc9749addbf383b1920c"
+
+FRONT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../front" && pwd)"
+CACHE="${FRONT_TOOLCHAIN_CACHE:-$HOME/.cache/logger-front-toolchain}"
+mkdir -p "$CACHE"
+
+# FRONT_PORTS=1 publishes port 3000 on 127.0.0.1 (for `tools/front-pnpm preview` and the screenshots).
+ports=()
+if [ "${FRONT_PORTS:-0}" = "1" ]; then ports=(-p 127.0.0.1:3000:3000); fi
+# FRONT_ENV passes extra settings, e.g. FRONT_ENV="DOOR_URL=http://host.docker.internal:8099 ORIGIN=http://localhost:3000".
+envs=()
+for kv in ${FRONT_ENV:-}; do envs+=(-e "$kv"); done
+
+tty=()
+if [ -t 0 ] && [ -t 1 ]; then tty=(-it); fi
+
+exec docker run --rm "${tty[@]}" --init \
+  --label logger-front-toolchain=1 \
+  "${ports[@]}" "${envs[@]}" \
+  --add-host host.docker.internal:host-gateway \
+  --user "$(id -u):$(id -g)" \
+  --memory 1536m --memory-swap 1536m \
+  -e HOME=/cache/home \
+  -e COREPACK_HOME=/cache/corepack \
+  -e COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
+  -e PATH=/cache/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+  -e npm_config_update_notifier=false \
+  -e npm_config_store_dir=/cache/pnpm-store \
+  -v "$FRONT":/work \
+  -v "$CACHE":/cache \
+  -w /work \
+  "$IMAGE" sh -c 'mkdir -p /cache/bin /cache/home && corepack enable --install-directory /cache/bin && exec pnpm "$@"' pnpm "$@"

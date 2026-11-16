@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Screenshots of the new front end (front/tests/screens/shoot.mjs) in the pinned Playwright container on the host network,
+# so it reaches a front end published on 127.0.0.1:3000. The same image as the hub's ops/dev/screens (one copy on disk).
+#   tools/front-screens http://localhost:3000 tests/screens/out      (the out dir is inside front/, which is mounted)
+set -euo pipefail
+IMAGE="mcr.microsoft.com/playwright:v1.64.0-noble@sha256:06a9939e57531807f8d5fd76ce44b53165ffb7d7501d87ab10e285c20b1e971f"
+FRONT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../front" && pwd)"
+CACHE="${FRONT_TOOLCHAIN_CACHE:-$HOME/.cache/logger-front-toolchain}"
+mkdir -p "$CACHE/home"
+exec docker run --rm --init --ipc=host --network host \
+  --label logger-front-toolchain=1 \
+  --user "$(id -u):$(id -g)" \
+  --memory 1536m --memory-swap 1536m \
+  -e HOME=/cache/home \
+  -v "$FRONT":/work \
+  -v "$CACHE":/cache \
+  -w /work \
+  "$IMAGE" node tests/screens/shoot.mjs "$@"

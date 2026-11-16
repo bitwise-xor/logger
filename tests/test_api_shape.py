@@ -1,5 +1,5 @@
 """The door's shape after the review of 16.11.2026 (deploy 77): the night's bed time on the Health card, a save's questions in full,
-the private guard on questions and on lines the AI files as private, one name per field (old names for one deploy), Undo on a
+the private guard on questions and on lines the AI files as private, one name per field (the old names gone since deploy 78), Undo on a
 reload, a mixed line's look-up in result, answer styles and refill buttons, the outcome's tone, no chat lines in read-backs, and
 Try again / Delete on a message not read yet. Every name, food, number and sentence is invented."""
 from datetime import datetime
@@ -38,10 +38,9 @@ def hm(iso):
 
 # ---- 1. the Health card's Bed row ------------------------------------------------------------------------------------
 
-@pytest.mark.parametrize("name", ["time", "t"])  # t: the name before deploy 77, kept for one deploy
-def test_the_bed_row_has_the_nights_bed_time_from_the_day_before(sv, fake, name):
+def test_the_bed_row_has_the_nights_bed_time_from_the_day_before(sv, fake):
     recent_wake()
-    j = shaped(sv.post("/health", row="bed", key="bed-1", **{name: "23:10"}))
+    j = shaped(sv.post("/health", row="bed", key="bed-1", time="23:10"))
     assert j["outcome"] == "saved"
     bed = card(sv)["bed"]
     ref = owner_sql("SELECT 'e' || e.id AS ref, e.day FROM events e JOIN log_types t ON t.id = e.type_id WHERE t.name = 'bed'")[0]
@@ -102,19 +101,32 @@ def test_a_private_entry_made_in_a_partly_saved_line_hides_the_rest_too(sv, fake
 
 # ---- 4. one name each ------------------------------------------------------------------------------------------------------
 
-@pytest.mark.parametrize("name", ["action", "act"])
-def test_looks_right_takes_action_and_the_old_act(sv, fake, name):
+def test_looks_right_takes_action(sv, fake):
     eat("Test odd bar", 900, 2, review=True, amount=40)
     ref = owner_sql("SELECT 'f' || id AS ref FROM food_entries")[0]["ref"]
-    j = shaped(sv.post("/review", ref=ref, **{name: "ok"}))
+    j = shaped(sv.post("/review", ref=ref, action="ok"))
     assert j["outcome"] == "changed" and j["day"]["needs"]["review"] == []
 
 
-@pytest.mark.parametrize("name", ["action", "act"])
-def test_a_food_entry_change_takes_action_and_the_old_act(sv, fake, name):
+def test_a_food_entry_change_takes_action(sv, fake):
     eid = eat_on(day(), "08:10", oats(), 60)
-    j = shaped(sv.post("/food/entry", ref=f"f{eid}", amount=80, key="fe-1", **{name: "save"}), "food")
+    j = shaped(sv.post("/food/entry", ref=f"f{eid}", amount=80, key="fe-1", action="save"), "food")
     assert j["outcome"] == "changed" and float(owner_sql("SELECT amount FROM food_entries WHERE id = %s", eid)[0]["amount"]) == 80
+
+
+def test_the_old_names_of_77_are_gone(sv, fake, breakfast):
+    """act, t and items[].id worked for one deploy (77); since 78 they count as missing."""
+    eid = eat_on(day(), "08:10", oats(), 60)
+    r = sv.raw("/food/entry", ref=f"f{eid}", act="save", amount=80)
+    assert r.status_code == 400 and r.json()["message"] == "action must be save or delete."
+    r = sv.raw("/review", act="ok", ref=f"f{eid}")
+    assert r.status_code == 400 and r.json()["message"] == "action must be ok or all."
+    j = shaped(sv.post("/health", row="wake", t="07:10", key="old-t"))
+    assert j["outcome"] == "rejected" and "hh:mm" in j["reason"]
+    mid, (a, _b, _c) = breakfast
+    j = shaped(sv.post("/usual", meal_id=mid, items=[{"id": a, "amount": 70}], time="08:00", key="old-id"))
+    assert j["outcome"] == "rejected"
+    assert [float(r["amount"]) for r in owner_sql("SELECT amount FROM food_entries")] == [60.0]
 
 
 def test_an_unknown_action_names_the_new_field(sv):
@@ -124,10 +136,9 @@ def test_an_unknown_action_names_the_new_field(sv):
     assert r.status_code == 400 and r.json()["message"] == "action must be ok or all."
 
 
-@pytest.mark.parametrize("name", ["item_id", "id"])
-def test_a_usual_meal_takes_item_id_and_the_old_id(sv, fake, breakfast, name):
+def test_a_usual_meal_takes_item_id(sv, fake, breakfast):
     mid, (a, _b, _c) = breakfast
-    j = shaped(sv.post("/usual", meal_id=mid, items=[{name: a, "amount": 70}], time="08:00", key="u-1"))
+    j = shaped(sv.post("/usual", meal_id=mid, items=[{"item_id": a, "amount": 70}], time="08:00", key="u-1"))
     assert j["outcome"] == "saved"
     assert [float(r["amount"]) for r in owner_sql("SELECT amount FROM food_entries")] == [70.0]
 
@@ -138,7 +149,7 @@ def test_a_review_item_has_iso_at_and_logged_at(sv, fake):
     [r] = get(sv, "/day")["day"]["needs"]["review"]
     at = owner_sql("SELECT event_at FROM events WHERE id = %s", eid)[0]["event_at"]
     assert r["ref"] == f"e{eid}" and OFFSET.search(r["at"]) and datetime.fromisoformat(r["at"]) == at
-    assert OFFSET.search(r["logged_at"]) and r["time"] == hm(r["at"])  # time: kept for one deploy
+    assert OFFSET.search(r["logged_at"]) and "time" not in r  # time: gone since deploy 78
 
 
 # ---- 5. Undo on a reload, a mixed line's look-up ---------------------------------------------------------------------------

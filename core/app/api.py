@@ -157,14 +157,6 @@ def text(body: dict, name: str, limit: int, required: bool = False) -> str:
     return str(v)[:limit]
 
 
-def renamed(body: dict, name: str, old: str, limit: int, required: bool = False) -> str:
-    """A field under its name since deploy 77 (action, time, item_id), or its old name (act, t, id), kept for one deploy."""
-    v = text(body, name, limit) or text(body, old, limit)
-    if required and not v:
-        raise Refused(400, "bad_request", f"{name} is missing.")
-    return v
-
-
 def day_param(request: Request):
     """?day=yyyy-mm-dd, or None for today (a day after today is today, as on the pages)."""
     raw = request.query_params.get("day", "")
@@ -352,7 +344,7 @@ def again(_request, body, session):
 @route("/usual", "POST")
 def usual(_request, body, session):
     """A usual meal: every item with its saved amount, now (Today's one tap); or items [{"item_id", "amount"}] (only those are
-    logged, with these amounts; "id" is item_id's name before deploy 77) and time hh:mm, as the meal's form on Today."""
+    logged, with these amounts) and time hh:mm, as the meal's form on Today."""
     meal = text(body, "meal_id", 12, required=True)
     items = body.get("items")
     if items is None:
@@ -362,7 +354,7 @@ def usual(_request, body, session):
             raise Refused(400, "bad_request", "items must be a list of {item_id, amount}.")
         fields = {}
         for i in items[:50]:
-            iid = renamed(i, "item_id", "id", 12)
+            iid = text(i, "item_id", 12)
             fields[f"on_{iid}"] = "1"
             fields[f"g_{iid}"] = text(i, "amount", 20)
         f = _form(time=text(body, "time", 5), **fields)
@@ -412,10 +404,10 @@ def checkin(_request, body, session):
 @route("/health", "POST")
 def health(_request, body, session):
     """A Health card row (row: bed, wake, weight, sugar, bp_morning, bp_evening): v1 (blood pressure: v1 upper, v2 lower), or
-    time hh:mm for bed and wake-up ("t" before deploy 77); ref = the entry to correct (the card row's ref). confirmed: true
+    time hh:mm for bed and wake-up; ref = the entry to correct (the card row's ref). confirmed: true
     after a read-back."""
     row, ref = text(body, "row", 20, required=True), text(body, "ref", 20)
-    f = _form(t=renamed(body, "time", "t", 5), v1=text(body, "v1", 20), v2=text(body, "v2", 20), confirmed=body.get("confirmed") is True)
+    f = _form(t=text(body, "time", 5), v1=text(body, "v1", 20), v2=text(body, "v2", 20), confirmed=body.get("confirmed") is True)
     return saved(session, _work(lambda: webactions.health(row, ref, f, _key(body))), body)
 
 
@@ -432,9 +424,8 @@ def answer(_request, body, session):
 
 @route("/review", "POST")
 def review(_request, body, session):
-    """"Looks right": action "ok" with ref (one item), or action "all" with refs (the items shown; webactions.review_all).
-    ("act" is action's name before deploy 77.)"""
-    act = renamed(body, "action", "act", 5)
+    """"Looks right": action "ok" with ref (one item), or action "all" with refs (the items shown; webactions.review_all)."""
+    act = text(body, "action", 5)
     if act == "ok":
         ref = text(body, "ref", 20, required=True)
         out = _work(lambda: webactions.review(ref, "ok", Form()))
@@ -451,9 +442,8 @@ def review(_request, body, session):
 @route("/food/entry", "POST")
 def food_entry_save(_request, body, session):
     """Change (action "save": amount, unit, time hh:mm, food_name) or delete (action "delete") a food entry, made at once with
-    Undo, as on the Food page (webfood.entry). An odd value is read back first: then send it again with "confirmed": true.
-    ("act" is action's name before deploy 77.)"""
-    act = renamed(body, "action", "act", 10)
+    Undo, as on the Food page (webfood.entry). An odd value is read back first: then send it again with "confirmed": true."""
+    act = text(body, "action", 10)
     if act not in ("save", "delete"):
         raise Refused(400, "bad_request", "action must be save or delete.")
     f = _form(id=text(body, "ref", 12), act=act, amount=text(body, "amount", 20), unit=text(body, "unit", 40), time=text(body, "time", 5),

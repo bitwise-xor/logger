@@ -121,7 +121,7 @@ def test_the_food_routes_answer_with_the_food_day(sv, fake):
     eid = eat_on(day(), "08:10", oats(), 60)
     j = shaped(sv.post("/food/note", ref=f"f{eid}", note="tasty"), "food")
     assert j["food_day"]["rows"][0]["note"] == "tasty"
-    j = shaped(sv.post("/food/entry", ref=f"f{eid}", act="save", amount=45), "food")
+    j = shaped(sv.post("/food/entry", ref=f"f{eid}", action="save", amount=45), "food")
     assert j["food_day"]["rows"][0]["amount"] == 45
     j = shaped(sv.post("/food/note", ref=f"f{eid}", note="x", view="day"))  # view overrides the route's own
     assert "food_day" not in j
@@ -322,16 +322,16 @@ def test_a_usual_meal_in_one_tap_logs_every_item(sv, fake, breakfast):
 
 def test_a_usual_meal_with_chosen_items_amounts_and_time(sv, fake, breakfast):
     mid, (a, b, c) = breakfast
-    j = shaped(sv.post("/usual", meal_id=mid, items=[{"id": a, "amount": 60}, {"id": b, "amount": 150}], time="07:30", key="us-2"))
+    j = shaped(sv.post("/usual", meal_id=mid, items=[{"item_id": a, "amount": 60}, {"item_id": b, "amount": 150}], time="07:30", key="us-2"))
     assert j["outcome"] == "saved" and got_undo(j)
     assert foods_eaten() == [("Test oats", 60.0), ("Skyr natural", 150.0)]  # the honey was left out
     assert owner_sql("SELECT content FROM raw_inbox")[0]["content"] == "my usual usual breakfast (Skyr natural 150 g, no Test honey) at 07:30"
     assert {r["t"] for r in owner_sql("SELECT to_char(eaten_at AT TIME ZONE 'Europe/Berlin', 'HH24:MI') AS t FROM food_entries")} == {"07:30"}
 
 
-@pytest.mark.parametrize("body,why", [({"items": []}, "Tick at least one item"), ({"items": [{"id": "{a}", "amount": 0}]}, "amount above 0"),
-                                      ({"items": [{"id": "{a}", "amount": 9000}]}, "amount above 0"),
-                                      ({"items": [{"id": "{a}", "amount": "lots"}]}, "amount above 0")])
+@pytest.mark.parametrize("body,why", [({"items": []}, "Tick at least one item"), ({"items": [{"item_id": "{a}", "amount": 0}]}, "amount above 0"),
+                                      ({"items": [{"item_id": "{a}", "amount": 9000}]}, "amount above 0"),
+                                      ({"items": [{"item_id": "{a}", "amount": "lots"}]}, "amount above 0")])
 def test_a_bad_usual_meal_is_rejected(sv, fake, breakfast, body, why):
     mid, (a, _b, _c) = breakfast
     body = json.loads(json.dumps(body).replace('"{a}"', str(a)))
@@ -519,7 +519,7 @@ def test_a_blood_pressure_needs_both_numbers(sv, fake):
 
 
 def test_a_wake_up_time(sv, fake):
-    j = shaped(sv.post("/health", row="wake", t="07:10", key="he-3"))
+    j = shaped(sv.post("/health", row="wake", time="07:10", key="he-3"))
     assert j["outcome"] == "saved" and got_undo(j)
     assert owner_sql("""SELECT to_char(event_at AT TIME ZONE 'Europe/Berlin', 'HH24:MI') AS t FROM events e
                         JOIN log_types t ON t.id = e.type_id WHERE t.name = 'wake'""") == [{"t": "07:10"}]
@@ -527,7 +527,7 @@ def test_a_wake_up_time(sv, fake):
 
 
 @pytest.mark.parametrize("body,why", [({"row": "weight"}, "give a number"), ({"row": "weight", "v1": "heavy"}, "give a number"),
-                                      ({"row": "wake"}, "hh:mm"), ({"row": "wake", "t": "25:00"}, "hh:mm"), ({"row": "bed", "t": "late"}, "hh:mm"),
+                                      ({"row": "wake"}, "hh:mm"), ({"row": "wake", "time": "25:00"}, "hh:mm"), ({"row": "bed", "time": "late"}, "hh:mm"),
                                       ({"row": "pulse", "v1": 60}, "Unknown row.")])
 def test_a_bad_health_value_is_rejected(sv, fake, body, why):
     j = shaped(sv.post("/health", **body))
@@ -622,7 +622,7 @@ def test_looks_right_clears_the_flag_of_one_item(sv, fake):
     b = flagged("Test rice")
     before = sv.post("/water")["day"]["needs"]["review"]
     assert sorted(r["ref"] for r in before) == [f"f{a}", f"f{b}"]
-    j = shaped(sv.post("/review", act="ok", ref=f"f{a}"))
+    j = shaped(sv.post("/review", action="ok", ref=f"f{a}"))
     assert j["outcome"] == "changed" and j["head"] == "Kept. The flag is cleared." and got_undo(j)
     assert review_open() == 1 and [r["ref"] for r in j["day"]["needs"]["review"]] == [f"f{b}"]
 
@@ -633,16 +633,16 @@ def test_all_look_right_clears_every_item_shown(sv, fake):
                            SELECT %s, id, log_day(now()), now(), true, 81, 'test', true, 'odd' FROM log_types WHERE name = 'weight' RETURNING id""", raw())[0]["id"]
     shown = [r["ref"] for r in sv.post("/water")["day"]["needs"]["review"]]
     assert sorted(shown) == sorted([f"f{i}" for i in ids] + [f"m{measure}"])
-    j = shaped(sv.post("/review", act="all", refs=shown))
+    j = shaped(sv.post("/review", action="all", refs=shown))
     assert j["outcome"] == "changed" and j["head"] == "Kept 4 items. The flags are cleared." and got_undo(j)
     assert review_open() == 0 and n("SELECT count(*) AS n FROM measurements WHERE needs_review") == 0 and j["day"]["needs"]["review"] == []
 
 
 def test_all_look_right_leaves_out_what_was_not_shown_and_what_is_already_clear(sv, fake):
     a, b = flagged("Test oats"), flagged("Test rice")
-    j = sv.post("/review", act="all", refs=[f"f{a}", "f99999"])
+    j = sv.post("/review", action="all", refs=[f"f{a}", "f99999"])
     assert j["outcome"] == "changed" and j["head"] == "Kept 1 item. The flags are cleared." and review_open() == 1
-    gone = shaped(sv.post("/review", act="all", refs=[f"f{a}"]))
+    gone = shaped(sv.post("/review", action="all", refs=[f"f{a}"]))
     assert gone["outcome"] == "unchanged" and "no longer" not in gone["reason"] and "waiting for review" in gone["reason"]
     assert review_open() == 1 and b
 
@@ -650,12 +650,12 @@ def test_all_look_right_leaves_out_what_was_not_shown_and_what_is_already_clear(
 @pytest.mark.parametrize("refs", [[], ["junk"], ["f1", "x2"], [f"f{i}" for i in range(1, 22)]])
 def test_all_look_right_refuses_odd_refs(sv, fake, refs):
     flagged()
-    j = shaped(sv.post("/review", act="all", refs=refs))
+    j = shaped(sv.post("/review", action="all", refs=refs))
     assert j["outcome"] == "rejected" and j["reason"] == "Unknown item." and review_open() == 1
 
 
-@pytest.mark.parametrize("body", [{"act": "delete", "ref": "f1"}, {"act": "change", "ref": "f1"}, {"act": ""}, {"ref": "f1"},
-                                  {"act": "ok"}, {"act": "all"}, {"act": "all", "refs": "f1 f2"}, {"act": "all", "refs": [1, 2]}])
+@pytest.mark.parametrize("body", [{"action": "delete", "ref": "f1"}, {"action": "change", "ref": "f1"}, {"action": ""}, {"ref": "f1"},
+                                  {"action": "ok"}, {"action": "all"}, {"action": "all", "refs": "f1 f2"}, {"action": "all", "refs": [1, 2]}])
 def test_a_bad_review_request_is_a_400(sv, fake, body):
     flagged()
     r = sv.raw("/review", **body)
@@ -663,7 +663,7 @@ def test_a_bad_review_request_is_a_400(sv, fake, body):
 
 
 def test_looks_right_of_an_unknown_ref_is_rejected(sv, fake):
-    j = shaped(sv.post("/review", act="ok", ref="zzz"))
+    j = shaped(sv.post("/review", action="ok", ref="zzz"))
     assert j["outcome"] == "rejected" and j["reason"] == "Unknown item."
 
 
@@ -671,7 +671,7 @@ def test_looks_right_of_an_unknown_ref_is_rejected(sv, fake):
 
 def test_a_food_entry_is_changed_at_once_with_undo(sv, fake):
     eid = eat_on(day(), "08:10", oats(), 60)
-    j = shaped(sv.post("/food/entry", ref=f"f{eid}", act="save", amount=45), "food")
+    j = shaped(sv.post("/food/entry", ref=f"f{eid}", action="save", amount=45), "food")
     assert j["outcome"] == "changed" and j["head"] == "Changed Test oats." and got_undo(j)
     assert float(entry(eid)["amount"]) == 45 and [r["amount"] for r in j["food_day"]["rows"]] == [45]
     done = sv.post("/undo", token=j["undo"]["token"], view="food")
@@ -681,13 +681,13 @@ def test_a_food_entry_is_changed_at_once_with_undo(sv, fake):
 
 def test_a_food_entry_time_can_be_changed(sv, fake):
     eid = eat_on(day(), "08:10", oats(), 60)
-    j = sv.post("/food/entry", ref=f"f{eid}", act="save", amount=60, time="08:40")
+    j = sv.post("/food/entry", ref=f"f{eid}", action="save", amount=60, time="08:40")
     assert j["outcome"] == "changed" and entry(eid)["t"] == "08:40"
 
 
 def test_nothing_to_change_is_unchanged(sv, fake):
     eid = eat_on(day(), "08:10", oats(), 60)
-    j = shaped(sv.post("/food/entry", ref=f"f{eid}", act="save", amount=60), "food")
+    j = shaped(sv.post("/food/entry", ref=f"f{eid}", action="save", amount=60), "food")
     assert j["outcome"] == "unchanged" and j["reason"] == "Nothing changed." and j["head"] == "Nothing changed." and j["undo"] is None
 
 
@@ -695,7 +695,7 @@ def test_deleting_a_food_entry_and_undoing_it_puts_it_back_with_the_same_id(sv, 
     eid = eat_on(day(), "08:10", oats(), 60)
     other = eat_on(day(), "12:10", oats(), 30)
     before = owner_sql("SELECT * FROM food_entries WHERE id = %s", eid)[0]
-    j = shaped(sv.post("/food/entry", ref=f"f{eid}", act="delete", key="fe-1"), "food")
+    j = shaped(sv.post("/food/entry", ref=f"f{eid}", action="delete", key="fe-1"), "food")
     assert j["outcome"] == "changed" and j["head"] == "Deleted Test oats." and entry(eid) is None and entry(other)
     assert [r["ref"] for r in j["food_day"]["rows"]] == [f"f{other}"]
     u = got_undo(j)
@@ -712,15 +712,15 @@ def test_deleting_a_food_entry_and_undoing_it_puts_it_back_with_the_same_id(sv, 
                                      ("f1234567890", "Unknown entry.")])
 def test_a_food_entry_that_is_not_there_is_rejected(sv, fake, ref, why):
     for act in ("save", "delete"):
-        j = shaped(sv.post("/food/entry", ref=ref, act=act, amount=50), "food")
+        j = shaped(sv.post("/food/entry", ref=ref, action=act, amount=50), "food")
         assert j["outcome"] == "rejected" and j["reason"] == why, (ref, act)
     assert shaped(sv.post("/food/note", ref=ref, note="x"), "food")["outcome"] == "rejected"
 
 
 def test_a_missing_ref_is_rejected_and_a_bad_act_is_a_400(sv, fake):
-    assert sv.post("/food/entry", act="save", amount=50)["reason"] == "Unknown entry."
+    assert sv.post("/food/entry", action="save", amount=50)["reason"] == "Unknown entry."
     eid = eat_on(day(), "08:10", oats(), 60)
-    for body in ({"ref": f"f{eid}", "act": "copy"}, {"ref": f"f{eid}"}, {"ref": f"f{eid}", "act": ""}):
+    for body in ({"ref": f"f{eid}", "action": "copy"}, {"ref": f"f{eid}"}, {"ref": f"f{eid}", "action": ""}):
         r = sv.raw("/food/entry", **body)
         assert r.status_code == 400 and r.json()["error"] == "bad_request"
     assert entry(eid)
@@ -731,7 +731,7 @@ def test_a_missing_ref_is_rejected_and_a_bad_act_is_a_400(sv, fake):
                                       ({"amount": 50, "food_name": "Nothing like it"}, "No food called")])
 def test_a_bad_food_entry_change_is_rejected(sv, fake, body, why):
     eid = eat_on(day(), "08:10", oats(), 60)
-    j = shaped(sv.post("/food/entry", ref=f"f{eid}", act="save", **body), "food")
+    j = shaped(sv.post("/food/entry", ref=f"f{eid}", action="save", **body), "food")
     assert j["outcome"] == "rejected" and why in j["reason"] and float(entry(eid)["amount"]) == 60
 
 
@@ -857,8 +857,8 @@ def test_a_failure_inside_a_save_is_a_rejected_answer_not_a_500(sv, fake, monkey
                                               ("/usual", {"meal_id": 1}, "webactions.usual"), ("/checkin", {"type": "mood", "value": 3}, "webactions.checkin"),
                                               ("/health", {"row": "weight", "v1": 80}, "webactions.health"),
                                               ("/answer", {"question_id": "p1", "reply": "yes"}, "logbook.answer"),
-                                              ("/review", {"act": "ok", "ref": "f1"}, "webactions.review"), ("/again", {"food_id": 1, "amount": 5}, "webfood.again"),
-                                              ("/food/entry", {"ref": "f1", "act": "delete"}, "webfood.entry"), ("/food/note", {"ref": "f1"}, "webfood.note")])
+                                              ("/review", {"action": "ok", "ref": "f1"}, "webactions.review"), ("/again", {"food_id": 1, "amount": 5}, "webfood.again"),
+                                              ("/food/entry", {"ref": "f1", "action": "delete"}, "webfood.entry"), ("/food/note", {"ref": "f1"}, "webfood.note")])
 def test_every_save_route_turns_a_crash_into_a_rejected_answer(sv, fake, monkeypatch, path, body, target):
     mod, fn = target.split(".")
     monkeypatch.setattr(getattr(api, mod), fn, lambda *a, **k: 1 / 0)
@@ -890,7 +890,7 @@ def test_a_crash_while_undoing_is_a_rejected_answer_and_keeps_the_undo(sv, fake,
 
 SAVES = (("/log", {"text": "hello"}), ("/again", {"food_id": 1, "amount": 5}), ("/usual", {"meal_id": 1}), ("/water", {}),
          ("/habit", {"name": "meds", "action": "tick"}), ("/checkin", {"type": "mood", "value": 3}), ("/health", {"row": "weight", "v1": 80}),
-         ("/answer", {"question_id": "p1", "reply": "yes"}), ("/review", {"act": "ok", "ref": "f1"}), ("/food/entry", {"ref": "f1", "act": "delete"}),
+         ("/answer", {"question_id": "p1", "reply": "yes"}), ("/review", {"action": "ok", "ref": "f1"}), ("/food/entry", {"ref": "f1", "action": "delete"}),
          ("/food/note", {"ref": "f1", "note": "x"}), ("/undo", {"token": "x"}))
 
 
@@ -965,7 +965,7 @@ def test_the_doors_saves_do_not_touch_the_web_sessions_undo_or_flash(web, fake, 
     d.post("/habit", name="meds", action="tick", key="ap-2")
     d.post("/usual", meal_id=breakfast[0], key="ap-3")
     eid = owner_sql("SELECT id FROM food_entries ORDER BY id LIMIT 1")[0]["id"]
-    d.post("/food/entry", ref=f"f{eid}", act="delete")
+    d.post("/food/entry", ref=f"f{eid}", action="delete")
     got = d.post("/undo", token=d.undo_row()["token"])
     assert got["outcome"] == "changed" and j["outcome"] == "saved"
     d.post("/water", ml=10)

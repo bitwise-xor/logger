@@ -24,3 +24,21 @@ jobs:
         run: tests/test-db.sh up
       - name: Run the tests
         run: .venv/bin/python -m pytest -q tests
+
+  # The new front end's unit tests (front/, vitest) and type check, in the same pinned Node image as tools/front-pnpm.
+  front:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    container:
+      image: node:24.22.2-slim@sha256:c86ecead9e55a5210ac1727de38a4ca840bf03dcaf34dc9749addbf383b1920c
+    defaults:
+      run:
+        working-directory: front
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install the pinned packages
+        run: corepack enable && COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm install --frozen-lockfile
+      - name: Run the tests
+        run: pnpm test
+      - name: Check the types
+        run: pnpm check

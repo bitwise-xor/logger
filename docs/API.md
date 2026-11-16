@@ -1,6 +1,8 @@
 # The JSON door `/api/v1` (for the new front end)
 
-Since deploys 75 and 76 (16.11.2026); deploy 77 (16.11.2026) made the changes of the door's review (marked "since 77"). Code: `core/app/api.py` (the door, the saves), `core/app/reads.py` (the reads).
+Since deploys 75 and 76 (16.11.2026); deploy 77 (16.11.2026) made the changes of the door's review (marked "since 77");
+deploy 78 removed the old field names that 77 kept for one deploy. The front end that calls it: `front/` (`front/README.md`).
+Code: `core/app/api.py` (the door, the saves), `core/app/reads.py` (the reads).
 Tests: `tests/test_api_door.py`, `tests/test_api_reads.py`, `tests/test_api_saves.py`, `tests/test_api_shape.py` (77).
 
 The door is for one caller only: the new front end's own server, from inside Docker. The browser never calls it.
@@ -91,7 +93,7 @@ Undo         = null | {token, head, expires_at}         // the session's Undo, t
 - A question about private entries, or whose `message` names one, has `text` "Not shown here: …" and `message`, `refill` and `read_back`
   null.
 - `review[].at` is when it happened (ISO; a thought: when it was logged; null when the time is not known), `logged_at` when it was
-  logged (since 77; until 77 `at` was the logged time). The old `time` (hh:mm of an event) is still sent for one deploy.
+  logged (since 77; until 77 `at` was the logged time; the old `time`, hh:mm of an event, is gone since 78).
 - `undo` (since 77): the session's Undo while it lasts, so the Undo bar can stay after a reload.
 - A thought to review comes with `thought_type` and `area`, never its words (`label` null).
 
@@ -131,7 +133,7 @@ function takes one, so a re-sent request saves once (`replayed: true`).
 | `/api/v1/held/delete` (77) | `id` | `webheld.delete` (app.'s "Delete", with Undo: the message comes back) |
 
 Field names since 77: `action` (was `act` on `/review` and `/food/entry`), `time` (was `t` on `/health`), `items[].item_id` (was
-`items[].id` on `/usual`). The old names still work until deploy 78; send only the new ones.
+`items[].id` on `/usual`). Since deploy 78 only the new names work: a field sent under its old name counts as missing.
 
 Every save answers (HTTP 200, also when nothing was saved):
 

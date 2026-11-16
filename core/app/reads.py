@@ -184,13 +184,12 @@ def _happened(cur, refs: list) -> dict:
 
 def _review(r: dict, happened: dict) -> dict:
     """An item to review. A thought is named by its type and area only: its words never leave through the door.
-    at: when it happened (a thought: when it was logged); logged_at: when it was logged. time (hh:mm, an event's) is the
-    name before deploy 77, kept for one deploy."""
+    at: when it happened (a thought: when it was logged); logged_at: when it was logged."""
     thought = r["kind"] == "thought"
     return {"ref": r["ref"], "kind": r["kind"], "label": None if thought else r["what"], "day": iso(r["day"]), "reason": r["reason"] or "",
             "at": iso(r["at"] if thought else happened.get(r["ref"])), "logged_at": iso(r["at"]),
             "thought_type": r["a"] if thought else None, "area": r["b"] if thought else None,
-            "type": r["a"] if r["kind"] == "measurement" else None, "time": r["a"] if r["kind"] == "event" else None,
+            "type": r["a"] if r["kind"] == "measurement" else None,
             "v1": num(r["v1"]), "v2": num(r["v2"]), "unit": r["unit"]}
 
 

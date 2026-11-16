@@ -1,0 +1,11 @@
+@import 'tailwindcss';
+/* The hub's tokens, copied (src/lib/tokens/SOURCE.md). */
+@import './lib/tokens/tokens.css';
+@import './lib/tokens/theme.css';
+@import './fonts.css';
+
+/* Numbers and times in Geist Mono, digits of equal width (as app. since deploy 74). */
+@utility num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}

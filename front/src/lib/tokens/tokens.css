@@ -1,0 +1,48 @@
+/* Hub design tokens — starting point for packages/tokens.
+   Shared by the hub, Logger and the Learning center.
+   Amber = needs you (nothing else). Blue = live (next event, active tab, links). */
+:root,
+[data-theme='dark'] {
+  --bg: #0c0d0f; /* page background */
+  --panel: #141518; /* card surface */
+  --panel2: #1b1d21; /* raised surface, secondary buttons */
+  --line: #27292e; /* borders, dividers */
+  --text: #ecedef;
+  --muted: #9a9da6;
+  --amber: #f2b34c;
+  --on-amber: #1a1203;
+  --amber-bg: #332510;
+  --blue: #8ab4ff;
+  --on-blue: #0a1020;
+  --blue-bg: #16233d;
+  --chip: #22242a;
+  --chip-text: #c3c6ce;
+  --track: #27292e; /* progress bar track */
+}
+[data-theme='light'] {
+  --bg: #f1f1ee;
+  --panel: #ffffff;
+  --panel2: #f6f6f3;
+  --line: #deded8;
+  --text: #16171a;
+  --muted: #5a5d66;
+  --amber: #8a5300;
+  --on-amber: #ffffff;
+  --amber-bg: #fbebcf;
+  --blue: #1d4fbf;
+  --on-blue: #ffffff;
+  --blue-bg: #e3ebfb;
+  --chip: #ecece8;
+  --chip-text: #3c3f47;
+  --track: #e4e4df;
+}
+:root {
+  --font-sans: 'Geist', system-ui, sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, monospace; /* times and numbers */
+  --font-size-base: 14px;
+  --radius-card: 12px;
+  --radius-control: 8px;
+  --radius-chip: 5px;
+  --gap-card: 12px;
+  --touch-target: 44px;
+}

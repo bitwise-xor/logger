@@ -1,0 +1,172 @@
+/* Hub theme for Tailwind CSS 4: turns the tokens in tokens.css into utilities and points
+   shadcn-svelte's variables at them, so its components come out in the Deck look.
+
+   Use it after Tailwind and the tokens:
+
+     @import 'tailwindcss';
+     @import '@hub/tokens/tokens.css';
+     @import '@hub/tokens/theme.css';
+
+   The values live in tokens.css only. Nothing here is a colour of its own. */
+
+/* `dark:` follows the data-theme attribute, not the system setting. */
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+/* shadcn-svelte's variables. Set on every element that carries data-theme, so a light block inside
+   a dark page (or the other way round) gets its own values.
+
+   One name is missing on purpose: shadcn's `--muted` (a quiet background) collides with the Deck
+   token `--muted` (the muted text colour), and the token wins. `bg-muted` is mapped to the raised
+   surface in the theme below instead, and `text-muted-foreground` to the muted text colour. */
+:root,
+[data-theme] {
+  --background: var(--bg);
+  --foreground: var(--text);
+  --card: var(--panel);
+  --card-foreground: var(--text);
+  --popover: var(--panel);
+  --popover-foreground: var(--text);
+  /* The strongest neutral: amber is kept for "needs you" and blue for "live". */
+  --primary: var(--text);
+  --primary-foreground: var(--bg);
+  --secondary: var(--panel2);
+  --secondary-foreground: var(--text);
+  --muted-foreground: var(--muted);
+  --accent: var(--panel2);
+  --accent-foreground: var(--text);
+  /* The Deck has no red and the hub has no delete actions: an invalid field gets the text colour. */
+  --destructive: var(--text);
+  --border: var(--line);
+  --input: var(--line);
+  --ring: var(--blue);
+  --radius: var(--radius-control);
+}
+
+/* Only the Deck's colours exist: no default Tailwind palette. */
+@theme {
+  --color-*: initial;
+}
+
+@theme inline {
+  /* Deck colours: bg-bg, bg-panel, bg-panel2, border-line, text-text, text-muted, bg-amber
+     text-on-amber, bg-amber-bg text-amber, bg-blue text-on-blue, bg-blue-bg text-blue, bg-chip
+     text-chip-text, bg-track. */
+  --color-bg: var(--bg);
+  --color-panel: var(--panel);
+  --color-panel2: var(--panel2);
+  --color-line: var(--line);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-amber: var(--amber);
+  --color-on-amber: var(--on-amber);
+  --color-amber-bg: var(--amber-bg);
+  --color-blue: var(--blue);
+  --color-on-blue: var(--on-blue);
+  --color-blue-bg: var(--blue-bg);
+  --color-chip: var(--chip);
+  --color-chip-text: var(--chip-text);
+  --color-track: var(--track);
+  --color-black: #000;
+  --color-white: #fff;
+
+  /* shadcn-svelte's colour names, used by the components in apps/web/src/lib/components/ui. */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  /* shadcn's `bg-muted` is a quiet surface; every other `*-muted` utility is the muted text colour. */
+  --background-color-muted: var(--panel2);
+
+  /* Radii. rounded-lg is the control radius and rounded-xl the card radius, so shadcn's own class
+     names land on Deck values. */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  /* Where the layout changes (packages/schema, sizeClassFor): tablet from 760 px, desktop from
+     1100 px. */
+  --breakpoint-tablet: 47.5rem;
+  --breakpoint-desktop: 68.75rem;
+}
+
+/* The one motion: dialogs and overlays fade. animate-fade-in, animate-fade-out. */
+@theme {
+  --animate-fade-in: hub-fade-in 100ms ease-out;
+  --animate-fade-out: hub-fade-out 100ms ease-in forwards;
+
+  @keyframes hub-fade-in {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes hub-fade-out {
+    to {
+      opacity: 0;
+    }
+  }
+}
+
+/* tokens.css already names these the way Tailwind does. Declared here so the utilities exist
+   (rounded-card, rounded-control, rounded-chip, font-sans, font-mono) without writing the
+   variables out a second time. */
+@theme inline reference {
+  --radius-card: var(--radius-card);
+  --radius-control: var(--radius-control);
+  --radius-chip: var(--radius-chip);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+  html[data-theme='light'] {
+    color-scheme: light;
+  }
+  body {
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: var(--font-size-base);
+    line-height: 1.4;
+  }
+  /* A nested data-theme block reads in its own text colour. */
+  [data-theme] {
+    color: var(--text);
+  }
+  *,
+  ::before,
+  ::after,
+  ::backdrop {
+    border-color: var(--line);
+  }
+  /* Blue is "live": links and the keyboard focus ring. */
+  a {
+    color: var(--blue);
+  }
+  a:hover {
+    color: var(--text);
+  }
+  :focus-visible {
+    outline: 2px solid var(--blue);
+    outline-offset: 2px;
+  }
+  ::placeholder {
+    color: var(--muted);
+  }
+}
