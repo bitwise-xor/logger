@@ -207,20 +207,38 @@ def download(form, session) -> tuple[bytes, str]:
     return data, name
 
 
-def settings_tab(session, csrf: str) -> str:
-    """Settings > Export: one button, private entries only when ticked, and when the last download was."""
+# Settings > Export's words (app.'s tab, and the door's GET /settings/export, deploy 110)
+TITLE = "Export everything"
+INTRO = ("One ZIP file with everything you logged: food with nutrients, the food catalogue, health values, wake-up, bed, naps and habits, "
+         "sleeps, thoughts, gym, home, coachings, lab results, medication, watch data, usual meals, recipes, your gym plan and chores, and your original messages. "
+         "A CSV file for each (opens in a spreadsheet), all.json with everything in one file, and a README.")
+PRIVATE_LABEL = "Include private and gratitude entries"
+BUTTON = "Download"
+HINT = ("The Google Sheet and the encrypted backup stay as they are; this is a plain copy to keep. "
+        "Each download is noted in the audit log (with or without private entries, how many rows), never what is in it. "
+        "Keep the file somewhere safe: it holds your health data.")
+FAILED = "The export could not be made (the database did not answer). Try again in a moment."
+
+
+def settings_data() -> dict:
+    """{"last": the last download (its audit row: at, private) or None, "text": app.'s line about it ("" without one)}."""
     with connect() as c:
         last = c.execute("SELECT at, detail FROM audit_log WHERE tool = 'export' AND outcome = 'ok' ORDER BY at DESC LIMIT 1").fetchone()
-    seen = (f'<p class="small">Last download: {last["at"].astimezone(BERLIN):%d.%m.%Y %H:%M}'
-            f'{", with private entries" if (last["detail"] or {}).get("private") else ""}.</p>' if last else "")
-    return ('<div class="card"><h2>Export everything</h2>'
-            '<p>One ZIP file with everything you logged: food with nutrients, the food catalogue, health values, wake-up, bed, naps and habits, '
-            'sleeps, thoughts, gym, home, coachings, lab results, medication, watch data, usual meals, recipes, your gym plan and chores, and your original messages. '
-            'A CSV file for each (opens in a spreadsheet), all.json with everything in one file, and a README.</p>'
+    if not last:
+        return {"last": None, "text": ""}
+    private = bool((last["detail"] or {}).get("private"))
+    return {"last": {"at": last["at"], "private": private},
+            "text": f'Last download: {last["at"].astimezone(BERLIN):%d.%m.%Y %H:%M}{", with private entries" if private else ""}.'}
+
+
+def settings_tab(session, csrf: str) -> str:
+    """Settings > Export: one button, private entries only when ticked, and when the last download was."""
+    d = settings_data()
+    seen = f'<p class="small">{d["text"]}</p>' if d["last"] else ""
+    return (f'<div class="card"><h2>{TITLE}</h2>'
+            f'<p>{INTRO}</p>'
             f'<form method="post" action="/web/settings/export" data-download>{hidden("csrf", csrf)}'
-            '<label class="row"><input type="checkbox" name="private" value="1"> Include private and gratitude entries</label>'
-            '<p class="row"><button class="primary" type="submit">Download</button></p></form>'
-            f'{seen}<p class="small hint">The Google Sheet and the encrypted backup stay as they are; this is a plain copy to keep. '
-            'Each download is noted in the audit log (with or without private entries, how many rows), never what is in it. '
-            'Keep the file somewhere safe: it holds your health data.</p></div>')
+            f'<label class="row"><input type="checkbox" name="private" value="1"> {PRIVATE_LABEL}</label>'
+            f'<p class="row"><button class="primary" type="submit">{BUTTON}</button></p></form>'
+            f'{seen}<p class="small hint">{HINT}</p></div>')
 

@@ -239,12 +239,30 @@ def render(csrf: str, q=None) -> str:
             f'<p class="small">{KEPT} {d["month"]["text"]}</p>')
 
 
-def settings_tab(session, csrf: str) -> str:
-    """Settings > Coach: the owner's goals, how to coach and which parts each coaching shows; the coach reads them every time."""
+KIND_TITLE = {"day": "Day coaching (Today)", "week": "Week review (Week page)"}  # Settings > Coach's two sets of parts
+
+
+def facts() -> list:
+    """Settings > Coach's "How the coach works", from the coach's own settings (coach.py)."""
+    model = "Claude " + " ".join(w.capitalize() for w in coach.MODEL.removeprefix("claude-").split("-", 1)).replace("-", ".")
+    return ["Only when you press Coach me (Today) or Review this week (Week page).",
+            "Reads food, health values, sleep, habits, gym and home; never thoughts, private or gratitude entries.",
+            f"{model}; about 6 cents a day coaching, about 20 cents a week review; at most {coach.DAILY_LIMIT} a day.",
+            "Every coaching is kept on the Coach page (under More); its cost is on the Usage page."]
+
+
+def settings_data() -> dict:
+    """Settings > Coach as data (app.'s tab and the door's GET /settings/coach): coach.prefs and the facts."""
     with connect() as conn, conn.cursor() as cur:
         p = coach.prefs(cur)
+    return {**p, "facts": facts()}
+
+
+def settings_tab(session, csrf: str) -> str:
+    """Settings > Coach: the owner's goals, how to coach and which parts each coaching shows; the coach reads them every time."""
+    p = settings_data()
     boxes = "".join(
-        f'<fieldset class="coparts"><legend>{"Day coaching (Today)" if kind == "day" else "Week review (Week page)"}</legend>'
+        f'<fieldset class="coparts"><legend>{KIND_TITLE[kind]}</legend>'
         + "".join(f'<label class="row"><input type="checkbox" name="show_{kind}_{k}" value="1"{"" if f"{kind}:{k}" in p["hidden"] else " checked"}> {esc(lbl)}</label>'
                   for k, lbl in parts) + "</fieldset>" for kind, parts in coach.PARTS.items())
     return (f'<form method="post" action="/web/settings/coach_goals">{hidden("csrf", csrf)}{hidden("back", "/web/settings?tab=coach")}{hidden("parts", "1")}'
@@ -262,7 +280,4 @@ def settings_tab(session, csrf: str) -> str:
             f'<div class="coparts-wrap">{boxes}</div></div>'
             '<p class="row"><button class="primary" type="submit">Save</button></p></form>'
             '<div class="card"><h2>How the coach works</h2><ul class="small">'
-            '<li>Only when you press Coach me (Today) or Review this week (Week page).</li>'
-            '<li>Reads food, health values, sleep, habits, gym and home; never thoughts, private or gratitude entries.</li>'
-            f'<li>Claude Opus 5.5; about 6 cents a day coaching, about 20 cents a week review; at most {coach.DAILY_LIMIT} a day.</li>'
-            '<li>Every coaching is kept on the Coach page (under More); its cost is on the Usage page.</li></ul></div>')
+            + "".join(f"<li>{esc(x)}</li>" for x in p["facts"]) + '</ul></div>')

@@ -8,7 +8,7 @@ import re
 from datetime import date, datetime, timedelta
 from typing import Optional
 
-from . import activitypage, body as tape, bodypage, coach, coachpage, foodpage, gratitude, gym as gymlib, gympage, habitspage, healthpage, held, home as homelib, homepage, insightspage, labspage, privateline, recentpage, searchpage, todaypage, trendspage, uiprefs, usagepage, v1_commands, webquestions, weekpage
+from . import activitypage, body as tape, bodypage, coach, coachpage, export, foodpage, gratitude, gym as gymlib, gympage, habitspage, healthpage, held, home as homelib, homepage, insightspage, labspage, nudges, privateline, recentpage, searchpage, settingspage, todaypage, trendspage, uiprefs, usagepage, v1_commands, webpush, webquestions, weekpage
 from .db import connect
 from .rules import BERLIN
 from .webentry import readable
@@ -328,6 +328,9 @@ def day(asked: Optional[date] = None) -> dict:
         # Today's Coach card (deploy 107): as app.'s todaypage._coach_card, for the day shown (earlier days too), none when Settings >
         # Today page hides it
         "coach": coach_card(the_day) if uiprefs.shown("card", "coach", d["prefs"]) else None,
+        # Settings > Today page's switches for the To review box and the Gratitude card (deploy 110), as app.'s todaypage reads them
+        # ("review:box", "card:gratitude"); the parts above stay filled in, the front end hides them
+        "shown": {"review": uiprefs.shown("review", "box", d["prefs"]), "gratitude": uiprefs.shown("card", "gratitude", d["prefs"])},
     }
 
 
@@ -1158,3 +1161,95 @@ def labs_meds() -> dict:
                       "stop_text": f"{m['stop_date']:%d.%m.%Y}" if m["stop_date"] else None,
                       "running": m["running"], "can_end": m["running"] and m["stop_date"] is None} for m in d["meds"]],
             "limits": labspage.MED_LIMITS}
+
+
+# ---- Settings and notifications (deploy 110, step 6 of the move to logger.) -------------------------------------------------------------
+# app.'s Settings tabs as data (settingspage.targets_data, today_data, body_data, devices_data, notify_data; coachpage.settings_data;
+# export.settings_data), which app.'s tabs draw from. Not here: the gratitude goal (Today page tab) stays at app., as the list does.
+
+def _day_text(x) -> str:
+    return f"{x:%d.%m.%Y}"
+
+
+def settings_targets() -> dict:
+    """Food targets: the nine fields with the values in force now, the form's default "from" day, the history (newest first)."""
+    d = settingspage.targets_data()
+    cur = d["current"]
+    return {"valid_from": iso(d["today"]),
+            "current": None if cur is None else {"valid_from": iso(cur["valid_from"]), "valid_from_text": _day_text(cur["valid_from"]), "note": cur["note"]},
+            "fields": [{"key": k, "label": lbl, "unit": unit, "value": num(cur[k]) if cur else None} for k, lbl, unit in settingspage.TARGET_FIELDS],
+            "history": [{"valid_from": iso(r["valid_from"]), "valid_from_text": _day_text(r["valid_from"]),
+                         "values": {k: num(r[k]) for k, _l, _u in settingspage.TARGET_FIELDS}, "note": r["note"]} for r in d["rows"]],
+            "limits": {"min": 0, "max": 100000, "note_max": 200}, "hint": settingspage.TARGETS_HINT}
+
+
+def settings_today() -> dict:
+    """What shows on Today: the five groups (habit, health, usual, review, card) with their items in the chosen order."""
+    d = settingspage.today_data()
+    hidden = d["prefs"]["hidden"]
+    return {"groups": [{"kind": kind, "heading": heading,
+                        "items": [{"id": i, "label": lbl, "shown": f"{kind}:{i}" not in hidden} for i, lbl in items]}
+                       for kind, heading, items in d["groups"]],
+            "hint": settingspage.TODAY_HINT}
+
+
+def settings_body() -> dict:
+    """Body: the height now and its history, how often measurements are due, which measures show."""
+    d = settingspage.body_data()
+    lo, hi = tape.HEIGHT_RANGE
+    ilo, ihi = tape.INTERVAL_RANGE
+    return {"valid_from": iso(d["today"]),
+            "height": None if d["now"] is None else {"cm": num(d["now"]["height_cm"]), "valid_from": iso(d["now"]["valid_from"])},
+            "heights": [{"cm": num(r["height_cm"]), "valid_from": iso(r["valid_from"]), "valid_from_text": _day_text(r["valid_from"])} for r in d["rows"]],
+            "height_range": {"min": lo, "max": hi},
+            "interval": {"days": d["prefs"]["interval"], "min": ilo, "max": ihi, "default": tape.INTERVAL_DAYS},
+            "measures": [{"key": k, "label": lbl, "shown": k not in d["prefs"]["hidden"]} for k, lbl, _h in tape.TAPE],
+            "hints": {"height": settingspage.HEIGHT_HINT, "measures": settingspage.MEASURES_HINT}}
+
+
+def settings_coach() -> dict:
+    """Settings > Coach: the goals, how to coach, the parts of each kind (on or off) and how the coach works."""
+    p = coachpage.settings_data()
+    return {"goals": p["goals"], "style": p["style"], "max": coach.GOALS_MAX,
+            "kinds": [{"kind": kind, "title": coachpage.KIND_TITLE[kind],
+                       "parts": [{"key": k, "label": lbl, "on": f"{kind}:{k}" not in p["hidden"]} for k, lbl in parts]}
+                      for kind, parts in coach.PARTS.items()],
+            "facts": p["facts"], "model": coach.MODEL, "daily_limit": coach.DAILY_LIMIT}
+
+
+def settings_devices(session) -> dict:
+    """Every signed-in device, last used first, at app. or here (logger.); current: this session's own."""
+    rows = settingspage.devices_data()
+    out = [{"id": str(r["sid"]), "name": settingspage.device_name(r["user_agent"]), "address": "logger" if r["front"] else "app",
+            "signed_in": iso(r["created_at"]), "last_used": iso(r["last_seen"]), "expires": iso(r["expires_at"]),
+            "current": r["token_hash"] == session["token_hash"]} for r in rows]
+    return {"devices": out, "others": sum(1 for x in out if not x["current"])}
+
+
+GRATITUDE_NOTE = "A tap on this one opens the gratitude list in the full app."
+
+
+def settings_notify(session) -> dict:
+    """Settings > Notifications: the nudges (the master switch, each nudge with its hours), the devices with notifications on (this:
+    turned on in this session), the key a browser subscribes with (null: not set up), and twice: a device name with notifications on
+    both here and at app. (that device gets every nudge twice)."""
+    d = settingspage.notify_data()
+    s, subs = d["settings"], d["subs"]
+    out = [{"id": r["id"], "name": settingspage.device_name(r["user_agent"]), "address": r["origin"], "on_since": iso(r["created_at"]),
+            "last_delivered": iso(r["last_ok"]), "this": r["session_sid"] is not None and r["session_sid"] == session["sid"]} for r in subs]
+    names = {a: {x["name"] for x in out if x["address"] == a} for a in ("app", "logger")}
+    return {"on": bool(s["on"]), "on_label": "Send nudges",
+            "nudges": [{"key": k, "label": before, "after": after, "on": bool(s[k]),
+                        "hours": {"key": hk, "value": num(s[hk]), "min": num(lo), "max": num(hi), "step": settingspage.NUDGE_STEP,
+                                  "default": num(nudges.DEFAULTS[hk])},
+                        "note": GRATITUDE_NOTE if k == "gratitude" else None} for k, hk, lo, hi, before, after in settingspage.NUDGE_ROWS],
+            "awake_hours": nudges.AWAKE_HOURS, "subscriptions": out, "public_key": webpush.public_key(),
+            "twice": bool(names["app"] & names["logger"])}
+
+
+def settings_export() -> dict:
+    """Settings > Export: its words and the last download (POST /export makes the file)."""
+    d = export.settings_data()
+    last = d["last"]
+    return {"title": export.TITLE, "intro": export.INTRO, "private_label": export.PRIVATE_LABEL, "button": export.BUTTON, "hint": export.HINT,
+            "last": None if last is None else {"at": iso(last["at"]), "private": last["private"], "text": d["text"]}}

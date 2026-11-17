@@ -1,0 +1,808 @@
+{
+ "targets": {
+  "v": 1,
+  "settings_targets": {
+   "valid_from": "2026-11-17",
+   "current": {
+    "valid_from": "2026-01-05",
+    "valid_from_text": "05.01.2026",
+    "note": "more protein"
+   },
+   "fields": [
+    {
+     "key": "kcal",
+     "label": "Calories",
+     "unit": "kcal",
+     "value": 2100
+    },
+    {
+     "key": "protein",
+     "label": "Protein",
+     "unit": "g",
+     "value": 140
+    },
+    {
+     "key": "fat",
+     "label": "Fat",
+     "unit": "g",
+     "value": 70
+    },
+    {
+     "key": "sat_fat",
+     "label": "Saturated fat",
+     "unit": "g",
+     "value": 20
+    },
+    {
+     "key": "carbs",
+     "label": "Carbs",
+     "unit": "g",
+     "value": 230
+    },
+    {
+     "key": "fibre",
+     "label": "Fibre",
+     "unit": "g",
+     "value": 30
+    },
+    {
+     "key": "sugar_added",
+     "label": "Added sugar",
+     "unit": "g",
+     "value": 40
+    },
+    {
+     "key": "sodium_mg",
+     "label": "Sodium",
+     "unit": "mg",
+     "value": 2300
+    },
+    {
+     "key": "water_ml",
+     "label": "Water",
+     "unit": "ml",
+     "value": 2500
+    }
+   ],
+   "history": [
+    {
+     "valid_from": "2026-01-05",
+     "valid_from_text": "05.01.2026",
+     "values": {
+      "kcal": 2100,
+      "protein": 140,
+      "fat": 70,
+      "sat_fat": 20,
+      "carbs": 230,
+      "fibre": 30,
+      "sugar_added": 40,
+      "sodium_mg": 2300,
+      "water_ml": 2500
+     },
+     "note": "more protein"
+    },
+    {
+     "valid_from": "2025-06-01",
+     "valid_from_text": "01.06.2025",
+     "values": {
+      "kcal": 2300,
+      "protein": 110,
+      "fat": 80,
+      "sat_fat": null,
+      "carbs": 260,
+      "fibre": 25,
+      "sugar_added": null,
+      "sodium_mg": null,
+      "water_ml": null
+     },
+     "note": null
+    }
+   ],
+   "limits": {
+    "min": 0,
+    "max": 100000,
+    "note_max": 200
+   },
+   "hint": "New targets count from the date; earlier days keep the targets they had. An empty field means no target for it. Water counts every drink by its amount."
+  },
+  "undo": null
+ },
+ "today": {
+  "v": 1,
+  "settings_today": {
+   "groups": [
+    {
+     "kind": "habit",
+     "heading": "Habits",
+     "items": [
+      {
+       "id": "meds",
+       "label": "Medication",
+       "shown": true
+      },
+      {
+       "id": "shoonya",
+       "label": "Shoonya",
+       "shown": true
+      }
+     ]
+    },
+    {
+     "kind": "health",
+     "heading": "Health card rows",
+     "items": [
+      {
+       "id": "bed",
+       "label": "Bed night before",
+       "shown": true
+      },
+      {
+       "id": "wake",
+       "label": "Woke up",
+       "shown": true
+      },
+      {
+       "id": "weight",
+       "label": "Weight",
+       "shown": true
+      },
+      {
+       "id": "sugar",
+       "label": "Blood sugar fasted",
+       "shown": false
+      },
+      {
+       "id": "bp_morning",
+       "label": "Blood pressure morning",
+       "shown": true
+      },
+      {
+       "id": "bp_evening",
+       "label": "Blood pressure evening",
+       "shown": true
+      }
+     ]
+    },
+    {
+     "kind": "usual",
+     "heading": "Usual meal buttons",
+     "items": [
+      {
+       "id": "18",
+       "label": "Evening tea",
+       "shown": true
+      },
+      {
+       "id": "17",
+       "label": "Usual breakfast",
+       "shown": true
+      }
+     ]
+    },
+    {
+     "kind": "review",
+     "heading": "Box",
+     "items": [
+      {
+       "id": "box",
+       "label": "To review",
+       "shown": true
+      }
+     ]
+    },
+    {
+     "kind": "card",
+     "heading": "Cards",
+     "items": [
+      {
+       "id": "coach",
+       "label": "Coach",
+       "shown": true
+      },
+      {
+       "id": "home",
+       "label": "Home",
+       "shown": true
+      },
+      {
+       "id": "gratitude",
+       "label": "Gratitude",
+       "shown": false
+      }
+     ]
+    }
+   ],
+   "hint": "Food and drinks always show. A hidden item is only hidden on the Today page: it stays on the Habits page, in the Sheet and in your records. Order: the smaller number comes first. A hidden review box still shows one line while something waits for review."
+  },
+  "undo": null
+ },
+ "body": {
+  "v": 1,
+  "settings_body": {
+   "valid_from": "2026-11-17",
+   "height": {
+    "cm": 177,
+    "valid_from": "2026-02-01"
+   },
+   "heights": [
+    {
+     "cm": 177,
+     "valid_from": "2026-02-01",
+     "valid_from_text": "01.02.2026"
+    },
+    {
+     "cm": 176.5,
+     "valid_from": "2025-03-01",
+     "valid_from_text": "01.03.2025"
+    }
+   ],
+   "height_range": {
+    "min": 120,
+    "max": 230
+   },
+   "interval": {
+    "days": 21,
+    "min": 7,
+    "max": 90,
+    "default": 28
+   },
+   "measures": [
+    {
+     "key": "waist",
+     "label": "Waist",
+     "shown": true
+    },
+    {
+     "key": "hips",
+     "label": "Hips",
+     "shown": true
+    },
+    {
+     "key": "chest",
+     "label": "Chest",
+     "shown": false
+    },
+    {
+     "key": "upper_arm",
+     "label": "Upper arm",
+     "shown": true
+    },
+    {
+     "key": "thigh",
+     "label": "Thigh",
+     "shown": true
+    }
+   ],
+   "hints": {
+    "height": "For waist ÷ height on the Health page. A new height counts from its date; earlier measurements keep the height they had.",
+    "measures": "A hidden measure keeps its values; it is only left out of the form, the table and the chips."
+   }
+  },
+  "undo": null
+ },
+ "coach": {
+  "v": 1,
+  "settings_coach": {
+   "goals": "Lose 3 kg by spring; fasting sugar under 100.",
+   "style": "Short, two points at most.",
+   "max": 2000,
+   "kinds": [
+    {
+     "kind": "day",
+     "title": "Day coaching (Today)",
+     "parts": [
+      {
+       "key": "went_well",
+       "label": "What went well",
+       "on": true
+      },
+      {
+       "key": "improve",
+       "label": "To improve",
+       "on": true
+      },
+      {
+       "key": "next_meal",
+       "label": "Next meal",
+       "on": true
+      },
+      {
+       "key": "gaps",
+       "label": "Missing in the log",
+       "on": false
+      },
+      {
+       "key": "doctor",
+       "label": "Doctor note",
+       "on": true
+      }
+     ]
+    },
+    {
+     "kind": "week",
+     "title": "Week review (Week page)",
+     "parts": [
+      {
+       "key": "targets",
+       "label": "Against your targets",
+       "on": true
+      },
+      {
+       "key": "trends",
+       "label": "Trends",
+       "on": true
+      },
+      {
+       "key": "habits",
+       "label": "Habits, gym and home",
+       "on": true
+      },
+      {
+       "key": "days",
+       "label": "Best and hardest day",
+       "on": true
+      },
+      {
+       "key": "focus",
+       "label": "Focus for next week",
+       "on": true
+      },
+      {
+       "key": "doctor",
+       "label": "Doctor note",
+       "on": true
+      }
+     ]
+    }
+   ],
+   "facts": [
+    "Only when you press Coach me (Today) or Review this week (Week page).",
+    "Reads food, health values, sleep, habits, gym and home; never thoughts, private or gratitude entries.",
+    "Claude Opus 5.5; about 6 cents a day coaching, about 20 cents a week review; at most 10 a day.",
+    "Every coaching is kept on the Coach page (under More); its cost is on the Usage page."
+   ],
+   "model": "claude-opus-5-5",
+   "daily_limit": 10
+  },
+  "undo": null
+ },
+ "devices": {
+  "v": 1,
+  "settings_devices": {
+   "devices": [
+    {
+     "id": "3042b8c8-84c0-4b17-a686-2ccd67d955f3",
+     "name": "iPhone, Safari",
+     "address": "logger",
+     "signed_in": "2026-11-17T12:58:36.221987+01:00",
+     "last_used": "2026-11-17T12:58:36.440745+01:00",
+     "expires": "2026-12-17T12:58:36.234347+01:00",
+     "current": true
+    },
+    {
+     "id": "0920104a-d56c-44ca-9187-f6b801c9e336",
+     "name": "iPhone, Safari",
+     "address": "app",
+     "signed_in": "2026-11-17T12:58:36.275398+01:00",
+     "last_used": "2026-11-17T10:58:36.275398+01:00",
+     "expires": "2026-12-12T12:58:36.275398+01:00",
+     "current": false
+    },
+    {
+     "id": "8b28ee21-faaf-4161-87c3-818a324c347f",
+     "name": "Windows, Chrome",
+     "address": "logger",
+     "signed_in": "2026-11-17T12:58:36.275398+01:00",
+     "last_used": "2026-10-30T12:58:36.275398+01:00",
+     "expires": "2026-11-29T12:58:36.275398+01:00",
+     "current": false
+    }
+   ],
+   "others": 2
+  },
+  "undo": null
+ },
+ "notify": {
+  "v": 1,
+  "settings_notify": {
+   "on": true,
+   "on_label": "Send nudges",
+   "nudges": [
+    {
+     "key": "weight",
+     "label": "No weight yet,",
+     "after": "hours after waking",
+     "on": true,
+     "hours": {
+      "key": "weight_after",
+      "value": 2.5,
+      "min": 0.5,
+      "max": 12,
+      "step": 0.5,
+      "default": 2
+     },
+     "note": null
+    },
+    {
+     "key": "habits",
+     "label": "Habits still open,",
+     "after": "hours after waking",
+     "on": false,
+     "hours": {
+      "key": "habits_after",
+      "value": 14,
+      "min": 1,
+      "max": 20,
+      "step": 0.5,
+      "default": 14
+     },
+     "note": null
+    },
+    {
+     "key": "idle",
+     "label": "Nothing logged for",
+     "after": "hours",
+     "on": true,
+     "hours": {
+      "key": "idle_hours",
+      "value": 5,
+      "min": 1,
+      "max": 12,
+      "step": 0.5,
+      "default": 5
+     },
+     "note": null
+    },
+    {
+     "key": "checkin",
+     "label": "Mood and energy not in yet,",
+     "after": "hours after waking",
+     "on": true,
+     "hours": {
+      "key": "checkin_after",
+      "value": 12,
+      "min": 2,
+      "max": 15.5,
+      "step": 0.5,
+      "default": 12
+     },
+     "note": null
+    },
+    {
+     "key": "bp_evening",
+     "label": "No evening blood pressure yet,",
+     "after": "hours after waking",
+     "on": false,
+     "hours": {
+      "key": "bp_evening_after",
+      "value": 13,
+      "min": 2,
+      "max": 15.5,
+      "step": 0.5,
+      "default": 13
+     },
+     "note": null
+    },
+    {
+     "key": "gratitude",
+     "label": "Gratitude list: remind me when the day's lines are not full,",
+     "after": "hours after waking",
+     "on": true,
+     "hours": {
+      "key": "gratitude_after",
+      "value": 14,
+      "min": 2,
+      "max": 15.5,
+      "step": 0.5,
+      "default": 14
+     },
+     "note": "A tap on this one opens the gratitude list in the full app."
+    }
+   ],
+   "awake_hours": 16,
+   "subscriptions": [
+    {
+     "id": 53,
+     "name": "iPhone, Safari",
+     "address": "app",
+     "on_since": "2026-11-17T12:58:36.309875+01:00",
+     "last_delivered": "2026-11-17T09:58:36.309875+01:00",
+     "this": false
+    },
+    {
+     "id": 54,
+     "name": "iPhone, Safari",
+     "address": "logger",
+     "on_since": "2026-11-17T12:58:36.314087+01:00",
+     "last_delivered": "2026-11-17T09:58:36.314087+01:00",
+     "this": true
+    },
+    {
+     "id": 55,
+     "name": "Windows, Chrome",
+     "address": "logger",
+     "on_since": "2026-11-17T12:58:36.318813+01:00",
+     "last_delivered": "2026-11-17T09:58:36.318813+01:00",
+     "this": false
+    }
+   ],
+   "public_key": "BBkniEK-RDbd7OOwrTLkj3kGAqc2wKxth23zvdk4oHh-aOfcbNDnTj_Bvz6fxP9Wan30ymSiA0KlE8o1e-JXVi0",
+   "twice": true
+  },
+  "undo": null
+ },
+ "export": {
+  "v": 1,
+  "settings_export": {
+   "title": "Export everything",
+   "intro": "One ZIP file with everything you logged: food with nutrients, the food catalogue, health values, wake-up, bed, naps and habits, sleeps, thoughts, gym, home, coachings, lab results, medication, watch data, usual meals, recipes, your gym plan and chores, and your original messages. A CSV file for each (opens in a spreadsheet), all.json with everything in one file, and a README.",
+   "private_label": "Include private and gratitude entries",
+   "button": "Download",
+   "hint": "The Google Sheet and the encrypted backup stay as they are; this is a plain copy to keep. Each download is noted in the audit log (with or without private entries, how many rows), never what is in it. Keep the file somewhere safe: it holds your health data.",
+   "last": {
+    "at": "2026-11-11T12:58:36.322660+01:00",
+    "private": false,
+    "text": "Last download: 11.11.2026 12:58."
+   }
+  },
+  "undo": null
+ },
+ "saves": {
+  "targets": {
+   "v": 1,
+   "outcome": "changed",
+   "tone": "ok",
+   "head": "Targets from 17.11.2026 saved: Calories 2000, Protein 150, Fat 65, Carbs 200, Water 3000 ml.",
+   "receipt": [],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": null
+  },
+  "targets_refused": {
+   "v": 1,
+   "outcome": "rejected",
+   "tone": "warning",
+   "head": "Nothing saved.",
+   "receipt": [],
+   "notes": [],
+   "reason": "Calories: give a number from 0 to 100000, or leave it empty.",
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": null
+  },
+  "today": {
+   "v": 1,
+   "outcome": "changed",
+   "tone": "ok",
+   "head": "Saved. The Today page shows what you chose.",
+   "receipt": [],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": null
+  },
+  "today_reset": {
+   "v": 1,
+   "outcome": "changed",
+   "tone": "ok",
+   "head": "The Today page shows everything again, in the default order.",
+   "receipt": [],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": null
+  },
+  "height_refused": {
+   "v": 1,
+   "outcome": "rejected",
+   "tone": "warning",
+   "head": "Nothing saved.",
+   "receipt": [],
+   "notes": [],
+   "reason": "Height: give a number from 120 to 230 cm.",
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": null
+  },
+  "body": {
+   "v": 1,
+   "outcome": "changed",
+   "tone": "ok",
+   "head": "Body measurements: due every 28 days, 3 hidden.",
+   "receipt": [],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": null
+  },
+  "coach": {
+   "v": 1,
+   "outcome": "changed",
+   "tone": "ok",
+   "head": "Saved: the coach reads your settings every time.",
+   "receipt": [],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": null
+  },
+  "coach_refused": {
+   "v": 1,
+   "outcome": "rejected",
+   "tone": "warning",
+   "head": "Nothing saved.",
+   "receipt": [],
+   "notes": [],
+   "reason": "Keep at least one part of the day coaching.",
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": null
+  },
+  "device_current": {
+   "v": 1,
+   "outcome": "rejected",
+   "tone": "warning",
+   "head": "Nothing saved.",
+   "receipt": [],
+   "notes": [],
+   "reason": "This is the device you are using; use Sign out on More.",
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": null
+  },
+  "device": {
+   "v": 1,
+   "outcome": "changed",
+   "tone": "ok",
+   "head": "Signed that device out.",
+   "receipt": [],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": null
+  },
+  "others": {
+   "v": 1,
+   "outcome": "changed",
+   "tone": "ok",
+   "head": "Signed out 1 other device.",
+   "receipt": [],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": null
+  },
+  "nudges": {
+   "v": 1,
+   "outcome": "changed",
+   "tone": "ok",
+   "head": "Saved. Nudges are on.",
+   "receipt": [],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": null
+  },
+  "subscribe": {
+   "v": 1,
+   "outcome": "changed",
+   "tone": "ok",
+   "head": "Notifications are on for this device.",
+   "receipt": [],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": null
+  },
+  "subscribe_refused": {
+   "v": 1,
+   "outcome": "rejected",
+   "tone": "warning",
+   "head": "Nothing saved.",
+   "receipt": [],
+   "notes": [],
+   "reason": "Not a known push service.",
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": null
+  },
+  "push_off": {
+   "v": 1,
+   "outcome": "changed",
+   "tone": "ok",
+   "head": "Notifications are off for that device.",
+   "receipt": [],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": null
+  },
+  "push_test": {
+   "v": 1,
+   "outcome": "changed",
+   "tone": "ok",
+   "head": "Test notification sent to 3 devices.",
+   "receipt": [],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": null
+  }
+ }
+}

@@ -1,12 +1,13 @@
 # The JSON door `/api/v1` (for the new front end)
 
 Since deploys 75 and 76 (16.11.2026); deploy 77 (16.11.2026) made the changes of the door's review (marked "since 77");
-deploy 78 removed the old field names that 77 kept for one deploy; deploy 86 added the usual-meal editor; deploy 89 the scanner, the label photo and the look-up; deploy 91 the Health page and body measurements; deploy 93 the Habits page; deploy 95 the Gym; deploy 98 Home; deploy 101 Trends (Week, Food trends, Insights, the Week review); deploy 104 Library and Medical (the food catalogue, lab reports, tests over time, medication); deploy 107 Search, Recent, Usage and Coach (with Today's Coach card and the day coaching's button). The front end that calls it: `front/` (`front/README.md`).
+deploy 78 removed the old field names that 77 kept for one deploy; deploy 86 added the usual-meal editor; deploy 89 the scanner, the label photo and the look-up; deploy 91 the Health page and body measurements; deploy 93 the Habits page; deploy 95 the Gym; deploy 98 Home; deploy 101 Trends (Week, Food trends, Insights, the Week review); deploy 104 Library and Medical (the food catalogue, lab reports, tests over time, medication); deploy 107 Search, Recent, Usage and Coach (with Today's Coach card and the day coaching's button); deploy 110 Settings and the notifications of this address (with the export file and Today's `shown`). The front end that calls it: `front/` (`front/README.md`).
 Code: `core/app/api.py` (the door, the saves), `core/app/reads.py` (the reads).
 Tests: `tests/test_api_door.py`, `tests/test_api_reads.py`, `tests/test_api_saves.py`, `tests/test_api_shape.py` (77),
 `tests/test_api_usual.py` (86), `tests/test_api_scan.py` (89), `tests/test_api_health.py` (91), `tests/test_api_habits.py` (93),
 `tests/test_api_gym.py` (95), `tests/test_api_home.py` (98), `tests/test_api_trends.py` (101), `tests/test_api_library.py`,
-`tests/test_api_medical.py` (104), `tests/test_api_more.py`, `tests/test_api_coach.py` (107).
+`tests/test_api_medical.py` (104), `tests/test_api_more.py`, `tests/test_api_coach.py` (107), `tests/test_api_settings.py`,
+`tests/test_api_push.py` (110).
 
 The door is for one caller only: the new front end's own server, from inside Docker. The browser never calls it.
 The live web app at `app.` does not use it and did not change.
@@ -30,7 +31,8 @@ The front end reads these as plain messages (since deploy 85, `front/src/lib/pro
 
 ## Every answer
 
-- JSON, `"v": 1` in every body, `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`.
+- JSON, `"v": 1` in every body, `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`. One exception (110): `POST /export`
+  answers the ZIP file itself (same headers; its errors are JSON).
 - Signed-in calls carry `X-Session-Expires: <ISO time, UTC>`: the session's end. A session in use renews like a page view
   (once a day the end moves to 30 days from now); the front end can renew its own cookie from this header.
 - Errors: `{"v": 1, "error": "<code>", "message": "<plain text>"}`. Codes: `not_found` 404, `signed_out` 401,
@@ -56,7 +58,7 @@ signed in before counts its own failures; all others share one pool, together wi
 ### `GET /api/v1/day?day=yyyy-mm-dd` → `{"day": Day, "undo": Undo}`
 
 Today without `day`; an earlier day as asked; a later day is today. Built on `todaypage.load`, `webquestions.load`, `held.rows` and the
-gratitude count. The Gym card since 95 (`gym`), the Home card since 98 (`home`), the Coach card since 107 (`coach`).
+gratitude count. The Gym card since 95 (`gym`), the Home card since 98 (`home`), the Coach card since 107 (`coach`), `shown` since 110.
 
 ```
 Day = {
@@ -95,6 +97,11 @@ Day = {
                                                         // Today page hides it ("card:coach"). Card: see GET /coach. Its button:
                                                         // POST /coach/start {kind: "day", start: day, end: day}; while "working"
                                                         // poll GET /coach/status?id=
+  shown: {review, gratitude}                            // (110) Settings > Today page's switches "review:box" (the To review box)
+                                                        // and "card:gratitude" (the Gratitude card), as app.'s todaypage reads
+                                                        // them; needs.review and gratitude stay filled in either way: the front end
+                                                        // hides them (app. shows a hidden review box as one line while something
+                                                        // waits, and no Gratitude card on a past day)
 }
 Row (food)   = {ref: "f<id>", kind: "food", meal, at, time_known, food, food_id, amount, unit, portion_text,
                 nutrients: {kcal, protein, fat, carbs}, usual_meal: null | {id, name}}
@@ -226,7 +233,7 @@ it; a later day is today); `range` (30): the charts show the sessions in it, or 
 Body = {
   today, day, last_measured,          // yyyy-mm-dd, null before the first session
   due_text,                           // "due now", "next due in 3 days", "next due in about 4 weeks"; null before the first session
-  interval_days, hidden: [keys],      // Settings > Body (read only here; changed at app.)
+  interval_days, hidden: [keys],      // Settings > Body (changed through POST /settings/body since 110)
   jump_cm: 4, protocol, hint,         // the form's line on how to measure; the line under the card (typing it in the Log bar)
   form: [{key, label, hint, ref, cm, last_cm, min, max}],   // the shown measures in order: waist, hips, chest, upper_arm, thigh
                                       // cm: the session's value (ref its entry) or null; last_cm: the last value before the
@@ -903,6 +910,101 @@ Card = {kind: "day", start, end, title: "Coach", small: "this day · on demand",
                                                        // not work (…); …", intro, cost, button "Coach me")
 ```
 
+## Settings and notifications (110)
+
+app.'s Settings tabs as data (`reads.settings_*`, built on `settingspage.targets_data`, `today_data`, `body_data`, `devices_data`,
+`notify_data`, `coachpage.settings_data` and `export.settings_data`, which app.'s tabs draw from: app.'s pages are byte for byte as
+before), their forms through app.'s own functions (`websettings.ACTIONS`, `coach.goals_set`) with their checks and words, the
+notifications of this address (`/push/*`) and the export file. Not here: the gratitude goal (Settings > Today page's Gratitude card; it
+stays at app. with the gratitude list).
+
+### Reads: `GET /api/v1/settings/<tab>` → `{"settings_<tab>": …, "undo": Undo}`
+
+`<tab>` is `targets`, `today`, `body`, `coach`, `devices`, `notify` or `export` (the answer's key: `settings_targets`, …).
+
+```
+settings_targets = {
+  valid_from,                                  // the logging day: the form's default "Valid from"
+  current: null | {valid_from, valid_from_text, note},   // the row in force (the newest from today or before; all later: the newest)
+  fields: [{key, label, unit, value}],         // nine, in app.'s order: kcal "Calories" kcal, protein, fat, sat_fat, carbs, fibre,
+                                               // sugar_added, sodium_mg "Sodium" mg, water_ml "Water" ml; value null = no target
+  history: [{valid_from, valid_from_text, values: {kcal, …, water_ml}, note}],   // every row, newest first
+  limits: {min: 0, max: 100000, note_max: 200}, hint}
+settings_today = {groups: [{kind, heading, items: [{id, label, shown}]}], hint}
+                                               // kind habit ("Habits": id = the habit's name), health ("Health card rows": bed, wake,
+                                               // weight, sugar, bp_morning, bp_evening), usual ("Usual meal buttons": id = the meal's
+                                               // id as text), review ("Box": box "To review"), card ("Cards": gratitude, home, coach);
+                                               // items in the chosen order (new ones after); shown false = hidden on Today
+settings_body = {valid_from, height: null | {cm, valid_from},   // the height in force today
+  heights: [{cm, valid_from, valid_from_text}],                 // newest first
+  height_range: {min: 120, max: 230}, interval: {days, min: 7, max: 90, default: 28},
+  measures: [{key, label, shown}],             // waist, hips, chest, upper_arm, thigh
+  hints: {height, measures}}
+settings_coach = {goals, style, max: 2000,
+  kinds: [{kind: "day" | "week", title, parts: [{key, label, on}]}],   // "Day coaching (Today)": went_well, improve, next_meal, gaps,
+                                               // doctor; "Week review (Week page)": targets, trends, habits, days, focus, doctor
+  facts: [4 lines],                            // "How the coach works" (the model and the daily limit from coach.py)
+  model, daily_limit}
+settings_devices = {devices: [{id, name, address: "logger" | "app", signed_in, last_used, expires, current}], others}
+                                               // every session not expired (web_sessions), last used first: here (logger.) and at
+                                               // app.; name from the browser ("iPhone, Safari", "Unknown device"); current: this
+                                               // session; others: how many are not
+settings_notify = {on, on_label: "Send nudges",
+  nudges: [{key, label, after, on, hours: {key, value, min, max, step: 0.5, default}, note}],
+                                               // weight, habits, idle, checkin, bp_evening, gratitude: "<label> [hours] <after>", e.g.
+                                               // "No weight yet," … "hours after waking"; note (gratitude only): "A tap on this one
+                                               // opens the gratitude list in the full app."
+  awake_hours: 16,                             // quiet hours: nothing later than this after waking
+  subscriptions: [{id, name, address: "logger" | "app", on_since, last_delivered, this}],   // oldest first; this: turned on in
+                                               // this session (POST /push/subscribe); last_delivered null: nothing delivered yet
+  public_key,                                  // the VAPID key a browser subscribes with (applicationServerKey); null: not set up
+  twice}                                       // a device name with notifications on both here and at app.: show "This phone is on at
+                                               // app. too: nudges arrive twice until you turn that one off."
+settings_export = {title, intro, private_label, button, hint,
+  last: null | {at, private, text}}            // the last download: "Last download: 11.11.2026 09:12, with private entries."
+```
+
+### Saves
+
+As app.'s Settings: **no `key`** (one sent is ignored) and **no Undo** (a change ends the session's Undo bar, as app.'s forms do). Each
+answers in the save shape (see Saves below) with the fresh tab: `settings_<tab>` as its GET (the body's `view` chooses another read,
+e.g. `"day"`). app.'s refusals are `rejected` with app.'s `reason`; a wrong kind of field is 400 `bad_request`. A field left out stays
+as it is now (the door fills it in, as app.'s form comes filled in), except on `/settings/targets`.
+
+| Route | Body | Calls (app.'s words) |
+|---|---|---|
+| `/settings/targets` | `valid_from` (yyyy-mm-dd), `kcal`, `protein`, `fat`, `sat_fat`, `carbs`, `fibre`, `sugar_added`, `sodium_mg`, `water_ml` (numbers; left out or null: no target, as app.'s form: the row is all nine), `note` (up to 200) | `websettings.targets`: "Targets from 17.11.2026 saved: Calories 2000, Protein 150, Water 3000 ml."; "Give the date the targets start on.", "Calories: give a number from 0 to 100000, or leave it empty.", "Give at least one target." A row of the same day is replaced; earlier days keep theirs. |
+| `/settings/today` | `groups: {habit|health|usual|review|card: [{id, shown}]}`, each list in the wanted order (one tap sends its whole group) | `websettings.today`, as app.'s form (show_/pos_ fields): stored in `ui_settings` "today" as `{hidden, order}`. A group not sent stays as it is; an item of a group missing from its list keeps its state and goes after the sent ones; an unknown id is ignored (as on app., ids no longer on the page drop out of what is stored). "Saved. The Today page shows what you chose." / "… shows everything." |
+| `/settings/today_reset` | | `websettings.today_reset`: "The Today page shows everything again, in the default order." |
+| `/settings/height` | `valid_from`, `height` (cm) | `websettings.height`: "Height 177 cm saved, from 01.02.2026."; "Give the date the height counts from.", "Height: give a number from 120 to 230 cm." |
+| `/settings/body` | `interval` (whole days), `show` (the measure keys shown) | `websettings.body_settings`: "Body measurements: due every 28 days, 3 hidden."; "Due every: give a whole number of days from 7 to 90.", "Keep at least one measure." |
+| `/settings/coach` | `goals`, `style` (text up to 2000, as `coach._clean` reads it), `parts: {day: [keys on], week: [keys on]}` (a kind left out: as now) | `coach.goals_set`: "Saved: the coach reads your settings every time."; "Keep at least one part of the day coaching." / "… week review." |
+| `/settings/device` | `id` (a device of `settings_devices`) | `websettings.device` (also an app. session): "Signed that device out."; this session: "This is the device you are using; use Sign out on More." (app. says "… at the top."); gone: `unchanged` "That device is already signed out."; "Unknown device." |
+| `/settings/others` | | `websettings.others`: every other session, here and at app.: "Signed out 2 other devices." / "No other device was signed in." |
+| `/settings/nudges` | `on`, `weight`, `habits`, `idle`, `checkin`, `bp_evening`, `gratitude` (true or false); `weight_after`, `habits_after`, `idle_hours`, `checkin_after`, `bp_evening_after`, `gratitude_after` (numbers: clamped to their range in half hours, as app.) | `websettings.nudge_settings` (nudges.save stores the whole value; the door fills in what is left out): "Saved. Nudges are on." / "… off." |
+| `/push/subscribe` | `endpoint`, `keys: {p256dh, auth}` (the browser's PushSubscription), `user_agent` | app.'s checks of `/web/push/subscribe` (`webpush.allowed`: https on Apple's, Google's, Mozilla's or Microsoft's push service; `webpush.valid_keys`), else `rejected` "Not a known push service."; kept with `origin` "logger" and this session (upsert on the endpoint; the audit row "notifications on"): "Notifications are on for this device." |
+| `/push/off` | `id` (a number: `settings_notify.subscriptions[].id`, here or at app.) | `websettings.push_off`: "Notifications are off for that device."; "That device is not there any more." |
+| `/push/test` | | `websettings.nudge_test`, to every device (each with its own address's link): "Test notification sent to 2 devices."; none: "No device took the test notification. Turn notifications on again on the phone, then try once more." |
+
+### The notifications at two addresses (migration 032)
+
+`push_subscriptions.origin` is `app` (`/web/push/subscribe`, every row before 110) or `logger` (`POST /push/subscribe`). One VAPID key
+serves both; each browser's subscription has its own endpoint. `nudges.deliver` sends every message (the nudges, "Not read yet" of
+held.py, the test) to every device with the link of its address (`nudges.link_for`): app.'s unchanged (`/web/…`, as before); a logger.
+device's `/web/` → `/`, `/web/settings?tab=notify` → `/settings/notifications`, and any other app. page (the gratitude nudge's
+`/web/gratitude`: its words stay at app.) → the full app's absolute address `https://<APP_HOST>/web/…`. The payload is otherwise the same:
+`{title, body, url, tag}` (the front end's service worker shows `title` and `body`, and opens `url` on a tap). A device with notifications
+on at both addresses gets each nudge twice (`settings_notify.twice`). app.'s Settings > Notifications lists every device alike.
+
+### The export: `POST /api/v1/export` → the ZIP
+
+Body `{private: true | false}` (left out: false; not a boolean: 400). The answer is **the file itself**, not JSON: `application/zip`,
+`Content-Disposition: attachment; filename="logger-export-dd.mm.yyyy.zip"`, `Cache-Control: no-store`, `X-Session-Expires`; made by
+`export.download` exactly as app.'s Download (the same files; `private.csv` only with `private: true`; the audit row with counts only).
+Its errors are JSON as everywhere (the door's checks first; 500 `server_error` "The export could not be made (the database did not
+answer). Try again in a moment."). Only this route may answer anything but JSON (`route(..., download=True)`; a file from any other route
+is a 500).
+
 ## The label photo: `POST /api/v1/food/label` (89)
 
 One to three photos of ONE package (the name and the nutrition table often need two), read together in one AI call
@@ -962,6 +1064,7 @@ function takes one, so a re-sent request saves once (`replayed: true`).
 | `/api/v1/lookup` (89) | `text` (a name, or a barcode of 8 to 14 digits), optional `question_id` (an open food question it answers; without `text` the question's word is looked up) | `webfood.look_up` → `logbook.food_lookup` (no key: it saves nothing) |
 | `/api/v1/food/catalogue/<action>` (104) | `action` in the path: `values`, `words`, `barcode`, `basics`, `unit`, `reviewed`; `id` (the food's number) and its fields (below), `confirmed` (values); **no `key`** (one sent is ignored); `view` (+ `view_q`, `view_f`, `view_s`, `view_food`) | `webfood.ACTIONS[action]` (app.'s `/web/food/<action>`; `unit` is `webfood.unit_add`) |
 | `/api/v1/labs/value`, `/labs/report`, `/labs/med` (104) | `id` (the value's, report's or course's number) and its fields (below), `confirmed`; **no `key`** (one sent is ignored); `view` (+ `view_open`, `view_q`, `view_t`) | `weblabs.ACTIONS[action]` (app.'s `/web/labs/<action>`) |
+| `/api/v1/settings/<form>`, `/push/subscribe`, `/push/off`, `/push/test` (110) | see "Settings and notifications (110)" above; **no `key`**; `view` | `websettings.ACTIONS[form]`, `coach.goals_set`; the subscription as `/web/push/subscribe` |
 
 The usual-meal saves (86): the front end sends `confirmed: true` and the change is made at once, with Undo (without it a change or
 delete is read back first, as on app.: `needs_confirmation` with `read_back` and `confirm`). Amounts above 0 and at most 5000 (g or ml); a
@@ -1229,7 +1332,8 @@ Every save answers (HTTP 200, also when nothing was saved):
        |  gym: Workout  |  gym_plan: Plan  |  gym_exercises: Exercises
        |  home: Now  |  home_pick: Pick  |  home_zones: Zones  |  home_history: History  |  home_chore: Chore  |  home_edit: Edit
        |  week: Week  |  catalogue: Catalogue + food_item: Item | null  |  labs: Labs  |  labs_tests: Tests  |  labs_meds: Meds
-       |  coach: Coach
+       |  coach: Coach  |  settings_targets | settings_today | settings_body | settings_coach | settings_devices
+       |  settings_notify | settings_export
                                                        // the fresh read; body "view": "day" | "food" | "usual" (86) | "health" |
                                                        // "body" (91) | "habits" (93, with "show") | "gym" | "gym_plan" |
                                                        // "gym_exercises" (95) | "home" | "home_pick" | "home_zones" |
@@ -1238,11 +1342,12 @@ Every save answers (HTTP 200, also when nothing was saved):
                                                        // "catalogue" (104, with view_q, view_f, view_s, view_food) |
                                                        // "labs" (104, with view_open) | "labs_tests" (with view_q, view_t) |
                                                        // "labs_meds" | "coach" (107, with view_f; view_day the
-                                                       // card's day) and "view_day": "yyyy-mm-dd" choose it
+                                                       // card's day) | "settings_<tab>" (110) and "view_day": "yyyy-mm-dd" choose it
                                                        // (on every save: /log, /answer and /lookup too);
                                                        // /gym/<action> defaults to its tab (see the Gym's saves);
                                                        // /home/<action> to its page (see Home's saves);
                                                        // /coach/start to "week" or "day" (see the Week review's button);
+                                                       // /settings/<form> and /push/* to their tab (110);
                                                        // /food/catalogue/<action> to "catalogue", /labs/value and
                                                        // /labs/report to "labs", /labs/med to "labs_meds";
                                                        // /habit/day and /habits/manage default to "habits"; /usual/meal and
@@ -1283,9 +1388,8 @@ Texts in `read_back`, `result` and questions never carry the lines meant for the
 - Errors inside a save (the AI or the database not answering) are `outcome: "rejected"` with a reason that nothing was saved; a typed
   line's words stay kept (`held`) and appear in `day.needs.not_read`.
 
-Not in the door (on purpose, for now): Settings (Settings > Coach, Today page, food targets, the gratitude goal, devices), the
-notifications (nudges and push) and the export: they come with deploy 110; the body settings (interval, hidden measures, height: read in
-`GET /body`, changed at app.); thoughts in Search (app.'s Search keeps its Thoughts card); a list of hidden foods (the Catalogue lists active foods only, as app.; a hidden
+Not in the door (on purpose, for now): the gratitude goal (Settings > Today page's Gratitude card: it stays at app. with the list);
+the old Habits tab of Settings (habits are managed through `/habits/manage` since 93); thoughts in Search (app.'s Search keeps its Thoughts card); a list of hidden foods (the Catalogue lists active foods only, as app.; a hidden
 food's box reads by its id and `basics` with `hide: false` brings it back), a lab report upload (reports come in through the chat), the
 gratitude list itself (only its count), Ideas and Private. The Food catalogue editor is in since 104; the day coaching (Today's
-Coach card), the Coach page, Search, Recent and Usage since 107.
+Coach card), the Coach page, Search, Recent and Usage since 107; Settings, the notifications and the export since 110.

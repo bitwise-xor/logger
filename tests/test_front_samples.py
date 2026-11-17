@@ -9,7 +9,8 @@ meals (usual.json, deploy 86: GET /usual, GET /foods, a change with Undo and a r
 (scan.json, deploy 89), the Health page and body measurements (health.json, deploy 91), the Habits page (habits.json, deploy 93), the
 Gym (gym.json, deploy 95), Home (home.json, deploy 98; day.json has Today's Home card since then), Trends (week.json, food_trends.json,
 insights.json, deploy 101), Library and Medical (catalogue.json, labs.json, deploy 104), Search, Recent, Usage and Coach (search.json, recent.json, usage.json,
-coach.json, deploy 107; day.json has Today's Coach card since then), and
+coach.json, deploy 107; day.json has Today's Coach card since then), Settings and notifications (settings.json, deploy 110; day.json has
+"shown" since then: added by hand, its dates are pinned by the front's tests), and
 - with WRITE_FRONT_SAMPLES=1: writes the answer to the sample file (then look at the diff and commit it);
 - otherwise: checks that the committed sample still has the door's shape (the same keys at every level), so a change of the door
   that the stand-in does not know about fails here.
@@ -130,6 +131,7 @@ def test_the_day_sample_has_the_doors_shape(api, four_pm):
         assert part, part
     assert d["home"] and d["home"]["waiting"]
     assert d["needs"]["checkin"] is not None and d["header"]["awake_minutes"] and d["header"]["slept_minutes"] == 440
+    assert d["shown"] == {"review": True, "gratitude": True}  # (110) Settings > Today page's two switches
     path = SAMPLES / "day.json"
     if os.environ.get("WRITE_FRONT_SAMPLES") == "1":
         SAMPLES.mkdir(parents=True, exist_ok=True)
@@ -814,3 +816,84 @@ def test_the_coach_sample_has_the_doors_shape(monkeypatch):
         assert a.pop("day")
     answers["saves"] = saves
     _write_or_check("coach.json", answers)
+
+
+def test_the_settings_sample_has_the_doors_shape(monkeypatch):
+    """Settings and notifications (deploy 110, for the Settings pages of a later front deploy): invented targets with history, heights, body
+    and Today page choices, coach goals with a part off, three signed-in devices (this one, another here, one at app.), three devices with
+    notifications (one at app. and one here on the same phone: twice), the nudges, and a last download. Every tab's read, and saves
+    without their fresh read: done and refused, as each answers. No push service is called (webpush.send is a stub)."""
+    from app import webpush
+    from test_nudges import browser
+
+    monkeypatch.setenv("VAPID_PRIVATE_KEY", "Zm9vYmFyYmF6cXV4Zm9vYmFyYmF6cXV4Zm9vYmFyYmE")
+    monkeypatch.setattr(webpush, "send", lambda sub, msg: 201)
+    owner_sql("DELETE FROM push_subscriptions")
+    owner_sql("DELETE FROM food_targets")
+    owner_sql("TRUNCATE usual_meals CASCADE")
+    iphone = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1"
+    pc = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/130.0 Safari/537.36"
+    try:
+        c, bearer, _ = signed_in()
+        get = lambda path: c.get("/api/v1" + path, headers=bearer).json()  # noqa: E731
+        post = lambda path, **body: c.post("/api/v1" + path, headers=bearer, json=body).json()  # noqa: E731
+        sid = get("/session")["sid"]
+        owner_sql("UPDATE web_sessions SET user_agent = %s", iphone)
+        owner_sql("""INSERT INTO web_sessions (token_hash, csrf, expires_at, user_agent, front, last_seen) VALUES
+                     ('zz-sample-1', 'c', now() + interval '25 days', %s, NULL, now() - interval '2 hours'),
+                     ('zz-sample-2', 'c', now() + interval '12 days', %s, 'logger', now() - interval '18 days')""", iphone, pc)
+        owner_sql("""INSERT INTO food_targets (valid_from, kcal, protein, fat, sat_fat, carbs, fibre, sugar_added, sodium_mg, water_ml, note) VALUES
+                     ('2026-01-05', 2100, 140, 70, 20, 230, 30, 40, 2300, 2500, 'more protein'),
+                     ('2025-06-01', 2300, 110, 80, NULL, 260, 25, NULL, NULL, NULL, NULL)""")
+        owner_sql("INSERT INTO body_height (valid_from, height_cm) VALUES ('2025-03-01', 176.5), ('2026-02-01', 177)")
+        meals = [owner_sql("INSERT INTO usual_meals (name) VALUES (%s) RETURNING id", nm)[0]["id"] for nm in ("Usual breakfast", "Evening tea")]
+        today = {"hidden": ["health:sugar", "card:gratitude"], "order": {"usual": [str(meals[1]), str(meals[0])], "card": ["coach", "home", "gratitude"]}}
+        coach = {"goals": "Lose 3 kg by spring; fasting sugar under 100.", "style": "Short, two points at most.", "hidden": ["day:gaps"]}
+        owner_sql("""INSERT INTO ui_settings (key, value) VALUES ('body', '{"interval": 21, "hidden": ["chest"]}'), ('today', %s), ('coach', %s),
+                     ('nudges', '{"on": true, "weight": true, "weight_after": 2.5, "habits": false, "gratitude": true}')""",
+                  Jsonb(today), Jsonb(coach))
+        for endpoint, ua, origin, me in (("https://web.push.apple.com/zz-sample-app", iphone, "app", None),
+                                         ("https://web.push.apple.com/zz-sample-logger", iphone, "logger", sid),
+                                         ("https://fcm.googleapis.com/fcm/send/zz-sample-pc", pc, "logger", None)):
+            _, p256dh, auth = browser()
+            owner_sql("""INSERT INTO push_subscriptions (endpoint, p256dh, auth, user_agent, session_sid, origin, last_ok)
+                         VALUES (%s, %s, %s, %s, %s, %s, now() - interval '3 hours')""", endpoint, p256dh, auth, ua, me, origin)
+        owner_sql("""INSERT INTO audit_log (tool, outcome, client, detail, at)
+                     VALUES ('export', 'ok', 'web', '{"private": false, "rows": {}}', now() - interval '6 days')""")
+        reads = {tab: get(f"/settings/{tab}") for tab in ("targets", "today", "body", "coach", "devices", "notify", "export")}
+        app_device = next(d["id"] for d in reads["devices"]["settings_devices"]["devices"] if d["address"] == "app")
+        pc_push = next(s["id"] for s in reads["notify"]["settings_notify"]["subscriptions"] if s["name"] == "Windows, Chrome")
+        _, p256dh, auth = browser()
+        saves = {"targets": post("/settings/targets", valid_from="2026-11-17", kcal=2000, protein=150, fat=65, carbs=200, water_ml=3000, note="new plan"),
+                 "targets_refused": post("/settings/targets", valid_from="2026-11-17", kcal=-5),
+                 "today": post("/settings/today", groups={"card": [{"id": "home", "shown": True}, {"id": "coach", "shown": False},
+                                                                   {"id": "gratitude", "shown": True}]}),
+                 "today_reset": post("/settings/today_reset"),
+                 "height_refused": post("/settings/height", valid_from="2026-11-17", height=300),
+                 "body": post("/settings/body", interval=28, show=["waist", "hips"]),
+                 "coach": post("/settings/coach", goals="Walk every day.", parts={"week": ["targets", "focus"]}),
+                 "coach_refused": post("/settings/coach", parts={"day": []}),
+                 "device_current": post("/settings/device", id=sid),
+                 "device": post("/settings/device", id=app_device),
+                 "others": post("/settings/others"),
+                 "nudges": post("/settings/nudges", on=True, idle=False, gratitude_after=13),
+                 "subscribe": post("/push/subscribe", endpoint="https://web.push.apple.com/zz-sample-new", keys={"p256dh": p256dh, "auth": auth},
+                                   user_agent=iphone),
+                 "subscribe_refused": post("/push/subscribe", endpoint="https://push.example.test/zz", keys={"p256dh": p256dh, "auth": auth},
+                                           user_agent=iphone),
+                 "push_off": post("/push/off", id=pc_push),
+                 "push_test": post("/push/test")}
+        n = reads["notify"]["settings_notify"]
+        assert n["twice"] and [s["this"] for s in n["subscriptions"]] == [False, True, False] and n["public_key"]
+        assert reads["devices"]["settings_devices"]["others"] == 2 and reads["export"]["settings_export"]["last"]
+        assert saves["push_test"]["head"] == "Test notification sent to 3 devices." and saves["device_current"]["outcome"] == "rejected"
+        assert saves["others"]["head"] == "Signed out 1 other device." and saves["subscribe_refused"]["reason"] == "Not a known push service."
+        assert all(a["outcome"] == ("rejected" if k.endswith(("_refused", "_current")) else "changed") for k, a in saves.items()), saves
+        for a in saves.values():  # without the fresh read (the reads above have each tab)
+            assert sum(a.pop(k, None) is not None for k in ("settings_targets", "settings_today", "settings_body", "settings_coach",
+                                                            "settings_devices", "settings_notify")) == 1
+        _write_or_check("settings.json", {**reads, "saves": saves})
+    finally:
+        owner_sql("DELETE FROM push_subscriptions")
+        owner_sql("DELETE FROM food_targets")
+        owner_sql("TRUNCATE usual_meals CASCADE")

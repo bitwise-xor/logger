@@ -750,6 +750,10 @@
      "href": "/web/settings?tab=coach"
     }
    ]
+  },
+  "shown": {
+   "review": true,
+   "gratitude": true
   }
  },
  "undo": null
