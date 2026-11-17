@@ -309,6 +309,12 @@ def foods(request, _body, _session):
     return {"foods": reads.foods(request.query_params.get("q", ""))}
 
 
+@route("/foods/suggest", "GET")
+def foods_suggest(_request, _body, _session):
+    """Every active food for the logging box's suggestions (deploy 116; the same data as app.'s /web/foods.json)."""
+    return {"foods": reads.food_suggestions()}
+
+
 @route("/food/entry", "GET")
 def food_entry(request, _body, _session):
     e = reads.food_entry(request.query_params.get("ref", "")[:12])

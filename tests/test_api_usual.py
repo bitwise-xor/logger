@@ -3,6 +3,7 @@ GET /api/v1/usual and /foods, POST /usual/meal, /usual/new and /usual/from_meal,
 usual_create, usual_new), saved at once with Undo (webundo's usual-meal kind, also on app.), a name used twice refused in plain words,
 and a re-sent key saving once. Every name, food and number is invented."""
 import re
+from datetime import timedelta
 
 import pytest
 
@@ -104,6 +105,48 @@ def test_the_food_search_finds_by_name_word_and_number_up_to_20(sv):
     for k in range(25):
         food(f"Test bean {k:02}", 100, 7)
     assert len(get(sv, "/foods?q=bean")["foods"]) == 20 and len(get(sv, "/foods")["foods"]) == 20
+
+
+# ---- the entry box's suggestions (deploy 116) ----------------------------------------------------------------------------------
+
+def test_the_suggestions_have_every_active_food_with_its_words_and_last_amount(sv):
+    f = foods()
+    owner_sql("UPDATE foods SET aliases = '{porridge,gruel}' WHERE id = %s", f["oats"])
+    owner_sql("INSERT INTO foods (name, basis, kcal, protein, fat, carbs, source, active) VALUES ('Test oat bar', 'g', 400, 5, 9, 70, 'label', false)")
+    eat_on(day(), "08:10", f["oats"], 60)
+    j = get(sv, "/foods/suggest")
+    assert set(j) == {"v", "foods"}
+    assert [x["name"] for x in j["foods"]] == ["Test oats", "Test honey", "Test milk", "Test skyr"]  # a hidden food is left out
+    oats, honey, milk, _skyr = j["foods"]
+    assert set(oats) == {"food_id", "name", "unit", "words", "last_amount", "eaten", "last_at"}
+    assert (oats["food_id"], oats["unit"], oats["words"], oats["last_amount"], oats["eaten"]) == (f["oats"], "g", ["porridge", "gruel"], 60, 1)
+    assert re.fullmatch(r"\d{4}-\d\d-\d\dT08:10:00\+0[12]:00", oats["last_at"]), oats["last_at"]
+    assert milk["unit"] == "ml" and honey["words"] == []
+    assert (honey["last_amount"], honey["eaten"], honey["last_at"]) == (None, 0, None)  # never eaten
+
+
+def test_the_suggestions_come_most_eaten_first_then_by_name_with_the_newest_amount(sv):
+    f = foods()
+    eat_on(day() - timedelta(days=2), "08:00", f["skyr"], 100)
+    eat_on(day(), "09:00", f["skyr"], 150)  # the newest entry's amount counts, not the biggest or the first
+    eat_on(day() - timedelta(days=1), "09:00", f["skyr"], 200)
+    eat_on(day(), "12:00", f["milk"], 250)
+    got = get(sv, "/foods/suggest")["foods"]
+    assert [(x["name"], x["eaten"]) for x in got] == [("Test skyr", 3), ("Test milk", 1), ("Test honey", 0), ("Test oats", 0)]
+    assert got[0]["last_amount"] == 150 and got[1]["last_amount"] == 250
+
+
+def test_the_suggestions_are_the_same_data_as_apps_foods_json(sv, web):
+    f = foods()
+    owner_sql("UPDATE foods SET aliases = '{porridge}' WHERE id = %s", f["oats"])
+    eat_on(day(), "08:10", f["oats"], 60)
+    eat_on(day(), "12:30", f["milk"], 250)
+    old = web[0].get("/web/foods.json").json()
+    assert old[0] == {"n": "Test milk", "b": "ml", "w": [], "a": 250, "c": 1, "t": old[0]["t"]} and old[0]["t"] > 0
+    assert [list(x) for x in old] == [["n", "b", "w", "a", "c", "t"]] * 4
+    new = get(sv, "/foods/suggest")["foods"]
+    assert [(o["n"], o["b"], o["w"], o["a"], o["c"]) for o in old] == [(n_["name"], n_["unit"], n_["words"], n_["last_amount"], n_["eaten"]) for n_ in new]
+    assert old[-1]["a"] is None and old[-1]["t"] == 0  # never eaten: app. says null and 0, the door null and null
 
 
 # ---- changing a usual meal ----------------------------------------------------------------------------------------------------
@@ -262,7 +305,7 @@ def test_undo_after_the_old_name_was_taken_says_so(sv, bowl):
 
 def test_the_routes_are_behind_the_door(sv, bowl):
     f, mid = bowl
-    for method, path in (("GET", "/usual"), ("GET", "/foods?q=oat"), ("POST", "/usual/meal"), ("POST", "/usual/new"),
+    for method, path in (("GET", "/usual"), ("GET", "/foods?q=oat"), ("GET", "/foods/suggest"), ("POST", "/usual/meal"), ("POST", "/usual/new"),
                          ("POST", "/usual/from_meal")):
         signed_out = sv.c.request(method, "/api/v1" + path, json={})
         assert signed_out.status_code == 401 and signed_out.json()["error"] == "signed_out", path

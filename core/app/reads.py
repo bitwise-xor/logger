@@ -414,6 +414,26 @@ def foods(q: str) -> list:
              "per_100": {k: num(r[k]) for k in ("kcal", "protein", "fat", "carbs")}} for r in rows]
 
 
+def suggest_rows(cur) -> list:
+    """Every active food for the entry box's suggestions, most eaten first, then by name: its name, basis, words (aliases), the
+    amount eaten last (the newest entry's), how many entries there are and when the last one was. app.'s /web/foods.json and
+    the door's GET /foods/suggest both read it here."""
+    return cur.execute("""SELECT f.id, f.name, f.basis, f.aliases, x.amount, x.last, coalesce(x.n, 0) AS n FROM foods f
+                          LEFT JOIN (SELECT food_id, count(*) AS n, (array_agg(amount ORDER BY eaten_at DESC, id DESC))[1] AS amount,
+                                            max(eaten_at) AS last
+                                     FROM food_entries GROUP BY food_id) x ON x.food_id = f.id
+                          WHERE f.active ORDER BY n DESC, f.name""").fetchall()
+
+
+def food_suggestions() -> list:
+    """The door's GET /foods/suggest: every active food with its unit, words, last amount (null when never eaten), how often it
+    was eaten and when last (null when never)."""
+    with connect() as c, c.cursor() as cur:
+        rows = suggest_rows(cur)
+    return [{"food_id": r["id"], "name": r["name"], "unit": r["basis"], "words": list(r["aliases"] or []), "last_amount": num(r["amount"]),
+             "eaten": r["n"], "last_at": iso(r["last"])} for r in rows]
+
+
 # ---- the Health page and body measurements (deploy 91, step 1b of the move to logger.) -----------------------------------------
 
 # The Health page's columns (healthpage.COLS) by the names the door's saves use (the Health card's rows, POST /health).

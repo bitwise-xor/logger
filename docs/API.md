@@ -161,6 +161,19 @@ Items in their order; `amount` in the food's `unit` (g, or ml for a drink).
 Up to 20 active foods for the words (the Catalogue's search: name, one of its words, N number or barcode), most eaten first; no
 `q` = the 20 most eaten. To pick a food for a usual meal; `per_100` is per 100 g, or per 100 ml (`unit`).
 
+### `GET /api/v1/foods/suggest` → `{"foods": [{food_id, name, unit, words, last_amount, eaten, last_at}]}` (116)
+
+The logging box's suggestions at logger.: every active food (none hidden), most eaten first, then by name, the same data as app.'s
+`/web/foods.json`. No parameters; the box filters the list itself while typing.
+
+```
+food = {food_id, name, unit: "g" | "ml", words: [string], last_amount: number | null, eaten: int, last_at: string | null}
+```
+
+`unit` is the food's basis; `words` its aliases (`[]` when none); `last_amount` the amount of the newest entry, in `unit`; `eaten`
+how many entries there are. A food never eaten has `last_amount: null`, `eaten: 0`, `last_at: null`; `last_at` is the newest
+entry's time (ISO 8601, Berlin time with offset).
+
 ### `GET /api/v1/foods/barcode?code=` → `{code, food}` (89)
 
 The scanner: the active catalogue food with this barcode (`webfood.scanned`, app.'s own scanner), or `food: null`.

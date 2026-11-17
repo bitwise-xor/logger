@@ -16,7 +16,7 @@ from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response
 
-from . import (activitypage, auth, export, foodpage, gratitude, gratitudepage, gym, gympage, habitspage, healthpage, home as home_actions, homepage, coach, coachpage, ideaspage, insightspage, labelread, labspage, logbook, privatepage, recentpage, searchpage, settingspage, todaypage,
+from . import (activitypage, auth, export, foodpage, gratitude, gratitudepage, gym, gympage, habitspage, healthpage, home as home_actions, homepage, coach, coachpage, ideaspage, insightspage, labelread, labspage, logbook, privatepage, reads, recentpage, searchpage, settingspage, todaypage,
                trendspage, usagepage, webactions, weekpage, webentry, webfood, webheld, webideas, weblabs, webprivate, webhabits, websettings,
                webquestions, webpush, webundo)
 from .ai.provider import ProviderError
@@ -641,12 +641,8 @@ def add_routes(mcp) -> None:
             return r
         if not current_session(request):
             return Response("Not found", status_code=404)
-        with connect() as c:
-            rows = c.execute("""SELECT f.name, f.basis, f.aliases, x.amount, x.last, coalesce(x.n, 0) AS n FROM foods f
-                                LEFT JOIN (SELECT food_id, count(*) AS n, (array_agg(amount ORDER BY eaten_at DESC, id DESC))[1] AS amount,
-                                                  max(eaten_at) AS last
-                                           FROM food_entries GROUP BY food_id) x ON x.food_id = f.id
-                                WHERE f.active ORDER BY n DESC, f.name""").fetchall()
+        with connect() as c, c.cursor() as cur:
+            rows = reads.suggest_rows(cur)  # the one query the door's GET /foods/suggest reads too
         out = [{"n": r["name"], "b": r["basis"], "w": list(r["aliases"] or []), "a": float(r["amount"]) if r["amount"] is not None else None,
                 "c": r["n"], "t": int(r["last"].timestamp()) if r["last"] else 0} for r in rows]
         return JSONResponse(out, headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"})
