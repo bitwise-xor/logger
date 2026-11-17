@@ -22,7 +22,7 @@ from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-from . import body as tape, coach, foodpage, gym, gympage, habitspage, healthpage, home as homelib, hubtools, labelread, labspage, logbook, privateline, reads, trendspage, web, webactions, webentry, webfood, webhabits, webheld, weblabs, webundo, weekpage
+from . import body as tape, coach, coachpage, foodpage, gym, gympage, habitspage, healthpage, home as homelib, hubtools, labelread, labspage, logbook, privateline, reads, trendspage, usagepage, web, webactions, webentry, webfood, webhabits, webheld, weblabs, webundo, weekpage
 from .ai.provider import ProviderError
 from .config import FRONT_TOKEN
 from .db import connect
@@ -420,6 +420,8 @@ def saved(session, out: dict, body: dict, view: str = "day", private: bool = Fal
         res["catalogue"], res["food_item"] = _catalogue_view(body)
     elif shown in LABS_VIEWS:  # a Medical tab (deploy 104), as its GET with view_open, or view_q and view_t
         res[shown] = LABS_VIEWS[shown](body)
+    elif shown == "coach":  # the Coach page (deploy 107), as GET /coach with view_f (all when unknown) and view_day (a later day: today)
+        res["coach"] = reads.coach_page(body.get("view_f") if body.get("view_f") in COACH_FILTERS else "all", _coach_day(asked))
     else:
         res["day"] = reads.day(asked)
     return res
@@ -963,8 +965,12 @@ def gym_progress_read(request, _body, session):
 
 
 @route("/gym/history", "GET")
-def gym_history_read(_request, _body, session):
-    return {"gym_history": reads.gym_history(), "undo": _undo_out(session.get("undo"))}
+def gym_history_read(request, _body, session):
+    """?w=<workout id> (deploy 107): that workout is added in its place when it is older than the last 60 (a search result's card)."""
+    w = request.query_params.get("w", "")
+    if w and not re.fullmatch(r"\d{1,12}", w):
+        raise Refused(400, "bad_request", "w must be a workout's id.")
+    return {"gym_history": reads.gym_history(int(w) if w else None), "undo": _undo_out(session.get("undo"))}
 
 
 @route("/gym/activity", "GET")
@@ -1353,29 +1359,86 @@ def _iso_day(body: dict, name: str) -> str:
 
 @route("/coach/start", "POST")
 def coach_start(_request, body, session):
-    """The Week review's button (app.'s /web/coach/start, coach.start with its checks): kind "week" (a day coaching is not in the
-    door yet), start and end (yyyy-mm-dd). No key, and never sent again by a page. The answer: the save's shape with coaching
-    {id, state} (null when refused) and the fresh Week page (view "week", view_p: the period of start and end when it is last
-    week or this week so far, else 7; or another view)."""
-    if body.get("kind") != "week":
-        raise Refused(400, "bad_request", 'kind must be "week" (a day coaching is not in the door yet).')
+    """The Week review's button and, since deploy 107, the Coach card's "Coach me" (app.'s /web/coach/start, coach.start with its checks):
+    kind "week" or "day", start and end (yyyy-mm-dd; a day: the same day twice, coach.start refuses another). No key, and never sent
+    again by a page. The answer: the save's shape with coaching {id, state} of that kind and period (null when refused) and a fresh
+    read: a week the Week page (view "week", view_p: the period of start and end when it is last week or this week so far, else 7), a
+    day the day (view "day", view_day: the day coached); or another view ("coach" with view_f and view_day)."""
+    kind = body.get("kind")
+    if kind not in ("week", "day"):
+        raise Refused(400, "bad_request", 'kind must be "day" or "week".')
     a, b = _iso_day(body, "start"), _iso_day(body, "end")
-    out = _work(lambda: coach.start(Form({"kind": "week", "start": a, "end": b})))
+    out = _work(lambda: coach.start(Form({"kind": kind, "start": a, "end": b})))
     started = None
     if out.get("outcome") != "rejected":
         with connect() as c, c.cursor() as cur:
-            row = coach.latest(cur, "week", date.fromisoformat(a), date.fromisoformat(b))
+            row = coach.latest(cur, kind, date.fromisoformat(a), date.fromisoformat(b))
         if row:
             started = {"id": row["id"], "state": "failed" if row["stale"] else row["status"]}
     view = dict(body)
-    if not view.get("view_p") and (view.get("view") or "week") == "week":
+    if kind == "week" and not view.get("view_p") and (view.get("view") or "week") == "week":
         try:
             view["view_p"] = weekpage.period_of(date.fromisoformat(a), date.fromisoformat(b))
         except ValueError:  # not a calendar day: coach.start refused it
             view["view_p"] = "7"
-    res = saved(session, out, view, view="week")
+    if kind == "day" and not view.get("view_day") and (view.get("view") or "day") in ("day", "coach"):
+        view["view_day"] = a
+    res = saved(session, out, view, view=kind)
     res["coaching"] = started
     return res
+
+
+# ---- More: Search, Recent, Usage, Coach (deploy 107) ---------------------------------------------------------------------------------
+# app.'s Search, Recent, Usage and Coach pages as data (reads.search, recent, usage, coach_page: searchpage.results, recentpage.messages,
+# usagepage.data, coachpage.list_data and card_data, which app.'s pages draw from). Reads only; the Coach page's button is
+# POST /coach/start above (kind "day").
+
+USAGE_RANGES = tuple(k for k, _l in usagepage.RANGES)
+COACH_FILTERS = tuple(k for k, _l in coachpage.FILTERS)
+
+
+def _today():
+    with connect() as c, c.cursor() as cur:
+        cur.execute("SELECT log_day(now()) AS d")
+        return cur.fetchone()["d"]
+
+
+def _coach_day(asked):
+    """A day for the Coach card of the Coach page's fresh read: the day asked when it is not after today, else today."""
+    t = _today()
+    return asked if asked and asked <= t else t
+
+
+@route("/search", "GET")
+def search_read(request, _body, session):
+    """?q= (spaces squeezed, cut at 80; under two characters nothing is searched): app.'s Search without thoughts."""
+    return {"search": reads.search(request.query_params.get("q", "")), "undo": _undo_out(session.get("undo"))}
+
+
+@route("/recent", "GET")
+def recent_read(_request, _body, session):
+    return {"recent": reads.recent(), "undo": _undo_out(session.get("undo"))}
+
+
+@route("/usage", "GET")
+def usage_read(request, _body, session):
+    """?r=7|30|all (7); anything else is a bad request."""
+    r = request.query_params.get("r") or "7"
+    if r not in USAGE_RANGES:
+        raise Refused(400, "bad_request", "r must be 7, 30 or all.")
+    return {"usage": reads.usage(r), "undo": _undo_out(session.get("undo"))}
+
+
+@route("/coach", "GET")
+def coach_read(request, _body, session):
+    """?f=all|days|weeks (all) and ?day=yyyy-mm-dd (today; a day after today is a bad request): the Coach page and that day's card."""
+    f = request.query_params.get("f") or "all"
+    if f not in COACH_FILTERS:
+        raise Refused(400, "bad_request", "f must be all, days or weeks.")
+    asked = day_param(request)
+    if asked and asked > _today():
+        raise Refused(400, "bad_request", "day must not be after today.")
+    return {"coach": reads.coach_page(f, asked), "undo": _undo_out(session.get("undo"))}
 
 
 # ---- Library: the food catalogue (deploy 104) ------------------------------------------------------------------------------------

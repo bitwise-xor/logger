@@ -344,8 +344,8 @@ def test_already_on_it_the_daily_limit_and_refusals(sv, ai):
 
 
 @pytest.mark.parametrize("body,why", [
-    ({"start": "2026-11-02", "end": "2026-11-08"}, 'kind must be "week" (a day coaching is not in the door yet).'),
-    ({"kind": "day", "start": "2026-11-02", "end": "2026-11-02"}, 'kind must be "week" (a day coaching is not in the door yet).'),
+    ({"start": "2026-11-02", "end": "2026-11-08"}, 'kind must be "day" or "week".'),
+    ({"kind": "month", "start": "2026-11-02", "end": "2026-11-02"}, 'kind must be "day" or "week".'),  # a day is in since 107
     ({"kind": "week", "end": "2026-11-08"}, "start must be a date yyyy-mm-dd."),
     ({"kind": "week", "start": "2026-11-02", "end": 20261108}, "end must be a date yyyy-mm-dd."),
     ({"kind": "week", "start": "02.11.2026", "end": "2026-11-08"}, "start must be a date yyyy-mm-dd."),

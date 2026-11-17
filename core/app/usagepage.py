@@ -51,7 +51,20 @@ def _first_words(row) -> str:
     return '<span class="small">–</span>'
 
 
-def render(r: str) -> str:
+FAMILIES = ("Haiku", "Sonnet", "Opus", "Other")
+LEGEND = (("sq a", "Haiku (every message)"), ("sq b", "Sonnet (second reads, lab reports, label photos)"), ("sq c", "Opus (coaching)"))
+EMPTY = "No AI calls in this range."
+OLD_NOTE = "* Some of these calls are older than 04.11.2026 and have their cost but no token counts."
+NOTE = ("Private entries never show their words. Food look-ups, lab reports and label photos show no words. "
+        "Coachings are under By kind and on the Coach page.")
+
+
+def data(r: str) -> dict:
+    """The Usage page of the range r (7, 30, all; another is 7) as data (deploy 107: app.'s page and the JSON door read the same): the
+    period (start .. today, days, first: the first day with a cost), the totals (calls, cost, tokens in and out, tok_known: every call
+    has its tokens; msgs and msg_cost: the messages, tool "log"), per_day {day: {family: usd}}, chart (app.'s data-chart object; series
+    [] when there is no call), kinds [(kind, calls, usd, tokens in, tokens out, tokens known)] most expensive first, pushes, and top: the
+    TOP most expensive calls but coachings [(usd, audit row, [families])]."""
     r = r if r in dict(RANGES) else "7"
     d = load(r)
     days = (d["today"] - d["start"]).days + 1
@@ -91,13 +104,6 @@ def render(r: str) -> str:
             msg_cost += row_cost
         if row["tool"] != "coaching":  # coachings cost more than any message and have no words: "By kind" lists them (04.11.2026)
             tops.append((row_cost, row, sorted({_family(c.get("model")) for c in ai})))
-    since = f'Recorded since {d["first"]:%d.%m.%Y} (the v2 trial); v1 kept no costs.'
-    tiles = (f'<div class="totals"><div class="total"><div class="lbl">AI calls</div><span class="n num">{calls:,}</span></div>'
-             f'<div class="total"><div class="lbl">Cost</div><span class="n num">{_usd(cost)}</span></div>'
-             f'<div class="total"><div class="lbl">Per message</div><span class="n num">{_usd(msg_cost / msgs) if msgs else "–"}</span>'
-             f' <span class="of">{msgs} messages</span></div>'
-             f'<div class="total"><div class="lbl">Tokens in / out</div><span class="n num">{round(tin / 1000):,}k / {round(tout / 1000):,}k</span>'
-             + ('' if tok_known else ' <span class="of">some older calls have none</span>') + '</div></div>')
     # cost per day, Haiku at the bottom, Sonnet on top
     series = []
     for fam, cls in (("Haiku", "a"), ("Sonnet", "b"), ("Opus", "c"), ("Other", "c")):
@@ -106,27 +112,47 @@ def render(r: str) -> str:
             day = d["start"] + timedelta(days=i)
             v = per_day.get(day, {}).get(fam, 0.0)
             if v:
-                below = sum(per_day[day].get(f, 0.0) for f in ("Haiku", "Sonnet", "Opus", "Other")[:("Haiku", "Sonnet", "Opus", "Other").index(fam)])
+                below = sum(per_day[day].get(f, 0.0) for f in FAMILIES[:FAMILIES.index(fam)])
                 pts.append([i, round(v, 5), f"{day:%a %d.%m.}: {fam} {_usd(v)}", round(below, 5)])
         if pts:
             series.append({"mark": "bar", "cls": cls, "pts": pts})
-    data = {"start": d["start"].isoformat(), "days": days, "series": series, "label": "Cost per day in dollars", "min": 0,
-            "prefix": "$", "decimals": 2 if max((sum(v.values()) for v in per_day.values()), default=0) >= 0.1 else 3}
-    chart = f'<div class="chart" id="c-usage" data-chart="{esc(json.dumps(data, separators=(",", ":")))}"></div>'
-    tok = lambda n, known: f"{n / 1000:,.1f}k" + ("" if known else "*")
+    chart = {"start": d["start"].isoformat(), "days": days, "series": series, "label": "Cost per day in dollars", "min": 0,
+             "prefix": "$", "decimals": 2 if max((sum(v.values()) for v in per_day.values()), default=0) >= 0.1 else 3}
+    return {"r": r, "today": d["today"], "first": d["first"], "start": d["start"], "days": days, "calls": calls, "cost": cost, "tin": tin,
+            "tout": tout, "tok_known": tok_known, "msgs": msgs, "msg_cost": msg_cost, "per_day": per_day, "chart": chart,
+            "kinds": [(k, *v) for k, v in sorted(kinds.items(), key=lambda x: -x[1][1])], "pushes": d["pushes"],
+            "top": sorted(tops, key=lambda x: -x[0])[:TOP],
+            "since": f'Recorded since {d["first"]:%d.%m.%Y} (the v2 trial); v1 kept no costs.'}
+
+
+def tok(n: int, known: bool) -> str:
+    return f"{n / 1000:,.1f}k" + ("" if known else "*")
+
+
+def render(r: str) -> str:
+    d = data(r)
+    r, calls, cost, tin, tout, tok_known, msgs, msg_cost = d["r"], d["calls"], d["cost"], d["tin"], d["tout"], d["tok_known"], d["msgs"], d["msg_cost"]
+    since = d["since"]
+    tiles = (f'<div class="totals"><div class="total"><div class="lbl">AI calls</div><span class="n num">{calls:,}</span></div>'
+             f'<div class="total"><div class="lbl">Cost</div><span class="n num">{_usd(cost)}</span></div>'
+             f'<div class="total"><div class="lbl">Per message</div><span class="n num">{_usd(msg_cost / msgs) if msgs else "–"}</span>'
+             f' <span class="of">{msgs} messages</span></div>'
+             f'<div class="total"><div class="lbl">Tokens in / out</div><span class="n num">{round(tin / 1000):,}k / {round(tout / 1000):,}k</span>'
+             + ('' if tok_known else ' <span class="of">some older calls have none</span>') + '</div></div>')
+    series = d["chart"]["series"]
+    chart = f'<div class="chart" id="c-usage" data-chart="{esc(json.dumps(d["chart"], separators=(",", ":")))}"></div>'
     by_kind = "".join(f'<tr><td>{esc(k)}</td><td>{n:,}</td><td>{tok(i, ok)}</td><td>{tok(o, ok)}</td><td>{_usd(v)}</td></tr>'
-                      for k, (n, v, i, o, ok) in sorted(kinds.items(), key=lambda x: -x[1][1]))
-    old_note = ('<p class="small hint">* Some of these calls are older than 04.11.2026 and have their cost but no token counts.</p>'
-                if any(not v[4] for v in kinds.values()) else "")
+                      for k, n, v, i, o, ok in d["kinds"])
+    old_note = (f'<p class="small hint">{OLD_NOTE}</p>' if any(not v[5] for v in d["kinds"]) else "")
     pushes = (f'<p class="small">Phone notifications sent: {d["pushes"]:,} (free).</p>')
-    top = sorted(tops, key=lambda x: -x[0])[:TOP]
+    top = d["top"]
     top_rows = "".join(
         f'<tr><td>{row["at"].astimezone(rules.BERLIN):%a %d.%m. %H:%M}</td><td class="l first">{_first_words(row)}'
         + (' <span class="small">· read again by the larger model</span>' if row["detail"].get("escalated") else "")
         + f'</td><td class="l">{esc(KINDS.get(row["tool"], row["tool"]))}</td><td class="l">{esc(" + ".join(fams))}</td><td>{_usd(c)}</td></tr>'
         for c, row, fams in top)
     seg = "".join(f'<a href="/web/usage?r={k}"{' aria-current="page"' if k == r else ""}>{lbl}</a>' for k, lbl in RANGES)
-    empty = '<p class="empty">No AI calls in this range.</p>'
+    empty = f'<p class="empty">{EMPTY}</p>'
     return (f'<div class="head"><h1>Usage</h1><nav class="seg" aria-label="Range">{seg}</nav></div>'
             f'<div class="card">{tiles}<p class="small hint">{since}</p></div>'
             '<div class="grid2 gap"><div class="card"><h2>Cost per day <span class="small">dollars</span></h2>'
@@ -138,5 +164,4 @@ def render(r: str) -> str:
             f'<div class="card"><h2>Most expensive messages</h2>'
             + (f'<div class="tablewrap"><table class="ft"><thead><tr><th>When</th><th class="l">Message</th><th class="l">Kind</th>'
                f'<th class="l">Model</th><th>Cost</th></tr></thead><tbody>{top_rows}</tbody></table></div>' if top else empty)
-            + '<p class="small hint">Private entries never show their words. Food look-ups, lab reports and label photos show no words. '
-              'Coachings are under By kind and on the Coach page.</p></div>')
+            + f'<p class="small hint">{NOTE}</p></div>')

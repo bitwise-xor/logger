@@ -8,7 +8,7 @@ import re
 from datetime import date, datetime, timedelta
 from typing import Optional
 
-from . import activitypage, body as tape, bodypage, coach, coachpage, foodpage, gratitude, gym as gymlib, gympage, habitspage, healthpage, held, home as homelib, homepage, insightspage, labspage, privateline, todaypage, trendspage, uiprefs, v1_commands, webquestions, weekpage
+from . import activitypage, body as tape, bodypage, coach, coachpage, foodpage, gratitude, gym as gymlib, gympage, habitspage, healthpage, held, home as homelib, homepage, insightspage, labspage, privateline, recentpage, searchpage, todaypage, trendspage, uiprefs, usagepage, v1_commands, webquestions, weekpage
 from .db import connect
 from .rules import BERLIN
 from .webentry import readable
@@ -325,6 +325,9 @@ def day(asked: Optional[date] = None) -> dict:
         "gym": None if d["past"] else gym_card(),
         # Today's Home card (deploy 98): as app.'s todaypage._home_card, none for a past day or when Settings > Today page hides it
         "home": None if d["past"] or not uiprefs.shown("card", "home", d["prefs"]) else home_card(),
+        # Today's Coach card (deploy 107): as app.'s todaypage._coach_card, for the day shown (earlier days too), none when Settings >
+        # Today page hides it
+        "coach": coach_card(the_day) if uiprefs.shown("card", "coach", d["prefs"]) else None,
     }
 
 
@@ -646,14 +649,15 @@ def gym_progress(x=None) -> dict:
     return out
 
 
-def gym_history() -> dict:
-    """The History tab (gympage.history): the last 60 workouts, newest first."""
+def gym_history(also: Optional[int] = None) -> dict:
+    """The History tab (gympage.history): the last 60 workouts, newest first; also: a workout's id added in its place when it is older
+    (deploy 107: a search result's card)."""
     return {"workouts": [{"workout_id": h["w"]["id"], "anchor": f'w{h["w"]["id"]}', "day": iso(h["w"]["day"]),
                           "split_day_id": h["w"]["split_id"], "split": h["split"], "started_at": iso(h["start"]), "ended_at": iso(h["end"]),
                           "when": h["when"],
                           "exercises": [{"exercise_id": rs[0]["exercise_id"], "name": rs[0]["name"], "kind": rs[0]["kind"],
                                          "text": ", ".join(gymlib.row_text(r) for r in rs), "rows": [_set(r) for r in rs]} for rs in h["exercises"]]}
-                         for h in gympage.history()]}
+                         for h in gympage.history(also)]}
 
 
 def gym_activity(asked: Optional[date] = None) -> dict:
@@ -919,6 +923,124 @@ def insights() -> dict:
 def coaching(cid: int) -> dict:
     """A coaching's state as app.'s card polls it (coach.status): working, done, failed (also cut off) or gone."""
     return {"id": cid, "state": coach.status(cid)}
+
+
+# ---- More: Search, Recent, Usage, Coach (deploy 107, step 6 of the move to logger.) -------------------------------------------------
+# app.'s Search, Recent, Usage and Coach pages as data (searchpage.results, recentpage.load and messages, usagepage.data,
+# coachpage.list_data and card_data: app.'s pages draw from the same, byte for byte as before). Ids and facts, with app.'s words beside
+# them; the front end builds its own links. Never a thought (Search), never a private or gratitude entry's words (Recent: its label
+# only; Usage: a "private" mark only), and no message whose words carry a private label or name private entries (fail closed).
+
+def _words_ok(text) -> bool:
+    return bool(text) and not privateline.label(text) and not names_private(text)
+
+
+def _group(title: str, rows: list) -> dict:
+    """A kind of Search result: app.'s heading, the rows, and more: the kind reached LIMIT (app.'s "15+")."""
+    return {"title": title, "rows": rows, "more": len(rows) >= searchpage.LIMIT}
+
+
+def search(q: str) -> dict:
+    """app.'s Search for q (spaces squeezed, at most 80 characters; under two characters: nothing searched, app.'s hint). No thoughts."""
+    term = searchpage.term_of(q)
+    out = {"q": term, "searched": len(term) >= 2, "limit": searchpage.LIMIT, "hint": searchpage.HINT if len(term) >= 2 else searchpage.SHORT}
+    d = searchpage.results(term, thoughts=False) if out["searched"] else {k: [] for k in ("foods", "ate", "workouts", "chores", "tests")}
+    out["foods"] = _group("Foods in the catalogue", [{"id": f'N{r["id"]}', "food_id": r["id"], "name": r["name"]} for r in d["foods"]])
+    out["ate"] = _group("What you ate", [{"id": r["id"], "ref": f'f{r["id"]}', "day": iso(r["day"]), "day_text": f'{r["day"]:%a %d.%m.%Y}',
+                                          "food": r["name"], "amount": num(r["amount"]), "unit": r["basis"],
+                                          "amount_text": f'{r["amount"]:g} {r["basis"]}', "note": r["note"] or None} for r in d["ate"]])
+    out["workouts"] = _group("Gym workouts", [{"workout_id": w["id"], "anchor": f'w{w["id"]}', "day": iso(w["day"]), "day_text": f'{w["day"]:%a %d.%m.%Y}',
+                                              "split": w["split"] or "Free workout", "text": w["what"]} for w in d["workouts"]])
+    out["chores"] = _group("Chores done", [{"chore_id": e["chore_id"], "label": e["label"], "day": iso(e["day"]), "day_text": f'{e["day"]:%a %d.%m.%Y}',
+                                           "start": e["source"] == "start"} for e in d["chores"]])
+    out["tests"] = _group("Lab tests", [{"test_id": r["id"], "name": r["name"]} for r in d["tests"]])
+    return out
+
+
+def recent() -> dict:
+    """app.'s Recent page: the last 50 messages from the web app and Claude by logging day, newest first, each with what it saved;
+    a private or gratitude entry by its label only. not_read: how many messages wait to be read (they show on Today's card)."""
+    days: list = []
+    for x in recentpage.messages(recentpage.load()):
+        m = x["m"]
+        if not days or days[-1]["day"] != iso(x["logday"]):
+            days.append({"day": iso(x["logday"]), "head": x["head"], "messages": []})
+        private = m["kind"] == "private"
+        words = m["content"] if not private and _words_ok(m["content"]) else None
+        days[-1]["messages"].append({
+            "id": None if private else m["id"], "private": private, "at": iso(m["received_at"]), "time": f'{x["at"]:%H:%M}',
+            "channel": None if private else m["channel"], "channel_label": x["chan"], "text": words,
+            "again": recentpage.again_text(words) if words else None, "open_day": iso(x["day"]),
+            "saved": [{"kind": k, "text": v} for k, v in x["items"]]})
+    return {"limit": recentpage.LIMIT, "small": recentpage.SMALL, "empty": recentpage.EMPTY, "none": recentpage.NONE, "days": days,
+            "not_read": len(held.rows())}
+
+
+def _first_words(row) -> Optional[str]:
+    if row["detail"].get("private_id") or not _words_ok(row["content"]):
+        return None
+    words = " ".join(row["content"].split())
+    return words[:usagepage.FIRST_WORDS] + ("…" if len(words) > usagepage.FIRST_WORDS else "")
+
+
+def _usage_kind(kind: str, calls: int, usd: float, tin: int, tout: int, known: bool) -> dict:
+    return {"kind": kind, "calls": calls, "tokens_in": tin, "tokens_out": tout, "tokens_known": known,
+            "tokens_in_text": usagepage.tok(tin, known), "tokens_out_text": usagepage.tok(tout, known), "usd": _r(usd, 5),
+            "usd_text": usagepage._usd(usd)}
+
+
+def usage(r: str = "7") -> dict:
+    """app.'s Usage page of the range r (7, 30, all)."""
+    d = usagepage.data(r)
+    msgs = d["msgs"]
+    return {
+        "r": d["r"], "ranges": [{"r": k, "label": lbl, "current": k == d["r"]} for k, lbl in usagepage.RANGES],
+        "start": iso(d["start"]), "end": iso(d["today"]), "days": d["days"], "first": iso(d["first"]), "since": d["since"],
+        "tiles": {"calls": d["calls"], "usd": _r(d["cost"], 5), "usd_text": usagepage._usd(d["cost"]),
+                  "per_message": _r(d["msg_cost"] / msgs, 5) if msgs else None,
+                  "per_message_text": usagepage._usd(d["msg_cost"] / msgs) if msgs else "–", "messages": msgs,
+                  "tokens_in": d["tin"], "tokens_out": d["tout"], "tokens_text": f'{round(d["tin"] / 1000):,}k / {round(d["tout"] / 1000):,}k',
+                  "tokens_known": d["tok_known"], "tokens_note": None if d["tok_known"] else "some older calls have none"},
+        "chart": d["chart"] if d["chart"]["series"] else None, "empty": usagepage.EMPTY,
+        "legend": [{"key": k, "text": t} for k, t in usagepage.LEGEND],
+        "kinds": [_usage_kind(*k) for k in d["kinds"]],
+        "all": _usage_kind("All", d["calls"], d["cost"], d["tin"], d["tout"], d["tok_known"]),
+        "kinds_note": usagepage.OLD_NOTE if any(not k[5] for k in d["kinds"]) else None,
+        "pushes": d["pushes"], "pushes_text": f'Phone notifications sent: {d["pushes"]:,} (free).',
+        "top": [{"at": iso(row["at"]), "at_text": f'{row["at"].astimezone(BERLIN):%a %d.%m. %H:%M}', "kind": usagepage.KINDS.get(row["tool"], row["tool"]),
+                 "text": _first_words(row), "private": bool(row["detail"].get("private_id")), "models": fams, "models_text": " + ".join(fams),
+                 "usd": _r(c, 5), "usd_text": usagepage._usd(c), "escalated": bool(row["detail"].get("escalated"))} for c, row, fams in d["top"]],
+        "note": usagepage.NOTE,
+    }
+
+
+def _card(c: dict) -> dict:
+    """A coaching card (coachpage.card_data) with its dates and meta as JSON values."""
+    out = {**c, "start": iso(c["start"]), "end": iso(c["end"])}
+    if c["meta"]:
+        out["meta"] = {**c["meta"], "at": iso(c["meta"]["at"]), "usd": _r(c["meta"]["usd"], 4)}
+    return out
+
+
+def coach_card(day: date) -> dict:
+    """The Coach card of one day (coachpage.card_data, as Today's): none, working, done or failed."""
+    return _card(coachpage.card_data("day", day, day))
+
+
+def coach_page(f: str = "all", day: Optional[date] = None) -> dict:
+    """app.'s Coach page (f: all, days, weeks), and the Coach card of day (today when not given) for the page's "Coach a day"."""
+    d = coachpage.list_data(f)
+    if day is None:
+        with connect() as conn, conn.cursor() as cur:
+            cur.execute("SELECT log_day(now()) AS d")
+            day = cur.fetchone()["d"]
+    m = d["month"]
+    return {"f": d["f"], "filters": [{"f": k, "label": lbl, "current": k == d["f"]} for k, lbl in coachpage.FILTERS],
+            "list": [{"id": r["id"], "kind": r["kind"], "start": iso(r["start_day"]), "end": iso(r["end_day"]), "heading": coachpage.heading(r),
+                      "first": str(coachpage._first(r)) or None, "parts": coachpage.parts(r, d["hidden"]), "caution": coachpage.CAUTION,
+                      "meta": {**(mt := coachpage.meta(r)), "at": iso(mt["at"]), "usd": _r(mt["usd"], 4)}} for r in d["rows"]],
+            "empty": coachpage.EMPTY, "month": {"count": m["n"], "usd": _r(m["usd"], 4), "text": m["text"]}, "note": coachpage.KEPT,
+            "day": iso(day), "card": coach_card(day)}
 
 
 # ---- Library: the food catalogue (deploy 104, step 5 of the move to logger.) --------------------------------------------------------

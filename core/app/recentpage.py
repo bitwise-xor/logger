@@ -94,27 +94,43 @@ def _day_head(d: date, today: date) -> str:
     return f"{d:%a %d.%m.}"
 
 
-def render(csrf: str, waiting: str = "") -> str:
-    """waiting: the messages not read yet (webheld.section), shown above the list."""
-    d = load()
-    out, last = [], None
+NONE = "Nothing saved from this message."
+EMPTY = "No messages yet."
+SMALL = f"The last {LIMIT} messages from the web app and Claude"
+
+
+def messages(d: dict) -> list:
+    """load()'s messages as the page lists them (deploy 107: app.'s page and the JSON door read the same), newest first, each with its
+    logging day (logday, head: "Today", "Yesterday", "Mon 16.11."), at (Berlin), chan (app.'s pill: "Web app", "Claude", "Private"),
+    items [(kind, text)]: what it saved (a private entry: ("Private", its label)), and day: the day "Open day" opens (null)."""
+    out = []
     for m in d["msgs"]:
         at = m["received_at"].astimezone(rules.BERLIN)
         logday = m.get("logday") or (at.replace(tzinfo=None) - timedelta(hours=5)).date()  # log_day(): from the wake-up (05.11.2026)
-        if logday != last:
-            last = logday
-            out.append(f'<h3 class="rc-day">{_day_head(last, d["today"])}</h3>')
         if m["kind"] == "private":
             chan, items = "Private", [("Private", m.get("label") or "private entry")]
         else:
             chan, items = CHANNELS.get(m["channel"], m["channel"]), d["saved"].get(m["id"], [])
-        lines = ("<ul class=\"rc-saved\">" + "".join(f'<li><span class="pill">{esc(k)}</span> {esc(v)}</li>' for k, v in items) + "</ul>"
-                 if items else '<p class="small rc-none">Nothing saved from this message.</p>')
         day = d["day_of"].get(m["id"]) if m["kind"] == "raw" else None
+        out.append({"m": m, "at": at, "logday": logday, "head": _day_head(logday, d["today"]), "chan": chan, "items": items, "day": day})
+    return out
+
+
+def render(csrf: str, waiting: str = "") -> str:
+    """waiting: the messages not read yet (webheld.section), shown above the list."""
+    out, last = [], None
+    for x in messages(load()):
+        m, at, items, day = x["m"], x["at"], x["items"], x["day"]
+        if x["logday"] != last:
+            last = x["logday"]
+            out.append(f'<h3 class="rc-day">{x["head"]}</h3>')
+        chan = x["chan"]
+        lines = ("<ul class=\"rc-saved\">" + "".join(f'<li><span class="pill">{esc(k)}</span> {esc(v)}</li>' for k, v in items) + "</ul>"
+                 if items else f'<p class="small rc-none">{NONE}</p>')
         acts = (f'<button class="ghost sm" type="button" data-fill="{esc(again_text(m["content"]))}">Use again</button>'
                 + (f'<a class="ghost sm" href="/web/?day={day.isoformat()}">Open day</a>' if day else ""))
         out.append(f'<article class="rc"><div class="rc-top"><span class="num">{at:%H:%M}</span><span class="pill">{chan}</span></div>'
                    f'<p class="rc-text">{esc(m["content"])}</p>{lines}<div class="row">{acts}</div></article>')
-    body = "".join(out) or '<p class="empty">No messages yet.</p>'
-    return (f'<div class="head"><h1>Recent</h1><span class="small">The last {LIMIT} messages from the web app and Claude</span></div>'
+    body = "".join(out) or f'<p class="empty">{EMPTY}</p>'
+    return (f'<div class="head"><h1>Recent</h1><span class="small">{SMALL}</span></div>'
             f'{waiting}<div class="card recent">{body}</div>')

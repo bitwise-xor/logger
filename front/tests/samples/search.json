@@ -1,0 +1,335 @@
+{
+ "muesli": {
+  "v": 1,
+  "search": {
+   "q": "muesli",
+   "searched": true,
+   "limit": 15,
+   "hint": "Private and gratitude entries are searched on the Private page only.",
+   "foods": {
+    "title": "Foods in the catalogue",
+    "rows": [
+     {
+      "id": "N1",
+      "food_id": 1,
+      "name": "Bircher Müsli"
+     },
+     {
+      "id": "N2",
+      "food_id": 2,
+      "name": "Muesli bar"
+     }
+    ],
+    "more": false
+   },
+   "ate": {
+    "title": "What you ate",
+    "rows": [
+     {
+      "id": 1,
+      "ref": "f1",
+      "day": "2026-11-17",
+      "day_text": "Tue 17.11.2026",
+      "food": "Bircher Müsli",
+      "amount": 40,
+      "unit": "g",
+      "amount_text": "40 g",
+      "note": null
+     },
+     {
+      "id": 5,
+      "ref": "f5",
+      "day": "2026-10-28",
+      "day_text": "Wed 28.10.2026",
+      "food": "Bircher Müsli",
+      "amount": 60,
+      "unit": "g",
+      "amount_text": "60 g",
+      "note": "invented note: crunchy"
+     }
+    ],
+    "more": false
+   },
+   "workouts": {
+    "title": "Gym workouts",
+    "rows": [],
+    "more": false
+   },
+   "chores": {
+    "title": "Chores done",
+    "rows": [],
+    "more": false
+   },
+   "tests": {
+    "title": "Lab tests",
+    "rows": [],
+    "more": false
+   }
+  },
+  "undo": null
+ },
+ "rowing": {
+  "v": 1,
+  "search": {
+   "q": "rowing",
+   "searched": true,
+   "limit": 15,
+   "hint": "Private and gratitude entries are searched on the Private page only.",
+   "foods": {
+    "title": "Foods in the catalogue",
+    "rows": [],
+    "more": false
+   },
+   "ate": {
+    "title": "What you ate",
+    "rows": [],
+    "more": false
+   },
+   "workouts": {
+    "title": "Gym workouts",
+    "rows": [
+     {
+      "workout_id": 1,
+      "anchor": "w1",
+      "day": "2026-11-14",
+      "day_text": "Sat 14.11.2026",
+      "split": "Pull day",
+      "text": "Rowing 3 × 8 at 24 kg"
+     }
+    ],
+    "more": false
+   },
+   "chores": {
+    "title": "Chores done",
+    "rows": [],
+    "more": false
+   },
+   "tests": {
+    "title": "Lab tests",
+    "rows": [],
+    "more": false
+   }
+  },
+  "undo": null
+ },
+ "pull": {
+  "v": 1,
+  "search": {
+   "q": "pull",
+   "searched": true,
+   "limit": 15,
+   "hint": "Private and gratitude entries are searched on the Private page only.",
+   "foods": {
+    "title": "Foods in the catalogue",
+    "rows": [],
+    "more": false
+   },
+   "ate": {
+    "title": "What you ate",
+    "rows": [],
+    "more": false
+   },
+   "workouts": {
+    "title": "Gym workouts",
+    "rows": [
+     {
+      "workout_id": 1,
+      "anchor": "w1",
+      "day": "2026-11-14",
+      "day_text": "Sat 14.11.2026",
+      "split": "Pull day",
+      "text": "Rowing, Goblet squat"
+     }
+    ],
+    "more": false
+   },
+   "chores": {
+    "title": "Chores done",
+    "rows": [],
+    "more": false
+   },
+   "tests": {
+    "title": "Lab tests",
+    "rows": [],
+    "more": false
+   }
+  },
+  "undo": null
+ },
+ "stove": {
+  "v": 1,
+  "search": {
+   "q": "stove",
+   "searched": true,
+   "limit": 15,
+   "hint": "Private and gratitude entries are searched on the Private page only.",
+   "foods": {
+    "title": "Foods in the catalogue",
+    "rows": [],
+    "more": false
+   },
+   "ate": {
+    "title": "What you ate",
+    "rows": [],
+    "more": false
+   },
+   "workouts": {
+    "title": "Gym workouts",
+    "rows": [],
+    "more": false
+   },
+   "chores": {
+    "title": "Chores done",
+    "rows": [
+     {
+      "chore_id": 1,
+      "label": "Stove · Kitchen",
+      "day": "2026-11-15",
+      "day_text": "Sun 15.11.2026",
+      "start": false
+     },
+     {
+      "chore_id": 1,
+      "label": "Stove · Kitchen",
+      "day": "2026-10-08",
+      "day_text": "Thu 08.10.2026",
+      "start": true
+     }
+    ],
+    "more": false
+   },
+   "tests": {
+    "title": "Lab tests",
+    "rows": [],
+    "more": false
+   }
+  },
+  "undo": null
+ },
+ "vitamin": {
+  "v": 1,
+  "search": {
+   "q": "vitamin",
+   "searched": true,
+   "limit": 15,
+   "hint": "Private and gratitude entries are searched on the Private page only.",
+   "foods": {
+    "title": "Foods in the catalogue",
+    "rows": [],
+    "more": false
+   },
+   "ate": {
+    "title": "What you ate",
+    "rows": [],
+    "more": false
+   },
+   "workouts": {
+    "title": "Gym workouts",
+    "rows": [],
+    "more": false
+   },
+   "chores": {
+    "title": "Chores done",
+    "rows": [],
+    "more": false
+   },
+   "tests": {
+    "title": "Lab tests",
+    "rows": [
+     {
+      "test_id": 7,
+      "name": "Test vitamin D"
+     },
+     {
+      "test_id": 21,
+      "name": "Vitamin D"
+     },
+     {
+      "test_id": 27,
+      "name": "Vitamin Q"
+     },
+     {
+      "test_id": 11,
+      "name": "Zz Vitamin D"
+     },
+     {
+      "test_id": 26,
+      "name": "Zz Vitamin Q"
+     }
+    ],
+    "more": false
+   }
+  },
+  "undo": null
+ },
+ "zzqq": {
+  "v": 1,
+  "search": {
+   "q": "zzqq",
+   "searched": true,
+   "limit": 15,
+   "hint": "Private and gratitude entries are searched on the Private page only.",
+   "foods": {
+    "title": "Foods in the catalogue",
+    "rows": [],
+    "more": false
+   },
+   "ate": {
+    "title": "What you ate",
+    "rows": [],
+    "more": false
+   },
+   "workouts": {
+    "title": "Gym workouts",
+    "rows": [],
+    "more": false
+   },
+   "chores": {
+    "title": "Chores done",
+    "rows": [],
+    "more": false
+   },
+   "tests": {
+    "title": "Lab tests",
+    "rows": [],
+    "more": false
+   }
+  },
+  "undo": null
+ },
+ "m": {
+  "v": 1,
+  "search": {
+   "q": "m",
+   "searched": false,
+   "limit": 15,
+   "hint": "Type at least two letters. Private and gratitude entries are searched on the Private page only.",
+   "foods": {
+    "title": "Foods in the catalogue",
+    "rows": [],
+    "more": false
+   },
+   "ate": {
+    "title": "What you ate",
+    "rows": [],
+    "more": false
+   },
+   "workouts": {
+    "title": "Gym workouts",
+    "rows": [],
+    "more": false
+   },
+   "chores": {
+    "title": "Chores done",
+    "rows": [],
+    "more": false
+   },
+   "tests": {
+    "title": "Lab tests",
+    "rows": [],
+    "more": false
+   }
+  },
+  "undo": null
+ }
+}

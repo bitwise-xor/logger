@@ -1,0 +1,166 @@
+{
+ "v": 1,
+ "recent": {
+  "limit": 50,
+  "small": "The last 50 messages from the web app and Claude",
+  "empty": "No messages yet.",
+  "none": "Nothing saved from this message.",
+  "days": [
+   {
+    "day": "2026-11-17",
+    "head": "Today",
+    "messages": [
+     {
+      "id": 1,
+      "private": false,
+      "at": "2026-11-17T12:19:59.678310+01:00",
+      "time": "12:19",
+      "channel": "web",
+      "channel_label": "Web app",
+      "text": "40 g bircher müsli with skyr",
+      "again": "40 g bircher müsli with skyr",
+      "open_day": "2026-11-17",
+      "saved": [
+       {
+        "kind": "Food",
+        "text": "Bircher Müsli 40 g · meal 1"
+       },
+       {
+        "kind": "Food",
+        "text": "Skyr 100 g · meal 1"
+       }
+      ]
+     },
+     {
+      "id": null,
+      "private": true,
+      "at": "2026-11-17T12:04:59.745658+01:00",
+      "time": "12:04",
+      "channel": null,
+      "channel_label": "Private",
+      "text": null,
+      "again": null,
+      "open_day": null,
+      "saved": [
+       {
+        "kind": "Private",
+        "text": "private"
+       }
+      ]
+     },
+     {
+      "id": 2,
+      "private": false,
+      "at": "2026-11-17T11:34:59.680262+01:00",
+      "time": "11:34",
+      "channel": "mcp",
+      "channel_label": "Claude",
+      "text": "green tea at 09:30",
+      "again": "green tea",
+      "open_day": "2026-11-17",
+      "saved": [
+       {
+        "kind": "Food",
+        "text": "Green tea 250 ml · drinks"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "day": "2026-11-16",
+    "head": "Yesterday",
+    "messages": [
+     {
+      "id": 3,
+      "private": false,
+      "at": "2026-11-16T11:54:59.682263+01:00",
+      "time": "11:54",
+      "channel": "claude-chat",
+      "channel_label": "Claude",
+      "text": "150 g skyr on 16.11.2026",
+      "again": "150 g skyr",
+      "open_day": "2026-11-16",
+      "saved": [
+       {
+        "kind": "Food",
+        "text": "Skyr 150 g · meal 1"
+       }
+      ]
+     },
+     {
+      "id": null,
+      "private": true,
+      "at": "2026-11-16T11:24:59.747682+01:00",
+      "time": "11:24",
+      "channel": null,
+      "channel_label": "Private",
+      "text": null,
+      "again": null,
+      "open_day": null,
+      "saved": [
+       {
+        "kind": "Private",
+        "text": "gratitude"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "day": "2026-11-14",
+    "head": "Sat 14.11.",
+    "messages": [
+     {
+      "id": 4,
+      "private": false,
+      "at": "2026-11-14T12:24:59.683767+01:00",
+      "time": "12:24",
+      "channel": "web",
+      "channel_label": "Web app",
+      "text": "an invented note about nothing",
+      "again": "an invented note about nothing",
+      "open_day": null,
+      "saved": [
+       {
+        "kind": "Idea",
+        "text": "invented muesli idea Bircher Müsli"
+       }
+      ]
+     },
+     {
+      "id": 5,
+      "private": false,
+      "at": "2026-11-14T12:14:59.685481+01:00",
+      "time": "12:14",
+      "channel": "web",
+      "channel_label": "Web app",
+      "text": "rowing 3x8 24 kg",
+      "again": "rowing 3x8 24 kg",
+      "open_day": "2026-11-14",
+      "saved": [
+       {
+        "kind": "Gym",
+        "text": "Rowing 3 × 8 at 24 kg"
+       }
+      ]
+     },
+     {
+      "id": 6,
+      "private": false,
+      "at": "2026-11-14T12:04:59.687359+01:00",
+      "time": "12:04",
+      "channel": "web",
+      "channel_label": "Web app",
+      "text": "what did I eat yesterday",
+      "again": "what did I eat yesterday",
+      "open_day": null,
+      "saved": []
+     }
+    ]
+   }
+  ],
+  "not_read": 1
+ },
+ "undo": null
+}

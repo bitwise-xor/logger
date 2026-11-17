@@ -722,6 +722,34 @@
     "done_at": null
    },
    "hidden": 0
+  },
+  "coach": {
+   "kind": "day",
+   "start": "2026-11-16",
+   "end": "2026-11-16",
+   "title": "Coach",
+   "small": "this day · on demand",
+   "state": "none",
+   "id": null,
+   "wait": null,
+   "wait_note": null,
+   "parts": [],
+   "caution": null,
+   "meta": null,
+   "failed": null,
+   "intro": "A short look at this day: what went well, what to improve, your next meal and what is missing in the log.",
+   "cost": "about 30 seconds · about 6 cents",
+   "button": "Coach me",
+   "links": [
+    {
+     "label": "All coachings",
+     "href": "/web/coach"
+    },
+    {
+     "label": "Your goals",
+     "href": "/web/settings?tab=coach"
+    }
+   ]
   }
  },
  "undo": null

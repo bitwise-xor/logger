@@ -2,7 +2,7 @@
 the private guard on questions and on lines the AI files as private, one name per field (the old names gone since deploy 78), Undo on a
 reload, a mixed line's look-up in result, answer styles and refill buttons, the outcome's tone, no chat lines in read-backs, and
 Try again / Delete on a message not read yet; the usual-meal editor's shapes (deploy 86); the scanner's, label photo's and look-up's
-shapes (deploy 89); the Health page's and body measurements' shapes (deploy 91); the Habits page's shapes (deploy 93); the Gym's shapes (deploy 95); Home's shapes (deploy 98); Trends' shapes (deploy 101); Library's and Medical's shapes (deploy 104). Every name, food, number and sentence is invented."""
+shapes (deploy 89); the Health page's and body measurements' shapes (deploy 91); the Habits page's shapes (deploy 93); the Gym's shapes (deploy 95); Home's shapes (deploy 98); Trends' shapes (deploy 101); Library's and Medical's shapes (deploy 104); Search's, Recent's, Usage's and Coach's shapes (deploy 107). Every name, food, number and sentence is invented."""
 from datetime import datetime, timedelta
 
 import pytest
@@ -565,3 +565,42 @@ def test_the_library_and_medical_shapes(sv, fake):
                              ("/labs/report", {"id": x["r4"], "title": "Zz other"}, {"labs"})):
         assert set(sv.post(path, **body)) == KEYS | view, path
     assert set(sv.post("/labs/value", id=x["r4_hb"], value="12.9", view="labs_tests", view_t=x["t_hb"])) == KEYS | {"labs_tests"}
+
+
+# ---- 16. Search, Recent, Usage, Coach (deploy 107) ----------------------------------------------------------------------------------
+
+def test_the_more_and_coach_shapes(sv, monkeypatch):
+    from app import coach
+    from test_api_coach import CARD, COACH, ITEM, PART, invented as coachings
+    from test_api_more import KIND, MESSAGE, RECENT, SEARCH, TILES, TOP, USAGE, invented as more
+    from test_coach import FakeCoach
+
+    monkeypatch.setattr(coach, "PROVIDER", FakeCoach())
+    monkeypatch.setattr(coach, "BACKGROUND", False)
+    x = more()
+    coachings()
+    s = get(sv, "/search?q=zz")
+    assert set(s) == {"v", "search", "undo"} and set(s["search"]) == SEARCH
+    rows = {"foods": {"id", "food_id", "name"}, "ate": {"id", "ref", "day", "day_text", "food", "amount", "unit", "amount_text", "note"},
+            "workouts": {"workout_id", "anchor", "day", "day_text", "split", "text"}, "chores": {"chore_id", "label", "day", "day_text", "start"},
+            "tests": {"test_id", "name"}}
+    for k, keys in rows.items():
+        assert set(s["search"][k]) == {"title", "rows", "more"} and s["search"][k]["rows"] and all(set(r) == keys for r in s["search"][k]["rows"]), k
+    r = get(sv, "/recent")["recent"]
+    assert set(r) == RECENT and all(set(d) == {"day", "head", "messages"} for d in r["days"])
+    assert all(set(m) == MESSAGE and all(set(i) == {"kind", "text"} for i in m["saved"]) for d in r["days"] for m in d["messages"])
+    u = get(sv, "/usage?r=all")["usage"]
+    assert set(u) == USAGE and set(u["tiles"]) == TILES and all(set(k) == KIND for k in [*u["kinds"], u["all"]]) and all(set(t) == TOP for t in u["top"])
+    assert set(u["chart"]) == {"start", "days", "series", "label", "min", "prefix", "decimals"} and all(set(x_) == {"r", "label", "current"} for x_ in u["ranges"])
+    c = get(sv, "/coach")["coach"]
+    assert set(c) == COACH and set(c["card"]) == CARD and set(c["month"]) == {"count", "usd", "text"}
+    assert all(set(i) == ITEM and all(set(p) == PART for p in i["parts"]) and set(i["meta"]) == {"model", "usd", "at", "at_text", "text"}
+               for i in c["list"])
+    assert OFFSET.search(c["list"][0]["meta"]["at"]) and all(set(f) == {"f", "label", "current"} for f in c["filters"])
+    assert set(get(sv, "/day")["day"]["coach"]) == CARD
+    h = get(sv, f"/gym/history?w={x['w_free']}")["gym_history"]
+    assert set(h) == {"workouts"}
+    t0 = get(sv, "/day")["day"]["day"]
+    j = sv.post("/coach/start", kind="day", start=t0, end="2999-01-01")  # refused: end after today
+    assert set(j) == KEYS | {"day", "coaching"} and j["outcome"] == "rejected" and j["coaching"] is None
+    assert set(sv.post("/coach/start", kind="day", start=t0, end=t0, view="coach")) == KEYS | {"coach", "coaching"}

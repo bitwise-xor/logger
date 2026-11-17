@@ -198,9 +198,20 @@ def _first(row: dict) -> str:
     return xs[0] if xs else ""
 
 
-def render(csrf: str, q=None) -> str:
-    """The Coach page: every finished coaching, newest first, each opening in place."""
-    f = (q or {}).get("f") if (q or {}).get("f") in dict(FILTERS) else "all"
+def heading(row: dict) -> str:
+    """A coaching's heading in the list: "Sat 07.11." (day), "Week 02.11. to 08.11." (week)."""
+    return f'{row["start_day"]:%a %d.%m.}' if row["kind"] == "day" else f'Week {row["start_day"]:%d.%m.} to {row["end_day"]:%d.%m.}'
+
+
+EMPTY = 'No coachings yet. Press "Coach me" on Today or "Review this week" on the Week page.'
+KEPT = 'Every coaching is kept; "Coach me again" adds a new one.'
+
+
+def list_data(f: str = "all") -> dict:
+    """The Coach page as data (deploy 107: app.'s page and the JSON door read the same): f (all, days, weeks; another is all), rows (the
+    finished coachings of those kinds, newest first, at most 100), month {n, usd, text}: this month's finished coachings (Berlin; not
+    filtered) and the hidden parts (Settings > Coach)."""
+    f = f if f in dict(FILTERS) else "all"
     kinds = {"all": ["day", "week"], "days": ["day"], "weeks": ["week"]}[f]
     with connect() as conn, conn.cursor() as cur:
         cur.execute("""SELECT * FROM coachings WHERE status = 'done' AND kind = ANY(%s) ORDER BY created_at DESC LIMIT 100""", (kinds,))
@@ -209,17 +220,23 @@ def render(csrf: str, q=None) -> str:
                        WHERE status = 'done' AND date_trunc('month', created_at AT TIME ZONE 'Europe/Berlin') = date_trunc('month', now() AT TIME ZONE 'Europe/Berlin')""")
         month = cur.fetchone()
         hidden = frozenset(coach.prefs(cur)["hidden"])
+    text = f'This month: {month["n"]} coaching{"" if month["n"] == 1 else "s"} · ${float(month["usd"]):.2f} (also on the Usage page).'
+    return {"f": f, "rows": rows, "month": {"n": month["n"], "usd": float(month["usd"]), "text": text}, "hidden": hidden}
+
+
+def render(csrf: str, q=None) -> str:
+    """The Coach page: every finished coaching, newest first, each opening in place."""
+    d = list_data((q or {}).get("f"))
+    f, hidden = d["f"], d["hidden"]
     chips = "".join(f'<a href="/web/coach?f={k}"' + (' aria-current="page"' if k == f else "") + f">{lbl}</a>" for k, lbl in FILTERS)
     items = []
-    for r in rows:
-        when = f'{r["start_day"]:%a %d.%m.}' if r["kind"] == "day" else f'Week {r["start_day"]:%d.%m.} to {r["end_day"]:%d.%m.}'
-        items.append(f'<details class="coitem"><summary><span class="row"><b>{esc(when)}</b><span class="pill ok">{r["kind"]}</span></span>'
+    for r in d["rows"]:
+        items.append(f'<details class="coitem"><summary><span class="row"><b>{esc(heading(r))}</b><span class="pill ok">{r["kind"]}</span></span>'
                      f'<span>{esc(_first(r))}</span><span class="small">{esc(_meta(r))}</span></summary>{body_html(r, hidden)}</details>')
-    body = "".join(items) or '<p class="empty">No coachings yet. Press "Coach me" on Today or "Review this week" on the Week page.</p>'
+    body = "".join(items) or f'<p class="empty">{EMPTY}</p>'
     return (f'<div class="head"><h1>Coach</h1><nav class="seg" aria-label="Coachings">{chips}</nav></div>'
             f'<div class="card">{body}</div>'
-            f'<p class="small">Every coaching is kept; "Coach me again" adds a new one. This month: {month["n"]} coaching'
-            f'{"" if month["n"] == 1 else "s"} · ${float(month["usd"]):.2f} (also on the Usage page).</p>')
+            f'<p class="small">{KEPT} {d["month"]["text"]}</p>')
 
 
 def settings_tab(session, csrf: str) -> str:

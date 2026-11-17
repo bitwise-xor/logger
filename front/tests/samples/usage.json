@@ -1,0 +1,771 @@
+{
+ "7": {
+  "v": 1,
+  "usage": {
+   "r": "7",
+   "ranges": [
+    {
+     "r": "7",
+     "label": "7 days",
+     "current": true
+    },
+    {
+     "r": "30",
+     "label": "30 days",
+     "current": false
+    },
+    {
+     "r": "all",
+     "label": "Everything",
+     "current": false
+    }
+   ],
+   "start": "2026-11-11",
+   "end": "2026-11-17",
+   "days": 7,
+   "first": "2026-11-05",
+   "since": "Recorded since 05.11.2026 (the v2 trial); v1 kept no costs.",
+   "tiles": {
+    "calls": 7,
+    "usd": 0.101,
+    "usd_text": "$0.10",
+    "per_message": 0.00633,
+    "per_message_text": "$0.006",
+    "messages": 3,
+    "tokens_in": 34500,
+    "tokens_out": 2270,
+    "tokens_text": "34k / 2k",
+    "tokens_known": false,
+    "tokens_note": "some older calls have none"
+   },
+   "chart": {
+    "start": "2026-11-11",
+    "days": 7,
+    "series": [
+     {
+      "mark": "bar",
+      "cls": "a",
+      "pts": [
+       [
+        6,
+        0.009,
+        "Tue 17.11.: Haiku $0.009",
+        0
+       ]
+      ]
+     },
+     {
+      "mark": "bar",
+      "cls": "b",
+      "pts": [
+       [
+        4,
+        0.011,
+        "Sun 15.11.: Sonnet $0.011",
+        0.0
+       ],
+       [
+        6,
+        0.015,
+        "Tue 17.11.: Sonnet $0.015",
+        0.009
+       ]
+      ]
+     },
+     {
+      "mark": "bar",
+      "cls": "c",
+      "pts": [
+       [
+        5,
+        0.066,
+        "Mon 16.11.: Opus $0.066",
+        0.0
+       ]
+      ]
+     }
+    ],
+    "label": "Cost per day in dollars",
+    "min": 0,
+    "prefix": "$",
+    "decimals": 3
+   },
+   "empty": "No AI calls in this range.",
+   "legend": [
+    {
+     "key": "sq a",
+     "text": "Haiku (every message)"
+    },
+    {
+     "key": "sq b",
+     "text": "Sonnet (second reads, lab reports, label photos)"
+    },
+    {
+     "key": "sq c",
+     "text": "Opus (coaching)"
+    }
+   ],
+   "kinds": [
+    {
+     "kind": "coaching",
+     "calls": 1,
+     "tokens_in": 9000,
+     "tokens_out": 1500,
+     "tokens_known": true,
+     "tokens_in_text": "9.0k",
+     "tokens_out_text": "1.5k",
+     "usd": 0.066,
+     "usd_text": "$0.066"
+    },
+    {
+     "kind": "message",
+     "calls": 4,
+     "tokens_in": 23000,
+     "tokens_out": 470,
+     "tokens_known": true,
+     "tokens_in_text": "23.0k",
+     "tokens_out_text": "0.5k",
+     "usd": 0.019,
+     "usd_text": "$0.019"
+    },
+    {
+     "kind": "label photo",
+     "calls": 1,
+     "tokens_in": 2500,
+     "tokens_out": 300,
+     "tokens_known": true,
+     "tokens_in_text": "2.5k",
+     "tokens_out_text": "0.3k",
+     "usd": 0.011,
+     "usd_text": "$0.011"
+    },
+    {
+     "kind": "food look-up",
+     "calls": 1,
+     "tokens_in": 0,
+     "tokens_out": 0,
+     "tokens_known": false,
+     "tokens_in_text": "0.0k*",
+     "tokens_out_text": "0.0k*",
+     "usd": 0.005,
+     "usd_text": "$0.005"
+    }
+   ],
+   "all": {
+    "kind": "All",
+    "calls": 7,
+    "tokens_in": 34500,
+    "tokens_out": 2270,
+    "tokens_known": false,
+    "tokens_in_text": "34.5k*",
+    "tokens_out_text": "2.3k*",
+    "usd": 0.101,
+    "usd_text": "$0.10"
+   },
+   "kinds_note": "* Some of these calls are older than 04.11.2026 and have their cost but no token counts.",
+   "pushes": 2,
+   "pushes_text": "Phone notifications sent: 2 (free).",
+   "top": [
+    {
+     "at": "2026-11-17T12:24:59.751215+01:00",
+     "at_text": "Tue 17.11. 12:24",
+     "kind": "message",
+     "text": "40 g bircher müsli with skyr",
+     "private": false,
+     "models": [
+      "Haiku",
+      "Sonnet"
+     ],
+     "models_text": "Haiku + Sonnet",
+     "usd": 0.012,
+     "usd_text": "$0.012",
+     "escalated": true
+    },
+    {
+     "at": "2026-11-15T12:24:59.757013+01:00",
+     "at_text": "Sun 15.11. 12:24",
+     "kind": "label photo",
+     "text": null,
+     "private": false,
+     "models": [
+      "Sonnet"
+     ],
+     "models_text": "Sonnet",
+     "usd": 0.011,
+     "usd_text": "$0.011",
+     "escalated": false
+    },
+    {
+     "at": "2026-11-17T12:24:59.755669+01:00",
+     "at_text": "Tue 17.11. 12:24",
+     "kind": "food look-up",
+     "text": null,
+     "private": false,
+     "models": [
+      "Sonnet"
+     ],
+     "models_text": "Sonnet",
+     "usd": 0.005,
+     "usd_text": "$0.005",
+     "escalated": false
+    },
+    {
+     "at": "2026-11-17T12:24:59.754432+01:00",
+     "at_text": "Tue 17.11. 12:24",
+     "kind": "message",
+     "text": null,
+     "private": true,
+     "models": [
+      "Haiku"
+     ],
+     "models_text": "Haiku",
+     "usd": 0.004,
+     "usd_text": "$0.004",
+     "escalated": false
+    },
+    {
+     "at": "2026-11-17T12:24:59.752866+01:00",
+     "at_text": "Tue 17.11. 12:24",
+     "kind": "message",
+     "text": "green tea at 09:30",
+     "private": false,
+     "models": [
+      "Haiku"
+     ],
+     "models_text": "Haiku",
+     "usd": 0.003,
+     "usd_text": "$0.003",
+     "escalated": false
+    }
+   ],
+   "note": "Private entries never show their words. Food look-ups, lab reports and label photos show no words. Coachings are under By kind and on the Coach page."
+  },
+  "undo": null
+ },
+ "30": {
+  "v": 1,
+  "usage": {
+   "r": "30",
+   "ranges": [
+    {
+     "r": "7",
+     "label": "7 days",
+     "current": false
+    },
+    {
+     "r": "30",
+     "label": "30 days",
+     "current": true
+    },
+    {
+     "r": "all",
+     "label": "Everything",
+     "current": false
+    }
+   ],
+   "start": "2026-10-19",
+   "end": "2026-11-17",
+   "days": 30,
+   "first": "2026-11-05",
+   "since": "Recorded since 05.11.2026 (the v2 trial); v1 kept no costs.",
+   "tiles": {
+    "calls": 8,
+    "usd": 0.103,
+    "usd_text": "$0.10",
+    "per_message": 0.00525,
+    "per_message_text": "$0.005",
+    "messages": 4,
+    "tokens_in": 39500,
+    "tokens_out": 2360,
+    "tokens_text": "40k / 2k",
+    "tokens_known": false,
+    "tokens_note": "some older calls have none"
+   },
+   "chart": {
+    "start": "2026-10-19",
+    "days": 30,
+    "series": [
+     {
+      "mark": "bar",
+      "cls": "a",
+      "pts": [
+       [
+        17,
+        0.002,
+        "Thu 05.11.: Haiku $0.002",
+        0
+       ],
+       [
+        29,
+        0.009,
+        "Tue 17.11.: Haiku $0.009",
+        0
+       ]
+      ]
+     },
+     {
+      "mark": "bar",
+      "cls": "b",
+      "pts": [
+       [
+        27,
+        0.011,
+        "Sun 15.11.: Sonnet $0.011",
+        0.0
+       ],
+       [
+        29,
+        0.015,
+        "Tue 17.11.: Sonnet $0.015",
+        0.009
+       ]
+      ]
+     },
+     {
+      "mark": "bar",
+      "cls": "c",
+      "pts": [
+       [
+        28,
+        0.066,
+        "Mon 16.11.: Opus $0.066",
+        0.0
+       ]
+      ]
+     }
+    ],
+    "label": "Cost per day in dollars",
+    "min": 0,
+    "prefix": "$",
+    "decimals": 3
+   },
+   "empty": "No AI calls in this range.",
+   "legend": [
+    {
+     "key": "sq a",
+     "text": "Haiku (every message)"
+    },
+    {
+     "key": "sq b",
+     "text": "Sonnet (second reads, lab reports, label photos)"
+    },
+    {
+     "key": "sq c",
+     "text": "Opus (coaching)"
+    }
+   ],
+   "kinds": [
+    {
+     "kind": "coaching",
+     "calls": 1,
+     "tokens_in": 9000,
+     "tokens_out": 1500,
+     "tokens_known": true,
+     "tokens_in_text": "9.0k",
+     "tokens_out_text": "1.5k",
+     "usd": 0.066,
+     "usd_text": "$0.066"
+    },
+    {
+     "kind": "message",
+     "calls": 5,
+     "tokens_in": 28000,
+     "tokens_out": 560,
+     "tokens_known": true,
+     "tokens_in_text": "28.0k",
+     "tokens_out_text": "0.6k",
+     "usd": 0.021,
+     "usd_text": "$0.021"
+    },
+    {
+     "kind": "label photo",
+     "calls": 1,
+     "tokens_in": 2500,
+     "tokens_out": 300,
+     "tokens_known": true,
+     "tokens_in_text": "2.5k",
+     "tokens_out_text": "0.3k",
+     "usd": 0.011,
+     "usd_text": "$0.011"
+    },
+    {
+     "kind": "food look-up",
+     "calls": 1,
+     "tokens_in": 0,
+     "tokens_out": 0,
+     "tokens_known": false,
+     "tokens_in_text": "0.0k*",
+     "tokens_out_text": "0.0k*",
+     "usd": 0.005,
+     "usd_text": "$0.005"
+    }
+   ],
+   "all": {
+    "kind": "All",
+    "calls": 8,
+    "tokens_in": 39500,
+    "tokens_out": 2360,
+    "tokens_known": false,
+    "tokens_in_text": "39.5k*",
+    "tokens_out_text": "2.4k*",
+    "usd": 0.103,
+    "usd_text": "$0.10"
+   },
+   "kinds_note": "* Some of these calls are older than 04.11.2026 and have their cost but no token counts.",
+   "pushes": 2,
+   "pushes_text": "Phone notifications sent: 2 (free).",
+   "top": [
+    {
+     "at": "2026-11-17T12:24:59.751215+01:00",
+     "at_text": "Tue 17.11. 12:24",
+     "kind": "message",
+     "text": "40 g bircher müsli with skyr",
+     "private": false,
+     "models": [
+      "Haiku",
+      "Sonnet"
+     ],
+     "models_text": "Haiku + Sonnet",
+     "usd": 0.012,
+     "usd_text": "$0.012",
+     "escalated": true
+    },
+    {
+     "at": "2026-11-15T12:24:59.757013+01:00",
+     "at_text": "Sun 15.11. 12:24",
+     "kind": "label photo",
+     "text": null,
+     "private": false,
+     "models": [
+      "Sonnet"
+     ],
+     "models_text": "Sonnet",
+     "usd": 0.011,
+     "usd_text": "$0.011",
+     "escalated": false
+    },
+    {
+     "at": "2026-11-17T12:24:59.755669+01:00",
+     "at_text": "Tue 17.11. 12:24",
+     "kind": "food look-up",
+     "text": null,
+     "private": false,
+     "models": [
+      "Sonnet"
+     ],
+     "models_text": "Sonnet",
+     "usd": 0.005,
+     "usd_text": "$0.005",
+     "escalated": false
+    },
+    {
+     "at": "2026-11-17T12:24:59.754432+01:00",
+     "at_text": "Tue 17.11. 12:24",
+     "kind": "message",
+     "text": null,
+     "private": true,
+     "models": [
+      "Haiku"
+     ],
+     "models_text": "Haiku",
+     "usd": 0.004,
+     "usd_text": "$0.004",
+     "escalated": false
+    },
+    {
+     "at": "2026-11-17T12:24:59.752866+01:00",
+     "at_text": "Tue 17.11. 12:24",
+     "kind": "message",
+     "text": "green tea at 09:30",
+     "private": false,
+     "models": [
+      "Haiku"
+     ],
+     "models_text": "Haiku",
+     "usd": 0.003,
+     "usd_text": "$0.003",
+     "escalated": false
+    },
+    {
+     "at": "2026-11-05T12:24:59.759968+01:00",
+     "at_text": "Thu 05.11. 12:24",
+     "kind": "message",
+     "text": "an invented note about nothing",
+     "private": false,
+     "models": [
+      "Haiku"
+     ],
+     "models_text": "Haiku",
+     "usd": 0.002,
+     "usd_text": "$0.002",
+     "escalated": false
+    }
+   ],
+   "note": "Private entries never show their words. Food look-ups, lab reports and label photos show no words. Coachings are under By kind and on the Coach page."
+  },
+  "undo": null
+ },
+ "all": {
+  "v": 1,
+  "usage": {
+   "r": "all",
+   "ranges": [
+    {
+     "r": "7",
+     "label": "7 days",
+     "current": false
+    },
+    {
+     "r": "30",
+     "label": "30 days",
+     "current": false
+    },
+    {
+     "r": "all",
+     "label": "Everything",
+     "current": true
+    }
+   ],
+   "start": "2026-11-05",
+   "end": "2026-11-17",
+   "days": 13,
+   "first": "2026-11-05",
+   "since": "Recorded since 05.11.2026 (the v2 trial); v1 kept no costs.",
+   "tiles": {
+    "calls": 8,
+    "usd": 0.103,
+    "usd_text": "$0.10",
+    "per_message": 0.00525,
+    "per_message_text": "$0.005",
+    "messages": 4,
+    "tokens_in": 39500,
+    "tokens_out": 2360,
+    "tokens_text": "40k / 2k",
+    "tokens_known": false,
+    "tokens_note": "some older calls have none"
+   },
+   "chart": {
+    "start": "2026-11-05",
+    "days": 13,
+    "series": [
+     {
+      "mark": "bar",
+      "cls": "a",
+      "pts": [
+       [
+        0,
+        0.002,
+        "Thu 05.11.: Haiku $0.002",
+        0
+       ],
+       [
+        12,
+        0.009,
+        "Tue 17.11.: Haiku $0.009",
+        0
+       ]
+      ]
+     },
+     {
+      "mark": "bar",
+      "cls": "b",
+      "pts": [
+       [
+        10,
+        0.011,
+        "Sun 15.11.: Sonnet $0.011",
+        0.0
+       ],
+       [
+        12,
+        0.015,
+        "Tue 17.11.: Sonnet $0.015",
+        0.009
+       ]
+      ]
+     },
+     {
+      "mark": "bar",
+      "cls": "c",
+      "pts": [
+       [
+        11,
+        0.066,
+        "Mon 16.11.: Opus $0.066",
+        0.0
+       ]
+      ]
+     }
+    ],
+    "label": "Cost per day in dollars",
+    "min": 0,
+    "prefix": "$",
+    "decimals": 3
+   },
+   "empty": "No AI calls in this range.",
+   "legend": [
+    {
+     "key": "sq a",
+     "text": "Haiku (every message)"
+    },
+    {
+     "key": "sq b",
+     "text": "Sonnet (second reads, lab reports, label photos)"
+    },
+    {
+     "key": "sq c",
+     "text": "Opus (coaching)"
+    }
+   ],
+   "kinds": [
+    {
+     "kind": "coaching",
+     "calls": 1,
+     "tokens_in": 9000,
+     "tokens_out": 1500,
+     "tokens_known": true,
+     "tokens_in_text": "9.0k",
+     "tokens_out_text": "1.5k",
+     "usd": 0.066,
+     "usd_text": "$0.066"
+    },
+    {
+     "kind": "message",
+     "calls": 5,
+     "tokens_in": 28000,
+     "tokens_out": 560,
+     "tokens_known": true,
+     "tokens_in_text": "28.0k",
+     "tokens_out_text": "0.6k",
+     "usd": 0.021,
+     "usd_text": "$0.021"
+    },
+    {
+     "kind": "label photo",
+     "calls": 1,
+     "tokens_in": 2500,
+     "tokens_out": 300,
+     "tokens_known": true,
+     "tokens_in_text": "2.5k",
+     "tokens_out_text": "0.3k",
+     "usd": 0.011,
+     "usd_text": "$0.011"
+    },
+    {
+     "kind": "food look-up",
+     "calls": 1,
+     "tokens_in": 0,
+     "tokens_out": 0,
+     "tokens_known": false,
+     "tokens_in_text": "0.0k*",
+     "tokens_out_text": "0.0k*",
+     "usd": 0.005,
+     "usd_text": "$0.005"
+    }
+   ],
+   "all": {
+    "kind": "All",
+    "calls": 8,
+    "tokens_in": 39500,
+    "tokens_out": 2360,
+    "tokens_known": false,
+    "tokens_in_text": "39.5k*",
+    "tokens_out_text": "2.4k*",
+    "usd": 0.103,
+    "usd_text": "$0.10"
+   },
+   "kinds_note": "* Some of these calls are older than 04.11.2026 and have their cost but no token counts.",
+   "pushes": 2,
+   "pushes_text": "Phone notifications sent: 2 (free).",
+   "top": [
+    {
+     "at": "2026-11-17T12:24:59.751215+01:00",
+     "at_text": "Tue 17.11. 12:24",
+     "kind": "message",
+     "text": "40 g bircher müsli with skyr",
+     "private": false,
+     "models": [
+      "Haiku",
+      "Sonnet"
+     ],
+     "models_text": "Haiku + Sonnet",
+     "usd": 0.012,
+     "usd_text": "$0.012",
+     "escalated": true
+    },
+    {
+     "at": "2026-11-15T12:24:59.757013+01:00",
+     "at_text": "Sun 15.11. 12:24",
+     "kind": "label photo",
+     "text": null,
+     "private": false,
+     "models": [
+      "Sonnet"
+     ],
+     "models_text": "Sonnet",
+     "usd": 0.011,
+     "usd_text": "$0.011",
+     "escalated": false
+    },
+    {
+     "at": "2026-11-17T12:24:59.755669+01:00",
+     "at_text": "Tue 17.11. 12:24",
+     "kind": "food look-up",
+     "text": null,
+     "private": false,
+     "models": [
+      "Sonnet"
+     ],
+     "models_text": "Sonnet",
+     "usd": 0.005,
+     "usd_text": "$0.005",
+     "escalated": false
+    },
+    {
+     "at": "2026-11-17T12:24:59.754432+01:00",
+     "at_text": "Tue 17.11. 12:24",
+     "kind": "message",
+     "text": null,
+     "private": true,
+     "models": [
+      "Haiku"
+     ],
+     "models_text": "Haiku",
+     "usd": 0.004,
+     "usd_text": "$0.004",
+     "escalated": false
+    },
+    {
+     "at": "2026-11-17T12:24:59.752866+01:00",
+     "at_text": "Tue 17.11. 12:24",
+     "kind": "message",
+     "text": "green tea at 09:30",
+     "private": false,
+     "models": [
+      "Haiku"
+     ],
+     "models_text": "Haiku",
+     "usd": 0.003,
+     "usd_text": "$0.003",
+     "escalated": false
+    },
+    {
+     "at": "2026-11-05T12:24:59.759968+01:00",
+     "at_text": "Thu 05.11. 12:24",
+     "kind": "message",
+     "text": "an invented note about nothing",
+     "private": false,
+     "models": [
+      "Haiku"
+     ],
+     "models_text": "Haiku",
+     "usd": 0.002,
+     "usd_text": "$0.002",
+     "escalated": false
+    }
+   ],
+   "note": "Private entries never show their words. Food look-ups, lab reports and label photos show no words. Coachings are under By kind and on the Coach page."
+  },
+  "undo": null
+ }
+}

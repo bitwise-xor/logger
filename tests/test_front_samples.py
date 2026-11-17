@@ -8,7 +8,8 @@ the Food day (food.json, step E: GET /food/day of the day and the day before, GE
 meals (usual.json, deploy 86: GET /usual, GET /foods, a change with Undo and a refusal), the scanner, label photo and look-up
 (scan.json, deploy 89), the Health page and body measurements (health.json, deploy 91), the Habits page (habits.json, deploy 93), the
 Gym (gym.json, deploy 95), Home (home.json, deploy 98; day.json has Today's Home card since then), Trends (week.json, food_trends.json,
-insights.json, deploy 101), Library and Medical (catalogue.json, labs.json, deploy 104), and
+insights.json, deploy 101), Library and Medical (catalogue.json, labs.json, deploy 104), Search, Recent, Usage and Coach (search.json, recent.json, usage.json,
+coach.json, deploy 107; day.json has Today's Coach card since then), and
 - with WRITE_FRONT_SAMPLES=1: writes the answer to the sample file (then look at the diff and commit it);
 - otherwise: checks that the committed sample still has the door's shape (the same keys at every level), so a change of the door
   that the stand-in does not know about fails here.
@@ -750,3 +751,66 @@ def test_the_labs_sample_has_the_doors_shape(fake):
         a.pop("labs" if k.startswith(("value", "report")) else "labs_meds")
     answers["saves"] = saves
     _write_or_check("labs.json", answers)
+
+
+def test_the_more_samples_have_the_doors_shape():
+    """Search, Recent and Usage (deploy 107, for the More pages of deploy 108): invented foods, meals, workouts, chores, a lab test,
+    messages over four days with what they saved, a private and a gratitude entry (their label only), a message not read yet and AI
+    calls of every kind (test_api_more.invented). Search: a word that finds foods and meals ("muesli" finds "Müsli"), one for each other
+    kind, one with nothing found and one too short; Recent; Usage in its three ranges. A gym history with an older workout added (w)."""
+    from test_api_more import SECRET, invented, workout
+    x = invented(plain=True)
+    c, bearer, _ = signed_in()
+    get = lambda path: c.get("/api/v1" + path, headers=bearer).json()  # noqa: E731
+    search = {q: get(f"/search?q={q}") for q in ("muesli", "rowing", "pull", "stove", "vitamin", "zzqq", "m")}
+    recent = get("/recent")
+    usage = {r: get(f"/usage?r={r}") for r in ("7", "30", "all")}
+    assert search["muesli"]["search"]["foods"]["rows"] and search["muesli"]["search"]["ate"]["rows"]
+    assert search["stove"]["search"]["chores"]["rows"] and search["vitamin"]["search"]["tests"]["rows"]
+    assert search["rowing"]["search"]["workouts"]["rows"] and not search["m"]["search"]["searched"]
+    assert any(m["private"] for d in recent["recent"]["days"] for m in d["messages"]) and recent["recent"]["not_read"] == 1
+    assert usage["7"]["usage"]["top"] and usage["all"]["usage"]["chart"]
+    assert SECRET not in json.dumps([search, recent, usage]) and "idea" not in json.dumps(search)
+    _write_or_check("search.json", search)
+    _write_or_check("recent.json", recent)
+    _write_or_check("usage.json", usage)
+
+
+def test_the_coach_sample_has_the_doors_shape(monkeypatch):
+    """The Coach page (deploy 107, for the Coach page of deploy 108): seven invented coachings (test_api_coach.invented: three days and two
+    weeks done, one working, one failed), the list in each filter, the day card in each state (none, working, done, failed), the list
+    with nothing in it, and Coach me (POST /coach/start, kind day; without its fresh read): started (working), already on it, refused
+    (a later day), the daily limit. The AI is a fake that never answers here: no coaching is read."""
+    from datetime import timedelta as td
+    from app import coach
+    from test_api_coach import invented, today
+    from test_coach import FakeCoach
+
+    f = FakeCoach()
+    monkeypatch.setattr(coach, "PROVIDER", f)
+    monkeypatch.setattr(coach, "BACKGROUND", False)
+    monkeypatch.setattr(coach, "run", lambda cid: None)  # a started coaching stays "working"
+    c, bearer, _ = signed_in()
+    get = lambda path: c.get("/api/v1" + path, headers=bearer).json()  # noqa: E731
+    post = lambda path, **body: c.post("/api/v1" + path, headers=bearer, json=body).json()  # noqa: E731
+    answers = {"empty": get("/coach")}
+    x = invented()
+    t = today()
+    answers.update({"all": get("/coach"), "days": get("/coach?f=days"), "weeks": get("/coach?f=weeks"),
+                    "day_done": get(f"/coach?day={t - td(days=1)}"), "day_failed": get(f"/coach?day={t - td(days=2)}"),
+                    "day_none": get(f"/coach?day={t - td(days=5)}")})
+    d = (t - td(days=5)).isoformat()
+    saves = {"start": post("/coach/start", kind="day", start=d, end=d), "on_it": post("/coach/start", kind="day", start=d, end=d),
+             "refused": post("/coach/start", kind="day", start=(t + td(days=1)).isoformat(), end=(t + td(days=1)).isoformat())}
+    for _ in range(coach.DAILY_LIMIT):
+        owner_sql("INSERT INTO coachings (kind, start_day, end_day, status) VALUES ('day', %s, %s, 'done')", t, t)
+    saves["limit"] = post("/coach/start", kind="day", start=(t - td(days=6)).isoformat(), end=(t - td(days=6)).isoformat())
+    assert answers["all"]["coach"]["card"]["state"] == "working" and answers["all"]["coach"]["card"]["id"] == x["working"]
+    assert [answers[k]["coach"]["card"]["state"] for k in ("day_done", "day_failed", "day_none")] == ["done", "failed", "none"]
+    assert answers["empty"]["coach"]["list"] == [] and len(answers["all"]["coach"]["list"]) == 5
+    assert saves["start"]["coaching"]["state"] == "working" and saves["on_it"]["head"] == "The coach is already on it."
+    assert saves["refused"]["coaching"] is None and saves["limit"]["outcome"] == "rejected" and not f.calls
+    for a in saves.values():
+        assert a.pop("day")
+    answers["saves"] = saves
+    _write_or_check("coach.json", answers)

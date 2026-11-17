@@ -547,13 +547,18 @@ def _best_row(kind: str, rows: list) -> dict:
     return {k: r[k] for k in VALS}
 
 
-def history() -> list:
+def history(also: int | None = None) -> list:
     """Workouts by date, newest first (the last 60): each with its day of the split (the name only, or "Free workout"), its start, its
-    end (no Finish button: the last tick ends it), the times as app. writes them, and its exercises with their rows in order."""
+    end (no Finish button: the last tick ends it), the times as app. writes them, and its exercises with their rows in order.
+    also: a workout's id that is added in its place when it is older than the last 60 (deploy 107: a search result opens its card)."""
     with connect() as conn, conn.cursor() as cur:
         cur.execute("""SELECT w.id, w.day, w.started_at, w.ended_at, d.id AS split_id, d.name AS split_name
                        FROM workouts w LEFT JOIN workout_days d ON d.id = w.split_day_id ORDER BY w.day DESC, w.id DESC LIMIT 60""")
         ws = cur.fetchall()
+        if also is not None and all(w["id"] != also for w in ws):
+            cur.execute("""SELECT w.id, w.day, w.started_at, w.ended_at, d.id AS split_id, d.name AS split_name
+                           FROM workouts w LEFT JOIN workout_days d ON d.id = w.split_day_id WHERE w.id = %s""", (also,))
+            ws = sorted(ws + cur.fetchall(), key=lambda w: (w["day"], w["id"]), reverse=True)
         cur.execute("""SELECT s.*, x.name, x.kind FROM workout_sets s JOIN exercises x ON x.id = s.exercise_id
                        WHERE s.workout_id = ANY(%s) ORDER BY s.sort_order, s.id""", ([w["id"] for w in ws],))
         sets: dict = {}

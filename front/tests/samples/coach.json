@@ -1,0 +1,2373 @@
+{
+ "empty": {
+  "v": 1,
+  "coach": {
+   "f": "all",
+   "filters": [
+    {
+     "f": "all",
+     "label": "All",
+     "current": true
+    },
+    {
+     "f": "days",
+     "label": "Days",
+     "current": false
+    },
+    {
+     "f": "weeks",
+     "label": "Weeks",
+     "current": false
+    }
+   ],
+   "list": [],
+   "empty": "No coachings yet. Press \"Coach me\" on Today or \"Review this week\" on the Week page.",
+   "month": {
+    "count": 0,
+    "usd": 0,
+    "text": "This month: 0 coachings · $0.00 (also on the Usage page)."
+   },
+   "note": "Every coaching is kept; \"Coach me again\" adds a new one.",
+   "day": "2026-11-17",
+   "card": {
+    "kind": "day",
+    "start": "2026-11-17",
+    "end": "2026-11-17",
+    "title": "Coach",
+    "small": "this day · on demand",
+    "state": "none",
+    "id": null,
+    "wait": null,
+    "wait_note": null,
+    "parts": [],
+    "caution": null,
+    "meta": null,
+    "failed": null,
+    "intro": "A short look at this day: what went well, what to improve, your next meal and what is missing in the log.",
+    "cost": "about 30 seconds · about 6 cents",
+    "button": "Coach me",
+    "links": [
+     {
+      "label": "All coachings",
+      "href": "/web/coach"
+     },
+     {
+      "label": "Your goals",
+      "href": "/web/settings?tab=coach"
+     }
+    ]
+   }
+  },
+  "undo": null
+ },
+ "all": {
+  "v": 1,
+  "coach": {
+   "f": "all",
+   "filters": [
+    {
+     "f": "all",
+     "label": "All",
+     "current": true
+    },
+    {
+     "f": "days",
+     "label": "Days",
+     "current": false
+    },
+    {
+     "f": "weeks",
+     "label": "Weeks",
+     "current": false
+    }
+   ],
+   "list": [
+    {
+     "id": 1,
+     "kind": "day",
+     "start": "2026-11-16",
+     "end": "2026-11-16",
+     "heading": "Mon 16.11.",
+     "first": "Carbs are high from the rolls.",
+     "parts": [
+      {
+       "key": "went_well",
+       "title": "What went well",
+       "style": "list",
+       "tone": "ok",
+       "items": [
+        "Protein reached 112 g."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "improve",
+       "title": "To improve",
+       "style": "list",
+       "tone": "warn",
+       "items": [
+        "Carbs are high from the rolls."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "next_meal",
+       "title": "Next meal",
+       "style": "meal",
+       "tone": null,
+       "items": [],
+       "meal": {
+        "title": "Salmon 150 g with broccoli",
+        "why": "Fits what is left.",
+        "kcal": 380,
+        "protein": 34,
+        "carbs": 6,
+        "fat": 25,
+        "macros": "380 kcal · 34 g protein · 6 g carbs · 25 g fat"
+       },
+       "text": null
+      },
+      {
+       "key": "gaps",
+       "title": "Missing in the log",
+       "style": "list",
+       "tone": null,
+       "items": [
+        "No bed time for last night."
+       ],
+       "meal": null,
+       "text": null
+      }
+     ],
+     "caution": "Comments only on what you logged; not medical advice.",
+     "meta": {
+      "model": "Claude Opus",
+      "usd": 0.061,
+      "at": "2026-11-16T16:25:30.572591+01:00",
+      "at_text": "16.11. 16:25",
+      "text": "Claude Opus · $0.06 · 16.11. 16:25"
+     }
+    },
+    {
+     "id": 3,
+     "kind": "week",
+     "start": "2026-11-09",
+     "end": "2026-11-15",
+     "heading": "Week 09.11. to 15.11.",
+     "first": "Protein at breakfast.",
+     "parts": [
+      {
+       "key": "targets",
+       "title": "Against your targets",
+       "style": "list",
+       "tone": null,
+       "items": [
+        "Calories 1,890 a day on average."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "trends",
+       "title": "Trends",
+       "style": "list",
+       "tone": null,
+       "items": [
+        "Weight 82.4 to 81.9 kg."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "habits",
+       "title": "Habits, gym and home",
+       "style": "list",
+       "tone": null,
+       "items": [
+        "Stretching 6 of 7 days."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "days",
+       "title": "Best and hardest day",
+       "style": "list",
+       "tone": null,
+       "items": [
+        "Best: Thursday.",
+        "Hardest: Saturday."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "focus",
+       "title": "Focus for next week",
+       "style": "numbered",
+       "tone": null,
+       "items": [
+        "Protein at breakfast."
+       ],
+       "meal": null,
+       "text": null
+      }
+     ],
+     "caution": "Comments only on what you logged; not medical advice.",
+     "meta": {
+      "model": "Claude Opus",
+      "usd": 0.2,
+      "at": "2026-11-16T06:25:30.579223+01:00",
+      "at_text": "16.11. 06:25",
+      "text": "Claude Opus · $0.20 · 16.11. 06:25"
+     }
+    },
+    {
+     "id": 2,
+     "kind": "day",
+     "start": "2026-11-14",
+     "end": "2026-11-14",
+     "heading": "Sat 14.11.",
+     "first": "Carbs are high from the rolls.",
+     "parts": [
+      {
+       "key": "went_well",
+       "title": "What went well",
+       "style": "list",
+       "tone": "ok",
+       "items": [
+        "Protein reached 112 g."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "improve",
+       "title": "To improve",
+       "style": "list",
+       "tone": "warn",
+       "items": [
+        "Carbs are high from the rolls."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "next_meal",
+       "title": "Next meal",
+       "style": "meal",
+       "tone": null,
+       "items": [],
+       "meal": {
+        "title": "Salmon 150 g with broccoli",
+        "why": "Fits what is left.",
+        "kcal": 380,
+        "protein": 34,
+        "carbs": 6,
+        "fat": 25,
+        "macros": "380 kcal · 34 g protein · 6 g carbs · 25 g fat"
+       },
+       "text": null
+      },
+      {
+       "key": "gaps",
+       "title": "Missing in the log",
+       "style": "list",
+       "tone": null,
+       "items": [
+        "No bed time for last night."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "doctor",
+       "title": "Doctor note",
+       "style": "note",
+       "tone": null,
+       "items": [],
+       "meal": null,
+       "text": "Ask your doctor about the invented value."
+      }
+     ],
+     "caution": "Comments only on what you logged; not medical advice.",
+     "meta": {
+      "model": "Claude Opus",
+      "usd": 0.06,
+      "at": "2026-11-14T14:25:30.576046+01:00",
+      "at_text": "14.11. 14:25",
+      "text": "Claude Opus · $0.06 · 14.11. 14:25"
+     }
+    },
+    {
+     "id": 4,
+     "kind": "week",
+     "start": "2026-11-02",
+     "end": "2026-11-08",
+     "heading": "Week 02.11. to 08.11.",
+     "first": "Protein at breakfast.",
+     "parts": [
+      {
+       "key": "targets",
+       "title": "Against your targets",
+       "style": "list",
+       "tone": null,
+       "items": [
+        "Calories 1,890 a day on average."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "trends",
+       "title": "Trends",
+       "style": "list",
+       "tone": null,
+       "items": [
+        "Weight 82.4 to 81.9 kg."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "habits",
+       "title": "Habits, gym and home",
+       "style": "list",
+       "tone": null,
+       "items": [
+        "Stretching 6 of 7 days."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "days",
+       "title": "Best and hardest day",
+       "style": "list",
+       "tone": null,
+       "items": [
+        "Best: Thursday.",
+        "Hardest: Saturday."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "focus",
+       "title": "Focus for next week",
+       "style": "numbered",
+       "tone": null,
+       "items": [
+        "Protein at breakfast."
+       ],
+       "meal": null,
+       "text": null
+      }
+     ],
+     "caution": "Comments only on what you logged; not medical advice.",
+     "meta": {
+      "model": "Claude Opus",
+      "usd": 0.19,
+      "at": "2026-10-08T13:25:30.582518+02:00",
+      "at_text": "08.10. 13:25",
+      "text": "Claude Opus · $0.19 · 08.10. 13:25"
+     }
+    },
+    {
+     "id": 5,
+     "kind": "day",
+     "start": "2026-10-07",
+     "end": "2026-10-07",
+     "heading": "Wed 07.10.",
+     "first": "Carbs are high from the rolls.",
+     "parts": [
+      {
+       "key": "went_well",
+       "title": "What went well",
+       "style": "list",
+       "tone": "ok",
+       "items": [
+        "Protein reached 112 g."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "improve",
+       "title": "To improve",
+       "style": "list",
+       "tone": "warn",
+       "items": [
+        "Carbs are high from the rolls."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "next_meal",
+       "title": "Next meal",
+       "style": "meal",
+       "tone": null,
+       "items": [],
+       "meal": {
+        "title": "Salmon 150 g with broccoli",
+        "why": "Fits what is left.",
+        "kcal": 380,
+        "protein": 34,
+        "carbs": 6,
+        "fat": 25,
+        "macros": "380 kcal · 34 g protein · 6 g carbs · 25 g fat"
+       },
+       "text": null
+      },
+      {
+       "key": "gaps",
+       "title": "Missing in the log",
+       "style": "list",
+       "tone": null,
+       "items": [
+        "No bed time for last night."
+       ],
+       "meal": null,
+       "text": null
+      }
+     ],
+     "caution": "Comments only on what you logged; not medical advice.",
+     "meta": {
+      "model": "Claude Opus",
+      "usd": 0.05,
+      "at": "2026-10-07T13:25:30.586219+02:00",
+      "at_text": "07.10. 13:25",
+      "text": "Claude Opus · $0.05 · 07.10. 13:25"
+     }
+    }
+   ],
+   "empty": "No coachings yet. Press \"Coach me\" on Today or \"Review this week\" on the Week page.",
+   "month": {
+    "count": 3,
+    "usd": 0.321,
+    "text": "This month: 3 coachings · $0.32 (also on the Usage page)."
+   },
+   "note": "Every coaching is kept; \"Coach me again\" adds a new one.",
+   "day": "2026-11-17",
+   "card": {
+    "kind": "day",
+    "start": "2026-11-17",
+    "end": "2026-11-17",
+    "title": "Coach",
+    "small": "this day · on demand",
+    "state": "working",
+    "id": 6,
+    "wait": "Coaching… about 30 seconds",
+    "wait_note": "You can leave this page: the coaching is kept and shows here when it is ready.",
+    "parts": [],
+    "caution": null,
+    "meta": null,
+    "failed": null,
+    "intro": null,
+    "cost": null,
+    "button": null,
+    "links": [
+     {
+      "label": "All coachings",
+      "href": "/web/coach"
+     },
+     {
+      "label": "Your goals",
+      "href": "/web/settings?tab=coach"
+     }
+    ]
+   }
+  },
+  "undo": null
+ },
+ "days": {
+  "v": 1,
+  "coach": {
+   "f": "days",
+   "filters": [
+    {
+     "f": "all",
+     "label": "All",
+     "current": false
+    },
+    {
+     "f": "days",
+     "label": "Days",
+     "current": true
+    },
+    {
+     "f": "weeks",
+     "label": "Weeks",
+     "current": false
+    }
+   ],
+   "list": [
+    {
+     "id": 1,
+     "kind": "day",
+     "start": "2026-11-16",
+     "end": "2026-11-16",
+     "heading": "Mon 16.11.",
+     "first": "Carbs are high from the rolls.",
+     "parts": [
+      {
+       "key": "went_well",
+       "title": "What went well",
+       "style": "list",
+       "tone": "ok",
+       "items": [
+        "Protein reached 112 g."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "improve",
+       "title": "To improve",
+       "style": "list",
+       "tone": "warn",
+       "items": [
+        "Carbs are high from the rolls."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "next_meal",
+       "title": "Next meal",
+       "style": "meal",
+       "tone": null,
+       "items": [],
+       "meal": {
+        "title": "Salmon 150 g with broccoli",
+        "why": "Fits what is left.",
+        "kcal": 380,
+        "protein": 34,
+        "carbs": 6,
+        "fat": 25,
+        "macros": "380 kcal · 34 g protein · 6 g carbs · 25 g fat"
+       },
+       "text": null
+      },
+      {
+       "key": "gaps",
+       "title": "Missing in the log",
+       "style": "list",
+       "tone": null,
+       "items": [
+        "No bed time for last night."
+       ],
+       "meal": null,
+       "text": null
+      }
+     ],
+     "caution": "Comments only on what you logged; not medical advice.",
+     "meta": {
+      "model": "Claude Opus",
+      "usd": 0.061,
+      "at": "2026-11-16T16:25:30.572591+01:00",
+      "at_text": "16.11. 16:25",
+      "text": "Claude Opus · $0.06 · 16.11. 16:25"
+     }
+    },
+    {
+     "id": 2,
+     "kind": "day",
+     "start": "2026-11-14",
+     "end": "2026-11-14",
+     "heading": "Sat 14.11.",
+     "first": "Carbs are high from the rolls.",
+     "parts": [
+      {
+       "key": "went_well",
+       "title": "What went well",
+       "style": "list",
+       "tone": "ok",
+       "items": [
+        "Protein reached 112 g."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "improve",
+       "title": "To improve",
+       "style": "list",
+       "tone": "warn",
+       "items": [
+        "Carbs are high from the rolls."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "next_meal",
+       "title": "Next meal",
+       "style": "meal",
+       "tone": null,
+       "items": [],
+       "meal": {
+        "title": "Salmon 150 g with broccoli",
+        "why": "Fits what is left.",
+        "kcal": 380,
+        "protein": 34,
+        "carbs": 6,
+        "fat": 25,
+        "macros": "380 kcal · 34 g protein · 6 g carbs · 25 g fat"
+       },
+       "text": null
+      },
+      {
+       "key": "gaps",
+       "title": "Missing in the log",
+       "style": "list",
+       "tone": null,
+       "items": [
+        "No bed time for last night."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "doctor",
+       "title": "Doctor note",
+       "style": "note",
+       "tone": null,
+       "items": [],
+       "meal": null,
+       "text": "Ask your doctor about the invented value."
+      }
+     ],
+     "caution": "Comments only on what you logged; not medical advice.",
+     "meta": {
+      "model": "Claude Opus",
+      "usd": 0.06,
+      "at": "2026-11-14T14:25:30.576046+01:00",
+      "at_text": "14.11. 14:25",
+      "text": "Claude Opus · $0.06 · 14.11. 14:25"
+     }
+    },
+    {
+     "id": 5,
+     "kind": "day",
+     "start": "2026-10-07",
+     "end": "2026-10-07",
+     "heading": "Wed 07.10.",
+     "first": "Carbs are high from the rolls.",
+     "parts": [
+      {
+       "key": "went_well",
+       "title": "What went well",
+       "style": "list",
+       "tone": "ok",
+       "items": [
+        "Protein reached 112 g."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "improve",
+       "title": "To improve",
+       "style": "list",
+       "tone": "warn",
+       "items": [
+        "Carbs are high from the rolls."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "next_meal",
+       "title": "Next meal",
+       "style": "meal",
+       "tone": null,
+       "items": [],
+       "meal": {
+        "title": "Salmon 150 g with broccoli",
+        "why": "Fits what is left.",
+        "kcal": 380,
+        "protein": 34,
+        "carbs": 6,
+        "fat": 25,
+        "macros": "380 kcal · 34 g protein · 6 g carbs · 25 g fat"
+       },
+       "text": null
+      },
+      {
+       "key": "gaps",
+       "title": "Missing in the log",
+       "style": "list",
+       "tone": null,
+       "items": [
+        "No bed time for last night."
+       ],
+       "meal": null,
+       "text": null
+      }
+     ],
+     "caution": "Comments only on what you logged; not medical advice.",
+     "meta": {
+      "model": "Claude Opus",
+      "usd": 0.05,
+      "at": "2026-10-07T13:25:30.586219+02:00",
+      "at_text": "07.10. 13:25",
+      "text": "Claude Opus · $0.05 · 07.10. 13:25"
+     }
+    }
+   ],
+   "empty": "No coachings yet. Press \"Coach me\" on Today or \"Review this week\" on the Week page.",
+   "month": {
+    "count": 3,
+    "usd": 0.321,
+    "text": "This month: 3 coachings · $0.32 (also on the Usage page)."
+   },
+   "note": "Every coaching is kept; \"Coach me again\" adds a new one.",
+   "day": "2026-11-17",
+   "card": {
+    "kind": "day",
+    "start": "2026-11-17",
+    "end": "2026-11-17",
+    "title": "Coach",
+    "small": "this day · on demand",
+    "state": "working",
+    "id": 6,
+    "wait": "Coaching… about 30 seconds",
+    "wait_note": "You can leave this page: the coaching is kept and shows here when it is ready.",
+    "parts": [],
+    "caution": null,
+    "meta": null,
+    "failed": null,
+    "intro": null,
+    "cost": null,
+    "button": null,
+    "links": [
+     {
+      "label": "All coachings",
+      "href": "/web/coach"
+     },
+     {
+      "label": "Your goals",
+      "href": "/web/settings?tab=coach"
+     }
+    ]
+   }
+  },
+  "undo": null
+ },
+ "weeks": {
+  "v": 1,
+  "coach": {
+   "f": "weeks",
+   "filters": [
+    {
+     "f": "all",
+     "label": "All",
+     "current": false
+    },
+    {
+     "f": "days",
+     "label": "Days",
+     "current": false
+    },
+    {
+     "f": "weeks",
+     "label": "Weeks",
+     "current": true
+    }
+   ],
+   "list": [
+    {
+     "id": 3,
+     "kind": "week",
+     "start": "2026-11-09",
+     "end": "2026-11-15",
+     "heading": "Week 09.11. to 15.11.",
+     "first": "Protein at breakfast.",
+     "parts": [
+      {
+       "key": "targets",
+       "title": "Against your targets",
+       "style": "list",
+       "tone": null,
+       "items": [
+        "Calories 1,890 a day on average."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "trends",
+       "title": "Trends",
+       "style": "list",
+       "tone": null,
+       "items": [
+        "Weight 82.4 to 81.9 kg."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "habits",
+       "title": "Habits, gym and home",
+       "style": "list",
+       "tone": null,
+       "items": [
+        "Stretching 6 of 7 days."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "days",
+       "title": "Best and hardest day",
+       "style": "list",
+       "tone": null,
+       "items": [
+        "Best: Thursday.",
+        "Hardest: Saturday."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "focus",
+       "title": "Focus for next week",
+       "style": "numbered",
+       "tone": null,
+       "items": [
+        "Protein at breakfast."
+       ],
+       "meal": null,
+       "text": null
+      }
+     ],
+     "caution": "Comments only on what you logged; not medical advice.",
+     "meta": {
+      "model": "Claude Opus",
+      "usd": 0.2,
+      "at": "2026-11-16T06:25:30.579223+01:00",
+      "at_text": "16.11. 06:25",
+      "text": "Claude Opus · $0.20 · 16.11. 06:25"
+     }
+    },
+    {
+     "id": 4,
+     "kind": "week",
+     "start": "2026-11-02",
+     "end": "2026-11-08",
+     "heading": "Week 02.11. to 08.11.",
+     "first": "Protein at breakfast.",
+     "parts": [
+      {
+       "key": "targets",
+       "title": "Against your targets",
+       "style": "list",
+       "tone": null,
+       "items": [
+        "Calories 1,890 a day on average."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "trends",
+       "title": "Trends",
+       "style": "list",
+       "tone": null,
+       "items": [
+        "Weight 82.4 to 81.9 kg."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "habits",
+       "title": "Habits, gym and home",
+       "style": "list",
+       "tone": null,
+       "items": [
+        "Stretching 6 of 7 days."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "days",
+       "title": "Best and hardest day",
+       "style": "list",
+       "tone": null,
+       "items": [
+        "Best: Thursday.",
+        "Hardest: Saturday."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "focus",
+       "title": "Focus for next week",
+       "style": "numbered",
+       "tone": null,
+       "items": [
+        "Protein at breakfast."
+       ],
+       "meal": null,
+       "text": null
+      }
+     ],
+     "caution": "Comments only on what you logged; not medical advice.",
+     "meta": {
+      "model": "Claude Opus",
+      "usd": 0.19,
+      "at": "2026-10-08T13:25:30.582518+02:00",
+      "at_text": "08.10. 13:25",
+      "text": "Claude Opus · $0.19 · 08.10. 13:25"
+     }
+    }
+   ],
+   "empty": "No coachings yet. Press \"Coach me\" on Today or \"Review this week\" on the Week page.",
+   "month": {
+    "count": 3,
+    "usd": 0.321,
+    "text": "This month: 3 coachings · $0.32 (also on the Usage page)."
+   },
+   "note": "Every coaching is kept; \"Coach me again\" adds a new one.",
+   "day": "2026-11-17",
+   "card": {
+    "kind": "day",
+    "start": "2026-11-17",
+    "end": "2026-11-17",
+    "title": "Coach",
+    "small": "this day · on demand",
+    "state": "working",
+    "id": 6,
+    "wait": "Coaching… about 30 seconds",
+    "wait_note": "You can leave this page: the coaching is kept and shows here when it is ready.",
+    "parts": [],
+    "caution": null,
+    "meta": null,
+    "failed": null,
+    "intro": null,
+    "cost": null,
+    "button": null,
+    "links": [
+     {
+      "label": "All coachings",
+      "href": "/web/coach"
+     },
+     {
+      "label": "Your goals",
+      "href": "/web/settings?tab=coach"
+     }
+    ]
+   }
+  },
+  "undo": null
+ },
+ "day_done": {
+  "v": 1,
+  "coach": {
+   "f": "all",
+   "filters": [
+    {
+     "f": "all",
+     "label": "All",
+     "current": true
+    },
+    {
+     "f": "days",
+     "label": "Days",
+     "current": false
+    },
+    {
+     "f": "weeks",
+     "label": "Weeks",
+     "current": false
+    }
+   ],
+   "list": [
+    {
+     "id": 1,
+     "kind": "day",
+     "start": "2026-11-16",
+     "end": "2026-11-16",
+     "heading": "Mon 16.11.",
+     "first": "Carbs are high from the rolls.",
+     "parts": [
+      {
+       "key": "went_well",
+       "title": "What went well",
+       "style": "list",
+       "tone": "ok",
+       "items": [
+        "Protein reached 112 g."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "improve",
+       "title": "To improve",
+       "style": "list",
+       "tone": "warn",
+       "items": [
+        "Carbs are high from the rolls."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "next_meal",
+       "title": "Next meal",
+       "style": "meal",
+       "tone": null,
+       "items": [],
+       "meal": {
+        "title": "Salmon 150 g with broccoli",
+        "why": "Fits what is left.",
+        "kcal": 380,
+        "protein": 34,
+        "carbs": 6,
+        "fat": 25,
+        "macros": "380 kcal · 34 g protein · 6 g carbs · 25 g fat"
+       },
+       "text": null
+      },
+      {
+       "key": "gaps",
+       "title": "Missing in the log",
+       "style": "list",
+       "tone": null,
+       "items": [
+        "No bed time for last night."
+       ],
+       "meal": null,
+       "text": null
+      }
+     ],
+     "caution": "Comments only on what you logged; not medical advice.",
+     "meta": {
+      "model": "Claude Opus",
+      "usd": 0.061,
+      "at": "2026-11-16T16:25:30.572591+01:00",
+      "at_text": "16.11. 16:25",
+      "text": "Claude Opus · $0.06 · 16.11. 16:25"
+     }
+    },
+    {
+     "id": 3,
+     "kind": "week",
+     "start": "2026-11-09",
+     "end": "2026-11-15",
+     "heading": "Week 09.11. to 15.11.",
+     "first": "Protein at breakfast.",
+     "parts": [
+      {
+       "key": "targets",
+       "title": "Against your targets",
+       "style": "list",
+       "tone": null,
+       "items": [
+        "Calories 1,890 a day on average."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "trends",
+       "title": "Trends",
+       "style": "list",
+       "tone": null,
+       "items": [
+        "Weight 82.4 to 81.9 kg."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "habits",
+       "title": "Habits, gym and home",
+       "style": "list",
+       "tone": null,
+       "items": [
+        "Stretching 6 of 7 days."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "days",
+       "title": "Best and hardest day",
+       "style": "list",
+       "tone": null,
+       "items": [
+        "Best: Thursday.",
+        "Hardest: Saturday."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "focus",
+       "title": "Focus for next week",
+       "style": "numbered",
+       "tone": null,
+       "items": [
+        "Protein at breakfast."
+       ],
+       "meal": null,
+       "text": null
+      }
+     ],
+     "caution": "Comments only on what you logged; not medical advice.",
+     "meta": {
+      "model": "Claude Opus",
+      "usd": 0.2,
+      "at": "2026-11-16T06:25:30.579223+01:00",
+      "at_text": "16.11. 06:25",
+      "text": "Claude Opus · $0.20 · 16.11. 06:25"
+     }
+    },
+    {
+     "id": 2,
+     "kind": "day",
+     "start": "2026-11-14",
+     "end": "2026-11-14",
+     "heading": "Sat 14.11.",
+     "first": "Carbs are high from the rolls.",
+     "parts": [
+      {
+       "key": "went_well",
+       "title": "What went well",
+       "style": "list",
+       "tone": "ok",
+       "items": [
+        "Protein reached 112 g."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "improve",
+       "title": "To improve",
+       "style": "list",
+       "tone": "warn",
+       "items": [
+        "Carbs are high from the rolls."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "next_meal",
+       "title": "Next meal",
+       "style": "meal",
+       "tone": null,
+       "items": [],
+       "meal": {
+        "title": "Salmon 150 g with broccoli",
+        "why": "Fits what is left.",
+        "kcal": 380,
+        "protein": 34,
+        "carbs": 6,
+        "fat": 25,
+        "macros": "380 kcal · 34 g protein · 6 g carbs · 25 g fat"
+       },
+       "text": null
+      },
+      {
+       "key": "gaps",
+       "title": "Missing in the log",
+       "style": "list",
+       "tone": null,
+       "items": [
+        "No bed time for last night."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "doctor",
+       "title": "Doctor note",
+       "style": "note",
+       "tone": null,
+       "items": [],
+       "meal": null,
+       "text": "Ask your doctor about the invented value."
+      }
+     ],
+     "caution": "Comments only on what you logged; not medical advice.",
+     "meta": {
+      "model": "Claude Opus",
+      "usd": 0.06,
+      "at": "2026-11-14T14:25:30.576046+01:00",
+      "at_text": "14.11. 14:25",
+      "text": "Claude Opus · $0.06 · 14.11. 14:25"
+     }
+    },
+    {
+     "id": 4,
+     "kind": "week",
+     "start": "2026-11-02",
+     "end": "2026-11-08",
+     "heading": "Week 02.11. to 08.11.",
+     "first": "Protein at breakfast.",
+     "parts": [
+      {
+       "key": "targets",
+       "title": "Against your targets",
+       "style": "list",
+       "tone": null,
+       "items": [
+        "Calories 1,890 a day on average."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "trends",
+       "title": "Trends",
+       "style": "list",
+       "tone": null,
+       "items": [
+        "Weight 82.4 to 81.9 kg."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "habits",
+       "title": "Habits, gym and home",
+       "style": "list",
+       "tone": null,
+       "items": [
+        "Stretching 6 of 7 days."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "days",
+       "title": "Best and hardest day",
+       "style": "list",
+       "tone": null,
+       "items": [
+        "Best: Thursday.",
+        "Hardest: Saturday."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "focus",
+       "title": "Focus for next week",
+       "style": "numbered",
+       "tone": null,
+       "items": [
+        "Protein at breakfast."
+       ],
+       "meal": null,
+       "text": null
+      }
+     ],
+     "caution": "Comments only on what you logged; not medical advice.",
+     "meta": {
+      "model": "Claude Opus",
+      "usd": 0.19,
+      "at": "2026-10-08T13:25:30.582518+02:00",
+      "at_text": "08.10. 13:25",
+      "text": "Claude Opus · $0.19 · 08.10. 13:25"
+     }
+    },
+    {
+     "id": 5,
+     "kind": "day",
+     "start": "2026-10-07",
+     "end": "2026-10-07",
+     "heading": "Wed 07.10.",
+     "first": "Carbs are high from the rolls.",
+     "parts": [
+      {
+       "key": "went_well",
+       "title": "What went well",
+       "style": "list",
+       "tone": "ok",
+       "items": [
+        "Protein reached 112 g."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "improve",
+       "title": "To improve",
+       "style": "list",
+       "tone": "warn",
+       "items": [
+        "Carbs are high from the rolls."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "next_meal",
+       "title": "Next meal",
+       "style": "meal",
+       "tone": null,
+       "items": [],
+       "meal": {
+        "title": "Salmon 150 g with broccoli",
+        "why": "Fits what is left.",
+        "kcal": 380,
+        "protein": 34,
+        "carbs": 6,
+        "fat": 25,
+        "macros": "380 kcal · 34 g protein · 6 g carbs · 25 g fat"
+       },
+       "text": null
+      },
+      {
+       "key": "gaps",
+       "title": "Missing in the log",
+       "style": "list",
+       "tone": null,
+       "items": [
+        "No bed time for last night."
+       ],
+       "meal": null,
+       "text": null
+      }
+     ],
+     "caution": "Comments only on what you logged; not medical advice.",
+     "meta": {
+      "model": "Claude Opus",
+      "usd": 0.05,
+      "at": "2026-10-07T13:25:30.586219+02:00",
+      "at_text": "07.10. 13:25",
+      "text": "Claude Opus · $0.05 · 07.10. 13:25"
+     }
+    }
+   ],
+   "empty": "No coachings yet. Press \"Coach me\" on Today or \"Review this week\" on the Week page.",
+   "month": {
+    "count": 3,
+    "usd": 0.321,
+    "text": "This month: 3 coachings · $0.32 (also on the Usage page)."
+   },
+   "note": "Every coaching is kept; \"Coach me again\" adds a new one.",
+   "day": "2026-11-16",
+   "card": {
+    "kind": "day",
+    "start": "2026-11-16",
+    "end": "2026-11-16",
+    "title": "Coach",
+    "small": "this day · on demand",
+    "state": "done",
+    "id": 1,
+    "wait": null,
+    "wait_note": null,
+    "parts": [
+     {
+      "key": "went_well",
+      "title": "What went well",
+      "style": "list",
+      "tone": "ok",
+      "items": [
+       "Protein reached 112 g."
+      ],
+      "meal": null,
+      "text": null
+     },
+     {
+      "key": "improve",
+      "title": "To improve",
+      "style": "list",
+      "tone": "warn",
+      "items": [
+       "Carbs are high from the rolls."
+      ],
+      "meal": null,
+      "text": null
+     },
+     {
+      "key": "next_meal",
+      "title": "Next meal",
+      "style": "meal",
+      "tone": null,
+      "items": [],
+      "meal": {
+       "title": "Salmon 150 g with broccoli",
+       "why": "Fits what is left.",
+       "kcal": 380,
+       "protein": 34,
+       "carbs": 6,
+       "fat": 25,
+       "macros": "380 kcal · 34 g protein · 6 g carbs · 25 g fat"
+      },
+      "text": null
+     },
+     {
+      "key": "gaps",
+      "title": "Missing in the log",
+      "style": "list",
+      "tone": null,
+      "items": [
+       "No bed time for last night."
+      ],
+      "meal": null,
+      "text": null
+     }
+    ],
+    "caution": "Comments only on what you logged; not medical advice.",
+    "meta": {
+     "model": "Claude Opus",
+     "usd": 0.061,
+     "at": "2026-11-16T16:25:30.572591+01:00",
+     "at_text": "16.11. 16:25",
+     "text": "Claude Opus · $0.06 · 16.11. 16:25"
+    },
+    "failed": null,
+    "intro": null,
+    "cost": null,
+    "button": "Coach me again",
+    "links": [
+     {
+      "label": "All coachings",
+      "href": "/web/coach"
+     },
+     {
+      "label": "Your goals",
+      "href": "/web/settings?tab=coach"
+     }
+    ]
+   }
+  },
+  "undo": null
+ },
+ "day_failed": {
+  "v": 1,
+  "coach": {
+   "f": "all",
+   "filters": [
+    {
+     "f": "all",
+     "label": "All",
+     "current": true
+    },
+    {
+     "f": "days",
+     "label": "Days",
+     "current": false
+    },
+    {
+     "f": "weeks",
+     "label": "Weeks",
+     "current": false
+    }
+   ],
+   "list": [
+    {
+     "id": 1,
+     "kind": "day",
+     "start": "2026-11-16",
+     "end": "2026-11-16",
+     "heading": "Mon 16.11.",
+     "first": "Carbs are high from the rolls.",
+     "parts": [
+      {
+       "key": "went_well",
+       "title": "What went well",
+       "style": "list",
+       "tone": "ok",
+       "items": [
+        "Protein reached 112 g."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "improve",
+       "title": "To improve",
+       "style": "list",
+       "tone": "warn",
+       "items": [
+        "Carbs are high from the rolls."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "next_meal",
+       "title": "Next meal",
+       "style": "meal",
+       "tone": null,
+       "items": [],
+       "meal": {
+        "title": "Salmon 150 g with broccoli",
+        "why": "Fits what is left.",
+        "kcal": 380,
+        "protein": 34,
+        "carbs": 6,
+        "fat": 25,
+        "macros": "380 kcal · 34 g protein · 6 g carbs · 25 g fat"
+       },
+       "text": null
+      },
+      {
+       "key": "gaps",
+       "title": "Missing in the log",
+       "style": "list",
+       "tone": null,
+       "items": [
+        "No bed time for last night."
+       ],
+       "meal": null,
+       "text": null
+      }
+     ],
+     "caution": "Comments only on what you logged; not medical advice.",
+     "meta": {
+      "model": "Claude Opus",
+      "usd": 0.061,
+      "at": "2026-11-16T16:25:30.572591+01:00",
+      "at_text": "16.11. 16:25",
+      "text": "Claude Opus · $0.06 · 16.11. 16:25"
+     }
+    },
+    {
+     "id": 3,
+     "kind": "week",
+     "start": "2026-11-09",
+     "end": "2026-11-15",
+     "heading": "Week 09.11. to 15.11.",
+     "first": "Protein at breakfast.",
+     "parts": [
+      {
+       "key": "targets",
+       "title": "Against your targets",
+       "style": "list",
+       "tone": null,
+       "items": [
+        "Calories 1,890 a day on average."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "trends",
+       "title": "Trends",
+       "style": "list",
+       "tone": null,
+       "items": [
+        "Weight 82.4 to 81.9 kg."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "habits",
+       "title": "Habits, gym and home",
+       "style": "list",
+       "tone": null,
+       "items": [
+        "Stretching 6 of 7 days."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "days",
+       "title": "Best and hardest day",
+       "style": "list",
+       "tone": null,
+       "items": [
+        "Best: Thursday.",
+        "Hardest: Saturday."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "focus",
+       "title": "Focus for next week",
+       "style": "numbered",
+       "tone": null,
+       "items": [
+        "Protein at breakfast."
+       ],
+       "meal": null,
+       "text": null
+      }
+     ],
+     "caution": "Comments only on what you logged; not medical advice.",
+     "meta": {
+      "model": "Claude Opus",
+      "usd": 0.2,
+      "at": "2026-11-16T06:25:30.579223+01:00",
+      "at_text": "16.11. 06:25",
+      "text": "Claude Opus · $0.20 · 16.11. 06:25"
+     }
+    },
+    {
+     "id": 2,
+     "kind": "day",
+     "start": "2026-11-14",
+     "end": "2026-11-14",
+     "heading": "Sat 14.11.",
+     "first": "Carbs are high from the rolls.",
+     "parts": [
+      {
+       "key": "went_well",
+       "title": "What went well",
+       "style": "list",
+       "tone": "ok",
+       "items": [
+        "Protein reached 112 g."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "improve",
+       "title": "To improve",
+       "style": "list",
+       "tone": "warn",
+       "items": [
+        "Carbs are high from the rolls."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "next_meal",
+       "title": "Next meal",
+       "style": "meal",
+       "tone": null,
+       "items": [],
+       "meal": {
+        "title": "Salmon 150 g with broccoli",
+        "why": "Fits what is left.",
+        "kcal": 380,
+        "protein": 34,
+        "carbs": 6,
+        "fat": 25,
+        "macros": "380 kcal · 34 g protein · 6 g carbs · 25 g fat"
+       },
+       "text": null
+      },
+      {
+       "key": "gaps",
+       "title": "Missing in the log",
+       "style": "list",
+       "tone": null,
+       "items": [
+        "No bed time for last night."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "doctor",
+       "title": "Doctor note",
+       "style": "note",
+       "tone": null,
+       "items": [],
+       "meal": null,
+       "text": "Ask your doctor about the invented value."
+      }
+     ],
+     "caution": "Comments only on what you logged; not medical advice.",
+     "meta": {
+      "model": "Claude Opus",
+      "usd": 0.06,
+      "at": "2026-11-14T14:25:30.576046+01:00",
+      "at_text": "14.11. 14:25",
+      "text": "Claude Opus · $0.06 · 14.11. 14:25"
+     }
+    },
+    {
+     "id": 4,
+     "kind": "week",
+     "start": "2026-11-02",
+     "end": "2026-11-08",
+     "heading": "Week 02.11. to 08.11.",
+     "first": "Protein at breakfast.",
+     "parts": [
+      {
+       "key": "targets",
+       "title": "Against your targets",
+       "style": "list",
+       "tone": null,
+       "items": [
+        "Calories 1,890 a day on average."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "trends",
+       "title": "Trends",
+       "style": "list",
+       "tone": null,
+       "items": [
+        "Weight 82.4 to 81.9 kg."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "habits",
+       "title": "Habits, gym and home",
+       "style": "list",
+       "tone": null,
+       "items": [
+        "Stretching 6 of 7 days."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "days",
+       "title": "Best and hardest day",
+       "style": "list",
+       "tone": null,
+       "items": [
+        "Best: Thursday.",
+        "Hardest: Saturday."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "focus",
+       "title": "Focus for next week",
+       "style": "numbered",
+       "tone": null,
+       "items": [
+        "Protein at breakfast."
+       ],
+       "meal": null,
+       "text": null
+      }
+     ],
+     "caution": "Comments only on what you logged; not medical advice.",
+     "meta": {
+      "model": "Claude Opus",
+      "usd": 0.19,
+      "at": "2026-10-08T13:25:30.582518+02:00",
+      "at_text": "08.10. 13:25",
+      "text": "Claude Opus · $0.19 · 08.10. 13:25"
+     }
+    },
+    {
+     "id": 5,
+     "kind": "day",
+     "start": "2026-10-07",
+     "end": "2026-10-07",
+     "heading": "Wed 07.10.",
+     "first": "Carbs are high from the rolls.",
+     "parts": [
+      {
+       "key": "went_well",
+       "title": "What went well",
+       "style": "list",
+       "tone": "ok",
+       "items": [
+        "Protein reached 112 g."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "improve",
+       "title": "To improve",
+       "style": "list",
+       "tone": "warn",
+       "items": [
+        "Carbs are high from the rolls."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "next_meal",
+       "title": "Next meal",
+       "style": "meal",
+       "tone": null,
+       "items": [],
+       "meal": {
+        "title": "Salmon 150 g with broccoli",
+        "why": "Fits what is left.",
+        "kcal": 380,
+        "protein": 34,
+        "carbs": 6,
+        "fat": 25,
+        "macros": "380 kcal · 34 g protein · 6 g carbs · 25 g fat"
+       },
+       "text": null
+      },
+      {
+       "key": "gaps",
+       "title": "Missing in the log",
+       "style": "list",
+       "tone": null,
+       "items": [
+        "No bed time for last night."
+       ],
+       "meal": null,
+       "text": null
+      }
+     ],
+     "caution": "Comments only on what you logged; not medical advice.",
+     "meta": {
+      "model": "Claude Opus",
+      "usd": 0.05,
+      "at": "2026-10-07T13:25:30.586219+02:00",
+      "at_text": "07.10. 13:25",
+      "text": "Claude Opus · $0.05 · 07.10. 13:25"
+     }
+    }
+   ],
+   "empty": "No coachings yet. Press \"Coach me\" on Today or \"Review this week\" on the Week page.",
+   "month": {
+    "count": 3,
+    "usd": 0.321,
+    "text": "This month: 3 coachings · $0.32 (also on the Usage page)."
+   },
+   "note": "Every coaching is kept; \"Coach me again\" adds a new one.",
+   "day": "2026-11-15",
+   "card": {
+    "kind": "day",
+    "start": "2026-11-15",
+    "end": "2026-11-15",
+    "title": "Coach",
+    "small": "this day · on demand",
+    "state": "failed",
+    "id": 7,
+    "wait": null,
+    "wait_note": null,
+    "parts": [],
+    "caution": null,
+    "meta": null,
+    "failed": "That did not work (ProviderError); nothing was charged if the AI did not answer. Try again.",
+    "intro": "A short look at this day: what went well, what to improve, your next meal and what is missing in the log.",
+    "cost": "about 30 seconds · about 6 cents",
+    "button": "Coach me",
+    "links": [
+     {
+      "label": "All coachings",
+      "href": "/web/coach"
+     },
+     {
+      "label": "Your goals",
+      "href": "/web/settings?tab=coach"
+     }
+    ]
+   }
+  },
+  "undo": null
+ },
+ "day_none": {
+  "v": 1,
+  "coach": {
+   "f": "all",
+   "filters": [
+    {
+     "f": "all",
+     "label": "All",
+     "current": true
+    },
+    {
+     "f": "days",
+     "label": "Days",
+     "current": false
+    },
+    {
+     "f": "weeks",
+     "label": "Weeks",
+     "current": false
+    }
+   ],
+   "list": [
+    {
+     "id": 1,
+     "kind": "day",
+     "start": "2026-11-16",
+     "end": "2026-11-16",
+     "heading": "Mon 16.11.",
+     "first": "Carbs are high from the rolls.",
+     "parts": [
+      {
+       "key": "went_well",
+       "title": "What went well",
+       "style": "list",
+       "tone": "ok",
+       "items": [
+        "Protein reached 112 g."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "improve",
+       "title": "To improve",
+       "style": "list",
+       "tone": "warn",
+       "items": [
+        "Carbs are high from the rolls."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "next_meal",
+       "title": "Next meal",
+       "style": "meal",
+       "tone": null,
+       "items": [],
+       "meal": {
+        "title": "Salmon 150 g with broccoli",
+        "why": "Fits what is left.",
+        "kcal": 380,
+        "protein": 34,
+        "carbs": 6,
+        "fat": 25,
+        "macros": "380 kcal · 34 g protein · 6 g carbs · 25 g fat"
+       },
+       "text": null
+      },
+      {
+       "key": "gaps",
+       "title": "Missing in the log",
+       "style": "list",
+       "tone": null,
+       "items": [
+        "No bed time for last night."
+       ],
+       "meal": null,
+       "text": null
+      }
+     ],
+     "caution": "Comments only on what you logged; not medical advice.",
+     "meta": {
+      "model": "Claude Opus",
+      "usd": 0.061,
+      "at": "2026-11-16T16:25:30.572591+01:00",
+      "at_text": "16.11. 16:25",
+      "text": "Claude Opus · $0.06 · 16.11. 16:25"
+     }
+    },
+    {
+     "id": 3,
+     "kind": "week",
+     "start": "2026-11-09",
+     "end": "2026-11-15",
+     "heading": "Week 09.11. to 15.11.",
+     "first": "Protein at breakfast.",
+     "parts": [
+      {
+       "key": "targets",
+       "title": "Against your targets",
+       "style": "list",
+       "tone": null,
+       "items": [
+        "Calories 1,890 a day on average."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "trends",
+       "title": "Trends",
+       "style": "list",
+       "tone": null,
+       "items": [
+        "Weight 82.4 to 81.9 kg."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "habits",
+       "title": "Habits, gym and home",
+       "style": "list",
+       "tone": null,
+       "items": [
+        "Stretching 6 of 7 days."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "days",
+       "title": "Best and hardest day",
+       "style": "list",
+       "tone": null,
+       "items": [
+        "Best: Thursday.",
+        "Hardest: Saturday."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "focus",
+       "title": "Focus for next week",
+       "style": "numbered",
+       "tone": null,
+       "items": [
+        "Protein at breakfast."
+       ],
+       "meal": null,
+       "text": null
+      }
+     ],
+     "caution": "Comments only on what you logged; not medical advice.",
+     "meta": {
+      "model": "Claude Opus",
+      "usd": 0.2,
+      "at": "2026-11-16T06:25:30.579223+01:00",
+      "at_text": "16.11. 06:25",
+      "text": "Claude Opus · $0.20 · 16.11. 06:25"
+     }
+    },
+    {
+     "id": 2,
+     "kind": "day",
+     "start": "2026-11-14",
+     "end": "2026-11-14",
+     "heading": "Sat 14.11.",
+     "first": "Carbs are high from the rolls.",
+     "parts": [
+      {
+       "key": "went_well",
+       "title": "What went well",
+       "style": "list",
+       "tone": "ok",
+       "items": [
+        "Protein reached 112 g."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "improve",
+       "title": "To improve",
+       "style": "list",
+       "tone": "warn",
+       "items": [
+        "Carbs are high from the rolls."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "next_meal",
+       "title": "Next meal",
+       "style": "meal",
+       "tone": null,
+       "items": [],
+       "meal": {
+        "title": "Salmon 150 g with broccoli",
+        "why": "Fits what is left.",
+        "kcal": 380,
+        "protein": 34,
+        "carbs": 6,
+        "fat": 25,
+        "macros": "380 kcal · 34 g protein · 6 g carbs · 25 g fat"
+       },
+       "text": null
+      },
+      {
+       "key": "gaps",
+       "title": "Missing in the log",
+       "style": "list",
+       "tone": null,
+       "items": [
+        "No bed time for last night."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "doctor",
+       "title": "Doctor note",
+       "style": "note",
+       "tone": null,
+       "items": [],
+       "meal": null,
+       "text": "Ask your doctor about the invented value."
+      }
+     ],
+     "caution": "Comments only on what you logged; not medical advice.",
+     "meta": {
+      "model": "Claude Opus",
+      "usd": 0.06,
+      "at": "2026-11-14T14:25:30.576046+01:00",
+      "at_text": "14.11. 14:25",
+      "text": "Claude Opus · $0.06 · 14.11. 14:25"
+     }
+    },
+    {
+     "id": 4,
+     "kind": "week",
+     "start": "2026-11-02",
+     "end": "2026-11-08",
+     "heading": "Week 02.11. to 08.11.",
+     "first": "Protein at breakfast.",
+     "parts": [
+      {
+       "key": "targets",
+       "title": "Against your targets",
+       "style": "list",
+       "tone": null,
+       "items": [
+        "Calories 1,890 a day on average."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "trends",
+       "title": "Trends",
+       "style": "list",
+       "tone": null,
+       "items": [
+        "Weight 82.4 to 81.9 kg."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "habits",
+       "title": "Habits, gym and home",
+       "style": "list",
+       "tone": null,
+       "items": [
+        "Stretching 6 of 7 days."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "days",
+       "title": "Best and hardest day",
+       "style": "list",
+       "tone": null,
+       "items": [
+        "Best: Thursday.",
+        "Hardest: Saturday."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "focus",
+       "title": "Focus for next week",
+       "style": "numbered",
+       "tone": null,
+       "items": [
+        "Protein at breakfast."
+       ],
+       "meal": null,
+       "text": null
+      }
+     ],
+     "caution": "Comments only on what you logged; not medical advice.",
+     "meta": {
+      "model": "Claude Opus",
+      "usd": 0.19,
+      "at": "2026-10-08T13:25:30.582518+02:00",
+      "at_text": "08.10. 13:25",
+      "text": "Claude Opus · $0.19 · 08.10. 13:25"
+     }
+    },
+    {
+     "id": 5,
+     "kind": "day",
+     "start": "2026-10-07",
+     "end": "2026-10-07",
+     "heading": "Wed 07.10.",
+     "first": "Carbs are high from the rolls.",
+     "parts": [
+      {
+       "key": "went_well",
+       "title": "What went well",
+       "style": "list",
+       "tone": "ok",
+       "items": [
+        "Protein reached 112 g."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "improve",
+       "title": "To improve",
+       "style": "list",
+       "tone": "warn",
+       "items": [
+        "Carbs are high from the rolls."
+       ],
+       "meal": null,
+       "text": null
+      },
+      {
+       "key": "next_meal",
+       "title": "Next meal",
+       "style": "meal",
+       "tone": null,
+       "items": [],
+       "meal": {
+        "title": "Salmon 150 g with broccoli",
+        "why": "Fits what is left.",
+        "kcal": 380,
+        "protein": 34,
+        "carbs": 6,
+        "fat": 25,
+        "macros": "380 kcal · 34 g protein · 6 g carbs · 25 g fat"
+       },
+       "text": null
+      },
+      {
+       "key": "gaps",
+       "title": "Missing in the log",
+       "style": "list",
+       "tone": null,
+       "items": [
+        "No bed time for last night."
+       ],
+       "meal": null,
+       "text": null
+      }
+     ],
+     "caution": "Comments only on what you logged; not medical advice.",
+     "meta": {
+      "model": "Claude Opus",
+      "usd": 0.05,
+      "at": "2026-10-07T13:25:30.586219+02:00",
+      "at_text": "07.10. 13:25",
+      "text": "Claude Opus · $0.05 · 07.10. 13:25"
+     }
+    }
+   ],
+   "empty": "No coachings yet. Press \"Coach me\" on Today or \"Review this week\" on the Week page.",
+   "month": {
+    "count": 3,
+    "usd": 0.321,
+    "text": "This month: 3 coachings · $0.32 (also on the Usage page)."
+   },
+   "note": "Every coaching is kept; \"Coach me again\" adds a new one.",
+   "day": "2026-11-12",
+   "card": {
+    "kind": "day",
+    "start": "2026-11-12",
+    "end": "2026-11-12",
+    "title": "Coach",
+    "small": "this day · on demand",
+    "state": "none",
+    "id": null,
+    "wait": null,
+    "wait_note": null,
+    "parts": [],
+    "caution": null,
+    "meta": null,
+    "failed": null,
+    "intro": "A short look at this day: what went well, what to improve, your next meal and what is missing in the log.",
+    "cost": "about 30 seconds · about 6 cents",
+    "button": "Coach me",
+    "links": [
+     {
+      "label": "All coachings",
+      "href": "/web/coach"
+     },
+     {
+      "label": "Your goals",
+      "href": "/web/settings?tab=coach"
+     }
+    ]
+   }
+  },
+  "undo": null
+ },
+ "saves": {
+  "start": {
+   "v": 1,
+   "outcome": "changed",
+   "tone": "ok",
+   "head": "The coach is reading your day: about 30 seconds.",
+   "receipt": [],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": null,
+   "coaching": {
+    "id": 8,
+    "state": "working"
+   }
+  },
+  "on_it": {
+   "v": 1,
+   "outcome": "changed",
+   "tone": "ok",
+   "head": "The coach is already on it.",
+   "receipt": [],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": null,
+   "coaching": {
+    "id": 8,
+    "state": "working"
+   }
+  },
+  "refused": {
+   "v": 1,
+   "outcome": "rejected",
+   "tone": "warning",
+   "head": "Nothing saved.",
+   "receipt": [],
+   "notes": [],
+   "reason": "That is not a day or week to coach.",
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": null,
+   "coaching": null
+  },
+  "limit": {
+   "v": 1,
+   "outcome": "rejected",
+   "tone": "warning",
+   "head": "Nothing saved.",
+   "receipt": [],
+   "notes": [],
+   "reason": "That is 10 coachings today, the daily limit. Tomorrow there are new ones.",
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": null,
+   "coaching": null
+  }
+ }
+}
