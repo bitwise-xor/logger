@@ -17,6 +17,9 @@ import {
   changeLink,
   reviewText,
   timeline,
+  rowCols,
+  mealCols,
+  amountOf,
   type Day,
   type FoodRow,
   type Review,
@@ -153,7 +156,7 @@ describe('the timeline', () => {
       ],
     );
     const blocks = timeline(d);
-    expect(blocks.map((b) => [b.label, b.total])).toEqual([
+    expect(blocks.map((b) => [b.label, b.cols?.kcal])).toEqual([
       ['Meal 2', '575 kcal'],
       ['Meal 1', '420 kcal'],
     ]);
@@ -208,17 +211,27 @@ describe('the timeline', () => {
     expect(shown.filter((r) => r.startsWith('f')).sort()).toEqual([...foods].sort());
     expect(blocks.map((b) => b.label)).toEqual(['Meal 2', 'Meal 1', 'Other', 'Drinks']); // the waist at 06:05, before breakfast at 06:10
     expect(blocks.find((b) => b.label === 'Other')?.lines.map((l) => [l.name, l.value])).toEqual([['Waist', '88 cm']]);
+    // deploy 117: a food is one line, its amount after its name, its numbers in the four columns (protein, fat, carbs, kcal)
     const soup = blocks[0]!.lines.find((l) => l.name === 'Lentil soup');
-    expect(soup).toMatchObject({ time: '13:05', sub: '350 g', macros: 'P 24 · F 10 · C 56 g', value: '410 kcal' });
-    expect(blocks[0]!.lines.find((l) => l.name === 'Rye bread')).toMatchObject({ sub: '2 slices', macros: 'P 6 · F 1 · C 38 g' });
-    // each meal's macros under its label, from energy.meals; none for "Other"
-    expect(blocks.map((b) => [b.label, b.macros])).toEqual([
-      ['Meal 2', 'P 37 · F 29 · C 136 g'],
-      ['Meal 1', 'P 18 · F 9 · C 66 g'],
-      ['Other', ''],
-      ['Drinks', 'P 2 · F 2 · C 4 g'],
+    expect(soup).toMatchObject({ time: '13:05', amount: '350 g', sub: '', cols: { protein: '24', fat: '10', carbs: '56', kcal: '410' }, value: '410 kcal' });
+    expect(soup?.row?.ref).toBe(soup?.ref);
+    // the portion's words stay (they were the second line), after the amount, as on the Food day
+    expect(blocks[0]!.lines.find((l) => l.name === 'Rye bread')).toMatchObject({ amount: '80 g (2 slices)', cols: { protein: '6', fat: '1', carbs: '38' } });
+    // each meal's totals in the same four columns, each with its letter, from energy.meals; none for "Other"
+    expect(blocks.map((b) => [b.label, b.cols && Object.values(b.cols)])).toEqual([
+      ['Meal 2', ['P 37', 'F 29', 'C 136', '934 kcal']],
+      ['Meal 1', ['P 18', 'F 9', 'C 66', '420 kcal']],
+      ['Other', null],
+      ['Drinks', ['P 2', 'F 2', 'C 4', '45 kcal']],
     ]);
-    expect(blocks.find((b) => b.label === 'Other')?.lines[0]?.macros).toBe('');
+    // a row that is not food keeps its look: name, small line, value; no columns, no amount, no editor
+    expect(blocks.find((b) => b.label === 'Other')?.lines[0]).toMatchObject({ amount: '', cols: null, row: null, value: '88 cm' });
+  });
+  it('writes a food\'s numbers in whole grams and kcal, grouped, and an amount with a decimal as typed', () => {
+    expect(rowCols({ kcal: 1234.5, protein: 102.5, fat: 0.4, carbs: 3.5 })).toEqual({ protein: '102', fat: '0', carbs: '4', kcal: '1,234' });
+    expect(mealCols({ kcal: 2100, protein: 32, fat: 14, carbs: 60 })).toEqual({ protein: 'P 32', fat: 'F 14', carbs: 'C 60', kcal: '2,100 kcal' });
+    expect(amountOf({ amount: 12.5, unit: 'g', portion_text: null })).toBe('12.5 g');
+    expect(amountOf({ amount: 1250, unit: 'ml', portion_text: '5 glasses' })).toBe('1,250 ml (5 glasses)');
   });
   it('writes macros in whole grams, halves to even as app.', () => {
     expect(macroText({ kcal: 0, protein: 2.5, fat: 3.5, carbs: 0.4 })).toBe('P 2 · F 4 · C 0 g');

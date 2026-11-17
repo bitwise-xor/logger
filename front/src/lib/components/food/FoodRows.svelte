@@ -108,7 +108,7 @@
           <span class="{pc} text-[13px] text-muted">{open ? 'Close' : 'Edit'}</span>
         </button>
         {#if open}
-          <FoodEditor row={l.row} />
+          <FoodEditor row={l.row} host={food} />
         {/if}
       </div>
     {/each}

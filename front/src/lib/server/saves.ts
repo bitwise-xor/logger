@@ -78,6 +78,18 @@ function items(f: Fields): { food_id: number | string; amount: number | string }
   });
 }
 
+/** A usual meal's box on Today (deploy 117): the ticked foods' item_id and amount fields, pair by pair, in their order. */
+function usualItems(f: Fields): { item_id: number | string; amount: number | string }[] {
+  const amounts = f.getAll('amount');
+  return f
+    .getAll('item_id')
+    .slice(0, 40)
+    .map((id, k) => {
+      const t = typeof id === 'string' ? id.trim() : '';
+      return { item_id: /^\d{1,12}$/.test(t) ? Number(t) : t, amount: amount(amounts[k] ?? '') };
+    });
+}
+
 export const SAVES = {
   // A typed line, as many lines as the box holds (each can be its own entry); 4000 characters as app.'s box (webentry.MAX_TEXT).
   log: { path: '/log', keyed: true, body: (f) => ({ text: str(f, 'text', 4000) }), timeoutMs: 60_000 },
@@ -88,7 +100,26 @@ export const SAVES = {
     keyed: true,
     body: (f) => ({ food_id: str(f, 'food_id', 12), amount: str(f, 'amount', 20), time: str(f, 'time', 5) }),
   },
-  usual: { path: '/usual', keyed: true, body: (f) => ({ meal_id: str(f, 'meal_id', 12) }) },
+  // a usual meal's chip: as saved; since deploy 117 its box sends only the ticked foods with their amounts (item_id and amount
+  // pairs, as usual_meal reads its foods) and a time (hh:mm; none = now). The saved meal itself stays as it is.
+  usual: {
+    path: '/usual',
+    keyed: true,
+    body: (f) => {
+      const body: Body = { meal_id: str(f, 'meal_id', 12), time: str(f, 'time', 5) };
+      if (f.getAll('item_id').length) body.items = usualItems(f);
+      return body;
+    },
+    check: (f) => {
+      const ids = f.getAll('item_id');
+      if (!ids.length) return null;
+      if (ids.length !== f.getAll('amount').length) return 'Give every food you tick an amount.';
+      if (ids.length > 40) return 'At most 40 foods.';
+      return usualItems(f).every((i) => typeof i.item_id === 'number' && typeof i.amount === 'number' && i.amount > 0)
+        ? null
+        : 'Give every food you tick an amount above 0.';
+    },
+  },
   habit: {
     path: '/habit',
     keyed: true,
@@ -581,7 +612,7 @@ function yes(f: Fields): Body {
 
 export type SaveName = keyof typeof SAVES;
 export const SAVE_NAMES = Object.keys(SAVES) as SaveName[];
-/** The Food day's form actions (src/routes/(app)/food), the Usual meals page's (src/routes/(app)/library/usual since deploy 105); Today has all the others. */
+/** The Food day's form actions (src/routes/(app)/food), the Usual meals page's (src/routes/(app)/library/usual since deploy 105); Today has all the others, and food_entry and food_note (deploy 117: a food row opened on Today). */
 export const FOOD_SAVES: SaveName[] = ['food_entry', 'food_note', 'usual_from_meal', 'undo'];
 export const USUAL_SAVES: SaveName[] = ['usual_meal', 'usual_new', 'undo'];
 /** The Health page's (deploy 92, src/routes/(app)/health): a day's row, a body session, Undo. */
@@ -653,6 +684,9 @@ export const SETTINGS_ONLY: SaveName[] = [
 export const TODAY_SAVES: SaveName[] = SAVE_NAMES.filter(
   (n) =>
     n === 'undo' ||
+    // a food row opened on Today (deploy 117): the Food day's two saves, answering with the fresh Today
+    n === 'food_entry' ||
+    n === 'food_note' ||
     (!FOOD_SAVES.includes(n) && !USUAL_SAVES.includes(n) && !HEALTH_SAVES.includes(n) && !HABITS_ONLY.includes(n) && !GYM_ONLY.includes(n) && !HOME_ONLY.includes(n) && !TRENDS_SAVES.includes(n) && !CATALOGUE_ONLY.includes(n) && !MEDICAL_ONLY.includes(n) && !SETTINGS_ONLY.includes(n)),
 );
 export type View = 'day' | 'food' | 'usual' | 'health' | 'body' | 'habits' | 'gym' | 'gym_plan' | 'gym_exercises' | 'home' | 'home_pick' | 'home_zones' | 'home_history' | 'home_chore' | 'home_edit' | 'week' | 'coach' | 'catalogue' | 'labs' | 'labs_tests' | 'labs_meds'

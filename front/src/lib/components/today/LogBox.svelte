@@ -2,9 +2,10 @@
   import AnswerBar from '#lib/components/today/AnswerBar.svelte';
   import ScanSheet from '#lib/components/today/ScanSheet.svelte';
   import { tabStorage, takeWords } from '#lib/recent.js';
+  import { lastAmount, moved, picked, suggest, typedPart, type SuggestFood, type Suggestion } from '#lib/suggest.js';
   import { getToday } from '#lib/today.svelte.js';
   import { afterNavigate } from '$app/navigation';
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
 
   const today = getToday();
   let sheet = $state<ScanSheet | null>(null);
@@ -38,6 +39,7 @@
     rec.continuous = false;
     const before = today.box ? today.box.replace(/\s*$/, ' ') : '';
     micNote = '';
+    closeList();
     rec.onresult = (e) => {
       today.box = before + Array.from(e.results, (r) => r[0]?.transcript ?? '').join('');
     };
@@ -93,20 +95,124 @@
 
   function submit(event: SubmitEvent) {
     event.preventDefault();
+    closeList();
     const words = today.box;
     if (!words.trim()) return;
     today.box = '';
     void today.log(words);
   }
 
-  // Enter sends, Shift+Enter starts a new line.
+  // Food suggestions (deploy 117, app.'s rules: src/lib/suggest.ts): the foods are asked for once, on the box's first focus; a food that
+  // cannot be read means no suggestions and nothing said. Only typing asks for them (the input event), never the microphone's words.
+  let foods: SuggestFood[] | null = null;
+  let asked = false;
+  let shown = $state<Suggestion[]>([]);
+  let sel = $state(-1);
+  // Phones: the list opens above the box and the lines being read (the box sits at the bottom); the PC: under the words.
+  let wide = $state(false);
+  onMount(() => {
+    const mq = matchMedia('(min-width: 68.75rem)');
+    const set = () => (wide = mq.matches);
+    set();
+    mq.addEventListener('change', set);
+    return () => mq.removeEventListener('change', set);
+  });
+
+  function loadFoods() {
+    if (asked) return;
+    asked = true;
+    fetch('/foods/suggest', { headers: { accept: 'application/json' }, cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: { foods?: unknown } | null) => (foods = Array.isArray(j?.foods) ? (j.foods as SuggestFood[]) : []))
+      .catch(() => (foods = []));
+  }
+
+  function closeList() {
+    shown = [];
+    sel = -1;
+  }
+
+  function typed() {
+    if (!field || !foods) return closeList();
+    shown = suggest(foods, typedPart(field.value, field.selectionStart ?? field.value.length).q);
+    sel = -1;
+  }
+
+  /** A suggestion picked: the part typed becomes its name and the amount eaten last, the cursor after it, the box keeps the focus. */
+  async function pick(s: Suggestion) {
+    const el = field;
+    if (!el) return;
+    const next = picked(el.value, el.selectionStart ?? el.value.length, s.food);
+    closeList();
+    today.box = next.value;
+    await tick();
+    el.focus();
+    el.setSelectionRange(next.caret, next.caret);
+  }
+
+  // Enter sends, Shift+Enter starts a new line. With suggestions shown: the arrows mark one, Enter or Tab picks the marked one
+  // (Enter with none marked sends the line), Escape closes them.
   function keydown(event: KeyboardEvent) {
+    if (shown.length && !event.isComposing) {
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        sel = moved(sel, shown.length, event.key === 'ArrowDown');
+        return;
+      }
+      if ((event.key === 'Enter' || event.key === 'Tab') && sel >= 0) {
+        event.preventDefault();
+        void pick(shown[sel]!);
+        return;
+      }
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeList();
+        return;
+      }
+    }
     if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
       event.preventDefault();
       form?.requestSubmit();
     }
   }
 </script>
+
+{#snippet list()}
+  {#if shown.length}
+    <!-- The suggestions (deploy 117): a tap or click picks one without the box losing the focus. -->
+    <ul
+      id="log-suggest"
+      role="listbox"
+      aria-label="Foods"
+      class="pointer-events-auto absolute z-30 m-0 flex max-h-[45dvh] list-none flex-col overflow-y-auto rounded-lg border border-line bg-panel p-1 shadow-lg {wide
+        ? 'inset-x-0 top-full mt-1'
+        : 'inset-x-3.5 bottom-full mb-1.5'}"
+      data-suggest
+    >
+      {#each shown as s, i (s.food.food_id)}
+        <!-- svelte-ignore a11y_click_events_have_key_events (the keys are the box's: arrows, Enter, Tab, Escape) -->
+        <li
+          id="log-suggest-{i}"
+          role="option"
+          tabindex="-1"
+          aria-selected={i === sel}
+          class="flex min-h-11 cursor-pointer items-center gap-2 rounded-md px-2.5 {i === sel ? 'bg-blue-bg' : 'hover:bg-panel2'} desktop:min-h-9"
+          onmousedown={(e) => {
+            // as app.: picked on the press itself, before the box could lose the focus (a phone's tap too)
+            e.preventDefault();
+            void pick(s);
+          }}
+          data-suggestion={s.food.food_id}
+        >
+          <span class="min-w-0 flex-1 truncate"
+            ><b class="font-medium">{s.food.name}</b>{#if s.word}<span class="text-muted"> · {s.word}</span>{/if}</span
+          >
+          <span class="num shrink-0 text-xs text-muted">{lastAmount(s.food).trim()}</span>
+        </li>
+      {/each}
+    </ul>
+  {/if}
+{/snippet}
 
 <!-- The logging box (step D, deploy 81); since deploy 90 with Scan (barcode, label photo: ScanSheet.svelte) and, where the browser
      can, the microphone. Phones: above the tab
@@ -117,6 +223,7 @@
   class="pointer-events-none fixed inset-x-0 bottom-[calc(52px+env(safe-area-inset-bottom))] z-20 flex flex-col desktop:pointer-events-auto desktop:static desktop:z-auto"
   data-logbox
 >
+  {#if !wide}{@render list()}{/if}
   <div class="flex flex-col gap-2 px-3.5 pb-2 empty:hidden desktop:order-2 desktop:px-0 desktop:pt-2 desktop:pb-0">
     {#each today.reading as r (r.id)}
       <div
@@ -141,6 +248,7 @@
   >
     <div class="flex items-end gap-2">
       <label for="log-text" class="sr-only">What to log</label>
+      <div class="relative flex min-w-0 flex-1">
       <textarea
         bind:this={field}
         bind:value={today.box}
@@ -151,9 +259,19 @@
         placeholder="What to log"
         autocomplete="off"
         enterkeyhint="send"
+        role="combobox"
+        aria-autocomplete="list"
+        aria-controls="log-suggest"
+        aria-expanded={shown.length > 0}
+        aria-activedescendant={sel >= 0 ? `log-suggest-${sel}` : undefined}
         onkeydown={keydown}
-        class="min-h-11 min-w-0 flex-1 resize-none rounded-lg border border-line bg-panel px-3 py-[9px] text-base leading-6 text-text placeholder:text-muted focus-visible:border-blue focus-visible:outline-none tablet:text-sm"
+        onfocus={loadFoods}
+        oninput={typed}
+        onblur={closeList}
+        class="min-h-11 w-full min-w-0 flex-1 resize-none rounded-lg border border-line bg-panel px-3 py-[9px] text-base leading-6 text-text placeholder:text-muted focus-visible:border-blue focus-visible:outline-none tablet:text-sm"
       ></textarea>
+      {#if wide}{@render list()}{/if}
+      </div>
       {#if Speech}
         <button
           type="button"

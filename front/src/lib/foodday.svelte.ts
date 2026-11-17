@@ -8,9 +8,10 @@ import { getContext, setContext } from 'svelte';
 import { Answers } from './answers.svelte.js';
 import type { SaveAnswer, Undo } from './day.js';
 import type { FoodDay, FoodEntry } from './food.js';
+import { EntryCache, type FoodHost } from './foodhost.js';
 import type { FieldValues } from './saver.js';
 
-export class FoodPage extends Answers {
+export class FoodPage extends Answers implements FoodHost {
   day = $state.raw<FoodDay | null>(null);
   fresh = $state.raw<Set<string>>(new Set());
   /** The row open to change (its ref), or none. */
@@ -21,7 +22,7 @@ export class FoodPage extends Answers {
   usualErr = $state<string | null>(null);
 
   #loaded: FoodDay | null = null;
-  #entries = new Map<string, Promise<FoodEntry | null>>();
+  #entries = new EntryCache();
 
   constructor(day: FoodDay | null, undo: Undo | null, open: string | null) {
     super('/food');
@@ -58,17 +59,10 @@ export class FoodPage extends Answers {
 
   /**
    * The entry behind a row (GET /food/entry through /food/entry here): its units for the unit field. Asked once per row and
-   * day; null when it cannot be read (the row's own unit is then the only one).
+   * day; null when it cannot be read (the row's own unit is then the only one). The cache is shared with Today (foodhost.ts).
    */
   entry(ref: string): Promise<FoodEntry | null> {
-    let p = this.#entries.get(ref);
-    if (!p) {
-      p = fetch(`/food/entry?ref=${encodeURIComponent(ref)}`, { headers: { accept: 'application/json' }, cache: 'no-store' })
-        .then(async (r) => (r.ok ? ((await r.json()) as { entry: FoodEntry }).entry : null))
-        .catch(() => null);
-      this.#entries.set(ref, p);
-    }
-    return p;
+    return this.#entries.get(ref);
   }
 
   /** Every save asks for the day shown. */

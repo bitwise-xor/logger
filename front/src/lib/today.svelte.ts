@@ -4,10 +4,14 @@
  * The cards reach it through getToday(); each tap is a form posted to a form action by the Saver (src/lib/saver.ts).
  * Step D (deploy 81): the logging box's words (`box`), the typed lines being read (`reading`, a blue row each), and "Correct it"
  * or an answer's words put back into the box (src/lib/logbox.ts has the plain rules).
+ * Deploy 117: a food row opens in place to change or delete it, with the Food day's editor (`open`, `toggle`, `entry`: foodhost.ts);
+ * its saves go to Today's form actions food_entry and food_note, whose answer brings the fresh Today.
  */
 import { getContext, setContext } from 'svelte';
 import { Answers } from './answers.svelte.js';
 import { freshRefs, type Day, type SaveAnswer, type Undo } from './day.js';
+import type { FoodEntry } from './food.js';
+import { EntryCache, type FoodHost } from './foodhost.js';
 import { hm } from './format.js';
 import { CoachRun } from './coachrun.svelte.js';
 import { LineKeys, readingText, wordsBack } from './logbox.js';
@@ -22,9 +26,11 @@ export interface Reading {
   text: string;
 }
 
-export class Today extends Answers {
+export class Today extends Answers implements FoodHost {
   day = $state.raw<Day | null>(null);
   fresh = $state.raw<Set<string>>(new Set());
+  /** The food row open to change (its ref), or none (deploy 117). */
+  open = $state<string | null>(null);
   /** The logging box's words, and the lines being read. */
   box = $state('');
   reading = $state<Reading[]>([]);
@@ -35,6 +41,7 @@ export class Today extends Answers {
   #lines = 0;
   #boxEl: HTMLTextAreaElement | null = null;
   #loaded: Day | null = null;
+  #entries = new EntryCache();
 
   constructor(day: Day | null, undo: Undo | null) {
     super('/');
@@ -47,7 +54,19 @@ export class Today extends Answers {
     this.#loaded = day;
     this.day = day;
     this.fresh = new Set();
+    this.open = null;
+    this.#entries.clear();
     this.loadUndo(undo);
+  }
+
+  /** A food row tapped: it opens (another one closes), or closes when it was open. */
+  toggle(ref: string) {
+    this.open = this.open === ref ? null : ref;
+  }
+
+  /** The entry behind a food row (its units and its note, which Today's rows do not carry): asked once per row (foodhost.ts). */
+  entry(ref: string): Promise<FoodEntry | null> {
+    return this.#entries.get(ref);
   }
 
   /**
@@ -125,10 +144,24 @@ export class Today extends Answers {
     return true;
   }
 
-  /** The answer's fresh day: a row it added gets a blue edge. */
-  protected take(a: SaveAnswer) {
-    if (a.day && this.day) this.fresh = freshRefs(this.day, a.day);
-    if (a.day) this.day = a.day;
+  /**
+   * The answer's fresh day: a row it added gets a blue edge. A food row's change that went through (deploy 117) closes the row and
+   * gives it the blue edge (not a delete: the row is gone); an open row that is not in the fresh day any more closes.
+   */
+  protected take(a: SaveAnswer, action: string, fields: FieldValues) {
+    if (!a.day) return;
+    const food = action === 'food_entry' || action === 'food_note';
+    const changed = food && a.outcome === 'changed';
+    if (this.day) {
+      const fresh = freshRefs(this.day, a.day);
+      const ref = typeof fields.ref === 'string' ? fields.ref : null;
+      if (changed && ref && fields.action !== 'delete' && a.day.rows.some((r) => r.ref === ref)) fresh.add(ref);
+      this.fresh = fresh;
+    }
+    if (changed) this.open = null;
+    if (this.open && !a.day.rows.some((r) => r.ref === this.open)) this.open = null;
+    this.#entries.clear(); // a change can move a row to another food (other units), or change its note
+    this.day = a.day;
   }
 
   /** The door's /log takes no "confirmed": a typed line's read-back is a question under Needs you (its card has the read-back). */

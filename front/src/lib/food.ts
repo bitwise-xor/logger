@@ -184,6 +184,12 @@ export function askedDay(v: string | null): string | undefined {
 
 // ---- changing a row ----------------------------------------------------------------------------------------------------------
 
+/**
+ * A food row the editor opens (components/food/FoodEditor.svelte): the Food day's row, or Today's (deploy 117), which has no note
+ * (`note` left out: the editor takes it from the entry, GET /food/entry).
+ */
+export type EditRow = Pick<FoodDayRow, 'ref' | 'at' | 'time_known' | 'food' | 'amount' | 'unit' | 'nutrients'> & { note?: string | null };
+
 /** An amount as typed ("80", "80,5", " 2.5 "): a number above 0, or null. */
 export function parseAmount(text: string): number | null {
   const t = text.trim().replace(',', '.');
@@ -206,7 +212,7 @@ export function stepped(amount: number, inBasis: number, dir: 1 | -1): number {
 }
 
 /** What the row's food becomes at a new amount (in the given unit): its nutrients scaled; null when that cannot be worked out. */
-export function becomes(r: FoodDayRow, amount: number | null, inBasis = 1): Nutrients | null {
+export function becomes(r: Pick<FoodDayRow, 'amount' | 'nutrients'>, amount: number | null, inBasis = 1): Nutrients | null {
   if (amount === null || !(r.amount > 0)) return null;
   const k = (amount * inBasis) / r.amount;
   return {

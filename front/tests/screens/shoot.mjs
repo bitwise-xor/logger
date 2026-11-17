@@ -8,7 +8,7 @@
 // and nothing else; a line that met a gone session is sent again after the sign-in, one kept too long comes back into the box.
 // Step E: the Food day: from the Energy card's link, the four tiles and the rows by meal against the food sample, a row opened
 // and changed (amount, unit, time), a note added and removed, an odd amount read back and confirmed, a row deleted and brought
-// back by Undo, an unknown food refused, the day switch, a food row on Today opening its row, and "+ Add food" leading to the box.
+// back by Undo, an unknown food refused, the day switch, and "+ Add food" leading to the box.
 // Step F: plain messages when the core is down or the door is off (the stand-in plays both): a tap says "Not saved." with why
 // (and links to app. when the door is off), Today, the Food day and the sign-in page say it instead of the page, "Try again"
 // brings the page back with the session kept; after a sign-in the page you were on comes back (`next`); and every page at a
@@ -59,6 +59,10 @@
 // their types, the head tags, the manifest read by the browser and the real /sw.js registered under the real CSP, no worker before a
 // press; the card with the browser's parts stubbed: off, Turn on (in order), on with "this device" and the twice line, Turn off; blocked;
 // the iPhone hint; the door's refusal leaving the device off and the subscription ended; the server without a key.
+// Deploy 117: Today (checkTodayParts says what): a food is one line with its numbers under its meal's totals, a food row opens in place with
+// the Food day's editor (a change, a read-back confirmed, a delete with Undo), an Again chip's amount and a usual meal's "…" open their
+// boxes (logged with another amount and time, or only some foods), the logging box's food suggestions after two letters (arrows, Enter,
+// a click, Escape; none when they cannot be read), and the order of the cards on phones and the PC.
 // Every check throws on a failure, so the script ends with an error.
 // Usage: node tests/screens/shoot.mjs <base url> <out dir> <stand-in url>
 import assert from 'node:assert/strict';
@@ -110,7 +114,9 @@ const want = {
     return ['Protein', 'Fat', 'Carbs'].map((m) => `${even((k[m] / whole) * 100)}%`);
   })(),
 };
-const macros = (x) => `P ${grouped(x.protein)} · F ${grouped(x.fat)} · C ${grouped(x.carbs)} g`;
+// deploy 117: a meal's totals in four columns with their letters; a food's as plain numbers in the same columns
+const mealCols = (x) => [`P ${grouped(x.protein)}`, `F ${grouped(x.fat)}`, `C ${grouped(x.carbs)}`, `${grouped(x.kcal)} kcal`];
+const rowCols = (x) => [grouped(x.protein), grouped(x.fat), grouped(x.carbs), grouped(x.kcal)];
 
 async function checkToday(page, name) {
   assert.equal((await page.locator('[data-kcal-left]').textContent())?.trim(), want.kcalLeft, 'kcal left');
@@ -141,11 +147,34 @@ async function checkToday(page, name) {
   const pie = await page.locator('[data-pie]').boundingBox();
   const energy = await page.locator('[data-card="energy"]').boundingBox();
   assert.ok(pie.x + pie.width <= energy.x + energy.width && pie.x > energy.x + energy.width / 2, 'the pie sits on the right of the Energy card');
-  // each food row's macros and each meal's under its label
-  for (const r of day.rows.filter((x) => x.kind === 'food'))
-    assert.equal((await page.locator(`[data-row="${r.ref}"] [data-row-macros]`).textContent())?.trim(), macros(r.nutrients), `macros of ${r.ref}`);
-  const mealMacros = await page.locator('[data-meal-macros]').allTextContents();
-  for (const m of day.energy.meals) assert.ok(mealMacros.map((x) => x.trim()).includes(macros(m.nutrients)), `macros of ${m.label}`);
+  // deploy 117: each food one line (a button that opens it), its numbers in the four columns under its meal's totals
+  const cells = async (loc) => loc.locator(':scope > span').evaluateAll((els) => els.map((e) => e.firstChild?.textContent?.trim() ?? ''));
+  for (const r of day.rows.filter((x) => x.kind === 'food')) {
+    const row = page.locator(`[data-row="${r.ref}"]`);
+    assert.deepEqual(await cells(row.locator('[data-row-cols]')), rowCols(r.nutrients), `numbers of ${r.ref}`);
+    assert.equal(await row.locator('button[aria-expanded="false"]').count(), 1, `${r.ref}: a button that opens it`);
+    assert.equal(await row.locator('a').count(), 0, `${r.ref}: no link to the Food day any more`);
+  }
+  const mealCells = await page.locator('[data-meal-cols]').evaluateAll((els) => els.map((e) => [...e.children].map((c) => c.textContent.trim())));
+  for (const m of day.energy.meals) assert.ok(mealCells.some((c) => JSON.stringify(c) === JSON.stringify(mealCols(m.nutrients))), `totals of ${m.label}`);
+  // the columns stand under the meal's: each number's right edge where its total's is
+  const edges = await page.evaluate(() => {
+    const right = (el) => [...el.children].map((c) => Math.round(c.getBoundingClientRect().right));
+    return { meal: right(document.querySelector('[data-meal-cols]')), rows: [...document.querySelectorAll('[data-row-cols]')].map(right) };
+  });
+  for (const r of edges.rows) r.forEach((x, i) => assert.ok(Math.abs(x - edges.meal[i]) <= 1, `column ${i} lines up (${x} / ${edges.meal[i]})`));
+  // the card order (the owner, 17.11.2026)
+  const cards = ['needs', 'energy', 'chips', 'timeline', 'habits', 'health', 'gym', 'home', 'coach', 'gratitude'];
+  const at = {};
+  for (const c of cards) at[c] = await page.locator(`[data-card="${c}"]`).first().boundingBox();
+  for (const c of cards) assert.ok(at[c], `card ${c} shown`);
+  if (name === 'pc') {
+    const right = ['needs', 'energy', 'habits', 'health', 'gym', 'home', 'coach', 'gratitude'];
+    for (let i = 1; i < right.length; i++) assert.ok(at[right[i]].y > at[right[i - 1]].y && Math.abs(at[right[i]].x - at.needs.x) < 2, `PC: ${right[i]} under ${right[i - 1]} on the right`);
+    assert.ok(Math.abs(at.chips.x - at.timeline.x) < 2 && at.timeline.y > at.chips.y && at.chips.x < at.needs.x, 'PC: the chips and the day on the left');
+  } else {
+    for (let i = 1; i < cards.length; i++) assert.ok(at[cards[i]].y > at[cards[i - 1]].y, `phone: ${cards[i]} after ${cards[i - 1]}`);
+  }
   // two habits per row
   const habits = await page.locator('[data-habit]').evaluateAll((els) => els.map((e) => e.getBoundingClientRect()).map((r) => ({ x: r.x, y: r.y })));
   if (habits.length >= 2) assert.ok(Math.abs(habits[0].y - habits[1].y) < 2 && habits[1].x > habits[0].x + 40, 'two habits per row');
@@ -154,6 +183,204 @@ async function checkToday(page, name) {
     assert.ok(Math.abs(needs.width - 340) < 2, 'PC: the right column is 340 px');
   }
   else assert.ok(needs.y < timeline.y && Math.abs(needs.x - timeline.x) < 2, 'phone: one column, Needs you first');
+}
+
+/**
+ * Deploy 117: Today's food rows open in place (the Food day's editor: a change with the blue edge, a read-back confirmed, the note from
+ * the entry, a delete and its Undo), the chips' boxes (an Again chip's amount, a usual meal's "…"), the logging box's suggestions.
+ */
+async function checkTodayParts(page, name, theme) {
+  await standinPost('/standin/reset');
+  await page.goto(`${base}/`);
+  await page.getByRole('heading', { name: 'Today', exact: true }).waitFor();
+  await page.evaluate(() => (window.__noReload = true));
+  const bar = page.locator('[data-bar]');
+  const head = bar.locator('[data-bar-head]');
+  const row = (ref) => page.locator(`[data-row="${ref}"]`);
+  const line = (ref) => row(ref).locator('button[aria-expanded]').first();
+  const editor = (ref) => page.locator(`[data-food-editor="${ref}"]`);
+  const kcal = async (ref) => row(ref).locator('[data-kcal]').evaluate((e) => e.firstChild.textContent.trim()); // without its sr-only " kcal"
+
+  // a food row opens in place (a button, aria-expanded), one at a time; a second tap closes it
+  const soup = day.rows.find((r) => r.food === 'Lentil soup');
+  const noted = foodDay.rows.find((r) => r.note);
+  await line(soup.ref).click();
+  await editor(soup.ref).waitFor();
+  assert.equal(await line(soup.ref).getAttribute('aria-expanded'), 'true', 'the row says it is open');
+  assert.equal(page.url(), `${base}/`, 'it opens on Today');
+  // Today's rows carry no note: it comes with the entry
+  if (noted.ref === soup.ref) {
+    await page.waitForFunction((ref) => document.querySelector(`[data-food-editor="${ref}"] input[name=note]`)?.value !== '', soup.ref);
+    assert.equal(await editor(soup.ref).locator('input[name=note]').inputValue(), noted.note, 'the note from the entry');
+    await editor(soup.ref).getByRole('button', { name: 'Remove' }).waitFor();
+  }
+  await editor(soup.ref).scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${out}/today-row-open-${name}-${theme}.png` });
+  await checkWidth(page, 'today, a food row open');
+  const bread = day.rows.find((r) => r.food === 'Rye bread');
+  await line(bread.ref).click();
+  await editor(bread.ref).waitFor();
+  assert.equal(await editor(soup.ref).count(), 0, 'one row open at a time');
+  await line(bread.ref).click();
+  await editor(bread.ref).waitFor({ state: 'detached' });
+
+  // changed: saved in place, the row closed with a blue edge, its numbers moved, Undo in the bar
+  await line(soup.ref).click();
+  await editor(soup.ref).locator('input[name=amount]').fill(String(soup.amount / 2));
+  await editor(soup.ref).getByRole('button', { name: 'Save', exact: true }).click();
+  await page.locator(`[data-row="${soup.ref}"][data-fresh]`).waitFor();
+  assert.equal(await text(head), `Changed ${soup.food}.`, 'Today: the change\'s head');
+  await bar.getByRole('button', { name: 'Undo' }).waitFor();
+  assert.equal(await editor(soup.ref).count(), 0, 'the row closed after the change');
+  assert.equal(await kcal(soup.ref), grouped(soup.nutrients.kcal / 2), 'its kcal halved');
+  // an odd amount is read back in Today's answer bar; Yes makes it
+  await line(soup.ref).click();
+  await editor(soup.ref).locator('input[name=amount]').fill('2500');
+  await editor(soup.ref).getByRole('button', { name: 'Save', exact: true }).click();
+  const yes = page.locator('[data-bar="warning"]').getByRole('button', { name: 'Yes, change' });
+  await yes.waitFor();
+  await yes.click();
+  await head.getByText(`Changed ${soup.food}.`).waitFor();
+  const big = Number((await kcal(soup.ref)).replace(/,/g, ''));
+  assert.ok(Math.abs(big - (soup.nutrients.kcal / soup.amount) * 2500) <= 2, `the confirmed amount (${big} kcal)`);
+  // deleted, then back with Undo
+  const fruit = day.rows.find((r) => r.food === 'Fruit bar');
+  await line(fruit.ref).click();
+  await editor(fruit.ref).getByRole('button', { name: 'Delete' }).click();
+  await row(fruit.ref).waitFor({ state: 'detached' });
+  assert.equal(await text(head), `Deleted ${fruit.food}.`, 'Today: the delete\'s head');
+  await bar.getByRole('button', { name: 'Undo' }).click();
+  await page.locator(`[data-row="${fruit.ref}"][data-fresh]`).waitFor();
+
+  // an Again chip: its name logs at once (checkSaves), its amount opens a box with − and +, a time, Log and Cancel
+  const chip = day.chips.again.find((c) => c.name === 'Rye bread');
+  const amountPart = page.locator(`[data-chip="a${chip.food_id}"] [data-chip-amount]`);
+  assert.equal(await amountPart.getAttribute('aria-label'), `Change the amount of ${chip.name}`);
+  const sizes = await page.locator(`[data-chip="a${chip.food_id}"] button`).evaluateAll((els) => els.map((e) => e.getBoundingClientRect()).map((r) => [r.width, r.height]));
+  if (name !== 'pc') assert.ok(sizes.every(([, h]) => h >= 43.5) && sizes[1][0] >= 43.5, `the chip's two parts are 44 px targets (${JSON.stringify(sizes)})`);
+  await amountPart.click();
+  const again = page.locator('[data-chip-box="again"]');
+  await again.waitFor();
+  assert.equal(await amountPart.getAttribute('aria-expanded'), 'true');
+  assert.equal(await again.locator('input[name=amount]').inputValue(), String(chip.amount), 'the amount eaten last');
+  await again.getByRole('button', { name: 'More' }).click();
+  assert.equal(await again.locator('input[name=amount]').inputValue(), String(chip.amount + 5), '+ adds 5 g');
+  await again.locator('input[name=time]').fill('07:15');
+  await again.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${out}/today-again-box-${name}-${theme}.png` });
+  await checkWidth(page, 'today, an Again box open');
+  // one box at a time: the usual meal's opens in its place
+  const usual = day.chips.usual[0];
+  await page.locator(`[data-chip="u${usual.meal_id}"] [data-chip-more]`).click();
+  await page.locator('[data-chip-box="usual"]').waitFor();
+  assert.equal(await again.count(), 0, 'one box at a time');
+  await page.locator(`[data-chip="u${usual.meal_id}"] [data-chip-more]`).click();
+  await page.locator('[data-chip-box="usual"]').waitFor({ state: 'detached' });
+  await amountPart.click();
+  await again.getByRole('button', { name: 'More' }).click();
+  await again.locator('input[name=time]').fill('07:15');
+  await again.getByRole('button', { name: 'Log' }).click();
+  await again.waitFor({ state: 'detached' });
+  const logged = page.locator('[data-fresh]', { hasText: chip.name });
+  await logged.waitFor();
+  assert.match(await text(logged), new RegExp(`^07:15 ${chip.name} ${chip.amount + 5} g`), 'logged with the amount and time of the box');
+
+  // a usual meal's "…": every food ticked with its amount, what the ticked ones become, Log only with something to log
+  const more = page.locator(`[data-chip="u${usual.meal_id}"] [data-chip-more]`);
+  await more.click();
+  const ub = page.locator('[data-chip-box="usual"]');
+  await ub.waitFor();
+  const [first, second] = usual.items;
+  const item = (i) => ub.locator(`[data-chip-item="${i.item_id}"]`);
+  const sum = (xs) => xs.reduce((a, x) => ({ kcal: a.kcal + x.kcal, protein: a.protein + x.protein, fat: a.fat + x.fat, carbs: a.carbs + x.carbs }), { kcal: 0, protein: 0, fat: 0, carbs: 0 });
+  const said = (x) => `${grouped(x.kcal)} kcal · P ${grouped(x.protein)} · F ${grouped(x.fat)} · C ${grouped(x.carbs)} g`;
+  assert.equal(await text(ub.locator('[data-chip-becomes]')), said(sum(usual.items.map((i) => i.nutrients))), 'the whole meal');
+  await item(second).locator('input[type=checkbox]').uncheck();
+  assert.ok(await item(second).locator('input[name=amount]').isDisabled(), 'an unticked food: its amount is off');
+  await item(first).locator('input[name=amount]').fill(String(first.amount * 1.5));
+  const k = 1.5;
+  assert.equal(await text(ub.locator('[data-chip-becomes]')), said({ kcal: first.nutrients.kcal * k, protein: first.nutrients.protein * k, fat: first.nutrients.fat * k, carbs: first.nutrients.carbs * k }), 'scaled, the unticked left out');
+  await item(first).locator('input[type=checkbox]').uncheck();
+  assert.ok(await ub.getByRole('button', { name: 'Log' }).isDisabled(), 'nothing ticked: Log is off');
+  await item(first).locator('input[type=checkbox]').check();
+  await item(first).locator('input[name=amount]').fill('0');
+  assert.ok(await ub.getByRole('button', { name: 'Log' }).isDisabled(), 'an amount of 0: Log is off');
+  await item(first).locator('input[name=amount]').fill(String(first.amount * 1.5));
+  await ub.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${out}/today-usual-box-${name}-${theme}.png` });
+  await checkWidth(page, 'today, a usual meal box open');
+  const freshBefore = await page.locator('[data-row]').count();
+  await ub.getByRole('button', { name: 'Log' }).click();
+  await ub.waitFor({ state: 'detached' });
+  await page.locator('[data-fresh]', { hasText: first.food }).waitFor();
+  assert.equal(await page.locator('[data-fresh]').count(), 1, 'only the ticked food was logged');
+  assert.equal(await page.locator('[data-row]').count(), freshBefore + 1);
+  assert.match(await text(page.locator('[data-fresh]')), new RegExp(`${first.food} ${first.amount * 1.5} g`), 'at its new amount');
+
+  // the logging box's suggestions: after two letters of the part typed, a listbox (above the box on phones, under it on the PC)
+  const box = page.locator('#log-text');
+  const list = page.locator('[data-suggest]');
+  await box.click();
+  await page.waitForTimeout(300); // the foods are read on the first focus
+  await box.pressSequentially('o');
+  await page.waitForTimeout(200);
+  assert.equal(await list.count(), 0, 'one letter: no suggestions');
+  await box.pressSequentially('a');
+  await list.waitFor();
+  assert.equal(await box.getAttribute('aria-expanded'), 'true');
+  const options = list.locator('[role=option]');
+  assert.ok((await options.count()) >= 2 && (await options.count()) <= 6, 'up to 6');
+  const names = (await options.locator('b').allTextContents()).map((x) => x.toLowerCase());
+  assert.ok(names.every((x) => x.split(/[\s,()/-]+/).some((w) => w.startsWith('oa')) || x.includes('oa')), 'each has the letters');
+  const listBox = await list.boundingBox();
+  const boxBox = await box.boundingBox();
+  if (name === 'pc') assert.ok(listBox.y >= boxBox.y + boxBox.height - 1, 'PC: under the box');
+  else {
+    assert.ok(listBox.y + listBox.height <= (await page.locator('[data-logbox]').boundingBox()).y + 1 && listBox.y >= 0, 'phone: above the box, in view');
+  }
+  await page.screenshot({ path: `${out}/today-suggest-${name}-${theme}.png` });
+  await checkWidth(page, 'today, suggestions');
+  // the arrows mark one, Enter picks it: its name and the amount eaten last, the cursor after it
+  await box.press('ArrowDown');
+  assert.equal(await options.first().getAttribute('aria-selected'), 'true');
+  assert.equal(await box.getAttribute('aria-activedescendant'), 'log-suggest-0');
+  const want0 = `${(await text(options.first().locator('b')))} ${await text(options.first().locator('span').last())}`.trim();
+  await box.press('Enter');
+  await list.waitFor({ state: 'detached' });
+  assert.equal(await box.inputValue(), want0, 'Enter picks the marked one');
+  assert.equal(await page.evaluate(() => document.getElementById('log-text').selectionStart), want0.length, 'the cursor after it');
+  // after a comma the next part; a click picks without the box losing the focus; Escape closes
+  await box.pressSequentially(', 150 g sk');
+  await list.waitFor();
+  const want1 = `${(await text(options.first().locator('b')))} ${await text(options.first().locator('span').last())}`.trim();
+  await options.first().click();
+  assert.equal(await box.inputValue(), `${want0}, ${want1}`, 'a click replaces the part typed, its amount too');
+  assert.equal(await page.evaluate(() => document.activeElement?.id), 'log-text', 'the box keeps the focus');
+  await box.pressSequentially(' and ry');
+  await list.waitFor();
+  await box.press('Escape');
+  await list.waitFor({ state: 'detached' });
+  // Enter with none marked sends the line as before (and closes the list)
+  await box.fill('');
+  await box.pressSequentially('40 g radishes, ap');
+  await list.waitFor();
+  await box.press('Enter');
+  await list.waitFor({ state: 'detached' });
+  await page.locator('[data-reading]').first().waitFor({ state: 'detached' });
+  assert.equal(await box.inputValue(), '', 'sent');
+
+  // the foods cannot be read: no suggestions, nothing said
+  await standinPost('/standin/suggest-off');
+  await page.reload();
+  await box.click();
+  await page.waitForTimeout(300);
+  await box.pressSequentially('oa');
+  await page.waitForTimeout(300);
+  assert.equal(await list.count(), 0, 'no suggestions when they cannot be read');
+  assert.equal(await page.locator('[data-bar="warning"]').count(), 0, 'and nothing said');
+  await box.fill('');
+  await standinPost('/standin/reset');
+  await page.goto(`${base}/`);
 }
 
 const text = async (loc) => (await loc.textContent())?.replace(/\s+/g, ' ').trim();
@@ -510,13 +737,10 @@ async function checkFood(page, name, theme) {
   await page.getByRole('link', { name: 'The day after' }).click();
   await page.locator('[data-day]').getByText('today', { exact: false }).waitFor();
 
-  // a food row on Today opens its row on the Food day
-  await page.getByRole('link', { name: '‹ Today' }).click();
-  await page.getByRole('heading', { name: 'Today', exact: true }).waitFor();
+  // a row opened by its address (?open=, as a To review row's Change leads here)
   const apple = foodDay.rows.find((r) => r.food.startsWith('Apple'));
-  await page.locator(`a[data-row="${apple.ref}"]`).click();
+  await page.goto(`${base}/food?open=${apple.ref}`);
   await editor(apple.ref).waitFor();
-  assert.match(page.url(), new RegExp(`/food\\?open=${apple.ref}$`), 'the row opened from Today');
 
   // "+ Add food": back to Today, the cursor in the logging box
   await page.getByRole('link', { name: '+ Add food' }).click();
@@ -1548,7 +1772,7 @@ async function checkGym(page, name, theme) {
   const names = (list) => page.locator(`[data-list="${list}"] [data-gx-name] span span:first-child`).allTextContents().then((x) => x.map((t) => t.trim()));
   const status = () => text(page.locator('[data-status]'));
 
-  // Today's Gym card, from the day sample's gym: placed under the day (the gym mockup's Today), its lines, the 14 squares
+  // Today's Gym card, from the day sample's gym: placed under Health (deploy 117), its lines, the 14 squares
   await page.goto(`${base}/`);
   const g = day.gym;
   const gc = page.locator('[data-card="gym"]');
@@ -1559,8 +1783,9 @@ async function checkGym(page, name, theme) {
   assert.deepEqual(await gc.locator('[data-sq]').evaluateAll((els) => els.map((e) => e.getAttribute('data-sq'))), g.days.map((d) => (d.on ? 'on' : 'off')), 'the 14 squares');
   assert.equal(await gc.locator('[data-gym-days]').getAttribute('aria-label'), `Last 14 days: ${g.n14} workouts`);
   assert.equal(await text(gc.locator('[data-gym-weeks]')), `Last week ${g.last_week} · this week ${g.this_week}`);
-  const [tl, gb, hc] = await Promise.all(['timeline', 'gym', 'health'].map((c) => page.locator(`[data-card="${c}"]`).boundingBox()));
-  assert.ok(gb.y > tl.y + tl.height - 1 && hc.y > gb.y + gb.height - 1 && Math.abs(gb.x - tl.x) < 2, `${name}: the Gym card under the day, above Health`);
+  // deploy 117: the Gym card right under Health (phones: after Your day, Habits and Health; the PC: in the right column)
+  const [hc, gb] = await Promise.all(['health', 'gym'].map((c) => page.locator(`[data-card="${c}"]`).boundingBox()));
+  assert.ok(gb.y > hc.y + hc.height - 1 && gb.y - (hc.y + hc.height) < 24 && Math.abs(gb.x - hc.x) < 2, `${name}: the Gym card right under Health`);
   if (name === 'phone') await gc.screenshot({ path: `${out}/today-gym-card-${name}-${theme}.png` });
   await gc.locator('[data-gym-open]').click();
   await page.waitForURL(/\/gym$/);
@@ -2371,7 +2596,7 @@ async function checkHome(page, name, theme) {
   assert.equal(await text(hc.locator('[data-home-15]')), '15 minutes');
   assert.equal(await hc.locator('[data-home-open]').getAttribute('href'), '/home');
   const [hab, hom] = await Promise.all(['habits', 'home'].map((k) => page.locator(`[data-card="${k}"]`).boundingBox()));
-  assert.ok(hom.y > hab.y + hab.height - 1 && Math.abs(hom.x - hab.x) < 2, `${name}: the Home card right under Habits`);
+  assert.ok(hom.y > hab.y + hab.height - 1 && Math.abs(hom.x - hab.x) < 2, `${name}: the Home card under Habits (deploy 117: Health and Gym between)`);
   if (name === 'phone') await hc.screenshot({ path: `${out}/today-home-card-${name}-${theme}.png` });
   await hc.locator('[data-home-open]').click();
   await page.waitForURL(/\/home$/);
@@ -6148,6 +6373,10 @@ for (const theme of ['dark', 'light']) {
       await checkReviewChange(page, name, theme);
     }
     await checkWidth(page, 'today');
+    if (only('todayparts')) {
+      await checkTodayParts(page, name, theme);
+      console.log(`today's food rows, chip boxes, suggestions ${name} ${theme}: checks passed`);
+    }
     if (only('saves')) {
       await checkSaves(page, name, theme);
       console.log(`saves ${name} ${theme}: checks passed`);

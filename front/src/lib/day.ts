@@ -155,7 +155,7 @@ export interface Day {
   water: { ml: number; target_ml: number | null; glass_ml: number };
   chips: {
     again: { food_id: number; name: string; amount: number; unit: string }[];
-    usual: { meal_id: number; name: string; nutrients: Nutrients; items: unknown[] }[];
+    usual: { meal_id: number; name: string; nutrients: Nutrients; items: UsualItem[] }[];
   };
   rows: Row[];
   health: HealthItem[];
@@ -172,6 +172,15 @@ export interface Day {
    * (an older door): both shown.
    */
   shown?: { review: boolean; gratitude: boolean };
+}
+
+/** A food of a usual meal's chip (its box, deploy 117, changes the amounts or leaves foods out before logging). */
+export interface UsualItem {
+  item_id: number;
+  food: string;
+  amount: number;
+  unit: string;
+  nutrients: Nutrients;
 }
 
 export interface Undo {
@@ -254,38 +263,66 @@ export function macroBars(e: Day['energy']): MacroBar[] {
 /** The Health card's types: their entries are on the card, not in the timeline (the plan, question 1). */
 export const HEALTH_TYPES = new Set(['bed', 'wake', 'weight', 'blood_sugar', 'bp']);
 
+/** A food's protein, fat, carbs and kcal for the four columns: plain numbers on a row ("24"), with their letter on a meal ("P 24", "410 kcal"). */
+export interface Cols {
+  protein: string;
+  fat: string;
+  carbs: string;
+  kcal: string;
+}
+
+/**
+ * One row of the timeline. A food (deploy 117) is one line: its time, its name with the amount after it, and its numbers in the four
+ * columns under its meal's; other rows (mood, a nap, a tape measure) keep their name, a small line under it and their value.
+ */
 export interface Line {
   ref: string;
   time: string;
   name: string;
+  /** A food's amount, after its name: "300 g (1 bowl)"; '' for other rows. */
+  amount: string;
+  /** Other rows: the small line under the name ("to review", a period); '' for a food. */
   sub: string;
-  /** A food's macros in a small line ("P 24 · F 3 · C 60 g", the owner, 16.11.); '' for other rows. */
-  macros: string;
+  /** A food's numbers; null for other rows. */
+  cols: Cols | null;
+  /** Other rows' value ("88 cm"); a food's kcal ("410 kcal", for its label). */
   value: string;
   review: boolean;
+  /** The food row itself, for its editor (deploy 117); null for other rows. */
+  row: FoodRow | null;
 }
 
 export interface Block {
   key: string;
   label: string;
-  total: string;
-  /** The meal's macros under its label ("P 37 · F 29 · C 136 g"); '' for "Other". */
-  macros: string;
+  /** The meal's totals in the four columns ("P 37", "F 29", "C 136", "575 kcal"); null for "Other". */
+  cols: Cols | null;
   lines: Line[];
 }
 
 /** "P 24 · F 3 · C 60 g": protein, fat and carbs in whole grams, as app. rounds them. */
 export const macroText = (x: Nutrients) => `P ${n(x.protein)} · F ${n(x.fat)} · C ${n(x.carbs)} g`;
 
+/** A food's numbers for the four columns, in whole grams and kcal as app. rounds them. */
+export const rowCols = (x: Nutrients): Cols => ({ protein: n(x.protein), fat: n(x.fat), carbs: n(x.carbs), kcal: n(x.kcal) });
+/** A meal's totals for the four columns, each with its letter. */
+export const mealCols = (x: Nutrients): Cols => ({ protein: `P ${n(x.protein)}`, fat: `F ${n(x.fat)}`, carbs: `C ${n(x.carbs)}`, kcal: `${n(x.kcal)} kcal` });
+
+/** A food's amount as the Food day writes it: "300 g (1 bowl)", "12.5 g". */
+export const amountOf = (r: Pick<FoodRow, 'amount' | 'unit' | 'portion_text'>) =>
+  `${Number.isInteger(r.amount) ? n(r.amount) : n(r.amount, 1)} ${r.unit}${r.portion_text ? ` (${r.portion_text})` : ''}`;
+
 function foodLine(r: FoodRow): Line {
   return {
     ref: r.ref,
     time: r.time_known ? hm(r.at) : '',
     name: r.food,
-    sub: r.portion_text || `${n(r.amount)} ${r.unit}`,
-    macros: macroText(r.nutrients),
+    amount: amountOf(r),
+    sub: '',
+    cols: rowCols(r.nutrients),
     value: `${n(r.nutrients.kcal)} kcal`,
     review: false,
+    row: r,
   };
 }
 
@@ -301,10 +338,12 @@ function valueLine(r: ValueRow): Line {
     ref: r.ref,
     time: r.time_known ? hm(r.at) : '',
     name: r.label,
+    amount: '',
     sub: r.needs_review ? 'to review' : r.period && r.type !== 'bp' ? r.period : '',
-    macros: '',
+    cols: null,
     value: valueText(r.v1, r.v2, r.unit),
     review: r.needs_review,
+    row: null,
   };
 }
 
@@ -340,7 +379,7 @@ export function newestFirst<R extends { at: string | null; time_known: boolean }
 }
 
 /**
- * The day's rows as blocks, newest first (the mockup): one block per meal with its label and kcal (energy.meals), the drinks last
+ * The day's rows as blocks, newest first (the mockup): one block per meal with its label and totals (energy.meals), the drinks last
  * (as app. lists them), and entries that are not food (mood, a tape measure, a nap) in "Other" blocks between the meals, where they
  * happened. Left out: the Health card's entries and the habit ticks, which have their own cards.
  */
@@ -369,8 +408,7 @@ export function timeline(d: Day): Block[] {
     return {
       key: b.key,
       label: b.meal === null ? 'Other' : mealLabel(b.meal, meal?.label),
-      total: meal ? `${n(meal.nutrients.kcal)} kcal` : '',
-      macros: meal ? macroText(meal.nutrients) : '',
+      cols: meal ? mealCols(meal.nutrients) : null,
       lines: b.rows.map((r) => (r.kind === 'food' ? foodLine(r) : valueLine(r))),
     };
   });

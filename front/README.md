@@ -41,7 +41,7 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   mid-save, the line and its key are sent again after the sign-in; one kept over 10 minutes comes back into the box instead,
   and so do words that got no answer (sent again, they keep their key: `src/lib/logbox.ts`).
 - The Food day (step E): `src/routes/(app)/food` (`?day=yyyy-mm-dd` for an earlier day, a later one is today; `?open=f<id>`
-  opens a row), reached from the Energy card's "Food day" and from a food row on Today (it opens that row). `src/lib/food.ts`:
+  opens a row), reached from the Energy card's "Food day" (since deploy 117 a food row on Today opens in place instead). `src/lib/food.ts`:
   the four total tiles, the rows by meal (newest first, the drinks last, as Today's timeline: `newestFirst` in `day.ts`), the day
   switch and what a changed amount becomes; the cards in `src/lib/components/food/`. A row opens to change its amount (− and +),
   unit (the food's units from `GET /food/entry`, through `src/routes/(app)/food/entry/+server.ts`), time and food (another one
@@ -49,6 +49,18 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   `food_note` (`saves.ts`, `view: "food"` with the day shown), an odd value read back first (Yes = `confirmed`), Undo in the
   answer bar. The answer bar and the taps on their way are shared with Today (`src/lib/answers.svelte.ts`; the Food day's state
   is `src/lib/foodday.svelte.ts`). The logging box stays on Today ("+ Add food" leads to it); usual meals open in app.
+- Today's food parts (deploy 117). Each food in Your day is one line: time, name with its amount (the portion's words after it),
+  then protein, fat, carbs and kcal in four columns that stand under the meal's totals ("P 32", "F 14", "C 60", "420 kcal") on the
+  meal's line (`timeline` in `day.ts`). A tap opens the row in place with the Food day's editor (`FoodEditor.svelte` takes a host,
+  `src/lib/foodhost.ts`, which the Food day and Today both are; they share the entry cache; on Today the note comes with the entry);
+  Today's form actions `food_entry` and `food_note` answer with the fresh Today. Each chip is one pill with two parts: the name
+  logs at once; an Again chip's amount, or a usual meal's "…", opens a box under the chips (`src/lib/chipbox.ts`): another
+  amount and a time (`again` with `time`), or a usual meal's foods ticked and their amounts with what they become (`usual` with
+  `items` and `time`; the saved meal stays as it is). The logging box suggests foods after two letters, with app.'s rules
+  (`src/lib/suggest.ts`, from `GET /foods/suggest` through `src/routes/(app)/foods/suggest`, read once on the first focus; none
+  when it cannot be read): above the box on phones, under it on the PC. Card order: phones Needs you, Energy, chips, Your day,
+  Habits, Health, Gym, Home, Coach, Gratitude; the PC has the chips and Your day on the left, the rest on the right in that order.
+  The stand-in answers `GET /foods/suggest` (POST `/standin/suggest-off` makes it fail); `SHOOT_ONLY=todayparts` runs these checks.
 - The scan sheet (deploy 90, the move's step 1a; the door's routes came with deploy 89): "Scan" in the logging box opens
   `src/lib/components/today/ScanSheet.svelte`, a dialog (full height on phones, above the tab bar and the box). The back camera
   reads EAN-13, EAN-8, UPC-A and UPC-E with app.'s zxing file (`static/zxing.min.js`, Apache 2.0, loaded on first use), or the

@@ -1,11 +1,11 @@
 <script lang="ts">
-  import { amountText, becomes, becomesText, inUnit, parseAmount, stepped, type FoodDayRow } from '#lib/food.js';
+  import { amountText, becomes, becomesText, inUnit, parseAmount, stepped, type EditRow } from '#lib/food.js';
+  import type { FoodHost } from '#lib/foodhost.js';
   import { hm } from '#lib/format.js';
-  import { getFoodPage } from '#lib/foodday.svelte.js';
   import { onMount, untrack } from 'svelte';
 
-  let { row }: { row: FoodDayRow } = $props();
-  const food = getFoodPage();
+  // host: the page the row is on (the Food day, or Today since deploy 117: foodhost.ts); its form actions take the saves.
+  let { row, host: food }: { row: EditRow; host: FoodHost } = $props();
 
   // The row's values as they stand, to change (the mockup: amount with − and +, what it becomes, Save, Cancel, Delete); plus the
   // unit, the time, another food by its name, and the note (the plan's Food day row).
@@ -16,11 +16,18 @@
   let name = $state(start.food);
   let note = $state(start.note ?? '');
   let units = $state([{ unit: start.unit, in_basis: 1 }]);
+  // Today's rows carry no note (deploy 117): it comes with the entry.
+  let entryNote = $state<string | null>(null);
+  const saved = $derived(row.note !== undefined ? row.note : entryNote);
 
   onMount(() => {
     // The food's other units (a slice, a cup) come from GET /food/entry; until then (or without) the row's own unit.
     void food.entry(start.ref).then((e) => {
       if (e && e.units.length) units = e.units;
+      if (e && start.note === undefined) {
+        entryNote = e.note;
+        if (!note) note = e.note ?? '';
+      }
     });
   });
 
@@ -124,7 +131,7 @@
       <button type="submit" class="{btn} border border-line bg-panel text-text" disabled={!!food.busy[`note:${row.ref}`] || !note.trim()}
         >Save note</button
       >
-      {#if row.note}
+      {#if saved}
         <button
           type="button"
           class="{btn} border-0 bg-transparent text-muted"

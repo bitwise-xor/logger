@@ -190,7 +190,10 @@ describe('the Food day saves (step E)', () => {
   it('offers the Food day and the Usual meals page their saves and Undo, and Today all the others', () => {
     expect(FOOD_SAVES).toEqual(['food_entry', 'food_note', 'usual_from_meal', 'undo']);
     expect(USUAL_SAVES).toEqual(['usual_meal', 'usual_new', 'undo']);
-    expect(TODAY_SAVES).not.toContain('food_entry');
+    // deploy 117: a food row opens on Today too, so Today has the Food day's two row saves (not "Save as usual meal")
+    expect(TODAY_SAVES).toContain('food_entry');
+    expect(TODAY_SAVES).toContain('food_note');
+    expect(TODAY_SAVES).not.toContain('usual_from_meal');
     expect(TODAY_SAVES).not.toContain('usual_meal');
     expect(TODAY_SAVES).toContain('usual');
     expect(TODAY_SAVES).toContain('undo');
@@ -261,6 +264,68 @@ describe('the usual meals (deploy 87)', () => {
     await runSave(door, SESSION, 'usual_new', form({ name: 'Shake', food_id: ['11'], amount: ['300'], key: KEY }), undefined, 'usual');
     await runSave(door, SESSION, 'usual_from_meal', form({ day: '2026-11-16', meal: '1', name: 'Bowl', key: KEY }), '2026-11-16', 'food');
     expect(seen.map((x) => x.path)).toEqual(['/api/v1/usual/meal', '/api/v1/usual/new', '/api/v1/usual/from_meal']);
+  });
+});
+
+describe('Today’s chip boxes and food rows (deploy 117)', () => {
+  it('a usual meal as saved: only its id and the key', () => {
+    expect(bodyFor('usual', form({ meal_id: '3', key: KEY }), undefined)).toEqual({ meal_id: '3', key: KEY, view: 'day' });
+  });
+
+  it('a usual meal from its box: the ticked foods with their amounts, in order, and the time', () => {
+    const f = form({ meal_id: '3', item_id: ['11', '13'], amount: ['80', '12.5'], time: '07:45', key: KEY });
+    expect(SAVES.usual.check(f)).toBeNull();
+    expect(bodyFor('usual', f, undefined)).toEqual({
+      meal_id: '3',
+      time: '07:45',
+      items: [
+        { item_id: 11, amount: 80 },
+        { item_id: 13, amount: 12.5 },
+      ],
+      key: KEY,
+      view: 'day',
+    });
+    // no time: now (the door's default)
+    expect(bodyFor('usual', form({ meal_id: '3', item_id: ['11'], amount: ['80'], time: '' }), undefined)).not.toHaveProperty('time');
+  });
+
+  it('refuses a box with an amount missing or not above 0, without asking the door', async () => {
+    expect(SAVES.usual.check(form({ meal_id: '3', item_id: ['11', '13'], amount: ['80'] }))).toBe('Give every food you tick an amount.');
+    expect(SAVES.usual.check(form({ meal_id: '3', item_id: ['11'], amount: ['0'] }))).toBe('Give every food you tick an amount above 0.');
+    expect(SAVES.usual.check(form({ meal_id: '3', item_id: ['11'], amount: ['lots'] }))).toBe('Give every food you tick an amount above 0.');
+    const { door, seen } = net();
+    const r = await runSave(door, SESSION, 'usual', form({ meal_id: '3', item_id: ['x'], amount: ['5'], key: KEY }));
+    expect(r).toMatchObject({ ok: false, status: 400, message: 'Give every food you tick an amount above 0.' });
+    expect(seen).toEqual([]);
+  });
+
+  it('an Again chip from its box: the amount and the time', () => {
+    expect(bodyFor('again', form({ food_id: '7', amount: '95', time: '12:10', key: KEY }), undefined)).toEqual({
+      food_id: '7',
+      amount: '95',
+      time: '12:10',
+      key: KEY,
+      view: 'day',
+    });
+  });
+
+  it('a food row changed or deleted on Today asks for the fresh Today', async () => {
+    expect(bodyFor('food_entry', form({ ref: 'f7', action: 'save', amount: '120', unit: 'g', time: '13:20' }), undefined)).toEqual({
+      ref: 'f7',
+      action: 'save',
+      amount: '120',
+      unit: 'g',
+      time: '13:20',
+      view: 'day',
+    });
+    const { door, seen } = net();
+    await runSave(door, SESSION, 'food_entry', form({ ref: 'f7', action: 'delete' }));
+    await runSave(door, SESSION, 'food_note', form({ ref: 'f7', note: '' }));
+    expect(seen).toMatchObject([
+      { path: '/api/v1/food/entry', body: { ref: 'f7', action: 'delete', view: 'day' } },
+      { path: '/api/v1/food/note', body: { ref: 'f7', note: '', view: 'day' } },
+    ]);
+    expect(seen[0]!.body).not.toHaveProperty('view_day');
   });
 });
 

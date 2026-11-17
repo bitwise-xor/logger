@@ -34,6 +34,8 @@
 // POST /body (a value out of the measure's range or 4 cm or more from the last read back, a clear asked first; keyed, with
 // Undo) and POST /body/skip (Today's "Body measurements due", which GET /day has from the sample's day_body_due, goes; no Undo).
 // The charts stay the sample's (the stand-in draws nothing new).
+// Deploy 117: GET /foods/suggest (the catalogue below with made-up words, amounts, counts and times, and three more foods; POST
+// /standin/suggest-off makes it fail), POST /usual with the box's items (only those, at their amounts) and time, and /again's time.
 // Usage: node tests/standin/door.mjs [port]  (FRONT_TOKEN from the environment). POST /standin/reset starts the day again,
 // POST /standin/drop-sessions signs every session out (for the re-send after a sign-in), POST /standin/ai-down and
 // /standin/ai-up make /log hold its lines or read them again.
@@ -143,6 +145,7 @@ const READ_MS = 1200; // the AI's moment: long enough to see the "being read" ro
 let state; // { day, usual, undo: {token, head, expires_at} | null, before: {day, usual} before the last save (for Undo), keys: Map, lines: Map, aiDown }
 let ids = 9000;
 let mode = 'up'; // 'up' | 'core-down' | 'door-off' (step F)
+let suggestOff = false; // deploy 117: GET /foods/suggest answers 500 (POST /standin/suggest-off; reset ends it)
 function reset() {
   state = { day: read('day.json').day, usual: usualStart(), undo: null, before: null, keys: new Map(), lines: new Map(), aiDown: false,
     scanned: new Map([[SCAN.barcode.code, SCAN.barcode.food]]), labelFail: false,
@@ -236,6 +239,28 @@ function foodSave(path, b, d) {
   recount(d);
   return { outcome: 'changed', head: `Changed ${row.food}.` };
 }
+// ---- the logging box's suggestions (deploy 117) ---------------------------------------------------------------------------------
+
+/**
+ * GET /foods/suggest: every food of the catalogue below with made-up words, amounts eaten last, counts and times (the newest rows of
+ * the day count as eaten now), plus a few made up here (one with an umlaut, one found by a word); POST /standin/suggest-off makes it
+ * answer 500, to see the box without suggestions.
+ */
+function suggestFoods() {
+  const eaten = new Map();
+  for (const r of state.day.rows) if (r.kind === 'food') eaten.set(r.food_id, { amount: r.amount, at: r.at });
+  const out = [...CATALOGUE.values()].map((f, k) => {
+    const e = eaten.get(f.food_id);
+    return { food_id: f.food_id, name: f.name, unit: f.unit, words: [], last_amount: e?.amount ?? 100, eaten: 20 - k, last_at: e?.at ?? '2026-11-01T08:00:00+01:00' };
+  });
+  out.push(
+    { food_id: 901, name: 'Knuspermüsli', unit: 'g', words: ['muesli', 'granola'], last_amount: 45, eaten: 6, last_at: '2026-11-10T07:30:00+01:00' },
+    { food_id: 902, name: 'Oat cookies', unit: 'g', words: [], last_amount: 30, eaten: 2, last_at: null },
+    { food_id: 903, name: 'Rice pudding', unit: 'g', words: ['dessert'], last_amount: null, eaten: 0, last_at: null },
+  );
+  return out;
+}
+
 // ---- the usual meals (deploy 87) -----------------------------------------------------------------------------------------------
 
 const r1 = (x) => Math.round(x * 10) / 10;
@@ -451,10 +476,26 @@ function save(path, b) {
     if (b.time !== undefined && !/^\d\d:\d\d$/.test(b.time)) return { outcome: 'rejected', head: 'Nothing saved.', reason: 'Give the time as hh:mm.' };
     const k = Number(b.amount) / 100;
     eat(d, chip.name, chip.food_id, Number(b.amount), chip.unit, { kcal: Math.round(120 * k), protein: +(5 * k).toFixed(1), fat: +(3 * k).toFixed(1), carbs: +(15 * k).toFixed(1) }, chip.unit === 'ml');
+    if (b.time) d.rows.at(-1).at = `${d.day}T${b.time}:00+01:00`; // deploy 117: the chip's box gives a time
   } else if (path === '/usual') {
     const meal = d.chips.usual.find((u) => String(u.meal_id) === String(b.meal_id));
     if (!meal) return { outcome: 'rejected', head: 'Nothing saved.', reason: 'Unknown meal.' };
-    for (const i of meal.items) eat(d, i.food, 1, i.amount, i.unit, i.nutrients);
+    if (b.time !== undefined && !/^\d\d:\d\d$/.test(b.time)) return { outcome: 'rejected', head: 'Nothing saved.', reason: 'Give the time as hh:mm.' };
+    // deploy 117: the box's items (only these, with these amounts: each item's values scaled), as webactions.usual
+    let items = meal.items;
+    if (b.items !== undefined) {
+      if (!Array.isArray(b.items) || !b.items.length) return { outcome: 'rejected', head: 'Nothing saved.', reason: 'Pick at least one food of the meal.' };
+      items = [];
+      for (const x of b.items) {
+        const i = meal.items.find((y) => y.item_id === x?.item_id);
+        if (!i) return { outcome: 'rejected', head: 'Nothing saved.', reason: 'That food is not in this usual meal any more.' };
+        if (typeof x.amount !== 'number' || !(x.amount > 0 && x.amount <= 5000)) return { outcome: 'rejected', head: 'Nothing saved.', reason: 'Give every food an amount above 0 and at most 5000.' };
+        const k = x.amount / i.amount;
+        items.push({ ...i, amount: x.amount, nutrients: Object.fromEntries(Object.entries(i.nutrients).map(([n, v]) => [n, +(v * k).toFixed(1)])) });
+      }
+    }
+    for (const i of items) eat(d, i.food, 1, i.amount, i.unit, i.nutrients);
+    if (b.time) for (const r of d.rows.slice(-items.length)) r.at = `${d.day}T${b.time}:00+01:00`;
   } else if (path === '/habit') {
     const h = d.habits.find((x) => x.name === b.name);
     if (!h) return { outcome: 'rejected', head: 'Nothing saved.', reason: 'Unknown habit.' };
@@ -2956,7 +2997,12 @@ createServer(async (req, res) => {
   if (req.url === '/standin/reset' && req.method === 'POST') {
     reset();
     mode = 'up';
+    suggestOff = false;
     return send(res, 200, { outcome: 'reset' });
+  }
+  if (req.url === '/standin/suggest-off' && req.method === 'POST') {
+    suggestOff = true;
+    return send(res, 200, { outcome: 'suggest-off' });
   }
   // deploy 111: Settings' states (see the header) and counts
   if (req.url === '/standin/push-tests' && req.method === 'GET') return send(res, 200, { tests: state.settings.tests });
@@ -3254,6 +3300,9 @@ createServer(async (req, res) => {
     return send(res, 200, { [`settings_${tab}`]: structuredClone(state.settings[tab]), undo: undo() }, signedIn);
   }
   if (url.pathname === '/api/v1/foods' && req.method === 'GET') return send(res, 200, { foods: foods(url.searchParams.get('q')) }, signedIn);
+  if (url.pathname === '/api/v1/foods/suggest' && req.method === 'GET') {
+    return suggestOff ? send(res, 500, { error: 'server_error', message: 'Something went wrong.' }, signedIn) : send(res, 200, { foods: suggestFoods() }, signedIn);
+  }
   // A save's fresh read: the Food day or the usual meals when the body asks for it (view "food" with view_day, "usual"), else
   // Today; as the core, /usual/meal and /usual/new default to the usual meals and /usual/from_meal to the Food day.
   const view = body.view ?? ({ '/api/v1/usual/meal': 'usual', '/api/v1/usual/new': 'usual', '/api/v1/usual/from_meal': 'food', '/api/v1/health/day': 'health', '/api/v1/body': 'body', '/api/v1/habit/day': 'habits', '/api/v1/habits/manage': 'habits' })[req.url] ?? (req.url.startsWith('/api/v1/food/catalogue/') ? 'catalogue' : req.url.startsWith('/api/v1/labs/med') ? 'labs_meds' : req.url.startsWith('/api/v1/labs/') ? 'labs' : req.url.startsWith('/api/v1/gym/') ? gymView(req.url.slice('/api/v1/gym/'.length), body) : req.url.startsWith('/api/v1/home/') ? homeView(req.url.slice('/api/v1/home/'.length)) : req.url.startsWith('/api/v1/push/') ? 'settings_notify' : req.url.startsWith('/api/v1/settings/') ? settingsView(req.url.slice('/api/v1/settings/'.length)) : undefined);
