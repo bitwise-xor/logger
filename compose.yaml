@@ -32,8 +32,8 @@ services:
       APP_OWNER_PASSWORD: ${APP_OWNER_PASSWORD}
       CORE_RW_PASSWORD: ${CORE_RW_PASSWORD}
       MCP_PATH: ${MCP_PATH}
-      # 17.11.2026 (deploy 114): the MCP and the watch are at logger-mcp. (before: log., kept in the list until the owner says it can go)
-      ALLOWED_HOSTS: "logger-mcp.19hospitalroad.fyi,log.19hospitalroad.fyi,logger-v2-core:*"  # the last: the hub's calls from another container (Host logger-v2-core:8000)
+      # 17.11.2026 (deploys 114, 115): the MCP and the watch are at logger-mcp. (before: log., whose tunnel route the owner removed)
+      ALLOWED_HOSTS: "logger-mcp.19hospitalroad.fyi,logger-v2-core:*"  # the second: the hub's calls from another container (Host logger-v2-core:8000)
       PUBLIC_URL: "https://logger-mcp.19hospitalroad.fyi"  # the sign-in's issuer and the address the AI apps are sent to
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       TODOIST_API_TOKEN: ${TODOIST_API_TOKEN}
