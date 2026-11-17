@@ -1,0 +1,1857 @@
+{
+ "all": {
+  "v": 1,
+  "catalogue": {
+   "q": "",
+   "filter": "all",
+   "sort": "eaten",
+   "filters": [
+    {
+     "key": "all",
+     "label": "All",
+     "on": true
+    },
+    {
+     "key": "drinks",
+     "label": "Drinks",
+     "on": false
+    },
+    {
+     "key": "new",
+     "label": "Added in the last 14 days",
+     "on": false
+    },
+    {
+     "key": "review",
+     "label": "Needs review",
+     "on": false
+    }
+   ],
+   "sorts": [
+    {
+     "key": "eaten",
+     "label": "Most eaten",
+     "on": true
+    },
+    {
+     "key": "recent",
+     "label": "Most eaten in the last 30 days",
+     "on": false
+    },
+    {
+     "key": "last",
+     "label": "Eaten most recently",
+     "on": false
+    },
+    {
+     "key": "added",
+     "label": "Newest added",
+     "on": false
+    },
+    {
+     "key": "kcal",
+     "label": "Most calories",
+     "on": false
+    },
+    {
+     "key": "kcal_low",
+     "label": "Fewest calories",
+     "on": false
+    },
+    {
+     "key": "protein",
+     "label": "Most protein",
+     "on": false
+    },
+    {
+     "key": "name",
+     "label": "Name A to Z",
+     "on": false
+    }
+   ],
+   "limit": 400,
+   "more": null,
+   "empty": null,
+   "hint": "Sorted by: most eaten. Click a food to see and change it.",
+   "placeholder": "Search by name, word, N number or barcode",
+   "count": 13,
+   "rows": [
+    {
+     "id": 4,
+     "ref": "N4",
+     "name": "Green tea",
+     "review": false,
+     "drink": true,
+     "aliases": [
+      "cuppa"
+     ],
+     "basis": "ml",
+     "per_100": {
+      "kcal": 1,
+      "protein": 0,
+      "fat": 0,
+      "carbs": 0.2
+     },
+     "per_100_text": {
+      "kcal": "1",
+      "protein": "0",
+      "fat": "0",
+      "carbs": "0.2"
+     },
+     "eaten": 6,
+     "last": "2026-11-17",
+     "last_text": "17.11.",
+     "added": "2026-10-18",
+     "added_text": "18.10.26"
+    },
+    {
+     "id": 1,
+     "ref": "N1",
+     "name": "Oat flakes",
+     "review": false,
+     "drink": false,
+     "aliases": [
+      "porridge"
+     ],
+     "basis": "g",
+     "per_100": {
+      "kcal": 372,
+      "protein": 13.5,
+      "fat": 7,
+      "carbs": 58.7
+     },
+     "per_100_text": {
+      "kcal": "372",
+      "protein": "13.5",
+      "fat": "7",
+      "carbs": "58.7"
+     },
+     "eaten": 5,
+     "last": "2026-11-16",
+     "last_text": "16.11.",
+     "added": "2026-05-01",
+     "added_text": "01.05.26"
+    },
+    {
+     "id": 10,
+     "ref": "N10",
+     "name": "Espresso",
+     "review": false,
+     "drink": true,
+     "aliases": [],
+     "basis": "ml",
+     "per_100": {
+      "kcal": 2,
+      "protein": 0.1,
+      "fat": 0.2,
+      "carbs": 0
+     },
+     "per_100_text": {
+      "kcal": "2",
+      "protein": "0.1",
+      "fat": "0.2",
+      "carbs": "0"
+     },
+     "eaten": 2,
+     "last": "2026-11-17",
+     "last_text": "17.11.",
+     "added": "2026-11-07",
+     "added_text": "07.11.26"
+    },
+    {
+     "id": 3,
+     "ref": "N3",
+     "name": "Oat drink",
+     "review": false,
+     "drink": true,
+     "aliases": [],
+     "basis": "ml",
+     "per_100": {
+      "kcal": 46,
+      "protein": 0.3,
+      "fat": 1.5,
+      "carbs": 7.8
+     },
+     "per_100_text": {
+      "kcal": "46",
+      "protein": "0.3",
+      "fat": "1.5",
+      "carbs": "7.8"
+     },
+     "eaten": 2,
+     "last": "2026-11-15",
+     "last_text": "15.11.",
+     "added": "2026-11-12",
+     "added_text": "12.11.26"
+    },
+    {
+     "id": 2,
+     "ref": "N2",
+     "name": "Skyr",
+     "review": false,
+     "drink": false,
+     "aliases": [
+      "quark"
+     ],
+     "basis": "g",
+     "per_100": {
+      "kcal": 63,
+      "protein": 11,
+      "fat": 0.2,
+      "carbs": 4
+     },
+     "per_100_text": {
+      "kcal": "63",
+      "protein": "11",
+      "fat": "0.2",
+      "carbs": "4"
+     },
+     "eaten": 2,
+     "last": "2026-11-16",
+     "last_text": "16.11.",
+     "added": "2026-06-20",
+     "added_text": "20.06.26"
+    },
+    {
+     "id": 6,
+     "ref": "N6",
+     "name": "Apple",
+     "review": false,
+     "drink": false,
+     "aliases": [],
+     "basis": "g",
+     "per_100": {
+      "kcal": 52,
+      "protein": 0.3,
+      "fat": 0.2,
+      "carbs": 13.8
+     },
+     "per_100_text": {
+      "kcal": "52",
+      "protein": "0.3",
+      "fat": "0.2",
+      "carbs": "13.8"
+     },
+     "eaten": 1,
+     "last": "2026-08-09",
+     "last_text": "09.08.",
+     "added": "2025-10-13",
+     "added_text": "13.10.25"
+    },
+    {
+     "id": 9,
+     "ref": "N9",
+     "name": "Banana",
+     "review": false,
+     "drink": false,
+     "aliases": [],
+     "basis": "g",
+     "per_100": {
+      "kcal": 89,
+      "protein": 1.1,
+      "fat": 0.3,
+      "carbs": 22.8
+     },
+     "per_100_text": {
+      "kcal": "89",
+      "protein": "1.1",
+      "fat": "0.3",
+      "carbs": "22.8"
+     },
+     "eaten": 1,
+     "last": "2026-10-17",
+     "last_text": "17.10.",
+     "added": "2026-09-18",
+     "added_text": "18.09.26"
+    },
+    {
+     "id": 14,
+     "ref": "N14",
+     "name": "Morning bowl",
+     "review": false,
+     "drink": false,
+     "aliases": [],
+     "basis": "g",
+     "per_100": {
+      "kcal": 120,
+      "protein": 8,
+      "fat": 3,
+      "carbs": 15
+     },
+     "per_100_text": {
+      "kcal": "120",
+      "protein": "8",
+      "fat": "3",
+      "carbs": "15"
+     },
+     "eaten": 1,
+     "last": "2026-11-15",
+     "last_text": "15.11.",
+     "added": "2026-11-05",
+     "added_text": "05.11.26"
+    },
+    {
+     "id": 8,
+     "ref": "N8",
+     "name": "Dark chocolate",
+     "review": false,
+     "drink": false,
+     "aliases": [],
+     "basis": "g",
+     "per_100": {
+      "kcal": 546,
+      "protein": 7.8,
+      "fat": 31,
+      "carbs": 46
+     },
+     "per_100_text": {
+      "kcal": "546",
+      "protein": "7.8",
+      "fat": "31",
+      "carbs": "46"
+     },
+     "eaten": 0,
+     "last": null,
+     "last_text": "–",
+     "added": "2026-08-19",
+     "added_text": "19.08.26"
+    },
+    {
+     "id": 7,
+     "ref": "N7",
+     "name": "Lentil soup",
+     "review": true,
+     "drink": false,
+     "aliases": [],
+     "basis": "g",
+     "per_100": {
+      "kcal": 88.5,
+      "protein": 5.4,
+      "fat": 2,
+      "carbs": 12
+     },
+     "per_100_text": {
+      "kcal": "88.5",
+      "protein": "5.4",
+      "fat": "2",
+      "carbs": "12"
+     },
+     "eaten": 0,
+     "last": null,
+     "last_text": "–",
+     "added": "2026-11-16",
+     "added_text": "16.11.26"
+    },
+    {
+     "id": 12,
+     "ref": "N12",
+     "name": "Rice",
+     "review": false,
+     "drink": false,
+     "aliases": [],
+     "basis": "g",
+     "per_100": {
+      "kcal": 130,
+      "protein": 2.7,
+      "fat": 0.3,
+      "carbs": 28
+     },
+     "per_100_text": {
+      "kcal": "130",
+      "protein": "2.7",
+      "fat": "0.3",
+      "carbs": "28"
+     },
+     "eaten": 0,
+     "last": null,
+     "last_text": "–",
+     "added": "2025-11-17",
+     "added_text": "17.11.25"
+    },
+    {
+     "id": 5,
+     "ref": "N5",
+     "name": "Rye bread",
+     "review": true,
+     "drink": false,
+     "aliases": [
+      "bread"
+     ],
+     "basis": "g",
+     "per_100": {
+      "kcal": 210,
+      "protein": 6.5,
+      "fat": 1.2,
+      "carbs": 39
+     },
+     "per_100_text": {
+      "kcal": "210",
+      "protein": "6.5",
+      "fat": "1.2",
+      "carbs": "39"
+     },
+     "eaten": 0,
+     "last": null,
+     "last_text": "–",
+     "added": "2026-11-14",
+     "added_text": "14.11.26"
+    },
+    {
+     "id": 11,
+     "ref": "N11",
+     "name": "Walnuts",
+     "review": false,
+     "drink": false,
+     "aliases": [],
+     "basis": "g",
+     "per_100": {
+      "kcal": 654,
+      "protein": 15.2,
+      "fat": 65,
+      "carbs": 13.7
+     },
+     "per_100_text": {
+      "kcal": "654",
+      "protein": "15.2",
+      "fat": "65",
+      "carbs": "13.7"
+     },
+     "eaten": 0,
+     "last": null,
+     "last_text": "–",
+     "added": "2024-12-17",
+     "added_text": "17.12.24"
+    }
+   ]
+  },
+  "undo": null
+ },
+ "drinks": {
+  "v": 1,
+  "catalogue": {
+   "q": "",
+   "filter": "drinks",
+   "sort": "eaten",
+   "filters": [
+    {
+     "key": "all",
+     "label": "All",
+     "on": false
+    },
+    {
+     "key": "drinks",
+     "label": "Drinks",
+     "on": true
+    },
+    {
+     "key": "new",
+     "label": "Added in the last 14 days",
+     "on": false
+    },
+    {
+     "key": "review",
+     "label": "Needs review",
+     "on": false
+    }
+   ],
+   "sorts": [
+    {
+     "key": "eaten",
+     "label": "Most eaten",
+     "on": true
+    },
+    {
+     "key": "recent",
+     "label": "Most eaten in the last 30 days",
+     "on": false
+    },
+    {
+     "key": "last",
+     "label": "Eaten most recently",
+     "on": false
+    },
+    {
+     "key": "added",
+     "label": "Newest added",
+     "on": false
+    },
+    {
+     "key": "kcal",
+     "label": "Most calories",
+     "on": false
+    },
+    {
+     "key": "kcal_low",
+     "label": "Fewest calories",
+     "on": false
+    },
+    {
+     "key": "protein",
+     "label": "Most protein",
+     "on": false
+    },
+    {
+     "key": "name",
+     "label": "Name A to Z",
+     "on": false
+    }
+   ],
+   "limit": 400,
+   "more": null,
+   "empty": null,
+   "hint": "Sorted by: most eaten. Click a food to see and change it.",
+   "placeholder": "Search by name, word, N number or barcode",
+   "count": 3,
+   "rows": [
+    {
+     "id": 4,
+     "ref": "N4",
+     "name": "Green tea",
+     "review": false,
+     "drink": true,
+     "aliases": [
+      "cuppa"
+     ],
+     "basis": "ml",
+     "per_100": {
+      "kcal": 1,
+      "protein": 0,
+      "fat": 0,
+      "carbs": 0.2
+     },
+     "per_100_text": {
+      "kcal": "1",
+      "protein": "0",
+      "fat": "0",
+      "carbs": "0.2"
+     },
+     "eaten": 6,
+     "last": "2026-11-17",
+     "last_text": "17.11.",
+     "added": "2026-10-18",
+     "added_text": "18.10.26"
+    },
+    {
+     "id": 10,
+     "ref": "N10",
+     "name": "Espresso",
+     "review": false,
+     "drink": true,
+     "aliases": [],
+     "basis": "ml",
+     "per_100": {
+      "kcal": 2,
+      "protein": 0.1,
+      "fat": 0.2,
+      "carbs": 0
+     },
+     "per_100_text": {
+      "kcal": "2",
+      "protein": "0.1",
+      "fat": "0.2",
+      "carbs": "0"
+     },
+     "eaten": 2,
+     "last": "2026-11-17",
+     "last_text": "17.11.",
+     "added": "2026-11-07",
+     "added_text": "07.11.26"
+    },
+    {
+     "id": 3,
+     "ref": "N3",
+     "name": "Oat drink",
+     "review": false,
+     "drink": true,
+     "aliases": [],
+     "basis": "ml",
+     "per_100": {
+      "kcal": 46,
+      "protein": 0.3,
+      "fat": 1.5,
+      "carbs": 7.8
+     },
+     "per_100_text": {
+      "kcal": "46",
+      "protein": "0.3",
+      "fat": "1.5",
+      "carbs": "7.8"
+     },
+     "eaten": 2,
+     "last": "2026-11-15",
+     "last_text": "15.11.",
+     "added": "2026-11-12",
+     "added_text": "12.11.26"
+    }
+   ]
+  },
+  "undo": null
+ },
+ "review": {
+  "v": 1,
+  "catalogue": {
+   "q": "",
+   "filter": "review",
+   "sort": "name",
+   "filters": [
+    {
+     "key": "all",
+     "label": "All",
+     "on": false
+    },
+    {
+     "key": "drinks",
+     "label": "Drinks",
+     "on": false
+    },
+    {
+     "key": "new",
+     "label": "Added in the last 14 days",
+     "on": false
+    },
+    {
+     "key": "review",
+     "label": "Needs review",
+     "on": true
+    }
+   ],
+   "sorts": [
+    {
+     "key": "eaten",
+     "label": "Most eaten",
+     "on": false
+    },
+    {
+     "key": "recent",
+     "label": "Most eaten in the last 30 days",
+     "on": false
+    },
+    {
+     "key": "last",
+     "label": "Eaten most recently",
+     "on": false
+    },
+    {
+     "key": "added",
+     "label": "Newest added",
+     "on": false
+    },
+    {
+     "key": "kcal",
+     "label": "Most calories",
+     "on": false
+    },
+    {
+     "key": "kcal_low",
+     "label": "Fewest calories",
+     "on": false
+    },
+    {
+     "key": "protein",
+     "label": "Most protein",
+     "on": false
+    },
+    {
+     "key": "name",
+     "label": "Name A to Z",
+     "on": true
+    }
+   ],
+   "limit": 400,
+   "more": null,
+   "empty": null,
+   "hint": "Sorted by: name a to z. Click a food to see and change it.",
+   "placeholder": "Search by name, word, N number or barcode",
+   "count": 2,
+   "rows": [
+    {
+     "id": 7,
+     "ref": "N7",
+     "name": "Lentil soup",
+     "review": true,
+     "drink": false,
+     "aliases": [],
+     "basis": "g",
+     "per_100": {
+      "kcal": 88.5,
+      "protein": 5.4,
+      "fat": 2,
+      "carbs": 12
+     },
+     "per_100_text": {
+      "kcal": "88.5",
+      "protein": "5.4",
+      "fat": "2",
+      "carbs": "12"
+     },
+     "eaten": 0,
+     "last": null,
+     "last_text": "–",
+     "added": "2026-11-16",
+     "added_text": "16.11.26"
+    },
+    {
+     "id": 5,
+     "ref": "N5",
+     "name": "Rye bread",
+     "review": true,
+     "drink": false,
+     "aliases": [
+      "bread"
+     ],
+     "basis": "g",
+     "per_100": {
+      "kcal": 210,
+      "protein": 6.5,
+      "fat": 1.2,
+      "carbs": 39
+     },
+     "per_100_text": {
+      "kcal": "210",
+      "protein": "6.5",
+      "fat": "1.2",
+      "carbs": "39"
+     },
+     "eaten": 0,
+     "last": null,
+     "last_text": "–",
+     "added": "2026-11-14",
+     "added_text": "14.11.26"
+    }
+   ]
+  },
+  "undo": null
+ },
+ "new": {
+  "v": 1,
+  "catalogue": {
+   "q": "",
+   "filter": "new",
+   "sort": "added",
+   "filters": [
+    {
+     "key": "all",
+     "label": "All",
+     "on": false
+    },
+    {
+     "key": "drinks",
+     "label": "Drinks",
+     "on": false
+    },
+    {
+     "key": "new",
+     "label": "Added in the last 14 days",
+     "on": true
+    },
+    {
+     "key": "review",
+     "label": "Needs review",
+     "on": false
+    }
+   ],
+   "sorts": [
+    {
+     "key": "eaten",
+     "label": "Most eaten",
+     "on": false
+    },
+    {
+     "key": "recent",
+     "label": "Most eaten in the last 30 days",
+     "on": false
+    },
+    {
+     "key": "last",
+     "label": "Eaten most recently",
+     "on": false
+    },
+    {
+     "key": "added",
+     "label": "Newest added",
+     "on": true
+    },
+    {
+     "key": "kcal",
+     "label": "Most calories",
+     "on": false
+    },
+    {
+     "key": "kcal_low",
+     "label": "Fewest calories",
+     "on": false
+    },
+    {
+     "key": "protein",
+     "label": "Most protein",
+     "on": false
+    },
+    {
+     "key": "name",
+     "label": "Name A to Z",
+     "on": false
+    }
+   ],
+   "limit": 400,
+   "more": null,
+   "empty": null,
+   "hint": "Sorted by: newest added. Click a food to see and change it.",
+   "placeholder": "Search by name, word, N number or barcode",
+   "count": 5,
+   "rows": [
+    {
+     "id": 7,
+     "ref": "N7",
+     "name": "Lentil soup",
+     "review": true,
+     "drink": false,
+     "aliases": [],
+     "basis": "g",
+     "per_100": {
+      "kcal": 88.5,
+      "protein": 5.4,
+      "fat": 2,
+      "carbs": 12
+     },
+     "per_100_text": {
+      "kcal": "88.5",
+      "protein": "5.4",
+      "fat": "2",
+      "carbs": "12"
+     },
+     "eaten": 0,
+     "last": null,
+     "last_text": "–",
+     "added": "2026-11-16",
+     "added_text": "16.11.26"
+    },
+    {
+     "id": 5,
+     "ref": "N5",
+     "name": "Rye bread",
+     "review": true,
+     "drink": false,
+     "aliases": [
+      "bread"
+     ],
+     "basis": "g",
+     "per_100": {
+      "kcal": 210,
+      "protein": 6.5,
+      "fat": 1.2,
+      "carbs": 39
+     },
+     "per_100_text": {
+      "kcal": "210",
+      "protein": "6.5",
+      "fat": "1.2",
+      "carbs": "39"
+     },
+     "eaten": 0,
+     "last": null,
+     "last_text": "–",
+     "added": "2026-11-14",
+     "added_text": "14.11.26"
+    },
+    {
+     "id": 3,
+     "ref": "N3",
+     "name": "Oat drink",
+     "review": false,
+     "drink": true,
+     "aliases": [],
+     "basis": "ml",
+     "per_100": {
+      "kcal": 46,
+      "protein": 0.3,
+      "fat": 1.5,
+      "carbs": 7.8
+     },
+     "per_100_text": {
+      "kcal": "46",
+      "protein": "0.3",
+      "fat": "1.5",
+      "carbs": "7.8"
+     },
+     "eaten": 2,
+     "last": "2026-11-15",
+     "last_text": "15.11.",
+     "added": "2026-11-12",
+     "added_text": "12.11.26"
+    },
+    {
+     "id": 10,
+     "ref": "N10",
+     "name": "Espresso",
+     "review": false,
+     "drink": true,
+     "aliases": [],
+     "basis": "ml",
+     "per_100": {
+      "kcal": 2,
+      "protein": 0.1,
+      "fat": 0.2,
+      "carbs": 0
+     },
+     "per_100_text": {
+      "kcal": "2",
+      "protein": "0.1",
+      "fat": "0.2",
+      "carbs": "0"
+     },
+     "eaten": 2,
+     "last": "2026-11-17",
+     "last_text": "17.11.",
+     "added": "2026-11-07",
+     "added_text": "07.11.26"
+    },
+    {
+     "id": 14,
+     "ref": "N14",
+     "name": "Morning bowl",
+     "review": false,
+     "drink": false,
+     "aliases": [],
+     "basis": "g",
+     "per_100": {
+      "kcal": 120,
+      "protein": 8,
+      "fat": 3,
+      "carbs": 15
+     },
+     "per_100_text": {
+      "kcal": "120",
+      "protein": "8",
+      "fat": "3",
+      "carbs": "15"
+     },
+     "eaten": 1,
+     "last": "2026-11-15",
+     "last_text": "15.11.",
+     "added": "2026-11-05",
+     "added_text": "05.11.26"
+    }
+   ]
+  },
+  "undo": null
+ },
+ "none": {
+  "v": 1,
+  "catalogue": {
+   "q": "zzqq",
+   "filter": "all",
+   "sort": "eaten",
+   "filters": [
+    {
+     "key": "all",
+     "label": "All",
+     "on": true
+    },
+    {
+     "key": "drinks",
+     "label": "Drinks",
+     "on": false
+    },
+    {
+     "key": "new",
+     "label": "Added in the last 14 days",
+     "on": false
+    },
+    {
+     "key": "review",
+     "label": "Needs review",
+     "on": false
+    }
+   ],
+   "sorts": [
+    {
+     "key": "eaten",
+     "label": "Most eaten",
+     "on": true
+    },
+    {
+     "key": "recent",
+     "label": "Most eaten in the last 30 days",
+     "on": false
+    },
+    {
+     "key": "last",
+     "label": "Eaten most recently",
+     "on": false
+    },
+    {
+     "key": "added",
+     "label": "Newest added",
+     "on": false
+    },
+    {
+     "key": "kcal",
+     "label": "Most calories",
+     "on": false
+    },
+    {
+     "key": "kcal_low",
+     "label": "Fewest calories",
+     "on": false
+    },
+    {
+     "key": "protein",
+     "label": "Most protein",
+     "on": false
+    },
+    {
+     "key": "name",
+     "label": "Name A to Z",
+     "on": false
+    }
+   ],
+   "limit": 400,
+   "more": null,
+   "empty": "No food matches.",
+   "hint": "Sorted by: most eaten. Click a food to see and change it.",
+   "placeholder": "Search by name, word, N number or barcode",
+   "count": 0,
+   "rows": []
+  },
+  "undo": null
+ },
+ "items": {
+  "oatdrink": {
+   "v": 1,
+   "food_item": {
+    "id": 3,
+    "ref": "N3",
+    "name": "Oat drink",
+    "basis": "ml",
+    "source": {
+     "text": "Source: database · added 12.11.2026 · eaten 2 times, last 15.11.2026 · values per 100 ml",
+     "line": "database",
+     "source": "database",
+     "brand": null,
+     "note": null
+    },
+    "needs_review": false,
+    "review_reason": null,
+    "values": [
+     {
+      "key": "kcal",
+      "label": "kcal",
+      "value": 46
+     },
+     {
+      "key": "protein",
+      "label": "Protein g",
+      "value": 0.3
+     },
+     {
+      "key": "fat",
+      "label": "Fat g",
+      "value": 1.5
+     },
+     {
+      "key": "sat_fat",
+      "label": "Sat fat g",
+      "value": null
+     },
+     {
+      "key": "carbs",
+      "label": "Carbs g",
+      "value": 7.8
+     },
+     {
+      "key": "fibre",
+      "label": "Fibre g",
+      "value": null
+     },
+     {
+      "key": "sugar_total",
+      "label": "Sugar g",
+      "value": 4.1
+     },
+     {
+      "key": "sugar_added",
+      "label": "Added sugar g",
+      "value": null
+     },
+     {
+      "key": "sodium_mg",
+      "label": "Sodium mg",
+      "value": null
+     },
+     {
+      "key": "caffeine_mg",
+      "label": "Caffeine mg",
+      "value": null
+     }
+    ],
+    "aliases": [],
+    "drink": true,
+    "active": true,
+    "units": [
+     {
+      "unit": "cup",
+      "grams": 240,
+      "text": "1 cup = 240 ml"
+     }
+    ],
+    "barcode": "4000000000024",
+    "eaten": 2,
+    "first": "2026-11-14",
+    "last": "2026-11-15",
+    "last_text": "15.11.2026",
+    "added": "2026-11-12",
+    "added_text": "12.11.2026",
+    "recipe": null,
+    "values_editable": true,
+    "past": {
+     "n": 2,
+     "text": "Also recalculate the 2 past entries (14.11.2026 to 15.11.2026)"
+    },
+    "words": {
+     "values_hint": "You see the change first, then Yes. Without the tick only new entries use the new values.",
+     "basics_hint": "Saved at once. A hidden food keeps its past entries; it no longer shows in suggestions, chips or the catalogue.",
+     "none": "none",
+     "review": "needs review",
+     "reviewed": "Looks right"
+    },
+    "limits": {
+     "name_min": 2,
+     "name_max": 120,
+     "word_max": 60,
+     "words_max": 20,
+     "unit_max": 30,
+     "grams_max": 2000,
+     "barcode_min": 8,
+     "barcode_max": 14
+    }
+   },
+   "undo": null
+  },
+  "rye": {
+   "v": 1,
+   "food_item": {
+    "id": 5,
+    "ref": "N5",
+    "name": "Rye bread",
+    "basis": "g",
+    "source": {
+     "text": "Source: database · added 14.11.2026 · eaten 0 times · values per 100 g",
+     "line": "database",
+     "source": "database",
+     "brand": null,
+     "note": null
+    },
+    "needs_review": true,
+    "review_reason": "values from an estimate",
+    "values": [
+     {
+      "key": "kcal",
+      "label": "kcal",
+      "value": 210
+     },
+     {
+      "key": "protein",
+      "label": "Protein g",
+      "value": 6.5
+     },
+     {
+      "key": "fat",
+      "label": "Fat g",
+      "value": 1.2
+     },
+     {
+      "key": "sat_fat",
+      "label": "Sat fat g",
+      "value": null
+     },
+     {
+      "key": "carbs",
+      "label": "Carbs g",
+      "value": 39
+     },
+     {
+      "key": "fibre",
+      "label": "Fibre g",
+      "value": null
+     },
+     {
+      "key": "sugar_total",
+      "label": "Sugar g",
+      "value": null
+     },
+     {
+      "key": "sugar_added",
+      "label": "Added sugar g",
+      "value": null
+     },
+     {
+      "key": "sodium_mg",
+      "label": "Sodium mg",
+      "value": 480
+     },
+     {
+      "key": "caffeine_mg",
+      "label": "Caffeine mg",
+      "value": null
+     }
+    ],
+    "aliases": [
+     "bread"
+    ],
+    "drink": false,
+    "active": true,
+    "units": [
+     {
+      "unit": "slice",
+      "grams": 35,
+      "text": "1 slice = 35 g"
+     }
+    ],
+    "barcode": null,
+    "eaten": 0,
+    "first": null,
+    "last": null,
+    "last_text": null,
+    "added": "2026-11-14",
+    "added_text": "14.11.2026",
+    "recipe": null,
+    "values_editable": true,
+    "past": null,
+    "words": {
+     "values_hint": "You see the change first, then Yes. Without the tick only new entries use the new values.",
+     "basics_hint": "Saved at once. A hidden food keeps its past entries; it no longer shows in suggestions, chips or the catalogue.",
+     "none": "none",
+     "review": "needs review",
+     "reviewed": "Looks right"
+    },
+    "limits": {
+     "name_min": 2,
+     "name_max": 120,
+     "word_max": 60,
+     "words_max": 20,
+     "unit_max": 30,
+     "grams_max": 2000,
+     "barcode_min": 8,
+     "barcode_max": 14
+    }
+   },
+   "undo": null
+  },
+  "oats": {
+   "v": 1,
+   "food_item": {
+    "id": 1,
+    "ref": "N1",
+    "name": "Oat flakes",
+    "basis": "g",
+    "source": {
+     "text": "Source: label · Zz Mill · per the pack · added 01.05.2026 · eaten 5 times, last 16.11.2026 · values per 100 g",
+     "line": "label · Zz Mill · per the pack",
+     "source": "label",
+     "brand": "Zz Mill",
+     "note": "per the pack"
+    },
+    "needs_review": false,
+    "review_reason": null,
+    "values": [
+     {
+      "key": "kcal",
+      "label": "kcal",
+      "value": 372
+     },
+     {
+      "key": "protein",
+      "label": "Protein g",
+      "value": 13.5
+     },
+     {
+      "key": "fat",
+      "label": "Fat g",
+      "value": 7
+     },
+     {
+      "key": "sat_fat",
+      "label": "Sat fat g",
+      "value": 1.2
+     },
+     {
+      "key": "carbs",
+      "label": "Carbs g",
+      "value": 58.7
+     },
+     {
+      "key": "fibre",
+      "label": "Fibre g",
+      "value": 10
+     },
+     {
+      "key": "sugar_total",
+      "label": "Sugar g",
+      "value": 0.7
+     },
+     {
+      "key": "sugar_added",
+      "label": "Added sugar g",
+      "value": null
+     },
+     {
+      "key": "sodium_mg",
+      "label": "Sodium mg",
+      "value": null
+     },
+     {
+      "key": "caffeine_mg",
+      "label": "Caffeine mg",
+      "value": null
+     }
+    ],
+    "aliases": [
+     "porridge"
+    ],
+    "drink": false,
+    "active": true,
+    "units": [],
+    "barcode": "4000000000017",
+    "eaten": 5,
+    "first": "2026-11-09",
+    "last": "2026-11-16",
+    "last_text": "16.11.2026",
+    "added": "2026-05-01",
+    "added_text": "01.05.2026",
+    "recipe": null,
+    "values_editable": true,
+    "past": {
+     "n": 5,
+     "text": "Also recalculate the 5 past entries (09.11.2026 to 16.11.2026)"
+    },
+    "words": {
+     "values_hint": "You see the change first, then Yes. Without the tick only new entries use the new values.",
+     "basics_hint": "Saved at once. A hidden food keeps its past entries; it no longer shows in suggestions, chips or the catalogue.",
+     "none": "none",
+     "review": "needs review",
+     "reviewed": "Looks right"
+    },
+    "limits": {
+     "name_min": 2,
+     "name_max": 120,
+     "word_max": 60,
+     "words_max": 20,
+     "unit_max": 30,
+     "grams_max": 2000,
+     "barcode_min": 8,
+     "barcode_max": 14
+    }
+   },
+   "undo": null
+  },
+  "bowl": {
+   "v": 1,
+   "food_item": {
+    "id": 14,
+    "ref": "N14",
+    "name": "Morning bowl",
+    "basis": "g",
+    "source": {
+     "text": "Source: calculated · added 05.11.2026 · eaten 1 times, last 15.11.2026 · values per 100 g",
+     "line": "calculated",
+     "source": "calculated",
+     "brand": null,
+     "note": null
+    },
+    "needs_review": false,
+    "review_reason": null,
+    "values": [
+     {
+      "key": "kcal",
+      "label": "kcal",
+      "value": 120
+     },
+     {
+      "key": "protein",
+      "label": "Protein g",
+      "value": 8
+     },
+     {
+      "key": "fat",
+      "label": "Fat g",
+      "value": 3
+     },
+     {
+      "key": "sat_fat",
+      "label": "Sat fat g",
+      "value": null
+     },
+     {
+      "key": "carbs",
+      "label": "Carbs g",
+      "value": 15
+     },
+     {
+      "key": "fibre",
+      "label": "Fibre g",
+      "value": null
+     },
+     {
+      "key": "sugar_total",
+      "label": "Sugar g",
+      "value": null
+     },
+     {
+      "key": "sugar_added",
+      "label": "Added sugar g",
+      "value": null
+     },
+     {
+      "key": "sodium_mg",
+      "label": "Sodium mg",
+      "value": null
+     },
+     {
+      "key": "caffeine_mg",
+      "label": "Caffeine mg",
+      "value": null
+     }
+    ],
+    "aliases": [],
+    "drink": false,
+    "active": true,
+    "units": [],
+    "barcode": null,
+    "eaten": 1,
+    "first": "2026-11-15",
+    "last": "2026-11-15",
+    "last_text": "15.11.2026",
+    "added": "2026-11-05",
+    "added_text": "05.11.2026",
+    "recipe": "C1",
+    "values_editable": false,
+    "past": {
+     "n": 1,
+     "text": "Also recalculate the 1 past entry (15.11.2026 to 15.11.2026)"
+    },
+    "words": {
+     "values_hint": "You see the change first, then Yes. Without the tick only new entries use the new values.",
+     "basics_hint": "Saved at once. A hidden food keeps its past entries; it no longer shows in suggestions, chips or the catalogue.",
+     "none": "none",
+     "review": "needs review",
+     "reviewed": "Looks right"
+    },
+    "limits": {
+     "name_min": 2,
+     "name_max": 120,
+     "word_max": 60,
+     "words_max": 20,
+     "unit_max": 30,
+     "grams_max": 2000,
+     "barcode_min": 8,
+     "barcode_max": 14
+    }
+   },
+   "undo": null
+  }
+ },
+ "saves": {
+  "values_ask": {
+   "v": 1,
+   "outcome": "needs_confirmation",
+   "tone": "warning",
+   "head": "Nothing saved yet: please confirm.",
+   "receipt": [],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": "OK changed N2 Skyr: kcal 63 -> 70\npast entries rewritten from the food: 2",
+   "confirm": {
+    "label": "Yes, change",
+    "no_label": "No"
+   },
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": null,
+   "food_item": {
+    "id": 2,
+    "ref": "N2",
+    "name": "Skyr",
+    "basis": "g",
+    "source": {
+     "text": "Source: database · added 20.06.2026 · eaten 2 times, last 16.11.2026 · values per 100 g",
+     "line": "database",
+     "source": "database",
+     "brand": null,
+     "note": null
+    },
+    "needs_review": false,
+    "review_reason": null,
+    "values": [
+     {
+      "key": "kcal",
+      "label": "kcal",
+      "value": 63
+     },
+     {
+      "key": "protein",
+      "label": "Protein g",
+      "value": 11
+     },
+     {
+      "key": "fat",
+      "label": "Fat g",
+      "value": 0.2
+     },
+     {
+      "key": "sat_fat",
+      "label": "Sat fat g",
+      "value": null
+     },
+     {
+      "key": "carbs",
+      "label": "Carbs g",
+      "value": 4
+     },
+     {
+      "key": "fibre",
+      "label": "Fibre g",
+      "value": null
+     },
+     {
+      "key": "sugar_total",
+      "label": "Sugar g",
+      "value": null
+     },
+     {
+      "key": "sugar_added",
+      "label": "Added sugar g",
+      "value": null
+     },
+     {
+      "key": "sodium_mg",
+      "label": "Sodium mg",
+      "value": null
+     },
+     {
+      "key": "caffeine_mg",
+      "label": "Caffeine mg",
+      "value": null
+     }
+    ],
+    "aliases": [
+     "quark"
+    ],
+    "drink": false,
+    "active": true,
+    "units": [],
+    "barcode": null,
+    "eaten": 2,
+    "first": "2026-11-13",
+    "last": "2026-11-16",
+    "last_text": "16.11.2026",
+    "added": "2026-06-20",
+    "added_text": "20.06.2026",
+    "recipe": null,
+    "values_editable": true,
+    "past": {
+     "n": 2,
+     "text": "Also recalculate the 2 past entries (13.11.2026 to 16.11.2026)"
+    },
+    "words": {
+     "values_hint": "You see the change first, then Yes. Without the tick only new entries use the new values.",
+     "basics_hint": "Saved at once. A hidden food keeps its past entries; it no longer shows in suggestions, chips or the catalogue.",
+     "none": "none",
+     "review": "needs review",
+     "reviewed": "Looks right"
+    },
+    "limits": {
+     "name_min": 2,
+     "name_max": 120,
+     "word_max": 60,
+     "words_max": 20,
+     "unit_max": 30,
+     "grams_max": 2000,
+     "barcode_min": 8,
+     "barcode_max": 14
+    }
+   }
+  },
+  "values_done": {
+   "v": 1,
+   "outcome": "changed",
+   "tone": "ok",
+   "head": "Changed N2 Skyr.",
+   "receipt": [],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": null,
+   "food_item": {
+    "id": 2,
+    "ref": "N2",
+    "name": "Skyr",
+    "basis": "g",
+    "source": {
+     "text": "Source: database · added 20.06.2026 · eaten 2 times, last 16.11.2026 · values per 100 g",
+     "line": "database",
+     "source": "database",
+     "brand": null,
+     "note": null
+    },
+    "needs_review": false,
+    "review_reason": null,
+    "values": [
+     {
+      "key": "kcal",
+      "label": "kcal",
+      "value": 70
+     },
+     {
+      "key": "protein",
+      "label": "Protein g",
+      "value": 11
+     },
+     {
+      "key": "fat",
+      "label": "Fat g",
+      "value": 0.2
+     },
+     {
+      "key": "sat_fat",
+      "label": "Sat fat g",
+      "value": null
+     },
+     {
+      "key": "carbs",
+      "label": "Carbs g",
+      "value": 4
+     },
+     {
+      "key": "fibre",
+      "label": "Fibre g",
+      "value": null
+     },
+     {
+      "key": "sugar_total",
+      "label": "Sugar g",
+      "value": null
+     },
+     {
+      "key": "sugar_added",
+      "label": "Added sugar g",
+      "value": null
+     },
+     {
+      "key": "sodium_mg",
+      "label": "Sodium mg",
+      "value": null
+     },
+     {
+      "key": "caffeine_mg",
+      "label": "Caffeine mg",
+      "value": null
+     }
+    ],
+    "aliases": [
+     "quark"
+    ],
+    "drink": false,
+    "active": true,
+    "units": [],
+    "barcode": null,
+    "eaten": 2,
+    "first": "2026-11-13",
+    "last": "2026-11-16",
+    "last_text": "16.11.2026",
+    "added": "2026-06-20",
+    "added_text": "20.06.2026",
+    "recipe": null,
+    "values_editable": true,
+    "past": {
+     "n": 2,
+     "text": "Also recalculate the 2 past entries (13.11.2026 to 16.11.2026)"
+    },
+    "words": {
+     "values_hint": "You see the change first, then Yes. Without the tick only new entries use the new values.",
+     "basics_hint": "Saved at once. A hidden food keeps its past entries; it no longer shows in suggestions, chips or the catalogue.",
+     "none": "none",
+     "review": "needs review",
+     "reviewed": "Looks right"
+    },
+    "limits": {
+     "name_min": 2,
+     "name_max": 120,
+     "word_max": 60,
+     "words_max": 20,
+     "unit_max": 30,
+     "grams_max": 2000,
+     "barcode_min": 8,
+     "barcode_max": 14
+    }
+   }
+  },
+  "word_refused": {
+   "v": 1,
+   "outcome": "rejected",
+   "tone": "warning",
+   "head": "Nothing saved.",
+   "receipt": [],
+   "notes": [],
+   "reason": "'porridge' is already an alias of N1 Oat flakes: remove it there first, or use a more specific word",
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": null,
+   "food_item": null
+  },
+  "unit": {
+   "v": 1,
+   "outcome": "changed",
+   "tone": "ok",
+   "head": "1 thick slice of Rye bread = 50 g.",
+   "receipt": [],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": null,
+   "food_item": {
+    "id": 5,
+    "ref": "N5",
+    "name": "Rye bread",
+    "basis": "g",
+    "source": {
+     "text": "Source: database · added 14.11.2026 · eaten 0 times · values per 100 g",
+     "line": "database",
+     "source": "database",
+     "brand": null,
+     "note": null
+    },
+    "needs_review": true,
+    "review_reason": "values from an estimate",
+    "values": [
+     {
+      "key": "kcal",
+      "label": "kcal",
+      "value": 210
+     },
+     {
+      "key": "protein",
+      "label": "Protein g",
+      "value": 6.5
+     },
+     {
+      "key": "fat",
+      "label": "Fat g",
+      "value": 1.2
+     },
+     {
+      "key": "sat_fat",
+      "label": "Sat fat g",
+      "value": null
+     },
+     {
+      "key": "carbs",
+      "label": "Carbs g",
+      "value": 39
+     },
+     {
+      "key": "fibre",
+      "label": "Fibre g",
+      "value": null
+     },
+     {
+      "key": "sugar_total",
+      "label": "Sugar g",
+      "value": null
+     },
+     {
+      "key": "sugar_added",
+      "label": "Added sugar g",
+      "value": null
+     },
+     {
+      "key": "sodium_mg",
+      "label": "Sodium mg",
+      "value": 480
+     },
+     {
+      "key": "caffeine_mg",
+      "label": "Caffeine mg",
+      "value": null
+     }
+    ],
+    "aliases": [
+     "bread"
+    ],
+    "drink": false,
+    "active": true,
+    "units": [
+     {
+      "unit": "slice",
+      "grams": 35,
+      "text": "1 slice = 35 g"
+     },
+     {
+      "unit": "thick slice",
+      "grams": 50,
+      "text": "1 thick slice = 50 g"
+     }
+    ],
+    "barcode": null,
+    "eaten": 0,
+    "first": null,
+    "last": null,
+    "last_text": null,
+    "added": "2026-11-14",
+    "added_text": "14.11.2026",
+    "recipe": null,
+    "values_editable": true,
+    "past": null,
+    "words": {
+     "values_hint": "You see the change first, then Yes. Without the tick only new entries use the new values.",
+     "basics_hint": "Saved at once. A hidden food keeps its past entries; it no longer shows in suggestions, chips or the catalogue.",
+     "none": "none",
+     "review": "needs review",
+     "reviewed": "Looks right"
+    },
+    "limits": {
+     "name_min": 2,
+     "name_max": 120,
+     "word_max": 60,
+     "words_max": 20,
+     "unit_max": 30,
+     "grams_max": 2000,
+     "barcode_min": 8,
+     "barcode_max": 14
+    }
+   }
+  },
+  "hidden": {
+   "v": 1,
+   "outcome": "changed",
+   "tone": "ok",
+   "head": "N6 Apple: hidden from the lists.",
+   "receipt": [],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": null,
+   "food_item": null
+  }
+ }
+}

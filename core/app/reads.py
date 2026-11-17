@@ -8,7 +8,7 @@ import re
 from datetime import date, datetime, timedelta
 from typing import Optional
 
-from . import activitypage, body as tape, bodypage, coach, coachpage, foodpage, gratitude, gym as gymlib, gympage, habitspage, healthpage, held, home as homelib, homepage, insightspage, privateline, todaypage, trendspage, uiprefs, webquestions, weekpage
+from . import activitypage, body as tape, bodypage, coach, coachpage, foodpage, gratitude, gym as gymlib, gympage, habitspage, healthpage, held, home as homelib, homepage, insightspage, labspage, privateline, todaypage, trendspage, uiprefs, v1_commands, webquestions, weekpage
 from .db import connect
 from .rules import BERLIN
 from .webentry import readable
@@ -919,3 +919,120 @@ def insights() -> dict:
 def coaching(cid: int) -> dict:
     """A coaching's state as app.'s card polls it (coach.status): working, done, failed (also cut off) or gone."""
     return {"id": cid, "state": coach.status(cid)}
+
+
+# ---- Library: the food catalogue (deploy 104, step 5 of the move to logger.) --------------------------------------------------------
+# app.'s Food > Catalogue as data (foodpage.catalogue_data, food_data: app.'s page draws from the same, byte for byte as before), with
+# app.'s words beside the facts. Numbers per 100 g or ml; unknown values null.
+
+def _catalogue_row(r: dict) -> dict:
+    return {"id": r["id"], "ref": f"N{r['id']}", "name": r["name"], "review": bool(r["needs_review"]), "drink": bool(r["is_drink"]),
+            "aliases": list(r["aliases"] or []), "basis": r["basis"], "per_100": {k: num(r[k]) for k in ("kcal", "protein", "fat", "carbs")},
+            "per_100_text": {k: foodpage.per_100_text(r[k]) for k in ("kcal", "protein", "fat", "carbs")},
+            "eaten": r["n"], "last": iso(r["last"]), "last_text": foodpage.last_text(r["last"]),
+            "added": iso(r["created_at"].astimezone(BERLIN).date()), "added_text": foodpage.added_text(r["created_at"])}
+
+
+def catalogue(q: str = "", f: str = "all", s: str = "eaten") -> dict:
+    """The Catalogue's list (foodpage.catalogue_data): the search, the filter chips and the orders with the one that is on, the
+    rows (at most `limit`), the note when the list is full, the empty line, the hint."""
+    d = foodpage.catalogue_data(q, f, s)
+    return {**{k: d[k] for k in ("q", "filter", "sort", "filters", "sorts", "limit", "more", "empty", "hint", "placeholder")},
+            "count": len(d["rows"]), "rows": [_catalogue_row(r) for r in d["rows"]]}
+
+
+def food_item(fid: int) -> Optional[dict]:
+    """One food as the Catalogue's box shows it (foodpage.food_data), or None when it is not there. A hidden food comes too
+    (active false); app.'s list shows only active ones."""
+    d = foodpage.food_data(fid)
+    if d is None:
+        return None
+    f = d["food"]
+    return {"id": f["id"], "ref": f"N{f['id']}", "name": f["name"], "basis": f["basis"],
+            "source": {"text": d["line"], "line": d["source"], "source": f["source"], "brand": f["brand"], "note": f["source_note"]},
+            "needs_review": bool(f["needs_review"]), "review_reason": f["review_reason"],
+            "values": [{"key": k, "label": lbl, "value": num(f[k])} for k, lbl in foodpage.NUT],
+            "aliases": list(f["aliases"] or []), "drink": bool(f["is_drink"]), "active": bool(f["active"]),
+            "units": [{"unit": u["unit"], "grams": num(u["grams"]), "text": u["text"]} for u in d["units"]],
+            "barcode": f["barcode"], "eaten": d["n"], "first": iso(d["first"]), "last": iso(d["last"]),
+            "last_text": d["last"].strftime("%d.%m.%Y") if d["last"] else None,
+            "added": iso(f["created_at"].astimezone(BERLIN).date()), "added_text": f"{f['created_at']:%d.%m.%Y}",
+            "recipe": f"C{d['recipe']}" if d["recipe"] else None, "values_editable": d["recipe"] is None,
+            "past": {"n": d["n"], "text": d["past"]} if d["past"] else None,
+            "words": {"values_hint": foodpage.VALUES_HINT, "basics_hint": foodpage.BASICS_HINT, "none": foodpage.NONE_YET,
+                      "review": "needs review", "reviewed": "Looks right"},
+            "limits": foodpage.LIMITS}
+
+
+# ---- Medical: lab reports, tests over time, medication (deploy 104) -----------------------------------------------------------------
+# app.'s Medical page as data (labspage.reports_data, tests_data, test_chart, meds_data: app.'s three tabs draw from the same, byte for
+# byte as before). Values as the logger prints them (v1's _val_text, _ref_text); the correction forms start from labspage.printed.
+# Nothing of these reads is ever written to a log line.
+
+def _flag_word(f) -> Optional[str]:
+    return labspage.FLAGS.get(f)
+
+
+def _lab_value(r: dict) -> dict:
+    value, unit, ref = labspage.printed(r)
+    return {"id": r["id"], "ref": f"V{r['id']}", "test_id": r["test_id"], "test": r["test"], "note": r["note"],
+            "text": v1_commands._val_text(r), "value": num(r["value"]), "unit": r["unit"],
+            "range": v1_commands._ref_text(r["ref_low"], r["ref_high"]), "ref_low": num(r["ref_low"]), "ref_high": num(r["ref_high"]),
+            "flag": r["flag"], "flag_word": _flag_word(r["flag"]), "site": labspage._site(r) or None,
+            "printed": {"value": value, "unit": unit, "ref": ref}}
+
+
+def labs(open_: str = "") -> dict:
+    """The Reports tab (labspage.reports_data): the newest lab report's flagged values, every report, the one open ("R<id>")."""
+    d = labspage.reports_data(open_)
+    newest, p = d["newest"], d["open"]
+    return {
+        "flagged": None if newest is None else {
+            "report_id": newest["id"], "ref": f"R{newest['id']}", "date": iso(newest["collected_date"]),
+            "date_text": f"{newest['collected_date']:%d.%m.%Y}", "title": newest["title"] or "Report",
+            "heading": "Flagged in your newest report", "empty": labspage.NOTHING_FLAGGED if not d["flagged"] else None,
+            "hint": labspage.FLAGGED_HINT,
+            "chips": [{"test_id": r["test_id"], "test": r["test"], "value": v1_commands._val_text(r),
+                       "range": v1_commands._ref_text(r["ref_low"], r["ref_high"]), "flag": r["flag"], "flag_word": _flag_word(r["flag"])}
+                      for r in d["flagged"]]},
+        "reports": [{"id": r["id"], "ref": f"R{r['id']}", "date": iso(r["collected_date"]), "date_text": f"{r['collected_date']:%d.%m.%Y}",
+                     "title": r["title"] or "Report", "kind": r["report_type"], "provider": r["provider"] or "", "values": r["n"],
+                     "flagged": r["flagged"]} for r in d["reports"]],
+        "empty": None if d["reports"] else labspage.NO_REPORTS, "hint": labspage.REPORTS_HINT,
+        "open": None if p is None else {
+            "id": p["id"], "ref": f"R{p['id']}", "date": iso(p["collected_date"]), "date_text": f"{p['collected_date']:%d.%m.%Y}",
+            "title": p["title"] or "Report", "kind": p["report_type"], "provider": p["provider"] or "", "notes": p["notes"],
+            "values": [_lab_value(r) for r in d["values"]], "empty": None if d["values"] else labspage.NO_VALUES,
+            "form": {"collected": iso(p["collected_date"]), "title": p["title"] or "", "provider": p["provider"] or "", "notes": p["notes"] or ""},
+            "value_hint": labspage.VALUE_HINT, "report_hint": labspage.REPORT_HINT},
+        "limits": labspage.LIMITS,
+    }
+
+
+def labs_tests(q: str = "", t: str = "") -> dict:
+    """The Tests over time tab (labspage.tests_data): the tests worth a chart or the matches of q, or the test of t (or of the one
+    match) with its chart card (Health's card shape; chart = app.'s data-chart object, or null with app.'s note) and its values,
+    newest first."""
+    d = labspage.tests_data(q, t)
+    test = d["test"]
+    return {"q": d["q"], "placeholder": labspage.TESTS_PLACEHOLDER, "title": d["title"], "empty": d["empty"],
+            "tests": [{"id": m["id"], "name": m["name"], "unit": m["unit"] or None, "values": m["n"]} for m in d["matches"]],
+            "test": None if test is None else {"id": test["id"], "name": test["name"], "unit": test["unit"] or None, "values": len(d["rows"])},
+            "card": d["card"],
+            "rows": [{"id": r["id"], "date": iso(r["collected_date"]), "date_text": f"{r['collected_date']:%d.%m.%Y}",
+                      "site": labspage._site(r) or None, "value": v1_commands._val_text(r), "range": v1_commands._ref_text(r["ref_low"], r["ref_high"]),
+                      "flag": r["flag"], "flag_word": _flag_word(r["flag"]), "report_id": r["report_id"], "report_ref": f"R{r['report_id']}"}
+                     for r in reversed(d["rows"])]}
+
+
+def labs_meds() -> dict:
+    """The Medication tab (labspage.meds_data): the courses in app.'s order, the running count, app.'s words and the form's limits."""
+    d = labspage.meds_data()
+    return {"today": iso(d["today"]), "running": d["running"], "empty": None if d["meds"] else labspage.NO_MEDS,
+            "hint": labspage.MEDS_HINT, "form_hint": labspage.MED_HINT,
+            "meds": [{"id": m["id"], "ref": f"D{m['id']}", "name": m["name"], "ingredient": m["ingredient"], "dose": m["dose"],
+                      "frequency": m["frequency"], "indication": m["indication"], "start": iso(m["start_date"]), "stop": iso(m["stop_date"]),
+                      "start_text": f"{m['start_date']:%d.%m.%Y}" if m["start_date"] else None,
+                      "stop_text": f"{m['stop_date']:%d.%m.%Y}" if m["stop_date"] else None,
+                      "running": m["running"], "can_end": m["running"] and m["stop_date"] is None} for m in d["meds"]],
+            "limits": labspage.MED_LIMITS}

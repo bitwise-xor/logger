@@ -2,7 +2,7 @@
 the private guard on questions and on lines the AI files as private, one name per field (the old names gone since deploy 78), Undo on a
 reload, a mixed line's look-up in result, answer styles and refill buttons, the outcome's tone, no chat lines in read-backs, and
 Try again / Delete on a message not read yet; the usual-meal editor's shapes (deploy 86); the scanner's, label photo's and look-up's
-shapes (deploy 89); the Health page's and body measurements' shapes (deploy 91); the Habits page's shapes (deploy 93); the Gym's shapes (deploy 95); Home's shapes (deploy 98); Trends' shapes (deploy 101). Every name, food, number and sentence is invented."""
+shapes (deploy 89); the Health page's and body measurements' shapes (deploy 91); the Habits page's shapes (deploy 93); the Gym's shapes (deploy 95); Home's shapes (deploy 98); Trends' shapes (deploy 101); Library's and Medical's shapes (deploy 104). Every name, food, number and sentence is invented."""
 from datetime import datetime, timedelta
 
 import pytest
@@ -535,3 +535,33 @@ def test_the_trends_shapes(sv, monkeypatch):
     a, b = weekpage.bounds("30", t0)
     j = sv.post("/coach/start", kind="week", start=(a - timedelta(days=10)).isoformat(), end=b.isoformat())  # 40 days: refused
     assert set(j) == KEYS | {"week", "coaching"} and j["outcome"] == "rejected" and j["coaching"] is None
+
+
+# ---- 15. Library and Medical (deploy 104) ----------------------------------------------------------------------------------------
+
+def test_the_library_and_medical_shapes(sv, fake):
+    from test_api_library import CATALOGUE, ITEM, ROW, invented as foods
+    from test_api_medical import invented as labs
+    f, x = foods(), labs()
+    c = get(sv, "/food/catalogue?f=all&s=name")
+    assert set(c) == {"v", "catalogue", "undo"} and set(c["catalogue"]) == CATALOGUE and all(set(r) == ROW for r in c["catalogue"]["rows"])
+    assert all(set(r["per_100"]) == {"kcal", "protein", "fat", "carbs"} for r in c["catalogue"]["rows"])
+    i = get(sv, f"/food/item?id={f['oatdrink']}")["food_item"]
+    assert set(i) == ITEM and set(i["source"]) == {"text", "line", "source", "brand", "note"} and all(set(v) == {"key", "label", "value"} for v in i["values"])
+    assert all(set(u) == {"unit", "grams", "text"} for u in i["units"]) and set(i["past"]) == {"n", "text"}
+    lb = get(sv, f"/labs?open={x['r4']}")["labs"]
+    assert set(lb["flagged"]) == {"report_id", "ref", "date", "date_text", "title", "heading", "empty", "hint", "chips"}
+    assert all(set(r) == {"id", "ref", "date", "date_text", "title", "kind", "provider", "values", "flagged"} for r in lb["reports"])
+    assert set(lb["open"]) == {"id", "ref", "date", "date_text", "title", "kind", "provider", "notes", "values", "empty", "form", "value_hint", "report_hint"}
+    assert all(set(v) == {"id", "ref", "test_id", "test", "note", "text", "value", "unit", "range", "ref_low", "ref_high", "flag", "flag_word", "site",
+                          "printed"} for v in lb["open"]["values"])
+    t = get(sv, f"/labs/tests?t={x['t_vitd']}")["labs_tests"]
+    assert set(t) == {"q", "placeholder", "title", "empty", "tests", "test", "card", "rows"}
+    assert set(t["card"]) == {"id", "title", "small", "stat", "chart", "legend", "note"} and set(t["card"]["chart"]) == {"start", "days", "label", "years", "band", "series"}
+    m = get(sv, "/labs/meds")["labs_meds"]
+    assert set(m) == {"today", "running", "empty", "hint", "form_hint", "meds", "limits"}
+    for path, body, view in (("/food/catalogue/reviewed", {"id": f["rye"]}, {"catalogue", "food_item"}),
+                             ("/labs/value", {"id": x["r4_hb"], "value": "12.9"}, {"labs"}), ("/labs/med", {"id": x["d_vitd"], "act": "end"}, {"labs_meds"}),
+                             ("/labs/report", {"id": x["r4"], "title": "Zz other"}, {"labs"})):
+        assert set(sv.post(path, **body)) == KEYS | view, path
+    assert set(sv.post("/labs/value", id=x["r4_hb"], value="12.9", view="labs_tests", view_t=x["t_hb"])) == KEYS | {"labs_tests"}

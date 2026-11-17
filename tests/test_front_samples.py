@@ -8,7 +8,7 @@ the Food day (food.json, step E: GET /food/day of the day and the day before, GE
 meals (usual.json, deploy 86: GET /usual, GET /foods, a change with Undo and a refusal), the scanner, label photo and look-up
 (scan.json, deploy 89), the Health page and body measurements (health.json, deploy 91), the Habits page (habits.json, deploy 93), the
 Gym (gym.json, deploy 95), Home (home.json, deploy 98; day.json has Today's Home card since then), Trends (week.json, food_trends.json,
-insights.json, deploy 101), and
+insights.json, deploy 101), Library and Medical (catalogue.json, labs.json, deploy 104), and
 - with WRITE_FRONT_SAMPLES=1: writes the answer to the sample file (then look at the diff and commit it);
 - otherwise: checks that the committed sample still has the door's shape (the same keys at every level), so a change of the door
   that the stand-in does not know about fails here.
@@ -683,3 +683,70 @@ def test_the_food_trends_and_insights_samples_have_the_doors_shape(monkeypatch):
     assert [c_["waiting"] for c_ in insights["insights"]["insights"]["cards"]] == [False, True, False]
     _write_or_check("food_trends.json", trends)
     _write_or_check("insights.json", insights)
+
+
+def test_the_catalogue_sample_has_the_doors_shape(fake):
+    """The food catalogue (deploy 104, for the Library page of deploy 105): 14 invented foods (test_api_library.invented: a drink with a
+    unit and a barcode, two that need review, one hidden, a recipe food), the list in each filter and two orders, a search with no match,
+    four boxes (the drink, one that needs review with a unit, one with a barcode and past entries, the recipe food), and the saves'
+    answers without their fresh read: a values change read back and made with the past, a word refused, a unit, a food hidden."""
+    from test_api_library import invented
+    x = invented(plain=True)
+    c, bearer, _ = signed_in()
+    get = lambda path: c.get("/api/v1" + path, headers=bearer).json()  # noqa: E731
+    post = lambda path, **body: c.post("/api/v1" + path, headers=bearer, json=body).json()  # noqa: E731
+    answers = {"all": get("/food/catalogue"), "drinks": get("/food/catalogue?f=drinks"), "review": get("/food/catalogue?f=review&s=name"),
+               "new": get("/food/catalogue?f=new&s=added"), "none": get("/food/catalogue?q=zzqq")}
+    answers["items"] = {k: get(f"/food/item?id=N{x[k]}") for k in ("oatdrink", "rye", "oats", "bowl")}
+    saves = {"values_ask": post("/food/catalogue/values", id=x["skyr"], kcal=70, past=True, view_food=x["skyr"]),
+             "values_done": post("/food/catalogue/values", id=x["skyr"], kcal=70, past=True, confirmed=True, view_food=x["skyr"]),
+             "word_refused": post("/food/catalogue/words", id=x["rice"], act="add", word="porridge"),
+             "unit": post("/food/catalogue/unit", id=x["rye"], unit="thick slice", grams=50, view_food=x["rye"]),
+             "hidden": post("/food/catalogue/basics", id=x["apple"], hide=True, view_food=x["apple"])}
+    assert answers["all"]["catalogue"]["count"] == 13 and answers["none"]["catalogue"]["empty"]
+    assert answers["items"]["rye"]["food_item"]["needs_review"] and answers["items"]["oatdrink"]["food_item"]["units"]
+    assert saves["values_ask"]["outcome"] == "needs_confirmation" and saves["values_done"]["outcome"] == "changed"
+    assert saves["word_refused"]["outcome"] == "rejected" and saves["hidden"]["food_item"] is None and saves["unit"]["food_item"]["units"]
+    for a in saves.values():
+        a.pop("catalogue")
+    answers["saves"] = saves
+    _write_or_check("catalogue.json", answers)
+
+
+def test_the_labs_sample_has_the_doors_shape(fake):
+    """Medical (deploy 104, for the Medical page of deploy 106): five invented reports (one imaging; test_api_medical.invented), the
+    Reports tab with nothing open and with one report open, Tests over time (the list, a search, one test with four values and a range,
+    one with a single value, nothing found), the Medication tab (two running, two ended), and the saves' answers without their fresh
+    read: a value read back and made, a course ended, a refusal; a new course typed through /log with its yes."""
+    from test_api_medical import SENTENCE, invented
+    from test_log import ANSWERS, COMMANDS, C, P
+    x = invented(plain=True)
+    c, bearer, _ = signed_in()
+    get = lambda path: c.get("/api/v1" + path, headers=bearer).json()  # noqa: E731
+    post = lambda path, **body: c.post("/api/v1" + path, headers=bearer, json=body).json()  # noqa: E731
+    answers = {"reports": get("/labs"), "open": get(f"/labs?open=R{x['r4']}"), "open_imaging": get(f"/labs?open=R{x['img']}"),
+               "tests": get("/labs/tests"), "search": get("/labs/tests?q=vit"), "test": get(f"/labs/tests?t={x['t_vitd']}"),
+               "one_value": get(f"/labs/tests?t={x['t_tsh']}"), "no_test": get("/labs/tests?q=zzqq"), "meds": get("/labs/meds")}
+    saves = {"value_ask": post("/labs/value", id=x["r4_hb"], value="12.9"),
+             "value_done": post("/labs/value", id=x["r4_hb"], value="12.9", confirmed=True),
+             "report_refused": post("/labs/report", id=x["r2"], title=""),
+             "end_ask": post("/labs/med", id=x["d_vitd"], act="end"),
+             "end_done": post("/labs/med", id=x["d_vitd"], act="end", confirmed=True),
+             "end_again": post("/labs/med", id=x["d_vitd"], act="end", confirmed=True)}
+    ANSWERS[SENTENCE] = P(intent="command", command_text=SENTENCE)
+    COMMANDS[SENTENCE] = lambda u: C(("med", {"action": "start", "name": "Vitamin D", "dose": "1000 IU", "frequency": "daily"}))
+    try:
+        saves["log_ask"] = post("/log", text=SENTENCE, view="labs_meds")
+        saves["log_yes"] = post("/answer", question_id=saves["log_ask"]["questions"][0]["id"], reply="yes", view="labs_meds")
+    finally:
+        ANSWERS.pop(SENTENCE)
+        COMMANDS.pop(SENTENCE)
+    assert answers["test"]["labs_tests"]["card"]["chart"]["band"] and len(answers["test"]["labs_tests"]["rows"]) == 4
+    assert answers["meds"]["labs_meds"]["running"] == 2 and len(answers["meds"]["labs_meds"]["meds"]) == 4
+    assert saves["value_done"]["outcome"] == "changed" and saves["report_refused"]["outcome"] == "rejected"
+    assert saves["end_again"]["outcome"] == "unchanged" and saves["log_ask"]["outcome"] == "needs_confirmation"
+    assert len(saves["log_yes"]["labs_meds"]["meds"]) == 5
+    for k, a in saves.items():
+        a.pop("labs" if k.startswith(("value", "report")) else "labs_meds")
+    answers["saves"] = saves
+    _write_or_check("labs.json", answers)

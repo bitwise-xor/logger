@@ -57,6 +57,14 @@ docker exec -i -w /srv logger-v2-core python - </dev/null <<'EOF'
 import traceback
 from app import foodpage, habitspage, healthpage, ideaspage, insightspage, labspage, privatepage, searchpage, settingspage, todaypage, trendspage, usagepage, web, weekpage, webheld, gympage, homepage, reads, coachpage
 sess = {"csrf": "x", "token_hash": "none", "sid": "00000000-0000-0000-0000-000000000000"}
+from app.db import connect
+def first(sql):
+    with connect() as c:
+        r = c.execute(sql).fetchone()
+    return r["id"] if r else 0
+first_food = lambda: first("SELECT id FROM foods WHERE active ORDER BY id LIMIT 1")
+first_report = lambda: first("SELECT id FROM lab_reports ORDER BY collected_date DESC, id DESC LIMIT 1")
+first_test = lambda: first("SELECT test_id AS id FROM lab_results GROUP BY test_id ORDER BY count(*) DESC, test_id LIMIT 1")
 checks = {
   "today": lambda: todaypage.render("x"), "health": lambda: healthpage.render("x", 30), "food log": lambda: foodpage.render_log("x", {}),
   "catalogue": lambda: foodpage.render_catalogue("x", {"s": "kcal"}), "usual": lambda: foodpage.render_usual("x", {}),
@@ -74,6 +82,14 @@ checks = {
   "week last": lambda: weekpage.render("x", {"p": "last"}), "week this": lambda: weekpage.render("x", {"p": "this"}), "trends 90": lambda: trendspage.render("x", {"r": "90"}),
   "insights": lambda: insightspage.render("x"), "coach page": lambda: coachpage.render("x", {}),
   "door trends reads": lambda: str([reads.week(p) for p in ("7", "last", "30", "this")] + [reads.food_trends(r) for r in (7, 30, 90)] + [reads.insights()]),
+  "catalogue review": lambda: foodpage.render_catalogue("x", {"f": "review", "s": "name"}),
+  "catalogue open": lambda: foodpage.render_catalogue("x", {"food": "N%d" % first_food()}),
+  "labs open": lambda: labspage.render_reports("x", {"open": "R%d" % first_report(), "report": "1"}), "labs tests": lambda: labspage.render_tests("x", {}),
+  "labs test": lambda: labspage.render_tests("x", {"t": str(first_test())}), "labs meds": lambda: labspage.render_meds("x", {}),
+  "door library reads": lambda: str([reads.catalogue("", f, s) for f in ("all", "drinks", "new", "review") for s in ("eaten", "name")]
+                                    + [reads.food_item(first_food())]),
+  "door medical reads": lambda: str([reads.labs(""), reads.labs("R%d" % first_report()), reads.labs_tests("", ""), reads.labs_tests("", str(first_test())),
+                                     reads.labs_meds()]),
 }
 for name, f in checks.items():
     try:

@@ -1,0 +1,1076 @@
+{
+ "reports": {
+  "v": 1,
+  "labs": {
+   "flagged": {
+    "report_id": 4,
+    "ref": "R4",
+    "date": "2026-10-05",
+    "date_text": "05.10.2026",
+    "title": "Annual check-up",
+    "heading": "Flagged in your newest report",
+    "empty": null,
+    "hint": "Click one to see it over time. H high, L low and A abnormal in amber.",
+    "chips": [
+     {
+      "test_id": 20,
+      "test": "Ferritin",
+      "value": "450 ng/mL",
+      "range": "30-400",
+      "flag": "H",
+      "flag_word": "high"
+     }
+    ]
+   },
+   "reports": [
+    {
+     "id": 5,
+     "ref": "R5",
+     "date": "2026-10-12",
+     "date_text": "12.10.2026",
+     "title": "Abdominal ultrasound",
+     "kind": "imaging",
+     "provider": "Zz Imaging",
+     "values": 1,
+     "flagged": 1
+    },
+    {
+     "id": 4,
+     "ref": "R4",
+     "date": "2026-10-05",
+     "date_text": "05.10.2026",
+     "title": "Annual check-up",
+     "kind": "lab",
+     "provider": "Zz Lab",
+     "values": 4,
+     "flagged": 1
+    },
+    {
+     "id": 3,
+     "ref": "R3",
+     "date": "2025-06-20",
+     "date_text": "20.06.2025",
+     "title": "Iron and vitamins",
+     "kind": "lab",
+     "provider": "Zz Lab",
+     "values": 3,
+     "flagged": 2
+    },
+    {
+     "id": 2,
+     "ref": "R2",
+     "date": "2024-09-02",
+     "date_text": "02.09.2024",
+     "title": "Annual check-up",
+     "kind": "lab",
+     "provider": "Zz Lab",
+     "values": 3,
+     "flagged": 1
+    },
+    {
+     "id": 1,
+     "ref": "R1",
+     "date": "2023-03-14",
+     "date_text": "14.03.2023",
+     "title": "Blood count",
+     "kind": "lab",
+     "provider": "Zz Lab",
+     "values": 3,
+     "flagged": 3
+    }
+   ],
+   "empty": null,
+   "hint": "New reports come in through the chat (photo or PDF). Click a report to see its values; the pencil corrects one (shown first, then Yes).",
+   "open": null,
+   "limits": {
+    "value_max": 60,
+    "unit_max": 30,
+    "ref_max": 60,
+    "title_max": 200,
+    "provider_max": 200,
+    "notes_max": 2000
+   }
+  },
+  "undo": null
+ },
+ "open": {
+  "v": 1,
+  "labs": {
+   "flagged": {
+    "report_id": 4,
+    "ref": "R4",
+    "date": "2026-10-05",
+    "date_text": "05.10.2026",
+    "title": "Annual check-up",
+    "heading": "Flagged in your newest report",
+    "empty": null,
+    "hint": "Click one to see it over time. H high, L low and A abnormal in amber.",
+    "chips": [
+     {
+      "test_id": 20,
+      "test": "Ferritin",
+      "value": "450 ng/mL",
+      "range": "30-400",
+      "flag": "H",
+      "flag_word": "high"
+     }
+    ]
+   },
+   "reports": [
+    {
+     "id": 5,
+     "ref": "R5",
+     "date": "2026-10-12",
+     "date_text": "12.10.2026",
+     "title": "Abdominal ultrasound",
+     "kind": "imaging",
+     "provider": "Zz Imaging",
+     "values": 1,
+     "flagged": 1
+    },
+    {
+     "id": 4,
+     "ref": "R4",
+     "date": "2026-10-05",
+     "date_text": "05.10.2026",
+     "title": "Annual check-up",
+     "kind": "lab",
+     "provider": "Zz Lab",
+     "values": 4,
+     "flagged": 1
+    },
+    {
+     "id": 3,
+     "ref": "R3",
+     "date": "2025-06-20",
+     "date_text": "20.06.2025",
+     "title": "Iron and vitamins",
+     "kind": "lab",
+     "provider": "Zz Lab",
+     "values": 3,
+     "flagged": 2
+    },
+    {
+     "id": 2,
+     "ref": "R2",
+     "date": "2024-09-02",
+     "date_text": "02.09.2024",
+     "title": "Annual check-up",
+     "kind": "lab",
+     "provider": "Zz Lab",
+     "values": 3,
+     "flagged": 1
+    },
+    {
+     "id": 1,
+     "ref": "R1",
+     "date": "2023-03-14",
+     "date_text": "14.03.2023",
+     "title": "Blood count",
+     "kind": "lab",
+     "provider": "Zz Lab",
+     "values": 3,
+     "flagged": 3
+    }
+   ],
+   "empty": null,
+   "hint": "New reports come in through the chat (photo or PDF). Click a report to see its values; the pencil corrects one (shown first, then Yes).",
+   "open": {
+    "id": 4,
+    "ref": "R4",
+    "date": "2026-10-05",
+    "date_text": "05.10.2026",
+    "title": "Annual check-up",
+    "kind": "lab",
+    "provider": "Zz Lab",
+    "notes": null,
+    "values": [
+     {
+      "id": 10,
+      "ref": "V10",
+      "test_id": 19,
+      "test": "Haemoglobin",
+      "note": null,
+      "text": "13.8 g/dL",
+      "value": 13.8,
+      "unit": "g/dL",
+      "range": "13.5-17.5",
+      "ref_low": 13.5,
+      "ref_high": 17.5,
+      "flag": "N",
+      "flag_word": null,
+      "site": null,
+      "printed": {
+       "value": "13.8",
+       "unit": "g/dL",
+       "ref": "13.5-17.5"
+      }
+     },
+     {
+      "id": 11,
+      "ref": "V11",
+      "test_id": 20,
+      "test": "Ferritin",
+      "note": null,
+      "text": "450 ng/mL",
+      "value": 450,
+      "unit": "ng/mL",
+      "range": "30-400",
+      "ref_low": 30,
+      "ref_high": 400,
+      "flag": "H",
+      "flag_word": "high",
+      "site": null,
+      "printed": {
+       "value": "450",
+       "unit": "ng/mL",
+       "ref": "30-400"
+      }
+     },
+     {
+      "id": 12,
+      "ref": "V12",
+      "test_id": 21,
+      "test": "Vitamin D",
+      "note": null,
+      "text": "45 ng/mL",
+      "value": 45,
+      "unit": "ng/mL",
+      "range": "30-100",
+      "ref_low": 30,
+      "ref_high": 100,
+      "flag": "N",
+      "flag_word": null,
+      "site": null,
+      "printed": {
+       "value": "45",
+       "unit": "ng/mL",
+       "ref": "30-100"
+      }
+     },
+     {
+      "id": 13,
+      "ref": "V13",
+      "test_id": 22,
+      "test": "TSH",
+      "note": null,
+      "text": "2.1 mIU/L",
+      "value": 2.1,
+      "unit": "mIU/L",
+      "range": "0.4-4",
+      "ref_low": 0.4,
+      "ref_high": 4,
+      "flag": "N",
+      "flag_word": null,
+      "site": null,
+      "printed": {
+       "value": "2.1",
+       "unit": "mIU/L",
+       "ref": "0.4-4"
+      }
+     }
+    ],
+    "empty": null,
+    "form": {
+     "collected": "2026-10-05",
+     "title": "Annual check-up",
+     "provider": "Zz Lab",
+     "notes": ""
+    },
+    "value_hint": "You see the change first, then Yes. The logger converts the unit and sets the flag again.",
+    "report_hint": "You see the change first, then Yes."
+   },
+   "limits": {
+    "value_max": 60,
+    "unit_max": 30,
+    "ref_max": 60,
+    "title_max": 200,
+    "provider_max": 200,
+    "notes_max": 2000
+   }
+  },
+  "undo": null
+ },
+ "open_imaging": {
+  "v": 1,
+  "labs": {
+   "flagged": {
+    "report_id": 4,
+    "ref": "R4",
+    "date": "2026-10-05",
+    "date_text": "05.10.2026",
+    "title": "Annual check-up",
+    "heading": "Flagged in your newest report",
+    "empty": null,
+    "hint": "Click one to see it over time. H high, L low and A abnormal in amber.",
+    "chips": [
+     {
+      "test_id": 20,
+      "test": "Ferritin",
+      "value": "450 ng/mL",
+      "range": "30-400",
+      "flag": "H",
+      "flag_word": "high"
+     }
+    ]
+   },
+   "reports": [
+    {
+     "id": 5,
+     "ref": "R5",
+     "date": "2026-10-12",
+     "date_text": "12.10.2026",
+     "title": "Abdominal ultrasound",
+     "kind": "imaging",
+     "provider": "Zz Imaging",
+     "values": 1,
+     "flagged": 1
+    },
+    {
+     "id": 4,
+     "ref": "R4",
+     "date": "2026-10-05",
+     "date_text": "05.10.2026",
+     "title": "Annual check-up",
+     "kind": "lab",
+     "provider": "Zz Lab",
+     "values": 4,
+     "flagged": 1
+    },
+    {
+     "id": 3,
+     "ref": "R3",
+     "date": "2025-06-20",
+     "date_text": "20.06.2025",
+     "title": "Iron and vitamins",
+     "kind": "lab",
+     "provider": "Zz Lab",
+     "values": 3,
+     "flagged": 2
+    },
+    {
+     "id": 2,
+     "ref": "R2",
+     "date": "2024-09-02",
+     "date_text": "02.09.2024",
+     "title": "Annual check-up",
+     "kind": "lab",
+     "provider": "Zz Lab",
+     "values": 3,
+     "flagged": 1
+    },
+    {
+     "id": 1,
+     "ref": "R1",
+     "date": "2023-03-14",
+     "date_text": "14.03.2023",
+     "title": "Blood count",
+     "kind": "lab",
+     "provider": "Zz Lab",
+     "values": 3,
+     "flagged": 3
+    }
+   ],
+   "empty": null,
+   "hint": "New reports come in through the chat (photo or PDF). Click a report to see its values; the pencil corrects one (shown first, then Yes).",
+   "open": {
+    "id": 5,
+    "ref": "R5",
+    "date": "2026-10-12",
+    "date_text": "12.10.2026",
+    "title": "Abdominal ultrasound",
+    "kind": "imaging",
+    "provider": "Zz Imaging",
+    "notes": null,
+    "values": [
+     {
+      "id": 14,
+      "ref": "V14",
+      "test_id": 23,
+      "test": "Liver",
+      "note": null,
+      "text": "slightly enlarged",
+      "value": null,
+      "unit": null,
+      "range": "-",
+      "ref_low": null,
+      "ref_high": null,
+      "flag": "A",
+      "flag_word": "abnormal",
+      "site": "liver",
+      "printed": {
+       "value": "slightly enlarged",
+       "unit": "",
+       "ref": ""
+      }
+     }
+    ],
+    "empty": null,
+    "form": {
+     "collected": "2026-10-12",
+     "title": "Abdominal ultrasound",
+     "provider": "Zz Imaging",
+     "notes": ""
+    },
+    "value_hint": "You see the change first, then Yes. The logger converts the unit and sets the flag again.",
+    "report_hint": "You see the change first, then Yes."
+   },
+   "limits": {
+    "value_max": 60,
+    "unit_max": 30,
+    "ref_max": 60,
+    "title_max": 200,
+    "provider_max": 200,
+    "notes_max": 2000
+   }
+  },
+  "undo": null
+ },
+ "tests": {
+  "v": 1,
+  "labs_tests": {
+   "q": "",
+   "placeholder": "Search a test: ldl, vitamin d, hba1c",
+   "title": "Tests with values on three or more days:",
+   "empty": null,
+   "tests": [
+    {
+     "id": 20,
+     "name": "Ferritin",
+     "unit": "ng/mL",
+     "values": 4
+    },
+    {
+     "id": 19,
+     "name": "Haemoglobin",
+     "unit": "g/dL",
+     "values": 4
+    },
+    {
+     "id": 21,
+     "name": "Vitamin D",
+     "unit": "ng/mL",
+     "values": 4
+    }
+   ],
+   "test": null,
+   "card": null,
+   "rows": []
+  },
+  "undo": null
+ },
+ "search": {
+  "v": 1,
+  "labs_tests": {
+   "q": "vit",
+   "placeholder": "Search a test: ldl, vitamin d, hba1c",
+   "title": null,
+   "empty": null,
+   "tests": [],
+   "test": {
+    "id": 21,
+    "name": "Vitamin D",
+    "unit": "ng/mL",
+    "values": 4
+   },
+   "card": {
+    "id": "test",
+    "title": "Vitamin D",
+    "small": "4 values",
+    "stat": [],
+    "chart": {
+     "start": "2023-03-14",
+     "days": 1302,
+     "label": "Vitamin D over time",
+     "years": true,
+     "band": [
+      30.0,
+      100.0
+     ],
+     "series": [
+      {
+       "mark": "line",
+       "cls": "a",
+       "pts": [
+        [
+         0,
+         18.0,
+         "14.03.2023: 18 ng/mL"
+        ],
+        [
+         538,
+         22.0,
+         "02.09.2024: 22 ng/mL"
+        ],
+        [
+         829,
+         31.0,
+         "20.06.2025: 31 ng/mL"
+        ],
+        [
+         1301,
+         45.0,
+         "05.10.2026: 45 ng/mL"
+        ]
+       ]
+      },
+      {
+       "mark": "dot",
+       "cls": "a",
+       "pts": [
+        [
+         829,
+         31.0,
+         "20.06.2025: 31 ng/mL"
+        ],
+        [
+         1301,
+         45.0,
+         "05.10.2026: 45 ng/mL"
+        ]
+       ]
+      },
+      {
+       "mark": "dot",
+       "cls": "w",
+       "pts": [
+        [
+         0,
+         18.0,
+         "14.03.2023: 18 ng/mL"
+        ],
+        [
+         538,
+         22.0,
+         "02.09.2024: 22 ng/mL"
+        ]
+       ]
+      },
+      {
+       "mark": "dot",
+       "cls": "r",
+       "pts": []
+      }
+     ]
+    },
+    "legend": [
+     {
+      "key": "sq band",
+      "text": "reference range (from the newest value)"
+     },
+     {
+      "key": "w",
+      "text": "outside the range"
+     }
+    ],
+    "note": null
+   },
+   "rows": [
+    {
+     "id": 12,
+     "date": "2026-10-05",
+     "date_text": "05.10.2026",
+     "site": null,
+     "value": "45 ng/mL",
+     "range": "30-100",
+     "flag": "N",
+     "flag_word": null,
+     "report_id": 4,
+     "report_ref": "R4"
+    },
+    {
+     "id": 9,
+     "date": "2025-06-20",
+     "date_text": "20.06.2025",
+     "site": null,
+     "value": "31 ng/mL",
+     "range": "30-100",
+     "flag": "N",
+     "flag_word": null,
+     "report_id": 3,
+     "report_ref": "R3"
+    },
+    {
+     "id": 6,
+     "date": "2024-09-02",
+     "date_text": "02.09.2024",
+     "site": null,
+     "value": "22 ng/mL",
+     "range": "30-100",
+     "flag": "L",
+     "flag_word": "low",
+     "report_id": 2,
+     "report_ref": "R2"
+    },
+    {
+     "id": 3,
+     "date": "2023-03-14",
+     "date_text": "14.03.2023",
+     "site": null,
+     "value": "18 ng/mL",
+     "range": "30-100",
+     "flag": "L",
+     "flag_word": "low",
+     "report_id": 1,
+     "report_ref": "R1"
+    }
+   ]
+  },
+  "undo": null
+ },
+ "test": {
+  "v": 1,
+  "labs_tests": {
+   "q": "",
+   "placeholder": "Search a test: ldl, vitamin d, hba1c",
+   "title": null,
+   "empty": null,
+   "tests": [],
+   "test": {
+    "id": 21,
+    "name": "Vitamin D",
+    "unit": "ng/mL",
+    "values": 4
+   },
+   "card": {
+    "id": "test",
+    "title": "Vitamin D",
+    "small": "4 values",
+    "stat": [],
+    "chart": {
+     "start": "2023-03-14",
+     "days": 1302,
+     "label": "Vitamin D over time",
+     "years": true,
+     "band": [
+      30.0,
+      100.0
+     ],
+     "series": [
+      {
+       "mark": "line",
+       "cls": "a",
+       "pts": [
+        [
+         0,
+         18.0,
+         "14.03.2023: 18 ng/mL"
+        ],
+        [
+         538,
+         22.0,
+         "02.09.2024: 22 ng/mL"
+        ],
+        [
+         829,
+         31.0,
+         "20.06.2025: 31 ng/mL"
+        ],
+        [
+         1301,
+         45.0,
+         "05.10.2026: 45 ng/mL"
+        ]
+       ]
+      },
+      {
+       "mark": "dot",
+       "cls": "a",
+       "pts": [
+        [
+         829,
+         31.0,
+         "20.06.2025: 31 ng/mL"
+        ],
+        [
+         1301,
+         45.0,
+         "05.10.2026: 45 ng/mL"
+        ]
+       ]
+      },
+      {
+       "mark": "dot",
+       "cls": "w",
+       "pts": [
+        [
+         0,
+         18.0,
+         "14.03.2023: 18 ng/mL"
+        ],
+        [
+         538,
+         22.0,
+         "02.09.2024: 22 ng/mL"
+        ]
+       ]
+      },
+      {
+       "mark": "dot",
+       "cls": "r",
+       "pts": []
+      }
+     ]
+    },
+    "legend": [
+     {
+      "key": "sq band",
+      "text": "reference range (from the newest value)"
+     },
+     {
+      "key": "w",
+      "text": "outside the range"
+     }
+    ],
+    "note": null
+   },
+   "rows": [
+    {
+     "id": 12,
+     "date": "2026-10-05",
+     "date_text": "05.10.2026",
+     "site": null,
+     "value": "45 ng/mL",
+     "range": "30-100",
+     "flag": "N",
+     "flag_word": null,
+     "report_id": 4,
+     "report_ref": "R4"
+    },
+    {
+     "id": 9,
+     "date": "2025-06-20",
+     "date_text": "20.06.2025",
+     "site": null,
+     "value": "31 ng/mL",
+     "range": "30-100",
+     "flag": "N",
+     "flag_word": null,
+     "report_id": 3,
+     "report_ref": "R3"
+    },
+    {
+     "id": 6,
+     "date": "2024-09-02",
+     "date_text": "02.09.2024",
+     "site": null,
+     "value": "22 ng/mL",
+     "range": "30-100",
+     "flag": "L",
+     "flag_word": "low",
+     "report_id": 2,
+     "report_ref": "R2"
+    },
+    {
+     "id": 3,
+     "date": "2023-03-14",
+     "date_text": "14.03.2023",
+     "site": null,
+     "value": "18 ng/mL",
+     "range": "30-100",
+     "flag": "L",
+     "flag_word": "low",
+     "report_id": 1,
+     "report_ref": "R1"
+    }
+   ]
+  },
+  "undo": null
+ },
+ "one_value": {
+  "v": 1,
+  "labs_tests": {
+   "q": "",
+   "placeholder": "Search a test: ldl, vitamin d, hba1c",
+   "title": null,
+   "empty": null,
+   "tests": [],
+   "test": {
+    "id": 22,
+    "name": "TSH",
+    "unit": "mIU/L",
+    "values": 1
+   },
+   "card": {
+    "id": "test",
+    "title": "TSH",
+    "small": "1 values",
+    "stat": [],
+    "chart": null,
+    "legend": [],
+    "note": "Only one value so far; the chart starts with the second."
+   },
+   "rows": [
+    {
+     "id": 13,
+     "date": "2026-10-05",
+     "date_text": "05.10.2026",
+     "site": null,
+     "value": "2.1 mIU/L",
+     "range": "0.4-4",
+     "flag": "N",
+     "flag_word": null,
+     "report_id": 4,
+     "report_ref": "R4"
+    }
+   ]
+  },
+  "undo": null
+ },
+ "no_test": {
+  "v": 1,
+  "labs_tests": {
+   "q": "zzqq",
+   "placeholder": "Search a test: ldl, vitamin d, hba1c",
+   "title": null,
+   "empty": "No test with that name. Try another word.",
+   "tests": [],
+   "test": null,
+   "card": null,
+   "rows": []
+  },
+  "undo": null
+ },
+ "meds": {
+  "v": 1,
+  "labs_meds": {
+   "today": "2026-11-17",
+   "running": 2,
+   "empty": null,
+   "hint": "A new course is a sentence in the box above (\"started vitamin D 1000 IU daily\"), read back before it is saved, as in the chat.",
+   "form_hint": "You see the change first, then Yes.",
+   "meds": [
+    {
+     "id": 1,
+     "ref": "D1",
+     "name": "Vitamin D 1000 IU",
+     "ingredient": "cholecalciferol",
+     "dose": "1000 IU",
+     "frequency": "daily",
+     "indication": "low vitamin D",
+     "start": "2026-09-01",
+     "stop": null,
+     "start_text": "01.09.2026",
+     "stop_text": null,
+     "running": true,
+     "can_end": true
+    },
+    {
+     "id": 2,
+     "ref": "D2",
+     "name": "Iron 50 mg",
+     "ingredient": "ferrous sulfate",
+     "dose": "50 mg",
+     "frequency": "every other day",
+     "indication": "low ferritin",
+     "start": "2025-07-01",
+     "stop": "2099-01-01",
+     "start_text": "01.07.2025",
+     "stop_text": "01.01.2099",
+     "running": true,
+     "can_end": false
+    },
+    {
+     "id": 4,
+     "ref": "D4",
+     "name": "Antibiotic",
+     "ingredient": null,
+     "dose": "500 mg",
+     "frequency": "three times daily",
+     "indication": "infection",
+     "start": "2024-02-01",
+     "stop": "2024-02-08",
+     "start_text": "01.02.2024",
+     "stop_text": "08.02.2024",
+     "running": false,
+     "can_end": false
+    },
+    {
+     "id": 3,
+     "ref": "D3",
+     "name": "Iron 100 mg",
+     "ingredient": "ferrous sulfate",
+     "dose": "100 mg",
+     "frequency": "daily",
+     "indication": null,
+     "start": "2023-04-01",
+     "stop": "2023-10-01",
+     "start_text": "01.04.2023",
+     "stop_text": "01.10.2023",
+     "running": false,
+     "can_end": false
+    }
+   ],
+   "limits": {
+    "dose_max": 60,
+    "frequency_max": 60,
+    "indication_max": 120
+   }
+  },
+  "undo": null
+ },
+ "saves": {
+  "value_ask": {
+   "v": 1,
+   "outcome": "needs_confirmation",
+   "tone": "warning",
+   "head": "Nothing saved yet: please confirm.",
+   "receipt": [],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": "OK changed V10: conversion, flag, qualifier, ref_high, ref_low, ref_range_raw, unit, unit_raw, value, value_raw, value_text\nnow: Haemoglobin 12.9 g/dL [13.5-17.5] L",
+   "confirm": {
+    "label": "Yes, change",
+    "no_label": "No"
+   },
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": null
+  },
+  "value_done": {
+   "v": 1,
+   "outcome": "changed",
+   "tone": "ok",
+   "head": "Changed Haemoglobin.",
+   "receipt": [],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": null
+  },
+  "report_refused": {
+   "v": 1,
+   "outcome": "rejected",
+   "tone": "warning",
+   "head": "Nothing saved.",
+   "receipt": [],
+   "notes": [],
+   "reason": "The title cannot be empty.",
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": null
+  },
+  "end_ask": {
+   "v": 1,
+   "outcome": "needs_confirmation",
+   "tone": "warning",
+   "head": "Nothing saved yet: please confirm.",
+   "receipt": [],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": "OK changed D1: stop_date\nnow: D1 Vitamin D 1000 IU (cholecalciferol) 1000 IU daily, from 01.09.2026 to 17.11.2026",
+   "confirm": {
+    "label": "Yes, end it today",
+    "no_label": "No"
+   },
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": null
+  },
+  "end_done": {
+   "v": 1,
+   "outcome": "changed",
+   "tone": "ok",
+   "head": "Vitamin D 1000 IU ended today.",
+   "receipt": [],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": null
+  },
+  "end_again": {
+   "v": 1,
+   "outcome": "unchanged",
+   "tone": "ok",
+   "head": "Nothing changed.",
+   "receipt": [],
+   "notes": [],
+   "reason": "That course has a stop date already.",
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": null
+  },
+  "log_ask": {
+   "v": 1,
+   "outcome": "needs_confirmation",
+   "tone": "warning",
+   "head": "Nothing saved yet: please confirm.",
+   "receipt": [],
+   "notes": [],
+   "reason": null,
+   "questions": [
+    {
+     "id": "pe229fa35",
+     "tool": "command_confirm",
+     "kind": null,
+     "asked_at": "2026-11-17T09:40:10.700413+01:00",
+     "open_until": "2026-11-20T09:40:10.700413+01:00",
+     "message": "started vitamin D 1000 IU daily",
+     "text": "Make this change?",
+     "read_back": "start Vitamin D 1000 IU daily from 17.11.2026",
+     "answers": [
+      {
+       "reply": "yes",
+       "label": "Yes",
+       "style": "primary"
+      },
+      {
+       "reply": "no",
+       "label": "No",
+       "style": "plain"
+      }
+     ],
+     "free": null,
+     "lookup": null,
+     "refill": null
+    }
+   ],
+   "read_back": "Preview, nothing changed yet:\nstart Vitamin D 1000 IU daily from 17.11.2026",
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": null
+  },
+  "log_yes": {
+   "v": 1,
+   "outcome": "changed",
+   "tone": "ok",
+   "head": "Changed.",
+   "receipt": [
+    "+ D5 Vitamin D 1000 IU daily, from 17.11.2026"
+   ],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": null
+  }
+ }
+}

@@ -1,11 +1,12 @@
 # The JSON door `/api/v1` (for the new front end)
 
 Since deploys 75 and 76 (16.11.2026); deploy 77 (16.11.2026) made the changes of the door's review (marked "since 77");
-deploy 78 removed the old field names that 77 kept for one deploy; deploy 86 added the usual-meal editor; deploy 89 the scanner, the label photo and the look-up; deploy 91 the Health page and body measurements; deploy 93 the Habits page; deploy 95 the Gym; deploy 98 Home; deploy 101 Trends (Week, Food trends, Insights, the Week review). The front end that calls it: `front/` (`front/README.md`).
+deploy 78 removed the old field names that 77 kept for one deploy; deploy 86 added the usual-meal editor; deploy 89 the scanner, the label photo and the look-up; deploy 91 the Health page and body measurements; deploy 93 the Habits page; deploy 95 the Gym; deploy 98 Home; deploy 101 Trends (Week, Food trends, Insights, the Week review); deploy 104 Library and Medical (the food catalogue, lab reports, tests over time, medication). The front end that calls it: `front/` (`front/README.md`).
 Code: `core/app/api.py` (the door, the saves), `core/app/reads.py` (the reads).
 Tests: `tests/test_api_door.py`, `tests/test_api_reads.py`, `tests/test_api_saves.py`, `tests/test_api_shape.py` (77),
 `tests/test_api_usual.py` (86), `tests/test_api_scan.py` (89), `tests/test_api_health.py` (91), `tests/test_api_habits.py` (93),
-`tests/test_api_gym.py` (95), `tests/test_api_home.py` (98), `tests/test_api_trends.py` (101).
+`tests/test_api_gym.py` (95), `tests/test_api_home.py` (98), `tests/test_api_trends.py` (101), `tests/test_api_library.py`,
+`tests/test_api_medical.py` (104).
 
 The door is for one caller only: the new front end's own server, from inside Docker. The browser never calls it.
 The live web app at `app.` does not use it and did not change.
@@ -662,6 +663,120 @@ As app.'s card asks every few seconds while a review reads (`coach.status`): `st
 "working" after 10 minutes: cut off) or `gone` (no such coaching). `id` not digits: 400 `bad_request` ("id must be a coaching's id.").
 Then read `GET /week` again for the finished card.
 
+### Library (104): the food catalogue
+
+app.'s Food > Catalogue as data (`foodpage.catalogue_data`, `food_data`: app.'s page draws from the same, byte for byte as before), with
+app.'s words beside the facts. Values per 100 g or ml (the food's `basis`); an unknown value is null.
+
+#### `GET /api/v1/food/catalogue?q=&f=all|drinks|new|review&s=<order>` → `{"catalogue": Catalogue, "undo": Undo}`
+
+`q` (cut at 60) searches name, words, N number and barcode, as app.; `f` all (default), drinks, new ("Added in the last 14 days"),
+review ("Needs review"), anything else 400 (`f must be all, drinks, new or review.`); `s` one of `eaten` (default), `recent`, `last`,
+`added`, `kcal`, `kcal_low`, `protein`, `name`, anything else 400. Only active foods are listed (a hidden one is not), at most 400.
+
+```
+Catalogue = {q, filter, sort,
+             filters: [{key, label, on}],              // app.'s chips, in its order
+             sorts: [{key, label, on}],                // app.'s eight orders ("Most eaten", "Most eaten in the last 30 days", …)
+             count, limit: 400,
+             more,                                     // "Showing the first 400; search to find others." when the list is full, else null
+             empty,                                    // "No food matches." when there are no rows, else null
+             hint, placeholder,                        // "Sorted by: most eaten. Click a food to see and change it.", the search box's
+             rows: [CatalogueRow]}
+CatalogueRow = {id, ref: "N12", name, review, drink, aliases: [words], basis: "g" | "ml",
+                per_100: {kcal, protein, fat, carbs}, per_100_text: {…: "58.7" | "372"},   // as app.'s table prints them
+                eaten,                                 // how many entries
+                last, last_text,                       // the last day eaten (yyyy-mm-dd or null), app.'s "17.11." or "–"
+                added, added_text}                     // the day it was added, app.'s "18.10.26"
+```
+
+#### `GET /api/v1/food/item?id=N12` → `{"food_item": Item, "undo": Undo}`
+
+One food's box (`id` "N12", "n12" or "12"; anything else 400 `id must be a food's id (N12 or 12).`; not there 404 `no_entry` "That
+food is not there any more."). A hidden food reads too (`active` false): app.'s list never opens it.
+
+```
+Item = {id, ref, name, basis,
+        source: {text,                                 // app.'s line: "Source: label · Brand · note · added 18.10.2026 · eaten 8 times,
+                                                       // last 17.11.2026 · values per 100 g"
+                 line, source, brand, note},           // its parts: "label · Brand · note"; source label|database|estimate|calculated
+        needs_review, review_reason,
+        values: [{key, label, value}],                 // the ten: kcal, protein, fat, sat_fat, carbs, fibre, sugar_total, sugar_added,
+                                                       // sodium_mg, caffeine_mg; labels "kcal", "Protein g", … "Caffeine mg"; unknown null
+        aliases, drink, active,
+        units: [{unit, grams, text}],                  // "1 slice = 35 g" (ml for a drink)
+        barcode, eaten, first, last, last_text, added, added_text,
+        recipe, values_editable,                       // "C3" for a recipe food (its values are calculated: values_editable false,
+                                                       // a values change is refused), else null and true
+        past: null | {n, text},                        // "Also recalculate the 8 past entries (10.11.2026 to 17.11.2026)"; null: never eaten
+        words: {values_hint, basics_hint, none, review, reviewed},   // app.'s words under the forms, "none", "needs review", "Looks right"
+        limits: {name_min: 2, name_max: 120, word_max: 60, words_max: 20, unit_max: 30, grams_max: 2000, barcode_min: 8, barcode_max: 14}}
+```
+
+### Medical (104): lab reports, tests over time, medication
+
+app.'s Medical page as data (`labspage.reports_data`, `tests_data`, `test_chart`, `meds_data`: app.'s three tabs draw from the same,
+byte for byte as before). Values are written as the logger prints them (`text`: "13.8 g/dL", "<0.5 mg/L", "slightly enlarged"; ranges
+"13.5-17.5", "<116", "-" for none). Flags: `H` high, `L` low, `A` abnormal (`flag_word`), `N` or null none. Health data: these answers
+are no-store like every answer of the door, nothing of them is written to a log line, and the changes' audit rows keep ids and kinds
+only.
+
+#### `GET /api/v1/labs?open=R12` → `{"labs": Labs, "undo": Undo}`
+
+`open` "R12", "r12" or "12" (the report open; one that is not there: none open, as app.); anything else 400 (`open must be a report's
+id (R12 or 12).`).
+
+```
+Labs = {flagged: null | {                              // the newest report of kind lab (null when there is none)
+          report_id, ref, date, date_text, title,
+          heading: "Flagged in your newest report", hint,  // "Click one to see it over time. H high, L low and A abnormal in amber."
+          empty,                                       // "Nothing flagged." or null
+          chips: [{test_id, test, value, range, flag, flag_word}]},   // by test name; value as printed ("162 mg/dL")
+        reports: [{id, ref: "R12", date, date_text, title, kind: "lab" | "imaging", provider, values, flagged}],  // newest first
+        empty,                                         // "No reports yet." or null
+        hint,                                          // "New reports come in through the chat (photo or PDF). …"
+        open: null | {id, ref, date, date_text, title, kind, provider, notes,
+                      values: [LabValue], empty,       // "No values in this report." or null
+                      form: {collected, title, provider, notes},   // what "Change date, title or notes" starts from
+                      value_hint, report_hint},        // app.'s words under the two forms
+        limits: {value_max: 60, unit_max: 30, ref_max: 60, title_max: 200, provider_max: 200, notes_max: 2000}}
+LabValue = {id, ref: "V34", test_id, test, note, text, value, unit, range, ref_low, ref_high, flag, flag_word,
+            site,                                      // imaging: "left kidney", else null
+            printed: {value, unit, ref}}               // as printed on the report: what the correction form starts from
+```
+
+#### `GET /api/v1/labs/tests?q=&t=<test id>` → `{"labs_tests": Tests, "undo": Undo}`
+
+As app.'s Tests over time: `q` (cut at 60) searches names and words; `t` a test's id (not digits: 400 `t must be a test's id.`; one that
+is not there: no test, as app.). Without a test: the tests with numbers on three or more days (`title` "Tests with values on three or
+more days:"), or with `q` its matches (`empty` "No test with that name. Try another word." when none), at most 30 each, most values
+first; a `q` with one match opens it. app.'s list has names and counts only (no latest value).
+
+```
+Tests = {q, placeholder, title, empty,
+         tests: [{id, name, unit, values}],            // the list (empty when a test is open)
+         test: null | {id, name, unit, values},
+         card: null | {id: "test", title, small: "4 values", stat: [],     // the Health page's card shape …
+                       chart,                          // … chart = app.'s data-chart object: start, days, label "<test> over time",
+                                                       // years true, band [low, high] from the newest value (or null), series: a line
+                                                       // (cls a, only with one value a day) and dots by flag (cls a none, w H or L,
+                                                       // r A), pts [day index, value, "05.10.2026: 55 ng/mL (site)"]
+                       legend: [{key, text}],          // "sq band" reference range (from the newest value), "w" outside the range
+                       note},                          // chart null: "Only one value so far; …" or "All values are from one day …"
+         rows: [{id, date, date_text, site, value, range, flag, flag_word, report_id, report_ref}]}   // newest first
+```
+
+#### `GET /api/v1/labs/meds` → `{"labs_meds": Meds, "undo": Undo}`
+
+```
+Meds = {today, running,                                // the count of running courses (a stop date after today is still running)
+        empty, hint, form_hint,                        // "No medication recorded." or null; app.'s "A new course is a sentence …"
+        meds: [{id, ref: "D3", name, ingredient, dose, frequency, indication, start, stop, start_text, stop_text,
+                running, can_end}],                    // app.'s order: running first, then by start, newest first; can_end: running
+                                                       // without a stop date (app.'s End button)
+        limits: {dose_max: 60, frequency_max: 60, indication_max: 120}}
+```
+
 ## The label photo: `POST /api/v1/food/label` (89)
 
 One to three photos of ONE package (the name and the nutrition table often need two), read together in one AI call
@@ -719,6 +834,8 @@ function takes one, so a re-sent request saves once (`replayed: true`).
 | `/api/v1/home/<action>` (98) | `action` in the path: one of the 20 of `home.ACTIONS` (below); its fields, `key` on six; `view` (+ `view_min`, `view_n`, `view_limit`, `view_id`) for another fresh read | `home.ACTIONS[action]` (app.'s `/web/home/<action>`) |
 | `/api/v1/coach/start` (101) | `kind: "week"`, `start`, `end` (yyyy-mm-dd: the Week review's period); **no `key`**; `view`, `view_p` for another fresh read | `coach.start` (app.'s `/web/coach/start`; see below) |
 | `/api/v1/lookup` (89) | `text` (a name, or a barcode of 8 to 14 digits), optional `question_id` (an open food question it answers; without `text` the question's word is looked up) | `webfood.look_up` → `logbook.food_lookup` (no key: it saves nothing) |
+| `/api/v1/food/catalogue/<action>` (104) | `action` in the path: `values`, `words`, `barcode`, `basics`, `unit`, `reviewed`; `id` (the food's number) and its fields (below), `confirmed` (values); **no `key`** (one sent is ignored); `view` (+ `view_q`, `view_f`, `view_s`, `view_food`) | `webfood.ACTIONS[action]` (app.'s `/web/food/<action>`; `unit` is `webfood.unit_add`) |
+| `/api/v1/labs/value`, `/labs/report`, `/labs/med` (104) | `id` (the value's, report's or course's number) and its fields (below), `confirmed`; **no `key`** (one sent is ignored); `view` (+ `view_open`, `view_q`, `view_t`) | `weblabs.ACTIONS[action]` (app.'s `/web/labs/<action>`) |
 
 The usual-meal saves (86): the front end sends `confirmed: true` and the change is made at once, with Undo (without it a change or
 delete is read back first, as on app.: `needs_confirmation` with `read_back` and `confirm`). Amounts above 0 and at most 5000 (g or ml); a
@@ -889,6 +1006,59 @@ Home's saves (98), each like app.'s form of the same name (`home.ACTIONS`):
 - Not here (as at app.): the starter list (`python -m app.homeseed`); chores typed in a line go through `POST /log` (and `/answer`) as
   before (`homechat`).
 
+The Catalogue's saves (104), at `/api/v1/food/catalogue/<action>` (not `/food/<action>`: `/food/entry` and `/food/note` change food
+entries; these change a food), each through the same function as app.'s form of that name (`webfood.values`, `words`, `barcode`, `basics`,
+`unit_add`, `reviewed`):
+
+- Fields (`id` the food's number, e.g. 12 for N12; a wrong kind of field is 400 `bad_request`, nothing saved):
+  `values`: the ten values (`kcal`, `protein`, `fat`, `sat_fat`, `carbs`, `fibre`, `sugar_total`, `sugar_added`, `sodium_mg`,
+  `caffeine_mg`) as numbers; **one left out or null is not sent** (unchanged; an unknown value cannot be set here, as on app.); `past`
+  (true: the past entries are rewritten from the new values, app.'s tick "Also recalculate the n past entries"; false or left out:
+  only new entries use them), `confirmed`;
+  `words`: `act` (`add` or `remove`), `word` (up to 60; lower-cased and tidied by app.'s function);
+  `barcode`: `barcode` (text: 8 to 14 digits, spaces allowed);
+  `basics`: `name` (up to 120), `drink`, `hide` (true or false); **one left out stays as it is** (app.'s form comes filled in; a box not
+  ticked there is sent as false here);
+  `unit`: `unit` (up to 30), `grams` (a number; ml for a drink); the same unit again changes its grams;
+  `reviewed`: `id` only ("Looks right").
+- `values` is shown first: `needs_confirmation` with app.'s `read_back` (v1's preview) and `confirm`; the same request again with
+  `confirmed: true` saves it (`changed`, "Changed N12 Skyr."). The others are saved at once (`changed`), as on app.
+- Refusals are `rejected` with app.'s `reason` and change nothing: "Unknown food.", "kcal: give a number of 0 or more.", "Type a word
+  first.", "A barcode is 8 to 14 digits.", "Give the food a name.", "Name the unit, e.g. slice, piece, scoop or cup.", "Give its weight
+  as a number above 0 and at most 2000 g.", and v1's own: a word that is another food's name or word ("'…' is the name of N7 …: an alias
+  must not shadow another food", "'…' is already an alias of N7 …: remove it there first, or use a more specific word"), more than 20
+  words, a recipe food's values ("N12 is calculated from recipe C3: change the recipe (C3) instead"). The same values, name, barcode
+  again: `unchanged`, "Nothing changed.".
+- **No `key`** (app. has none; one sent is ignored: a word added twice is "already a name or alias" the second time) and **no Undo** (as
+  on app.: the answer's `undo` is null and the session's earlier Undo goes; a refusal leaves it).
+- The answer carries the fresh Catalogue (`view: "catalogue"`, the default): `catalogue` as `GET /food/catalogue` with `view_q`,
+  `view_f`, `view_s` (an unknown filter or order: app.'s default), and `food_item`, the box of `view_food` (12 or "N12") when that food
+  is in the list, else null (also after it was hidden, as app. shows no box then); without `view_food` null.
+- A new food is `POST /lookup` (the read-back, its `yes` through `POST /answer`); send `"view": "catalogue"` (with `view_q`, …) to both
+  for the fresh Catalogue with the new food in it.
+
+Medical's saves (104), at `/api/v1/labs/value`, `/labs/report`, `/labs/med`, each through the same function as app.'s form (`weblabs.value`,
+`report`, `med`):
+
+- Fields (`id` the number of the value V…, report R… or course D…; texts as text, dates as yyyy-mm-dd; **a field left out stays as it
+  is** (app.'s form comes filled in), **null is empty**; a wrong kind of field or one longer than the form allows is 400 `bad_request`):
+  `value`: `value` (as printed, up to 60), `unit` (up to 30), `ref` (the range as printed, up to 60, e.g. "30-100" or "<116");
+  `report`: `collected` (the date), `title` (up to 200), `provider` (up to 200), `notes` (up to 2000);
+  `med`: `act` (`save` or `end`); with `save`: `dose`, `frequency` (up to 60 each), `indication` (up to 120), `start`, `stop` (null =
+  running).
+- Every change is shown first: `needs_confirmation` with app.'s `read_back` and `confirm` ("Yes, change"; End: "Yes, end it today"); the
+  same request again with `confirmed: true` makes it (`changed`: "Changed Haemoglobin.", "Changed the report.", "Vitamin D ended today.",
+  "Changed Vitamin D."). The logger converts the unit and sets the flag again.
+- Refusals are `rejected` with app.'s `reason`: "That value is not there any more.", "The value cannot be empty.", "That report is not
+  there any more.", "The title cannot be empty.", "The lab cannot be empty.", "Give the report's date.", "That course is not there any
+  more.", "Give the start as a date.", and v1's own (e.g. "stop 01.01.2023 lies before start 01.04.2023"). Nothing different from now:
+  `unchanged`, "Nothing changed."; End on a course with a stop date: `unchanged`, "That course has a stop date already.".
+- **No `key`** (one sent is ignored) and **no Undo**, as on app.
+- The answer carries the fresh read: `value` and `report` → `labs` with the changed report open (or `view_open`); `med` → `labs_meds`.
+  The body's `view` chooses another: `labs` (+ `view_open`), `labs_tests` (+ `view_q`, `view_t`), `labs_meds` (also `day`).
+- A new course is a sentence through `POST /log` ("started vitamin D 1000 IU daily"): read back (`needs_confirmation`, its question in
+  `questions`), saved by `yes` through `POST /answer`; send `"view": "labs_meds"` to both for the fresh Medication tab.
+
 The Week review's button (101), `POST /api/v1/coach/start`, through `coach.start` exactly as app.'s `/web/coach/start`:
 
 - `kind` must be `"week"`: the door has no day coaching yet (Today's Coach card comes with step 6); anything else is 400 `bad_request`
@@ -927,16 +1097,21 @@ Every save answers (HTTP 200, also when nothing was saved):
   day: Day  |  food_day: FoodDay  |  usual: [Usual]  |  health: Health  |  body: Body  |  habits: Habits
        |  gym: Workout  |  gym_plan: Plan  |  gym_exercises: Exercises
        |  home: Now  |  home_pick: Pick  |  home_zones: Zones  |  home_history: History  |  home_chore: Chore  |  home_edit: Edit
-       |  week: Week
+       |  week: Week  |  catalogue: Catalogue + food_item: Item | null  |  labs: Labs  |  labs_tests: Tests  |  labs_meds: Meds
                                                        // the fresh read; body "view": "day" | "food" | "usual" (86) | "health" |
                                                        // "body" (91) | "habits" (93, with "show") | "gym" | "gym_plan" |
                                                        // "gym_exercises" (95) | "home" | "home_pick" | "home_zones" |
                                                        // "home_history" | "home_chore" | "home_edit" (98, with view_min,
-                                                       // view_n, view_limit, view_id) | "week" (101, with view_p) and
-                                                       // "view_day": "yyyy-mm-dd" choose it;
+                                                       // view_n, view_limit, view_id) | "week" (101, with view_p) |
+                                                       // "catalogue" (104, with view_q, view_f, view_s, view_food) |
+                                                       // "labs" (104, with view_open) | "labs_tests" (with view_q, view_t) |
+                                                       // "labs_meds" and "view_day": "yyyy-mm-dd" choose it
+                                                       // (on every save: /log, /answer and /lookup too);
                                                        // /gym/<action> defaults to its tab (see the Gym's saves);
                                                        // /home/<action> to its page (see Home's saves);
                                                        // /coach/start to "week" (see the Week review's button);
+                                                       // /food/catalogue/<action> to "catalogue", /labs/value and
+                                                       // /labs/report to "labs", /labs/med to "labs_meds";
                                                        // /habit/day and /habits/manage default to "habits"; /usual/meal and
                                                        // /usual/new default to "usual", /usual/from_meal and /food/* to "food",
                                                        // /health/day to "health" (with "range", "all"), /body to "body" (its day),
@@ -977,4 +1152,6 @@ Texts in `read_back`, `result` and questions never carry the lines meant for the
 
 Not in the door (on purpose, for now): the day coaching (Today's Coach card, step 6), the Coach page and Settings > Coach (the
 Week review is in since 101), the body settings (interval, hidden measures, height: read in
-`GET /body`, changed at app.), the Food catalogue editor, the gratitude list itself (only its count), Ideas and Private.
+`GET /body`, changed at app.), Settings > Today page, a list of hidden foods (the Catalogue lists active foods only, as app.; a hidden
+food's box reads by its id and `basics` with `hide: false` brings it back), a lab report upload (reports come in through the chat), the
+gratitude list itself (only its count), Ideas and Private. The Food catalogue editor is in since 104.

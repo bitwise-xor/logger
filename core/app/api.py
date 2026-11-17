@@ -9,7 +9,7 @@ then, for every route but the sign-in, the owner's session as "Authorization: Be
 front end, migration 031; a session of app. never works here and the reverse). A session renews like a page view (30 days
 from its last use); the end comes back in the X-Session-Expires header. Every answer is JSON with "v": 1, never cached.
 The reads are reads.py; the saves call the same functions as the live forms (webactions, webfood, logbook, webundo, webheld, gym, home,
-coach)."""
+coach, weblabs)."""
 import hashlib
 import hmac
 import json
@@ -22,7 +22,7 @@ from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-from . import body as tape, coach, gym, gympage, habitspage, healthpage, home as homelib, hubtools, labelread, logbook, privateline, reads, trendspage, web, webactions, webentry, webfood, webhabits, webheld, webundo, weekpage
+from . import body as tape, coach, foodpage, gym, gympage, habitspage, healthpage, home as homelib, hubtools, labelread, labspage, logbook, privateline, reads, trendspage, web, webactions, webentry, webfood, webhabits, webheld, weblabs, webundo, weekpage
 from .ai.provider import ProviderError
 from .config import FRONT_TOKEN
 from .db import connect
@@ -416,6 +416,10 @@ def saved(session, out: dict, body: dict, view: str = "day", private: bool = Fal
         res[shown] = HOME_VIEWS[shown](body)
     elif shown == "week":  # the Week page (deploy 101), as GET /week with the body's view_p (7 when not given or unknown)
         res["week"] = reads.week(_period(body.get("view_p"), strict=False))
+    elif shown == "catalogue":  # the Catalogue (deploy 104), as GET /food/catalogue with view_q, view_f, view_s; and view_food's box
+        res["catalogue"], res["food_item"] = _catalogue_view(body)
+    elif shown in LABS_VIEWS:  # a Medical tab (deploy 104), as its GET with view_open, or view_q and view_t
+        res[shown] = LABS_VIEWS[shown](body)
     else:
         res["day"] = reads.day(asked)
     return res
@@ -1372,3 +1376,303 @@ def coach_start(_request, body, session):
     res = saved(session, out, view, view="week")
     res["coaching"] = started
     return res
+
+
+# ---- Library: the food catalogue (deploy 104) ------------------------------------------------------------------------------------
+# app.'s Food > Catalogue (foodpage.catalogue_data, food_data) as data, and its six forms through webfood's functions (values, words,
+# barcode, basics, unit, reviewed) with their checks and words. The saves are at /food/catalogue/<action> (not /food/<action>: /food/entry
+# and /food/note change food entries). As on app., no key (one sent is ignored) and no Undo; a values change is shown first
+# (needs_confirmation) and made when sent again with "confirmed": true. A new food is POST /lookup (and its yes through /answer).
+
+FILTER_KEYS = tuple(k for k, _l in foodpage.FILTERS)
+FOOD_REF = re.compile(r"[Nn]?(\d{1,9})")
+
+
+def _food_ref(raw):
+    """A food's id as app.'s ?food= ("N12") or plain ("12", 12); None when it is not one."""
+    if isinstance(raw, int) and not isinstance(raw, bool):
+        return raw if 0 < raw < 10**9 else None
+    m = FOOD_REF.fullmatch(raw) if isinstance(raw, str) else None
+    return int(m[1]) if m else None
+
+
+def _catalogue_view(body: dict):
+    """The Catalogue as GET /food/catalogue with the body's view_q, view_f, view_s (an unknown filter or order: app.'s default), and
+    the box of view_food when that food is in the list (null when it is not, e.g. after it was hidden)."""
+    q = body.get("view_q") if isinstance(body.get("view_q"), str) else ""
+    f = body.get("view_f") if body.get("view_f") in FILTER_KEYS else "all"
+    s = body.get("view_s") if body.get("view_s") in foodpage.SORT_KEYS else "eaten"
+    cat = reads.catalogue(q[:60], f, s)
+    fid = _food_ref(body.get("view_food"))
+    item = reads.food_item(fid) if fid is not None and any(r["id"] == fid for r in cat["rows"]) else None
+    return cat, item
+
+
+@route("/food/catalogue", "GET")
+def catalogue_read(request, _body, session):
+    """The Catalogue: ?q= (cut at 60), ?f=all|drinks|new|review (all), ?s=<one of the eight orders> (eaten); and the session's Undo."""
+    qp = request.query_params
+    f, s = qp.get("f") or "all", qp.get("s") or "eaten"
+    if f not in FILTER_KEYS:
+        raise Refused(400, "bad_request", "f must be all, drinks, new or review.")
+    if s not in foodpage.SORT_KEYS:
+        raise Refused(400, "bad_request", "s must be " + ", ".join(foodpage.SORT_KEYS[:-1]) + " or " + foodpage.SORT_KEYS[-1] + ".")
+    return {"catalogue": reads.catalogue(qp.get("q", "")[:60], f, s), "undo": _undo_out(session.get("undo"))}
+
+
+@route("/food/item", "GET")
+def food_item_read(request, _body, session):
+    """One food's box: ?id=N12 or 12; not one is 400, a food that is not there 404 no_entry."""
+    fid = _food_ref(request.query_params.get("id", ""))
+    if fid is None:
+        raise Refused(400, "bad_request", "id must be a food's id (N12 or 12).")
+    out = reads.food_item(fid)
+    if out is None:
+        raise Refused(404, "no_entry", foodpage.GONE)
+    return {"food_item": out, "undo": _undo_out(session.get("undo"))}
+
+
+def _short(body: dict, name: str, most: int):
+    """A text field: None when left out, "" when null, else the text (at most `most` characters; anything else is a bad request)."""
+    if name not in body:
+        return None
+    v = body[name]
+    if v is None:
+        return ""
+    if not isinstance(v, str):
+        raise Refused(400, "bad_request", f"{name} must be text or null.")
+    if len(" ".join(v.split()) if name != "notes" else v.strip()) > most:
+        raise Refused(400, "bad_request", f"{name} must be {most} characters or fewer.")
+    return v
+
+
+def _bool(body: dict, name: str):
+    """A tick box: None when left out, else true or false (anything else is a bad request)."""
+    v = body.get(name)
+    if v is None:
+        return None
+    if not isinstance(v, bool):
+        raise Refused(400, "bad_request", f"{name} must be true or false.")
+    return v
+
+
+FL = foodpage.LIMITS
+
+
+def _food_values(b: dict) -> dict:
+    """values: the ten values per 100 as numbers; one left out or null is not sent (unchanged); past true rewrites the past entries."""
+    f = {"id": f"N{_int(b, 'id')}"}
+    for k, _label in foodpage.NUT:
+        v = b.get(k)
+        if v is None:
+            continue
+        if not isinstance(v, (int, float)) or isinstance(v, bool):
+            raise Refused(400, "bad_request", f"{k} must be a number or null.")
+        f[k] = str(v)
+    if _bool(b, "past"):
+        f["past"] = "yes"
+    return f
+
+
+def _food_words(b: dict) -> dict:
+    if b.get("act") not in ("add", "remove"):
+        raise Refused(400, "bad_request", "act must be add or remove.")
+    return {"id": f"N{_int(b, 'id')}", "act": b["act"], "word": _short(b, "word", FL["word_max"]) or ""}
+
+
+def _food_barcode(b: dict) -> dict:
+    return {"id": f"N{_int(b, 'id')}", "barcode": _short(b, "barcode", 40) or ""}
+
+
+def _food_basics(b: dict) -> dict:
+    """name, drink, hide: one left out stays as it is (app.'s form sends all three, filled in)."""
+    ref = f"N{_int(b, 'id')}"
+    name, drink, hide = _short(b, "name", FL["name_max"]), _bool(b, "drink"), _bool(b, "hide")
+    now = webfood._food(ref)
+    if now:
+        name = now["name"] if name is None else name
+        drink = bool(now["is_drink"]) if drink is None else drink
+        hide = (not now["active"]) if hide is None else hide
+    return {"id": ref, "name": name or "", "drink": "1" if drink else "", "hide": "1" if hide else ""}
+
+
+def _food_unit(b: dict) -> dict:
+    g = b.get("grams")
+    if g is not None and (not isinstance(g, (int, float)) or isinstance(g, bool)):
+        raise Refused(400, "bad_request", "grams must be a number.")
+    return {"id": f"N{_int(b, 'id')}", "unit": _short(b, "unit", FL["unit_max"]) or "", "grams": "" if g is None else str(g)}
+
+
+CATALOGUE_FORMS = {  # action -> (the form's fields from the body, webfood's function: app.'s /web/food/<action>)
+    "values": (_food_values, webfood.values),
+    "words": (_food_words, webfood.words),
+    "barcode": (_food_barcode, webfood.barcode),
+    "basics": (_food_basics, webfood.basics),
+    "unit": (_food_unit, webfood.unit_add),
+    "reviewed": (lambda b: {"id": f"N{_int(b, 'id')}"}, webfood.reviewed),
+}
+assert all(webfood.ACTIONS[a][0] is fn for a, (_f, fn) in CATALOGUE_FORMS.items() if a != "unit") and webfood.ACTIONS["unit"][0] is webfood.unit_add
+
+
+def _catalogue_route(action: str):
+    fields, fn = CATALOGUE_FORMS[action]
+
+    def handler(_request, body, session):
+        f = fields(body)
+        if body.get("confirmed") is True:
+            f["confirmed"] = "1"
+        form = Form({**{k: v for k, v in f.items() if v != ""}, "back": "/web/food/catalogue"})
+        return saved(session, _work(lambda: fn(form, None)), body, view="catalogue")
+    handler.__name__ = f"catalogue_{action}"
+    handler.__doc__ = f"app.'s /web/food/{action} (webfood.ACTIONS[{action!r}]); no key, no Undo; see docs/API.md."
+    return handler
+
+
+for _action in CATALOGUE_FORMS:
+    route(f"/food/catalogue/{_action}", "POST")(_catalogue_route(_action))
+
+
+# ---- Medical: lab reports, tests over time, medication (deploy 104) ------------------------------------------------------------------
+# app.'s Medical page (labspage.reports_data, tests_data, meds_data) as data, and its three forms through weblabs' functions (value,
+# report, med) with their checks and words: each change is shown first (needs_confirmation) and made when the same request is sent
+# again with "confirmed": true. No key (one sent is ignored), no Undo, as on app. A new course is a sentence through POST /log (read
+# back, its yes through /answer). Health data: every answer is no-store (as every answer of the door), nothing of it goes to a log line,
+# and the audit rows keep ids only (the change function's own).
+
+REPORT_REF = re.compile(r"[Rr]?(\d{1,9})")
+
+
+def _report_open(raw, strict: bool = True) -> str:
+    """?open=R12 or 12 -> "R12" ("" when not given; strict: anything else is a bad request, else "")."""
+    if raw in (None, ""):
+        return ""
+    if isinstance(raw, int) and not isinstance(raw, bool):
+        raw = str(raw)
+    m = REPORT_REF.fullmatch(raw) if isinstance(raw, str) else None
+    if m:
+        return f"R{int(m[1])}"
+    if strict:
+        raise Refused(400, "bad_request", "open must be a report's id (R12 or 12).")
+    return ""
+
+
+def _test_id(raw, strict: bool = True) -> str:
+    if raw in (None, ""):
+        return ""
+    if isinstance(raw, int) and not isinstance(raw, bool):
+        raw = str(raw)
+    if isinstance(raw, str) and re.fullmatch(r"\d{1,9}", raw):
+        return raw
+    if strict:
+        raise Refused(400, "bad_request", "t must be a test's id.")
+    return ""
+
+
+LABS_VIEWS = {"labs": lambda b: reads.labs(_report_open(b.get("view_open"), strict=False)),
+              "labs_tests": lambda b: reads.labs_tests(b["view_q"][:60] if isinstance(b.get("view_q"), str) else "",
+                                                       _test_id(b.get("view_t"), strict=False)),
+              "labs_meds": lambda b: reads.labs_meds()}
+
+
+@route("/labs", "GET")
+def labs_read(request, _body, session):
+    """The Reports tab: ?open=R12 or 12 (the report open; one that is not there: none open, as app.); and the session's Undo."""
+    return {"labs": reads.labs(_report_open(request.query_params.get("open"))), "undo": _undo_out(session.get("undo"))}
+
+
+@route("/labs/tests", "GET")
+def labs_tests_read(request, _body, session):
+    """Tests over time: ?q= (cut at 60) and ?t=<test id> (not digits: 400; unknown: no test, as app.)."""
+    qp = request.query_params
+    return {"labs_tests": reads.labs_tests(qp.get("q", "")[:60], _test_id(qp.get("t"))), "undo": _undo_out(session.get("undo"))}
+
+
+@route("/labs/meds", "GET")
+def labs_meds_read(_request, _body, session):
+    return {"labs_meds": reads.labs_meds(), "undo": _undo_out(session.get("undo"))}
+
+
+LL, ML = labspage.LIMITS, labspage.MED_LIMITS
+
+
+def _day_text(body: dict, name: str):
+    """A date field: None when left out, "" when null (empty), else the text as sent (weblabs says when it is not a date)."""
+    if name not in body:
+        return None
+    v = body[name]
+    if v is None:
+        return ""
+    if not isinstance(v, str):
+        raise Refused(400, "bad_request", f"{name} must be a date yyyy-mm-dd or null.")
+    return v.strip()[:20]
+
+
+def _keep(new, old) -> str:
+    """A form field: left out = as it is now (app.'s form comes filled in), null = empty."""
+    return old if new is None else new
+
+
+def _lab_value_fields(b: dict) -> tuple[dict, str]:
+    vid = _int(b, "id")
+    value, unit, ref = _short(b, "value", LL["value_max"]), _short(b, "unit", LL["unit_max"]), _short(b, "ref", LL["ref_max"])
+    with connect() as c:
+        r = c.execute(f"SELECT {labspage.RESULT_COLS} FROM lab_results v JOIN lab_tests t ON t.id = v.test_id WHERE v.id = %s", (vid,)).fetchone()
+    now = labspage.printed(r) if r else ("", "", "")
+    return ({"id": f"V{vid}", "value": _keep(value, now[0]), "unit": _keep(unit, now[1]), "ref": _keep(ref, now[2])},
+            f"R{r['report_id']}" if r else "")
+
+
+def _lab_report_fields(b: dict) -> tuple[dict, str]:
+    rid = _int(b, "id")
+    got = {"collected": _day_text(b, "collected"),
+           **{k: _short(b, k, n) for k, n in (("title", LL["title_max"]), ("provider", LL["provider_max"]), ("notes", LL["notes_max"]))}}
+    with connect() as c:
+        p = c.execute("SELECT collected_date, title, provider, notes FROM lab_reports WHERE id = %s", (rid,)).fetchone()
+    now = {"collected": p["collected_date"].isoformat(), "title": p["title"] or "", "provider": p["provider"] or "", "notes": p["notes"] or ""} if p else {}
+    return {"id": f"R{rid}", **{k: _keep(v, now.get(k, "")) for k, v in got.items()}}, f"R{rid}"
+
+
+def _med_fields(b: dict) -> tuple[dict, str]:
+    mid = _int(b, "id")
+    if b.get("act") not in ("save", "end"):
+        raise Refused(400, "bad_request", "act must be save or end.")
+    f = {"id": f"D{mid}", "act": b["act"]}
+    if b["act"] == "save":
+        got = {**{k: _short(b, k, n) for k, n in (("dose", ML["dose_max"]), ("frequency", ML["frequency_max"]), ("indication", ML["indication_max"]))},
+               "start": _day_text(b, "start"), "stop": _day_text(b, "stop")}
+        with connect() as c:
+            m = c.execute("SELECT dose, frequency, indication, start_date, stop_date FROM medications WHERE id = %s", (mid,)).fetchone()
+        now = ({"dose": m["dose"] or "", "frequency": m["frequency"] or "", "indication": m["indication"] or "",
+                "start": m["start_date"].isoformat() if m["start_date"] else "", "stop": m["stop_date"].isoformat() if m["stop_date"] else ""}
+               if m else {})
+        f.update({k: _keep(v, now.get(k, "")) for k, v in got.items()})
+    return f, ""
+
+
+LABS_FORMS = {  # action -> (the form's fields from the body and the report it belongs to, weblabs' function, the view by default)
+    "value": (_lab_value_fields, weblabs.value, "labs"),
+    "report": (_lab_report_fields, weblabs.report, "labs"),
+    "med": (_med_fields, weblabs.med, "labs_meds"),
+}
+assert all(weblabs.ACTIONS[a] is fn for a, (_f, fn, _v) in LABS_FORMS.items())
+
+
+def _labs_route(action: str):
+    fields, fn, view = LABS_FORMS[action]
+
+    def handler(_request, body, session):
+        f, report = fields(body)
+        if body.get("confirmed") is True:
+            f["confirmed"] = "1"
+        form = Form({**f, "back": labspage.url("/web/labs/meds" if action == "med" else "/web/labs", open=report)})
+        shown = dict(body)
+        if report and "view_open" not in shown:  # the Reports tab answers with the report of the change open
+            shown["view_open"] = report
+        return saved(session, _work(lambda: fn(form, None)), shown, view=view)
+    handler.__name__ = f"labs_{action}"
+    handler.__doc__ = f"app.'s /web/labs/{action} (weblabs.ACTIONS[{action!r}]); no key, no Undo; see docs/API.md."
+    return handler
+
+
+for _action in LABS_FORMS:
+    route(f"/labs/{_action}", "POST")(_labs_route(_action))

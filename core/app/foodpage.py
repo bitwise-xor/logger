@@ -274,6 +274,21 @@ def render_log(csrf: str, q) -> str:
 
 
 # ---- catalogue -------------------------------------------------------------------------------------
+# The facts of the Catalogue (deploy 104: catalogue_data and food_data, with app.'s words beside them) are shared by app.'s page
+# (render_catalogue, _food_detail) and the JSON door (reads.catalogue, reads.food_item).
+
+SORT_KEYS = tuple(k for k, _l, _o in SORTS)
+NO_MATCH = "No food matches."
+GONE = "That food is not there any more."
+MORE = f"Showing the first {LIST_LIMIT}; search to find others."
+SEARCH_HINT = "Search by name, word, N number or barcode"
+VALUES_HINT = "You see the change first, then Yes. Without the tick only new entries use the new values."
+BASICS_HINT = "Saved at once. A hidden food keeps its past entries; it no longer shows in suggestions, chips or the catalogue."
+NONE_YET = "none"
+# The limits of the Catalogue's forms (the inputs' maxlength and webfood's checks; at most 20 words: v1's change function)
+LIMITS = {"name_min": 2, "name_max": 120, "word_max": 60, "words_max": 20, "unit_max": 30, "grams_max": 2000, "barcode_min": 8,
+          "barcode_max": 14}
+
 
 def _food_list(cur, text: str, flt: str, sort: str = "eaten"):
     where, args = ["f.active"], []
@@ -292,49 +307,86 @@ def _food_list(cur, text: str, flt: str, sort: str = "eaten"):
     return cur.fetchall()
 
 
-def _food_detail(cur, csrf: str, fid: int, back: str, close: str = "") -> str:
-    """close: the catalogue's link without this food open (the box's Close buttons, 02.11.2026)."""
+def catalogue_data(text="", flt="all", srt="eaten", cur=None) -> dict:
+    """The Catalogue's list as app. shows it: the search (cut at 60), the filter and the order (unknown ones: all, most eaten),
+    the rows (_food_list: at most LIST_LIMIT active foods), and app.'s words: the chips, the orders, the note when the list is
+    full, the empty line and the hint under the table."""
+    text = str(text or "")[:60]
+    flt = flt if flt in dict(FILTERS) else "all"
+    srt = srt if srt in SORT_KEYS else "eaten"
+    if cur is None:
+        with connect() as conn, conn.cursor() as c:
+            rows = _food_list(c, text, flt, srt)
+    else:
+        rows = _food_list(cur, text, flt, srt)
+    label = next(lbl for k, lbl, _o in SORTS if k == srt)
+    return {"q": text, "filter": flt, "sort": srt,
+            "filters": [{"key": k, "label": lbl, "on": k == flt} for k, lbl in FILTERS],
+            "sorts": [{"key": k, "label": lbl, "on": k == srt} for k, lbl, _o in SORTS],
+            "rows": rows, "limit": LIST_LIMIT, "more": MORE if len(rows) == LIST_LIMIT else None, "empty": None if rows else NO_MATCH,
+            "hint": f"Sorted by: {label.lower()}. Click a food to see and change it.", "placeholder": SEARCH_HINT}
+
+
+def food_data(fid: int, cur=None):
+    """One food as the Catalogue's box shows it (None when it is not there): the row, its use (count, first and last day), its
+    units with app.'s line ("1 slice = 35 g"), its recipe (a recipe food's values are calculated, not typed), and app.'s words:
+    the source line, the past entries' tick."""
+    if cur is None:
+        with connect() as conn, conn.cursor() as c:
+            return food_data(fid, c)
     cur.execute("SELECT * FROM foods WHERE id = %s", (fid,))
     f = cur.fetchone()
     if not f:
-        return '<p class="empty">That food is not there any more.</p>'
+        return None
     cur.execute("SELECT count(*) AS n, min(day) AS a, max(day) AS b FROM food_entries WHERE food_id = %s", (fid,))
     use = cur.fetchone()
     cur.execute("SELECT unit, grams, source FROM food_units WHERE food_id = %s ORDER BY unit", (fid,))
-    units = cur.fetchall()
+    units = [{**u, "text": f"1 {u['unit']} = {_plain(u['grams'])} {f['basis']}"} for u in cur.fetchall()]
+    cur.execute("SELECT id FROM recipes WHERE food_id = %s", (fid,))
+    recipe = cur.fetchone()
+    src = " · ".join(x for x in (f["source"], f["brand"], f["source_note"]) if x)
+    line = (f'Source: {src} · added {f["created_at"]:%d.%m.%Y} · eaten {use["n"]} times'
+            f'{f", last " + use["b"].strftime("%d.%m.%Y") if use["b"] else ""} · values per 100 {f["basis"]}')
+    past = (f'Also recalculate the {use["n"]} past entr{"y" if use["n"] == 1 else "ies"} ({use["a"]:%d.%m.%Y} to {use["b"]:%d.%m.%Y})'
+            if use["n"] else None)
+    return {"food": f, "n": use["n"], "first": use["a"], "last": use["b"], "units": units, "recipe": recipe["id"] if recipe else None,
+            "source": src, "line": line, "past": past}
+
+
+def _food_detail(cur, csrf: str, fid: int, back: str, close: str = "") -> str:
+    """close: the catalogue's link without this food open (the box's Close buttons, 02.11.2026)."""
+    d = food_data(fid, cur)
+    if not d:
+        return f'<p class="empty">{GONE}</p>'
+    f = d["food"]
     base = hidden("csrf", csrf) + hidden("id", f"N{fid}") + hidden("back", back)
     vals = "".join(f'<label>{lbl}<input type="number" name="{k}" step="any" inputmode="decimal" value="{_plain(f[k])}" placeholder="unknown"></label>'
                    for k, lbl in NUT)
-    past = (f'<label class="row small"><input type="checkbox" name="past" value="yes"> Also recalculate the {use["n"]} past '
-            f'entr{"y" if use["n"] == 1 else "ies"} ({use["a"]:%d.%m.%Y} to {use["b"]:%d.%m.%Y})</label>' if use["n"] else "")
+    past = f'<label class="row small"><input type="checkbox" name="past" value="yes"> {d["past"]}</label>' if d["past"] else ""
     words = "".join(f'<form class="word" method="post" action="/web/food/words">{base}{hidden("act", "remove")}{hidden("word", w)}'
                     f'{esc(w)}<button class="icon" type="submit" aria-label="Remove {esc(w)}" title="Remove">&times;</button></form>'
                     for w in (f["aliases"] or []))
     review = (f'<form class="row" method="post" action="/web/food/reviewed">{base}<span class="pill warn">needs review</span>'
               f'<span class="small">{esc(f["review_reason"] or "")}</span><button class="ghost sm" type="submit">Looks right</button></form>'
               if f["needs_review"] else "")
-    src = " · ".join(x for x in (f["source"], f["brand"], f["source_note"]) if x)
     shut = f'<a class="ghost sm" href="{esc(close)}#N{fid}" aria-label="Close {esc(f["name"])}">Close</a>' if close else ""
-    return (f'<div class="fbox stack"><div class="row between"><p class="small">Source: {esc(src)} · added {f["created_at"]:%d.%m.%Y} · eaten {use["n"]} times'
-            f'{f", last " + use["b"].strftime("%d.%m.%Y") if use["b"] else ""} · values per 100 {esc(f["basis"])}</p>{shut}</div>{review}'
+    return (f'<div class="fbox stack"><div class="row between"><p class="small">{esc(d["line"])}</p>{shut}</div>{review}'
             f'<form method="post" action="/web/food/values">{base}<div class="fields">{vals}</div>{past}'
-            '<p class="row"><button class="primary sm" type="submit">Save</button><span class="small">You see the change first, then Yes. '
-            'Without the tick only new entries use the new values.</span></p></form>'
-            f'<div><p class="small">Words the logger knows it by</p><div class="row">{words or "<span class=empty>none</span>"}'
+            f'<p class="row"><button class="primary sm" type="submit">Save</button><span class="small">{VALUES_HINT}</span></p></form>'
+            f'<div><p class="small">Words the logger knows it by</p><div class="row">{words or f"<span class=empty>{NONE_YET}</span>"}'
             f'<form class="row" method="post" action="/web/food/words">{base}{hidden("act", "add")}'
-            '<input name="word" maxlength="60" placeholder="add a word" aria-label="Add a word"><button class="ghost sm" type="submit">Add</button></form></div></div>'
+            f'<input name="word" maxlength="{LIMITS["word_max"]}" placeholder="add a word" aria-label="Add a word"><button class="ghost sm" type="submit">Add</button></form></div></div>'
             f'<form method="post" action="/web/food/basics">{base}<p class="small">Name and use</p><div class="fields">'
-            f'<label class="wide">Name<input name="name" value="{esc(f["name"])}" maxlength="120" required></label>'
+            f'<label class="wide">Name<input name="name" value="{esc(f["name"])}" maxlength="{LIMITS["name_max"]}" required></label>'
             f'<label class="row small"><input type="checkbox" name="drink" value="1"{" checked" if f["is_drink"] else ""}> Is a drink</label>'
             f'<label class="row small"><input type="checkbox" name="hide" value="1"{"" if f["active"] else " checked"}> Hide from the lists</label></div>'
-            '<p class="row"><button class="primary sm" type="submit">Save</button><span class="small">Saved at once. A hidden food keeps its '
-            'past entries; it no longer shows in suggestions, chips or the catalogue.</span></p></form>'
-            f'<div class="grid2"><div><p class="small">Units</p>{"<br>".join(f"1 {esc(u["unit"])} = {_plain(u["grams"])} {esc(f["basis"])}" for u in units) or "<span class=empty>none</span>"}'
-            f'<form class="row" method="post" action="/web/food/unit">{base}<input name="unit" maxlength="30" placeholder="slice" aria-label="Unit name" class="grow">'
+            f'<p class="row"><button class="primary sm" type="submit">Save</button><span class="small">{BASICS_HINT}</span></p></form>'
+            f'<div class="grid2"><div><p class="small">Units</p>{"<br>".join(esc(u["text"]) for u in d["units"]) or f"<span class=empty>{NONE_YET}</span>"}'
+            f'<form class="row" method="post" action="/web/food/unit">{base}<input name="unit" maxlength="{LIMITS["unit_max"]}" placeholder="slice" aria-label="Unit name" class="grow">'
             f'<label class="small">= <input type="number" name="grams" min="0" step="any" inputmode="decimal" placeholder="35" aria-label="Weight of one"> {esc(f["basis"])}</label>'
             '<button class="ghost sm" type="submit">Add unit</button></form></div>'
             f'<form method="post" action="/web/food/barcode">{base}<p class="small">Barcode</p><div class="row">'
-            f'<input name="barcode" value="{esc(f["barcode"] or "")}" inputmode="numeric" maxlength="14" placeholder="type or paste" aria-label="Barcode">'
+            f'<input name="barcode" value="{esc(f["barcode"] or "")}" inputmode="numeric" maxlength="{LIMITS["barcode_max"]}" placeholder="type or paste" aria-label="Barcode">'
             f'<button class="primary sm" type="submit">Save</button></div></form></div>{f"<p class=row>{shut}</p>" if shut else ""}</div>')
 
 
@@ -371,16 +423,13 @@ def _usual_meals(cur, csrf: str, um, back: str) -> str:
 
 
 def render_catalogue(csrf: str, q) -> str:
-    text, flt = str(q.get("q", ""))[:60], q.get("f", "all")
-    flt = flt if flt in dict(FILTERS) else "all"
-    srt = q.get("s", "eaten")
-    srt = srt if srt in {k for k, _l, _o in SORTS} else "eaten"
+    d = catalogue_data(str(q.get("q", "")), q.get("f", "all"), q.get("s", "eaten"))
+    text, flt, srt, rows = d["q"], d["filter"], d["sort"], d["rows"]
     s_q = "" if srt == "eaten" else srt  # the default order is left out of the links
     sel = q.get("food", "")
     m = re.fullmatch(r"N(\d+)", sel)
     back = url("/web/food/catalogue", q=text, f="" if flt == "all" else flt, s=s_q, food=sel)
     with connect() as conn, conn.cursor() as cur:
-        rows = _food_list(cur, text, flt, srt)
         body = []
         for r in rows:
             nid = f"N{r['id']}"
@@ -390,32 +439,46 @@ def render_catalogue(csrf: str, q) -> str:
             # the words the logger knows it by, under the name (02.11.2026)
             words = f'<span class="small words">{esc(", ".join(r["aliases"]))}</span>' if r["aliases"] else ""
             body.append(f'<tr class="click{" sel" if open_ else ""}" id="{nid}"><td><a href="{esc(link)}#{nid}"><span class="small">{nid}</span> {esc(r["name"])}</a>{flags}{words}</td>'
-                        + "".join(f"<td>{_n(r[k], 1) if r[k] is not None and float(r[k]) % 1 else _n(r[k])}</td>" for k in ("kcal", "protein", "fat", "carbs"))
-                        + f'<td class="hide-sm">{r["n"]}</td><td class="hide-sm">{r["last"].strftime("%d.%m.") if r["last"] else "–"}</td>'
-                        + f'<td class="hide-sm">{r["created_at"].astimezone(rules.BERLIN).strftime("%d.%m.%y")}</td></tr>')
+                        + "".join(f"<td>{per_100_text(r[k])}</td>" for k in ("kcal", "protein", "fat", "carbs"))
+                        + f'<td class="hide-sm">{r["n"]}</td><td class="hide-sm">{last_text(r["last"])}</td>'
+                        + f'<td class="hide-sm">{added_text(r["created_at"])}</td></tr>')
             if open_ and m:
                 close = url("/web/food/catalogue", q=text, f="" if flt == "all" else flt, s=s_q)
                 body.append(f'<tr class="panel"><td colspan="8">{_food_detail(cur, csrf, int(m[1]), back, close)}</td></tr>')
-    chips = "".join(f'<a class="chip{" on" if k == flt else ""}" href="{esc(url("/web/food/catalogue", q=text, f="" if k == "all" else k, s=s_q))}">{lbl}</a>'
-                    for k, lbl in FILTERS)
-    sort_opts = "".join(f'<option value="{k}"{" selected" if k == srt else ""}>{lbl}</option>' for k, lbl, _o in SORTS)
+    chips = "".join(f'<a class="chip{" on" if c["on"] else ""}" href="{esc(url("/web/food/catalogue", q=text, f="" if c["key"] == "all" else c["key"], s=s_q))}">{c["label"]}</a>'
+                    for c in d["filters"])
+    sort_opts = "".join(f'<option value="{s["key"]}"{" selected" if s["on"] else ""}>{s["label"]}</option>' for s in d["sorts"])
     search = (f'<form class="row" method="get" action="/web/food/catalogue"><input type="search" name="q" value="{esc(text)}" class="grow" '
-              'placeholder="Search by name, word, N number or barcode" aria-label="Search foods">'
+              f'placeholder="{d["placeholder"]}" aria-label="Search foods">'
               f'{hidden("f", flt) if flt != "all" else ""}<button class="ghost" type="submit">Search</button>'
               f'<label class="small">Sort by <select name="s" class="autosubmit" aria-label="Sort by">{sort_opts}</select></label></form>')
     lookup = (f'<details class="lookup"><summary class="ghost sm">New food</summary><form class="fbox row" method="post" action="/web/food/lookup">'
               f'{hidden("csrf", csrf)}<input name="name" maxlength="120" required class="grow" placeholder="Food name or barcode" aria-label="Food name or barcode">'
               '<button class="primary sm" type="submit">Look up</button><span class="small">USDA and Open Food Facts, like the chat. '
               'The result shows on Today with Yes to add it.</span></form></details>')
-    more = f'<p class="small">Showing the first {LIST_LIMIT}; search to find others.</p>' if len(rows) == LIST_LIMIT else ""
+    more = f'<p class="small">{d["more"]}</p>' if d["more"] else ""
     table = (f'<div class="tablewrap"><table class="ft"><thead><tr><th>Food <span class="small">per 100 g or ml</span></th><th>kcal</th>'
              '<th><span class="long">Protein</span><span class="short">P</span></th><th><span class="long">Fat</span><span class="short">F</span></th>'
              '<th><span class="long">Carbs</span><span class="short">C</span></th><th class="hide-sm">Eaten</th><th class="hide-sm">Last</th>'
              '<th class="hide-sm">Added</th></tr></thead>'
-             f'<tbody>{"".join(body) or "<tr><td colspan=8 class=empty>No food matches.</td></tr>"}</tbody></table></div>')
-    label = next(lbl for k, lbl, _o in SORTS if k == srt)
+             f'<tbody>{"".join(body) or f"<tr><td colspan=8 class=empty>{d["empty"]}</td></tr>"}</tbody></table></div>')
     return (_tabs("cat") + f'<div class="card">{search}{lookup}<p class="chips">{chips}</p>{table}{more}'
-            f'<p class="small hint">Sorted by: {label.lower()}. Click a food to see and change it.</p></div>')
+            f'<p class="small hint">{d["hint"]}</p></div>')
+
+
+def per_100_text(v) -> str:
+    """A value per 100 in the Catalogue's table: one decimal when it has one, else whole."""
+    return _n(v, 1) if v is not None and float(v) % 1 else _n(v)
+
+
+def last_text(d) -> str:
+    """The Catalogue's "Last" column: dd.mm. or a dash."""
+    return d.strftime("%d.%m.") if d else "–"
+
+
+def added_text(at) -> str:
+    """The Catalogue's "Added" column: dd.mm.yy in Berlin time."""
+    return at.astimezone(rules.BERLIN).strftime("%d.%m.%y")
 
 
 def _new_usual(cur, csrf: str) -> str:
