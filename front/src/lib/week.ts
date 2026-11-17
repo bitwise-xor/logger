@@ -43,14 +43,34 @@ export interface DayRow {
   partly: boolean;
 }
 
+/** A day coaching's next meal (deploy 107): the door's words and numbers; `macros` is its "380 kcal · 34 g protein · …" line. */
+export interface Meal {
+  title: string;
+  why: string | null;
+  kcal: number | null;
+  protein: number | null;
+  carbs: number | null;
+  fat: number | null;
+  macros: string | null;
+}
+
+/** One part of a coaching (a Week review's or a day coaching's, the Coach page's too): the door's words; `tone` is "ok" or "warn" on a day coaching's two. */
 export interface Part {
   key: string;
   title: string;
-  style: 'list' | 'numbered' | 'note';
+  style: 'list' | 'numbered' | 'note' | 'meal';
   tone: string | null;
   items: string[];
-  meal: unknown;
+  meal: Meal | null;
   text: string | null;
+}
+
+export interface CoachMeta {
+  model: string;
+  usd: number | null;
+  at: string;
+  at_text: string;
+  text: string;
 }
 
 export type ReviewState = 'none' | 'working' | 'done' | 'failed';
@@ -68,7 +88,7 @@ export interface Review {
   wait_note: string | null;
   parts: Part[];
   caution: string | null;
-  meta: { model: string; usd: number | null; at: string; at_text: string; text: string } | null;
+  meta: CoachMeta | null;
   failed: string | null;
   intro: string | null;
   cost: string | null;
@@ -140,8 +160,29 @@ export const shown = <T>(rows: T[], limit: number, all: boolean) => (all ? rows 
 export const kgText = (kg: number | null) => n(kg, 1);
 export const kcalText = (kcal: number) => n(kcal);
 
-/** A link of the door's review (app.'s pages: All coachings, Your goals) opens app. until step 6. */
+/** A link of the door's review (app.'s pages: All coachings, Your goals) opens app. until it has its page here. */
 export const appLink = (appUrl: string, href: string) => (/^\/[a-z]/.test(href) ? `${appUrl}${href}` : `${appUrl}/web/`);
+
+/**
+ * Where Your goals leads here: Settings' Coach tab, which comes with deploy 111. THE one-line switch: put its path here (e.g.
+ * '/settings?tab=coach') and every "Your goals" link (Trends, the Coach page, Today's card) follows; null: still app.'s page.
+ */
+export const GOALS_HERE: string | null = null;
+
+/**
+ * The door's `/web/...` links (a coaching card's "All coachings" and "Your goals", docs/API.md) as this app's links, in ONE place:
+ * `/web/coach` is the Coach page here (its `?f=` of days or weeks kept), Settings' Coach tab is `GOALS_HERE` (app.'s until deploy 111),
+ * anything else is app.'s page.
+ */
+export function doorLink(appUrl: string, href: string): string {
+  const u = /^\/web\/[a-z]/.test(href) ? new URL(href, 'http://door') : null;
+  if (u?.pathname === '/web/coach') {
+    const f = u.searchParams.get('f');
+    return f === 'days' || f === 'weeks' ? `/coach?f=${f}` : '/coach';
+  }
+  if (u?.pathname === '/web/settings' && u.searchParams.get('tab') === 'coach' && GOALS_HERE) return GOALS_HERE;
+  return appLink(appUrl, href);
+}
 
 /** The review button's form: the door's period of the card, and the page's period for the fresh week. No key (the door takes none). */
 export function startFields(r: Pick<Review, 'start' | 'end'>, p: Period): FieldValues | null {

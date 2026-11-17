@@ -88,6 +88,15 @@
 // cut at 80 as the door does), GET /recent (the sample; POST /standin/recent-none: no message and none waiting), GET /usage?r=7|30|all (the
 // sample of that range, another r 400; POST /standin/usage-empty: no call in any range) and GET /gym/history?w=<id> (the sample, and a
 // workout that is not in it comes in its place by date as an older one: Pull day, 02.04.2026; w not digits 400).
+// Deploy 109: More's Coach, from tests/samples/coach.json (real answers of the door for invented coachings): GET /coach?f=&day= (the list of
+// the sample's five coachings by f, newest first, with those a started day coaching added; the card of the day asked: the days the stand-in
+// keeps states for, else none; a day after 17.11.2026 400, a bad f or day 400), `coach` in GET /day (the card of the day shown; POST
+// /standin/coach?off=1: null, the Settings switch), POST /coach/start kind "day" (the day twice; checked as coach.start: not after 17.11.2026,
+// the daily limit with POST /standin/coach?limit=1, one already being read is "already on it", else a new coaching that is working; answers
+// with the fresh Today for view "day" or the fresh Coach page for view "coach" with view_f and view_day), and GET /coach/status?id= for it:
+// working until it has been asked `polls` times (2 unless POST /standin/coach?polls=n; 0 = never done), then done (a coaching joins the list)
+// or failed (?fail=1). Defaults: 15.11.2026 failed, 14.11.2026 done, 13.11.2026 working (stays working). Every start is counted (GET
+// /standin/coach-starts). POST /standin/coach?empty=1: no coaching at all; ?day=2026-11-15&state=none|working|done|failed sets a day's state.
 import { createServer } from 'node:http';
 import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
@@ -121,7 +130,7 @@ let mode = 'up'; // 'up' | 'core-down' | 'door-off' (step F)
 function reset() {
   state = { day: read('day.json').day, usual: usualStart(), undo: null, before: null, keys: new Map(), lines: new Map(), aiDown: false,
     scanned: new Map([[SCAN.barcode.code, SCAN.barcode.food]]), labelFail: false,
-    hv: healthStart(), sessions: sessionsStart(), hab: habitsStart(), dayKeys: new Set(), slow: 0, locked: new Set(), gym: gymStart(), watchNone: false, gymEmpty: false, home: homeStart(), week: weekStart(), fail: new Set(), cat: catStart(), labs: labsStart(), recentNone: false, usageEmpty: false };
+    hv: healthStart(), sessions: sessionsStart(), hab: habitsStart(), dayKeys: new Set(), slow: 0, locked: new Set(), gym: gymStart(), watchNone: false, gymEmpty: false, home: homeStart(), week: weekStart(), coach: coachState(), fail: new Set(), cat: catStart(), labs: labsStart(), recentNone: false, usageEmpty: false };
   state.day.needs.body_due = structuredClone(HEALTH.day_body_due);
   // the notes of the food sample's rows (the same invented day), kept on the rows so an Undo puts them back too
   const notes = new Map(FOOD.food_day.food_day.rows.map((r) => [r.ref, r.note]));
@@ -129,7 +138,7 @@ function reset() {
 }
 
 /** GET /day's day: the rows without the notes the stand-in keeps on them (the door's /day has none). */
-const dayOut = (d) => ({ ...d, rows: d.rows.map(({ note: _n, ...r }) => r) });
+const dayOut = (d) => ({ ...d, rows: d.rows.map(({ note: _n, ...r }) => r), coach: coachDayCard() });
 
 /** The Food day as the door sends it: today from the day above; an earlier day is the sample's day before. */
 function foodDay(asked) {
@@ -2092,6 +2101,13 @@ function coachStart(b) {
   return [200, { ...structuredClone(WK.saves.start), coaching: { id, state: 'working' } }];
 }
 function coachStatus(id) {
+  const day = state.coach.byId.get(Number(id));
+  if (day) {
+    if (day.state === 'working' && state.coach.polls > 0 && ++day.asked >= state.coach.polls) coFinish(Number(id), day);
+    return { id: Number(id), state: day.state };
+  }
+  const kept = [...state.coach.days.values()].find((d) => d.id === Number(id));
+  if (kept) return { id: Number(id), state: kept.state };
   const c = state.week.coachings.get(Number(id));
   if (!c) {
     const st = { 1: 'failed', 2: 'done', 3: 'working' }[id] ?? 'gone';
@@ -2102,6 +2118,69 @@ function coachStatus(id) {
     state.week[c.which] = c.state;
   }
   return { id: Number(id), state: c.state };
+}
+
+// ---- More's Coach (deploy 109) --------------------------------------------------------------------------------------------------
+const CO = read('coach.json');
+const CO_TODAY = '2026-11-17';
+const CO_CARD = { none: CO.day_none.coach.card, working: CO.all.coach.card, done: CO.day_done.coach.card, failed: CO.day_failed.coach.card };
+function coachState() {
+  return {
+    days: new Map([['2026-11-15', { state: 'failed', id: 7 }], ['2026-11-14', { state: 'done', id: 2 }], ['2026-11-13', { state: 'working', id: 6 }]]),
+    byId: new Map(), added: [], nextId: 20, starts: 0, polls: 2, fail: false, limit: false, off: false, empty: false,
+  };
+}
+const coDayName = (day) => `${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][new Date(`${day}T12:00:00Z`).getUTCDay()]} ${day.slice(8)}.${day.slice(5, 7)}.`;
+function coCard(day) {
+  const d = state.coach.days.get(day) ?? { state: 'none', id: null };
+  const c = structuredClone(CO_CARD[d.state]);
+  c.start = day;
+  c.end = day;
+  c.id = d.state === 'none' ? null : d.id;
+  return c;
+}
+/** A started coaching has been read: done (it joins the list, newest first) or failed. */
+function coFinish(id, c) {
+  const d = state.coach.days.get(c.day);
+  c.state = state.coach.fail ? 'failed' : 'done';
+  if (d) d.state = c.state;
+  if (c.state === 'failed') return;
+  const item = structuredClone(CO.all.coach.list.find((x) => x.kind === 'day'));
+  Object.assign(item, { id, start: c.day, end: c.day, heading: coDayName(c.day) });
+  item.meta.at_text = '17.11. 14:05';
+  item.meta.text = 'Claude Opus · $0.06 · 17.11. 14:05';
+  state.coach.added.unshift(item);
+}
+function coachOut(f, day) {
+  if (f !== undefined && !['all', 'days', 'weeks'].includes(f)) return [400, { error: 'bad_request', message: 'f must be all, days or weeks.' }];
+  if (day !== undefined && !/^\d{4}-\d\d-\d\d$/.test(day)) return [400, { error: 'bad_request', message: 'day must be yyyy-mm-dd.' }];
+  if (day !== undefined && day > CO_TODAY) return [400, { error: 'bad_request', message: 'day must not be after today.' }];
+  const fl = f ?? 'all';
+  const base = CO.all.coach;
+  const all = state.coach.empty ? [] : [...state.coach.added, ...base.list];
+  const list = structuredClone(all.filter((x) => fl === 'all' || (fl === 'days' ? x.kind === 'day' : x.kind === 'week')));
+  const month = structuredClone(state.coach.empty ? CO.empty.coach.month : base.month);
+  if (!state.coach.empty && state.coach.added.length) {
+    month.count += state.coach.added.length;
+    month.usd = Math.round((month.usd + 0.061 * state.coach.added.length) * 100) / 100;
+    month.text = month.text.replace(/\d+ coachings?/, `${month.count} coaching${month.count === 1 ? '' : 's'}`).replace(/[$][\d.]+/, '$' + month.usd.toFixed(2));
+  }
+  const shown = day ?? CO_TODAY;
+  return [200, { v: 1, coach: { f: fl, filters: base.filters.map((x) => ({ ...x, current: x.f === fl })), list, empty: base.empty, month, note: base.note, day: shown, card: coCard(shown) }, undo: null }];
+}
+const coachDayCard = () => (state.coach.off ? null : coCard(state.day.day));
+/** POST /coach/start with kind "day", as coach.start checks it; the answer is the sample's. */
+function coDayStart(b) {
+  for (const k of ['start', 'end']) if (!/^\d{4}-\d\d-\d\d$/.test(b[k] ?? '')) return [400, { error: 'bad_request', message: `${k} must be a date yyyy-mm-dd.` }];
+  state.coach.starts++;
+  if (b.start !== b.end || b.end > CO_TODAY) return [200, structuredClone(CO.saves.refused)];
+  if (state.coach.limit) return [200, structuredClone(CO.saves.limit)];
+  const cur = state.coach.days.get(b.start);
+  if (cur?.state === 'working') return [200, { ...structuredClone(CO.saves.on_it), coaching: { id: cur.id, state: 'working' } }];
+  const id = state.coach.nextId++;
+  state.coach.days.set(b.start, { state: 'working', id });
+  state.coach.byId.set(id, { day: b.start, state: 'working', asked: 0 });
+  return [200, { ...structuredClone(CO.saves.start), coaching: { id, state: 'working' } }];
 }
 
 const KEYED = ['/gym/tick', '/health/day', '/home/tick', '/home/pickdone', '/home/picknext', '/home/earlier', '/home/alldone', '/home/startpoint', '/body', '/food/labeladd', '/log', '/water', '/again', '/usual', '/habit', '/checkin', '/health', '/held/retry', '/held/delete', '/usual/meal', '/usual/new', '/usual/from_meal'];
@@ -2638,6 +2717,15 @@ createServer(async (req, res) => {
     return send(res, 200, { outcome: 'body-none' });
   }
   if (req.url === '/standin/week-starts' && req.method === 'GET') return send(res, 200, { starts: state.week.starts });
+  // deploy 109: the Coach page's states, and how many day coachings were started (see the header)
+  if (req.url === '/standin/coach-starts' && req.method === 'GET') return send(res, 200, { starts: state.coach.starts });
+  if (req.url.startsWith('/standin/coach?') && req.method === 'POST') {
+    const q = new URL(req.url, 'http://standin').searchParams;
+    for (const k of ['off', 'limit', 'fail', 'empty']) if (q.has(k)) state.coach[k] = q.get(k) === '1';
+    if (q.has('polls')) state.coach.polls = Number(q.get('polls'));
+    if (q.has('day') && q.has('state')) state.coach.days.set(q.get('day'), { state: q.get('state'), id: 40 + state.coach.days.size });
+    return send(res, 200, { outcome: 'coach', starts: state.coach.starts });
+  }
   if (req.url === '/standin/slow' && req.method === 'POST') {
     state.slow = 700; // the next day taps of the Habits page (and the Gym's ticks) take a moment
     return send(res, 200, { outcome: 'slow' });
@@ -2830,6 +2918,10 @@ createServer(async (req, res) => {
     if (!['7', 'last', '30', 'this'].includes(p)) return send(res, 400, { error: 'bad_request', message: 'p must be 7, last, 30 or this.' }, signedIn);
     return send(res, 200, { week: weekOut(p), undo: undo() }, signedIn);
   }
+  if (url.pathname === '/api/v1/coach' && req.method === 'GET') {
+    const [status, out] = coachOut(url.searchParams.get('f') ?? undefined, url.searchParams.get('day') ?? undefined);
+    return send(res, status, out, signedIn);
+  }
   if (url.pathname === '/api/v1/coach/status' && req.method === 'GET') {
     const id = url.searchParams.get('id') ?? '';
     if (!/^\d+$/.test(id)) return send(res, 400, { error: 'bad_request', message: "id must be a coaching's id." }, signedIn);
@@ -2907,6 +2999,7 @@ createServer(async (req, res) => {
     : view === 'labs' ? { labs: labsOut(body.view_open) }
     : view === 'labs_tests' ? { labs_tests: testsOut(body.view_q, body.view_t) }
     : view === 'labs_meds' ? { labs_meds: medsOut() }
+    : view === 'coach' ? { coach: coachOut(body.view_f, body.view_day ?? body.start)[1].coach }
     : view === 'habits' ? { habits: habitsOut(['tracked', 'untracked', 'retired', 'all'].includes(body.show) ? body.show : 'tracked') }
     : { day: dayOut(state.day) };
   if (req.url === '/api/v1/session' && req.method === 'DELETE') {
@@ -3007,6 +3100,15 @@ createServer(async (req, res) => {
       const { v: _v, ...rest } = out;
       const answer = { ...base, ...rest, tone: rest.tone ?? (['saved', 'cancelled'].includes(rest.outcome) ? 'ok' : 'warning') };
       return send(res, 200, { ...answer, ...fresh() }, signedIn);
+    }
+    if (path === '/coach/start' && body.kind === 'day') {
+      if ('key' in body) return send(res, 400, { error: 'bad_request', message: 'The stand-in: /coach/start takes no key.' }, signedIn);
+      await new Promise((r) => setTimeout(r, 600)); // a moment, so a check can see the button disabled while the start is on its way
+      const [status, out] = coDayStart(body);
+      if (status !== 200) return send(res, status, out, signedIn);
+      state.undo = null; // as app., a start ends the session's Undo bar
+      const { v: _v, ...answer } = out;
+      return send(res, 200, { ...answer, v: 1, undo: null, ...fresh() }, signedIn);
     }
     if (path === '/coach/start') {
       if ('key' in body) return send(res, 400, { error: 'bad_request', message: 'The stand-in: /coach/start takes no key.' }, signedIn);

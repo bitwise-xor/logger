@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { appLink, periodHref, startFields, type Review } from '#lib/week.js';
+  import CoachParts from '#lib/components/coach/CoachParts.svelte';
+  import { doorLink, periodHref, startFields, type Review } from '#lib/week.js';
   import type { WeekPage } from '#lib/weekpage.svelte.js';
 
   // The Week review card (app.'s coach card on the Week page), in the door's words. Not offered (7 and 30 days): the blurb, the two
@@ -69,26 +70,11 @@
       </p>
     {/if}
   {:else if review.state === 'done'}
-    <div class="flex flex-col gap-2.5" data-review-parts>
-      {#each review.parts as part (part.key)}
-        {#if part.style === 'note'}
-          <p class="m-0 rounded-[10px] border border-line bg-panel2 px-3 py-2 text-[14px]" data-part={part.key}>{part.text}</p>
-        {:else}
-          <div class="flex flex-col gap-0.5" data-part={part.key}>
-            <h3 class="m-0 text-[13px] font-semibold">{part.title}</h3>
-            {#if part.style === 'numbered'}
-              <ol class="m-0 flex list-decimal flex-col gap-0.5 pl-5">{#each part.items as item, i (i)}<li>{item}</li>{/each}</ol>
-            {:else}
-              <ul class="m-0 flex list-disc flex-col gap-0.5 pl-5">{#each part.items as item, i (i)}<li>{item}</li>{/each}</ul>
-            {/if}
-          </div>
-        {/if}
-      {/each}
-    </div>
+    <CoachParts parts={review.parts} />
     {#if review.meta}<p class="num m-0 text-[13px] text-muted" data-review-meta>{review.meta.text}</p>{/if}
     <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
       {#if review.button}{@render button(review.button, ghost)}{/if}
-      {#each review.links as l (l.href)}<a href={appLink(appUrl, l.href)} class={link} data-review-link>{l.label}</a>{/each}
+      {#each review.links as l (l.href)}<a href={doorLink(appUrl, l.href)} class={link} data-review-link>{l.label}</a>{/each}
     </div>
     {#if review.caution}<p class="m-0 border-t border-line pt-2 text-xs text-muted" data-review-caution>{review.caution}</p>{/if}
   {:else}

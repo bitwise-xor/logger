@@ -187,7 +187,7 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   working, done, failed). Its button is the form action `coach_start` (`saves.ts`: POST /coach/start, kind "week", the card's start and end,
   view "week" with view_p, 60 s): no key, never sent again by the page (not after a network error, not after a sign-in: `mayResend` refuses
   `coach_`), the button disabled from the press until the answer is in (`OneStart` in `week.ts`, state in `weekpage.svelte.ts`); the answer's
-  head or refusal is said in the card. While a review is read the browser asks `src/routes/(app)/trends/status` (GET /coach/status) every 5 s
+  head or refusal is said in the card. While a review is read the browser asks `src/routes/(app)/coach/status` (GET /coach/status; since deploy 109 shared with the Coach page and Today) every 5 s
   (`StatusPoll`), reads the week again in place (`invalidateAll`) when it is over, and after 5 minutes stops with "Taking longer than usual" and
   "Look again". The stand-in answers GET `/week`, `/coach/status` and POST `/coach/start` from `tests/samples/week.json` (POST
   `/standin/week?last=…&this=…&monday=1&latest=1&limit=1&foods=8&polls=n&fail=1` sets the states; GET `/standin/week-starts` counts the
@@ -259,9 +259,9 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   no-store` (`hooks.server.ts`, every response).
 - More, Search, Recent and Usage (deploy 108; the door's routes came with deploy 107; read only, no save): `/more` has the search field (a plain GET form to
   `/search?q=`), the Spaces, a card with Coach, Recent, Usage and Settings, a quiet "Words" card (Ideas, Private and Gratitude link to app., each marked
-  "app.") and Sign out (Today keeps its own); on the PC the rows, the Words and Sign out are on the left and the Spaces on the right. Coach and Settings
-  still open app. (their rows carry a small "app." tag): `MORE_PLACES` in `src/lib/places.ts` has one `here: null` per row, to be set to `'/coach'` with
-  deploy 109 and `'/settings'` with deploy 111. `placeOf()` lights More on `/search`, `/recent` and `/usage` (phone bar and PC rail). Each of the three has
+  "app.") and Sign out (Today keeps its own); on the PC the rows, the Words and Sign out are on the left and the Spaces on the right. Settings
+  still opens app. (its row carries a small "app." tag): `MORE_PLACES` in `src/lib/places.ts` has `here: null` for it, to be set to `'/settings'` with deploy 111 (Coach is
+  `'/coach'` since deploy 109, below). `placeOf()` lights More on `/search`, `/recent`, `/usage` and (deploy 109) `/coach` (phone bar and PC rail). Each of the three has
   a header with a back chevron to `/more` and the theme button, and a failed read shows `ProblemCard` with app.'s own page. **Search** (`?q=`,
   `src/lib/search.ts`): the door's five groups in its order with its titles and a count ("15+" when `more`), "none" for an empty group, the door's `hint` under
   two letters; a food opens in Library (`?q=&food=N<id>`), a meal on its Food day (`?day=&open=f<id>`), a workout on the Gym's History (`?w=<id>#w<id>`:
@@ -273,6 +273,26 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   Sonnet and Opus two blues, the door's legend), "By kind" with the All row and notes, the most expensive messages, the note. The stand-in answers GET `/search`
   (the samples of `search.json`; "many" is a group cut at 15), `/recent`, `/usage` and `/gym/history?w=` (an unknown id comes as an older workout; POST
   `/standin/recent-none`, `/standin/usage-empty`); `SHOOT_ONLY=more` runs these checks (the variable must reach the container: `docker run -e SHOOT_ONLY=more`).
+- Coach (deploy 109; the door's routes came with deploy 107): `/coach` (`?f=all|days|weeks`, `?day=yyyy-mm-dd`; `src/lib/coach.ts`) is More's Coach row (it has no
+  "app." tag any more; `MORE_PLACES` in `places.ts`, More lit on `/coach`) with the back chevron and a failed read as `ProblemCard` with app.'s `/web/coach`. Top card
+  "Coach a day": a date field (the door's `day`, none after today; another day reloads with `?day=`) and the door's card of that day in its four states (none: the intro,
+  the button, the cost line; working: the wait and its note, no button; done: the meta line, the parts, the caution, "Coach me again"; failed: the notice, then the
+  button). Then the chips All, Days and Weeks (links, keeping `day`), the list (heading, a "day" or "week" pill, the first line, the meta line; a row opens in place on
+  phones and tablets and in a 460 px column beside the list from 1100 px; one at a time), the door's month line and note, and "Your goals ›". The door's `empty` words
+  when nothing is there. `CoachParts.svelte` draws the parts of every coaching (Trends' Week review too, unchanged to look at): a note, a numbered list, a list, a day
+  coaching's next meal (title, why, the kcal, protein, carbs and fat line) and `tone` "warn" (To improve) in amber. **Today's Coach card** (`day.coach`, null = no card, the
+  Settings switch) is the same card without the date field, after the Home card on phones and last of the cards in the right column on the PC, with "All coachings ›"
+  and "Your goals ›". **The button costs real money each time (about 6 cents), so it is sent once per press and never again by itself**: the form action `coach_day`
+  (`saves.ts`: POST /coach/start, kind "day", the day twice, 60 s, no key; Today's own action list keeps it by exclusion, the Coach page has `COACH_SAVES`) is posted by the
+  Saver, `OneStart` plus the busy flag (`coachrun.svelte.ts`; the button is also disabled) take a second press while one is on its way, `mayResend()` is false and `UNSURE` is
+  set for `coach_` actions (`saver.ts`: nothing is kept for after a sign-in, nothing is retried after a network error, which says the coaching may have started). The answer
+  brings the fresh Today (view "day") or Coach page (view "coach", `view_f`, `view_day`); its words, a refusal's reason too, are in the answer bar. While a card is working
+  the page asks `src/routes/(app)/coach/status` (GET /coach/status, one route for Trends, the Coach page and Today: `coachpoll.svelte.ts`) every 5 s and reads itself again in
+  place; after 5 minutes "Taking longer than usual" with Look again. The door's `/web/...` links are mapped in ONE function, `doorLink()` in `week.ts` (`/web/coach` is `/coach`,
+  `?f=weeks` kept; Your goals stays app.'s `/web/settings?tab=coach` until Settings is here: `GOALS_HERE` is the one-line switch for deploy 111); Trends' "All coachings" opens the
+  Coach page. The stand-in answers GET `/coach` (the lists of `tests/samples/coach.json`; days 13.11. working, 14.11. done, 15.11. failed, any other none), `coach` in GET `/day`,
+  POST `/coach/start` kind "day" and `/coach/status` (POST `/standin/coach?polls=n&fail=1&limit=1&empty=1&off=1&day=…&state=…`; GET `/standin/coach-starts` counts the starts);
+  `SHOOT_ONLY=coach` runs these checks (the variable must reach the container: `docker run -e SHOOT_ONLY=coach`).
 - The Spaces menu (deploy 96): `src/lib/places.ts` says where a page belongs. The PC rail: Today, Trends, Library, then "Spaces"
   (Gym, Health, Habits, Home since deploy 99; the one you are in highlighted), then More. Phones and tablets keep four tabs; More is the page `/more`
   (`src/routes/(app)/more`): the Spaces as a list (Home since deploy 99, Medical since deploy 106: every Space is live), then one line that the rest is in the full app.

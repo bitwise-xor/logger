@@ -48,6 +48,9 @@
 // (Coach and Settings still at app.), the Words, Sign out; Search's five groups and where each row leads (also an older workout by the door's w);
 // Recent with a private entry showing no words, the not-read line, Use again into Today's box and Open day; Usage's three ranges, the stacked
 // bars, By kind and the costly messages; More lit under every one of them.
+// Deploy 109: More's Coach page and Today's Coach card (checkCoach and checkCoachToday say what): the list and its chips, a day and a week
+// coaching open with their parts, "Coach a day" in its four states and its date field, the press sent once and never again by itself,
+// a refusal in the answer bar, Today's card in its states and absent when the door says null, Trends' links; More's Coach row opens it.
 // Every check throws on a failure, so the script ends with an error.
 // Usage: node tests/screens/shoot.mjs <base url> <out dir> <stand-in url>
 import assert from 'node:assert/strict';
@@ -3242,7 +3245,8 @@ async function checkTrends(page, name, theme) {
   }
   assert.equal(await text(card.locator('[data-review-meta]')), rd.meta.text);
   assert.equal(await text(card.locator('[data-review-button]')), rd.button);
-  assert.deepEqual(await card.locator('[data-review-link]').evaluateAll((els) => els.map((e) => [e.textContent.trim(), new URL(e.href).pathname + new URL(e.href).search])), rd.links.map((l) => [l.label, l.href]));
+  // All coachings is the Coach page here since deploy 109; Your goals is still app.'s Settings (deploy 111)
+  assert.deepEqual(await card.locator('[data-review-link]').evaluateAll((els) => els.map((e) => [e.textContent.trim(), new URL(e.href).pathname + new URL(e.href).search])), rd.links.map((l) => [l.label, l.href === '/web/coach' ? '/coach' : l.href]));
   assert.equal(await text(card.locator('[data-review-caution]')), rd.caution);
   assert.equal(await card.locator('[data-review-said]').count(), 0, 'the start\'s words go once the review is there');
   await shot('week-last-done');
@@ -4602,7 +4606,7 @@ async function assertMoreLit(page, name, where) {
   }
 }
 
-/** More: the search field, the Spaces, the four rows (Coach and Settings still at app.), the Words, Sign out; PC in two columns. */
+/** More: the search field, the Spaces, the four rows (only Settings still at app.), the Words, Sign out; PC in two columns. */
 async function checkMoreHome(page, name, theme) {
   await standinPost('/standin/reset');
   const pc = name === 'pc';
@@ -4619,18 +4623,18 @@ async function checkMoreHome(page, name, theme) {
   assert.equal(await page.locator('[data-search]').getAttribute('name'), 'q');
   assert.equal(await page.locator('[data-search]').getAttribute('placeholder'), 'Search foods, meals, workouts, chores, tests');
   assert.equal(await text(page.locator('label[for="more-q"]')), 'Search');
-  // the Spaces as before, then the four rows: Coach and Settings at app. with their tag, Recent and Usage here
+  // the Spaces as before, then the four rows: Settings at app. with its tag, Coach, Recent and Usage here
   assert.deepEqual(await page.locator('[data-space]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-space'), e.getAttribute('href')])),
     [['gym', '/gym'], ['health', '/health'], ['habits', '/habits'], ['home', '/home'], ['medical', '/medical']]);
   const rows = await page.locator('[data-more-place]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-more-place'), e.getAttribute('href'), e.getAttribute('data-where'), e.textContent.replace(/\s+/g, ' ').trim(), e.querySelector('[data-app-tag]') !== null]));
   assert.deepEqual(rows.map((r) => r[0]), ['coach', 'recent', 'usage', 'settings']);
-  assert.match(rows[0][1], /^https?:\/\/[^/]+\/web\/coach$/, 'Coach opens app. until deploy 109');
+  assert.equal(rows[0][1], '/coach', 'Coach is a page here since deploy 109');
   assert.equal(rows[1][1], '/recent');
   assert.equal(rows[2][1], '/usage');
   assert.match(rows[3][1], /^https?:\/\/[^/]+\/web\/settings$/, 'Settings opens app. until deploy 111');
-  assert.deepEqual(rows.map((r) => r[2]), ['app', 'here', 'here', 'app']);
-  assert.deepEqual(rows.map((r) => r[4]), [true, false, false, true], 'the small "app." tag on the two rows that open app.');
-  assert.deepEqual(rows.map((r) => r[3]), ['Coach app. Every coaching, a day or a week', 'Recent What you sent, and what it saved', 'Usage AI calls and cost', 'Settings app. Targets, Today page, reminders, devices, export']);
+  assert.deepEqual(rows.map((r) => r[2]), ['here', 'here', 'here', 'app']);
+  assert.deepEqual(rows.map((r) => r[4]), [false, false, false, true], 'the small "app." tag on the one row that opens app.');
+  assert.deepEqual(rows.map((r) => r[3]), ['Coach Every coaching, a day or a week', 'Recent What you sent, and what it saved', 'Usage AI calls and cost', 'Settings app. Targets, Today page, reminders, devices, export']);
   // the Words: one quiet card, three links to app., each marked
   assert.equal(await text(page.locator('[data-words] p')), 'Ideas, Private and Gratitude are in the full app until the journal app exists.');
   const words = await page.locator('[data-word]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-word'), e.getAttribute('href'), e.textContent.replace(/\s+/g, ' ').trim()]));
@@ -4665,7 +4669,7 @@ async function checkMoreHome(page, name, theme) {
   await page.waitForURL(/\/search\?q=muesli$/);
   assert.equal(await page.locator('[data-search]').inputValue(), 'muesli', 'Search keeps the words');
   await page.goto(`${base}/more`);
-  // Recent and Usage open their pages; Coach and Settings leave for app. (not followed here)
+  // Recent and Usage open their pages; Settings leaves for app. (not followed here; Coach has its own checks)
   await page.locator('[data-more-place="recent"]').click();
   await page.waitForURL(/\/recent$/);
   await page.goto(`${base}/more`);
@@ -5009,6 +5013,452 @@ async function checkUsage(page, name, theme) {
   await page.goto(`${base}/`);
 }
 
+const COACH = JSON.parse(readFileSync(new URL('../samples/coach.json', import.meta.url), 'utf8'));
+
+/**
+ * More's Coach page (deploy 109): the row at More, the list and the chips against the sample, a day and a week coaching opened (in
+ * place on phones and tablets, in the side column on the PC) with their parts, the amber "To improve" and the meal, the month line, the
+ * note and Your goals; "Coach a day" in its four states and its date field; the press sent once and never again, working then done in
+ * place, a refusal and "already on it" in the answer bar, taking longer, a failed read.
+ */
+async function checkCoach(page, name, theme) {
+  await standinPost('/standin/reset');
+  const pc = name === 'pc';
+  const co = (k) => COACH[k].coach;
+  const starts = async () => (await (await fetch(`${standin}/standin/coach-starts`)).json()).starts;
+  const coachSet = (q) => standinPost(`/standin/coach?${q}`);
+  const card = page.locator('[data-card="coach"]');
+  const shot = (n, full = true) => page.screenshot({ path: `${out}/coach-${n}-${name}-${theme}.png`, fullPage: full });
+  const ids = (sel) => page.locator(sel).evaluateAll((els) => els.map((e) => Number(e.getAttribute('data-coaching'))));
+  const open = async (id) => {
+    await page.locator(`[data-coaching="${id}"] [data-coaching-row]`).click();
+    return page.locator(pc ? `[data-side-open="${id}"]` : `[data-coaching="${id}"] [data-coach-open]`);
+  };
+  const checkParts = async (box, parts) => {
+    assert.deepEqual(await box.locator('[data-part]').evaluateAll((els) => els.map((e) => e.getAttribute('data-part'))), parts.map((x) => x.key), 'the parts in the door\'s order');
+    for (const part of parts) {
+      const el = box.locator(`[data-part="${part.key}"]`);
+      if (part.style === 'note') assert.equal(await text(el), part.text);
+      else if (part.style === 'meal') {
+        assert.equal(await text(el.locator('h3')), part.title);
+        assert.equal(await text(el.locator('[data-meal-title]')), part.meal.title);
+        assert.equal(await text(el.locator('[data-meal-why]')), part.meal.why);
+        assert.equal(await text(el.locator('[data-meal-macros]')), part.meal.macros);
+      } else {
+        assert.equal(await text(el.locator('h3')), part.title);
+        assert.equal(await el.locator(part.style === 'numbered' ? 'ol' : 'ul').count(), 1, `${part.key}: ${part.style}`);
+        assert.deepEqual(await el.locator('li').allTextContents(), part.items);
+        // "To improve" (tone warn) is amber; every other part is not
+        const amber = await el.evaluate((e) => e.className.includes('border-amber'));
+        assert.equal(amber, part.tone === 'warn', `${part.key}: amber only for the warn tone`);
+        assert.equal(await el.getAttribute('data-tone'), part.tone);
+      }
+    }
+  };
+
+  // ---- More's row opens the page; More is lit ---------------------------------------------------------------------------------------
+  await page.goto(`${base}/more`);
+  const row = page.locator('[data-more-place="coach"]');
+  assert.equal(await row.getAttribute('href'), '/coach');
+  assert.equal(await row.getAttribute('data-where'), 'here');
+  assert.equal(await row.locator('[data-app-tag]').count(), 0, 'no app. tag on Coach');
+  await row.click();
+  await page.waitForURL(/\/coach$/);
+  await page.locator('[data-coach]').waitFor();
+  assert.equal(await page.locator('h1').textContent(), 'Coach');
+  assert.equal(await page.locator('[data-back]').getAttribute('href'), '/more');
+  assert.equal(await page.locator('[data-back]').getAttribute('aria-label'), 'Back to More');
+  await assertMoreLit(page, name, 'coach');
+  await page.evaluate(() => (window.__noReload = true));
+
+  // ---- the list, the chips, the month line, the note, Your goals -------------------------------------------------------------------------
+  const L = co('all');
+  assert.deepEqual(await ids('[data-coaching]'), L.list.map((c) => c.id), 'every finished coaching, newest first');
+  for (const c of L.list) {
+    const el = page.locator(`[data-coaching="${c.id}"]`);
+    assert.equal(await text(el.locator('[data-coaching-heading]')), c.heading);
+    assert.equal(await text(el.locator('[data-kind]')), c.kind);
+    assert.equal(await text(el.locator('[data-coaching-first]')), c.first);
+    assert.equal(await text(el.locator('[data-coaching-meta]')), c.meta.text);
+    assert.equal(await el.locator('[data-coach-open]').count(), 0, 'closed until tapped');
+  }
+  assert.deepEqual(await page.locator('[data-filter]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-filter'), e.textContent.trim(), e.getAttribute('aria-current'), e.getAttribute('href')])),
+    [['all', 'All', 'page', '/coach'], ['days', 'Days', null, '/coach?f=days'], ['weeks', 'Weeks', null, '/coach?f=weeks']]);
+  assert.equal(await text(page.locator('[data-month]')), L.month.text);
+  assert.equal(await text(page.locator('[data-note]')), L.note);
+  assert.equal(await text(page.locator('[data-goals]')), 'Your goals ›');
+  assert.match(await page.locator('[data-goals]').getAttribute('href'), /^https?:\/\/[^/]+\/web\/settings\?tab=coach$/, 'Your goals is still at app. until deploy 111');
+  // the order: Coach a day, the chips, the list, the month line (phones: one column; the PC: the same on the left, the side column right)
+  const [bc, bf, bl, bm] = await Promise.all(['[data-card="coach"]', '[data-filters]', '[data-list]', '[data-month]'].map(async (s) => page.locator(s).boundingBox()));
+  assert.ok(bc.y < bf.y && bf.y < bl.y && bl.y < bm.y, `${name}: Coach a day, the chips, the list, the month line`);
+  await checkWidth(page, 'coach, list');
+
+  // the chips filter the list (a link each, so also an address)
+  await page.locator('[data-filter="days"]').click();
+  await page.waitForURL(/\/coach\?f=days$/);
+  assert.deepEqual(await ids('[data-coaching]'), co('days').list.map((c) => c.id));
+  assert.equal(await page.locator('[data-filter="days"]').getAttribute('aria-current'), 'page');
+  assert.equal(await page.locator('[data-month]').textContent().then((x) => x.trim()), co('days').month.text, 'the month line does not depend on the filter');
+  await page.locator('[data-filter="weeks"]').click();
+  await page.waitForURL(/\/coach\?f=weeks$/);
+  assert.deepEqual(await ids('[data-coaching]'), co('weeks').list.map((c) => c.id));
+  assert.deepEqual(await page.locator('[data-kind]').evaluateAll((els) => [...new Set(els.map((e) => e.textContent.trim()))]), ['week']);
+  await page.locator('[data-filter="all"]').click();
+  await page.waitForURL(/\/coach$/);
+  await page.goto(`${base}/coach?f=nonsense`);
+  assert.equal(await page.locator('[data-filter="all"]').getAttribute('aria-current'), 'page', 'a bad filter is all');
+
+  // ---- a day coaching opened: in place (phones, tablets) or in the side column (PC) ----------------------------------------------------
+  await page.goto(`${base}/coach`);
+  if (pc) {
+    assert.equal(await text(page.locator('[data-side-hint]')), 'Pick a coaching Its parts open here.');
+    const list = await page.locator('[data-list]').boundingBox();
+    const side = await page.locator('[data-side]').boundingBox();
+    assert.ok(side.x > list.x + list.width - 1 && side.y <= list.y + list.height, 'pc: the open coaching in a column beside the list');
+    assert.ok(Math.abs(side.width - 460) < 2, 'pc: the side column is 460 px');
+  }
+  const day1 = L.list.find((c) => c.kind === 'day');
+  const dayBox = await open(day1.id);
+  await dayBox.waitFor();
+  assert.equal(await page.locator('[data-coach-open]').count(), 1, 'one coaching open');
+  assert.equal(await page.locator(`[data-coaching="${day1.id}"] [data-coaching-row]`).getAttribute('aria-expanded'), 'true');
+  await checkParts(dayBox, day1.parts);
+  assert.equal(await text(dayBox.locator('[data-coach-caution]')), day1.caution, 'the caution under the open coaching');
+  if (pc) {
+    assert.equal(await text(page.locator('[data-side-heading]')), day1.heading);
+    assert.equal(await text(page.locator('[data-side-meta]')), day1.meta.text);
+    assert.equal(await text(page.locator('[data-side] [data-kind]')), 'day');
+  } else {
+    const r = await page.locator(`[data-coaching="${day1.id}"] [data-coaching-row]`).boundingBox();
+    const b = await dayBox.boundingBox();
+    assert.ok(b.y >= r.y + r.height - 1, `${name}: the parts open under their row`);
+  }
+  // the "To improve" part is amber against the others
+  const improve = dayBox.locator('[data-part="improve"]');
+  const colour = (loc, prop) => loc.evaluate((e, p) => getComputedStyle(e)[p], prop);
+  assert.notEqual(await colour(improve.locator('h3'), 'color'), await colour(dayBox.locator('[data-part="went_well"] h3'), 'color'), 'To improve is amber');
+  assert.notEqual(await colour(improve, 'borderLeftWidth'), '0px');
+  await shot('day-open');
+  if (name === 'phone') await dayBox.screenshot({ path: `${out}/coach-day-parts-${name}-${theme}.png` });
+  await checkWidth(page, 'coach, a day open');
+  // a week review opened in the same way: the numbered focus; the day's closes (one at a time)
+  const week1 = L.list.find((c) => c.kind === 'week');
+  const weekBox = await open(week1.id);
+  await weekBox.waitFor();
+  assert.equal(await page.locator('[data-coach-open]').count(), 1, 'the first one closed');
+  await checkParts(weekBox, week1.parts);
+  assert.equal(await text(weekBox.locator('[data-coach-caution]')), week1.caution);
+  await shot('week-open');
+  await checkWidth(page, 'coach, a week open');
+  // a second tap closes it
+  await page.locator(`[data-coaching="${week1.id}"] [data-coaching-row]`).click();
+  assert.equal(await page.locator('[data-coach-open]').count(), 0);
+  assert.equal(await page.locator(`[data-coaching="${week1.id}"] [data-coaching-row]`).getAttribute('aria-expanded'), 'false');
+  // another filter closes the open row
+  await open(day1.id);
+  await page.locator('[data-filter="weeks"]').click();
+  await page.waitForURL(/f=weeks/);
+  assert.equal(await page.locator('[data-coach-open]').count(), 0);
+
+  // ---- nothing yet: the door's words -----------------------------------------------------------------------------------------------------
+  await coachSet('empty=1');
+  await page.goto(`${base}/coach`);
+  assert.equal(await text(page.locator('[data-empty]')), co('empty').empty);
+  assert.equal(await page.locator('[data-coaching]').count(), 0);
+  assert.equal(await text(page.locator('[data-month]')), co('empty').month.text);
+  assert.equal(await page.locator('[data-card="coach"]').count(), 1, 'Coach a day is there all the same');
+  await checkWidth(page, 'coach, empty');
+  await standinPost('/standin/reset');
+
+  // ---- Coach a day in its four states, and the date field ---------------------------------------------------------------------------------
+  const dayCard = async (day) => {
+    await page.goto(`${base}/coach?day=${day}`);
+    await card.waitFor();
+    assert.equal(await page.locator('[data-day-field]').inputValue(), day, 'the date field has the day');
+  };
+  // none
+  await dayCard('2026-11-12');
+  const cn = co('day_none').card;
+  assert.equal(await text(card.locator('h2')), 'Coach a day');
+  assert.equal(await text(card.locator('[data-coach-small]')), cn.small);
+  assert.equal(await card.getAttribute('data-state'), 'none');
+  assert.equal(await text(card.locator('[data-coach-intro]')), cn.intro);
+  assert.equal(await text(card.locator('[data-coach-cost]')), cn.cost);
+  assert.equal(await text(card.locator('[data-coach-button]')), cn.button);
+  assert.equal(await card.locator('[data-coach-form] input[type=hidden]').evaluateAll((els) => els.map((e) => `${e.name}=${e.value}`).join('&')), 'start=2026-11-12&end=2026-11-12&view_f=all&view_day=2026-11-12');
+  assert.ok((await page.locator('[data-day-field]').getAttribute('max')) >= '2026-11-17', 'the field offers no day after today');
+  await shot('none');
+  await checkWidth(page, 'coach, none');
+  // done: the parts, the meta line, the caution, the button again; the door has no cost line here
+  await dayCard('2026-11-14');
+  const cd = co('day_done').card;
+  assert.equal(await card.getAttribute('data-state'), 'done');
+  assert.equal(await text(card.locator('[data-coach-meta]')), cd.meta.text);
+  await checkParts(card, cd.parts);
+  assert.equal(await text(card.locator('[data-coach-caution]')), cd.caution);
+  assert.equal(await text(card.locator('[data-coach-button]')), cd.button);
+  assert.equal(await card.locator('[data-coach-intro]').count(), 0);
+  await shot('card-done');
+  if (name === 'phone') await card.screenshot({ path: `${out}/coach-card-done-${name}-${theme}.png` });
+  await checkWidth(page, 'coach, card done');
+  // failed: the notice, then the intro and the button
+  await dayCard('2026-11-15');
+  const cf = co('day_failed').card;
+  assert.equal(await card.getAttribute('data-state'), 'failed');
+  assert.equal(await text(card.locator('[data-coach-failed]')), cf.failed);
+  assert.equal(await text(card.locator('[data-coach-intro]')), cf.intro);
+  assert.equal(await text(card.locator('[data-coach-button]')), cf.button);
+  const [bFail, bIntro, bBtn] = await Promise.all(['[data-coach-failed]', '[data-coach-intro]', '[data-coach-button]'].map((s) => card.locator(s).boundingBox()));
+  assert.ok(bFail.y < bIntro.y && bIntro.y < bBtn.y, 'the notice, the intro, the button');
+  await shot('card-failed', false);
+  await checkWidth(page, 'coach, card failed');
+  // working: the wait and its note, no button
+  await dayCard('2026-11-13');
+  const cw = co('all').card;
+  assert.equal(await card.getAttribute('data-state'), 'working');
+  assert.equal(await text(card.locator('[data-coach-wait-head]')), cw.wait);
+  assert.equal(await text(card.locator('[data-coach-wait-note]')), cw.wait_note);
+  assert.equal(await card.locator('[data-coach-button]').count(), 0, 'no button while it is read');
+  await checkWidth(page, 'coach, card working');
+  // the date field: another day reloads the page with ?day=
+  await page.locator('[data-day-field]').fill('2026-11-15');
+  await page.waitForURL(/day=2026-11-15$/);
+  await card.locator('[data-coach-failed]').waitFor();
+  // the filter and the day travel together
+  await page.locator('[data-filter="weeks"]').click();
+  await page.waitForURL(/f=weeks&day=2026-11-15$/);
+  assert.equal(await page.locator('[data-day-field]').inputValue(), '2026-11-15');
+  await page.locator('[data-day-field]').fill('2026-11-12');
+  await page.waitForURL(/f=weeks&day=2026-11-12$/);
+  assert.equal(await card.getAttribute('data-state'), 'none');
+  // a day after today is not read (the door refuses it): the page shows today; a bad day is dropped
+  await page.goto(`${base}/coach?day=2026-11-30`);
+  await card.waitFor();
+  assert.equal(await page.locator('[data-day-field]').inputValue(), '2026-11-17');
+  await page.goto(`${base}/coach?day=tomorrow`);
+  assert.equal(await page.locator('[data-day-field]').inputValue(), '2026-11-17');
+
+  // ---- the press: sent once, working, then done in place ----------------------------------------------------------------------------------
+  await standinPost('/standin/reset');
+  await coachSet('polls=1');
+  await dayCard('2026-11-12');
+  await page.evaluate(() => (window.__noReload = true));
+  const before = await starts();
+  await card.locator('[data-coach-button]').dblclick();
+  assert.equal(await card.locator('[data-coach-button]').isDisabled().catch(() => true), true, 'the button is disabled from the first press');
+  await card.locator('[data-coach-wait]').waitFor();
+  assert.equal(await card.getAttribute('data-state'), 'working');
+  assert.equal(await text(card.locator('[data-coach-wait-head]')), cw.wait);
+  assert.equal(await text(page.locator('[data-bar] [data-bar-head]')), COACH.saves.start.head, 'the door\'s head in the answer bar');
+  assert.equal(await page.locator('[data-bar]').getAttribute('data-bar'), 'ok');
+  assert.equal(await starts(), before + 1, 'a double press started one coaching');
+  assert.equal(await card.locator('[data-coach-button]').count(), 0, 'no button while it is read');
+  await shot('working');
+  await checkWidth(page, 'coach, started');
+  // the poll (every 5 s): done, read again in place: the parts, the button, and the coaching joins the list (no reload)
+  await card.locator('[data-review-parts]').waitFor({ timeout: 20000 });
+  assert.equal(await card.getAttribute('data-state'), 'done');
+  assert.ok(await page.evaluate(() => window.__noReload === true), 'no reload while the coaching was read');
+  assert.equal(await text(card.locator('[data-coach-button]')), 'Coach me again');
+  assert.equal(await starts(), before + 1, 'nothing was started again');
+  assert.equal((await ids('[data-coaching]'))[0], 20, 'the new coaching is first in the list');
+  assert.equal(await text(page.locator('[data-coaching="20"] [data-coaching-heading]')), 'Thu 12.11.');
+  assert.match(await text(page.locator('[data-month]')), new RegExp(`^This month: ${L.month.count + 1} coachings · \\$\\d+\\.\\d\\d \\(also on the Usage page\\)\\.$`), 'the month line counts the new one');
+  await shot('done');
+  await checkWidth(page, 'coach, done');
+  // Coach me again adds one more (the owner's own press)
+  await coachSet('polls=0');
+  await card.locator('[data-coach-button]').click();
+  await card.locator('[data-coach-wait]').waitFor();
+  assert.equal(await starts(), before + 2);
+  await page.waitForTimeout(300);
+  assert.equal(await starts(), before + 2, 'and again nothing by itself');
+
+  // ---- refusals in the answer bar: the daily limit, and "already on it" -----------------------------------------------------------------------
+  await standinPost('/standin/reset');
+  await coachSet('limit=1');
+  await dayCard('2026-11-11');
+  const b2 = await starts();
+  await card.locator('[data-coach-button]').click();
+  await page.locator('[data-bar="warning"]').waitFor();
+  assert.deepEqual(await page.locator('[data-bar] p, [data-bar] [data-bar-head]').allTextContents(), [COACH.saves.limit.head, COACH.saves.limit.reason]);
+  assert.equal(await card.getAttribute('data-state'), 'none', 'nothing started');
+  assert.equal(await card.locator('[data-coach-button]').isDisabled(), false, 'the owner may press again');
+  assert.equal(await starts(), b2 + 1);
+  await shot('refused', false);
+  await checkWidth(page, 'coach, refused');
+  await standinPost('/standin/reset');
+  await dayCard('2026-11-10');
+  await coachSet('day=2026-11-10&state=working'); // another tab started it meanwhile
+  await card.locator('[data-coach-button]').click();
+  await card.locator('[data-coach-wait]').waitFor();
+  assert.equal(await text(page.locator('[data-bar] [data-bar-head]')), COACH.saves.on_it.head);
+
+  // ---- taking longer: 5 minutes without an end -------------------------------------------------------------------------------------------
+  await standinPost('/standin/reset');
+  const slow = await page.context().newPage();
+  await slow.clock.install();
+  await slow.goto(`${base}/coach?day=2026-11-13`);
+  await slow.locator('[data-card="coach"] [data-coach-wait]').waitFor();
+  await slow.clock.fastForward('05:01');
+  await slow.locator('[data-coach-slow]').waitFor();
+  assert.equal(await text(slow.locator('[data-coach-slow]')), 'Taking longer than usual: look again in a few minutes. Look again');
+  assert.equal(await slow.locator('[data-card="coach"]').getAttribute('data-state'), 'working');
+  await checkWidth(slow, 'coach, taking longer');
+  await slow.locator('[data-look-again]').click();
+  await slow.locator('[data-coach-slow]').waitFor({ state: 'detached' });
+  await slow.close();
+
+  // ---- signed out at the press: sent to sign in, and the press is not sent again after it -------------------------------------------------------
+  await standinPost('/standin/reset');
+  await dayCard('2026-11-12');
+  const b3 = await starts();
+  await standinPost('/standin/drop-sessions');
+  await card.locator('[data-coach-button]').click();
+  await page.getByRole('button', { name: 'Sign in' }).waitFor();
+  await page.fill('#password', 'test');
+  await page.fill('#code', '123 456');
+  await page.click('button[type=submit]');
+  await page.locator('[data-coach]').waitFor();
+  assert.match(page.url(), /\/coach\?day=2026-11-12$/, 'the sign-in leads back to the page');
+  await page.goto(`${base}/coach?day=2026-11-12`);
+  await card.waitFor();
+  assert.equal(await card.getAttribute('data-state'), 'none', 'nothing was started behind your back');
+  await page.waitForTimeout(500);
+  assert.equal(await starts(), b3, 'no start was sent again after the sign-in');
+
+  // ---- the failed read: the plain message with a link to app.'s Coach ------------------------------------------------------------------------------
+  await standinPost('/standin/door-off');
+  await page.goto(`${base}/coach`);
+  await page.locator('[data-problem]').waitFor();
+  assert.match(await page.getByRole('link', { name: 'Open the full app' }).getAttribute('href'), /\/web\/coach$/);
+  await checkWidth(page, 'coach, door off');
+  await standinPost('/standin/up');
+  await standinPost('/standin/reset');
+
+  // ---- Trends' links: All coachings is the Coach page here (with ?f=weeks if the door says so), Your goals is still app.'s ------------------
+  await standinPost('/standin/week?last=done');
+  await page.goto(`${base}/trends?p=last`);
+  const links = await page.locator('[data-card="review"] [data-review-link]').evaluateAll((els) => els.map((e) => [e.textContent.trim(), e.getAttribute('href')]));
+  assert.equal(links[0][0], 'All coachings');
+  assert.equal(links[0][1], '/coach');
+  assert.equal(links[1][0], 'Your goals');
+  assert.match(links[1][1], /^https?:\/\/[^/]+\/web\/settings\?tab=coach$/);
+  await page.locator('[data-card="review"] [data-review-link]').first().click();
+  await page.waitForURL(/\/coach$/);
+  await standinPost('/standin/reset');
+  await page.goto(`${base}/`);
+}
+
+/**
+ * Today's Coach card (deploy 109): placed after the Home card on phones and in the side column on the PC, in its states, the press sent once
+ * (the answer's fresh Today brings the working card; the poll reads Today again in place), the links, a refusal in the answer bar, and no
+ * card when the door says null (the Settings switch).
+ */
+async function checkCoachToday(page, name, theme) {
+  await standinPost('/standin/reset');
+  const pc = name === 'pc';
+  const co = (k) => COACH[k].coach;
+  const starts = async () => (await (await fetch(`${standin}/standin/coach-starts`)).json()).starts;
+  const coachSet = (q) => standinPost(`/standin/coach?${q}`);
+  const card = page.locator('[data-card="coach"]');
+  const shot = (n) => page.screenshot({ path: `${out}/coach-today-${n}-${name}-${theme}.png`, fullPage: true });
+  await page.goto(`${base}/`);
+  await page.locator('[data-kcal-left]').waitFor();
+  await page.evaluate(() => (window.__noReload = true));
+  assert.equal(await card.count(), 1);
+  const dc = day.coach;
+  assert.equal(await text(card.locator('h2')), dc.title);
+  assert.equal(await text(card.locator('[data-coach-small]')), dc.small);
+  assert.equal(await card.getAttribute('data-state'), 'none');
+  assert.equal(await text(card.locator('[data-coach-intro]')), dc.intro);
+  assert.equal(await text(card.locator('[data-coach-cost]')), dc.cost);
+  assert.equal(await text(card.locator('[data-coach-button]')), dc.button);
+  assert.equal(await card.locator('[data-day-field], input[type=date]').count(), 0, 'no date field on Today');
+  const links = await card.locator('[data-coach-link]').evaluateAll((els) => els.map((e) => [e.textContent.trim(), e.getAttribute('href')]));
+  assert.deepEqual(links.map((l) => l[0]), ['All coachings ›', 'Your goals ›']);
+  assert.equal(links[0][1], '/coach');
+  assert.match(links[1][1], /^https?:\/\/[^/]+\/web\/settings\?tab=coach$/);
+  // the place: phones after the Home card (and before Gratitude), the PC in the right column under the other cards
+  const box = async (s) => page.locator(s).first().boundingBox();
+  const [bh, bc, bg, bn, bd] = await Promise.all(['[data-card="home"]', '[data-card="coach"]', '[data-card="gratitude"]', '[data-card="needs"]', '[data-card="timeline"]'].map(box));
+  assert.ok(bh && bc && bg, 'the Home, Coach and Gratitude cards are there');
+  assert.ok(bh.y + bh.height <= bc.y + 1 && bc.y + bc.height <= bg.y + 1, `${name}: Home, then Coach, then Gratitude`);
+  if (pc) assert.ok(Math.abs(bc.x - bn.x) < 2 && bc.x > bd.x + bd.width - 1, 'pc: the Coach card in the right column');
+  await shot('none');
+  await checkWidth(page, 'today, coach none');
+
+  // the press: one start for a double press; the bar says what the door says; the poll brings the parts in place
+  await coachSet('polls=1');
+  const before = await starts();
+  await card.locator('[data-coach-button]').dblclick();
+  await card.locator('[data-coach-wait]').waitFor();
+  assert.equal(await card.getAttribute('data-state'), 'working');
+  assert.equal(await text(card.locator('[data-coach-wait-head]')), co('all').card.wait);
+  assert.equal(await card.locator('[data-coach-button]').count(), 0);
+  assert.equal(await text(page.locator('[data-bar] [data-bar-head]')), COACH.saves.start.head);
+  assert.equal(await starts(), before + 1, 'a double press started one coaching');
+  await shot('working');
+  await checkWidth(page, 'today, coach working');
+  await card.locator('[data-review-parts]').waitFor({ timeout: 20000 });
+  assert.equal(await card.getAttribute('data-state'), 'done');
+  assert.ok(await page.evaluate(() => window.__noReload === true), 'no reload while it was read');
+  assert.equal(await starts(), before + 1, 'nothing was started again');
+  const cd = co('day_done').card;
+  assert.deepEqual(await card.locator('[data-part]').evaluateAll((els) => els.map((e) => e.getAttribute('data-part'))), cd.parts.map((p) => p.key));
+  assert.equal(await text(card.locator('[data-part="next_meal"] [data-meal-macros]')), cd.parts.find((p) => p.key === 'next_meal').meal.macros);
+  assert.equal(await card.locator('[data-part="improve"]').evaluate((e) => e.className.includes('border-amber')), true, 'To improve is amber');
+  assert.equal(await text(card.locator('[data-coach-meta]')), cd.meta.text);
+  assert.equal(await text(card.locator('[data-coach-caution]')), cd.caution);
+  assert.equal(await text(card.locator('[data-coach-button]')), 'Coach me again');
+  const [meta, parts, caution, btn] = await Promise.all(['[data-coach-meta]', '[data-review-parts]', '[data-coach-caution]', '[data-coach-button]'].map((s) => card.locator(s).boundingBox()));
+  assert.ok(meta.y < parts.y && parts.y < caution.y && caution.y < btn.y, 'meta, parts, caution, the button');
+  await shot('done');
+  if (name === 'phone') await card.screenshot({ path: `${out}/coach-today-card-${name}-${theme}.png` });
+  await checkWidth(page, 'today, coach done');
+  await page.getByRole('heading', { name: 'Today', exact: true }).waitFor();
+
+  // a refusal: the daily limit, in the bar; the card stays as it was
+  await standinPost('/standin/reset');
+  await coachSet('limit=1&day=2026-11-16&state=failed');
+  await page.goto(`${base}/`);
+  await card.waitFor();
+  assert.equal(await card.getAttribute('data-state'), 'failed');
+  assert.equal(await text(card.locator('[data-coach-failed]')), co('day_failed').card.failed);
+  await shot('failed');
+  await checkWidth(page, 'today, coach failed');
+  await card.locator('[data-coach-button]').click();
+  await page.locator('[data-bar="warning"]').waitFor();
+  assert.equal(await text(page.locator('[data-bar] [data-bar-head]')), COACH.saves.limit.head);
+  assert.equal(await text(page.locator('[data-bar] p')), COACH.saves.limit.reason);
+  assert.equal(await card.getAttribute('data-state'), 'failed');
+
+  // taking longer (5 minutes without an end)
+  await standinPost('/standin/reset');
+  await coachSet('day=2026-11-16&state=working');
+  const slow = await page.context().newPage();
+  await slow.clock.install();
+  await slow.goto(`${base}/`);
+  await slow.locator('[data-card="coach"] [data-coach-wait]').waitFor();
+  await slow.clock.fastForward('05:01');
+  await slow.locator('[data-coach-slow]').waitFor();
+  await checkWidth(slow, 'today, coach taking longer');
+  await slow.locator('[data-look-again]').click();
+  await slow.locator('[data-coach-slow]').waitFor({ state: 'detached' });
+  await slow.close();
+
+  // no card when Settings hides it: the door sends null
+  await standinPost('/standin/reset');
+  await coachSet('off=1');
+  await page.goto(`${base}/`);
+  await page.locator('[data-kcal-left]').waitFor();
+  assert.equal(await card.count(), 0, 'no Coach card when the door says null');
+  assert.equal(await page.locator('[data-card="gratitude"]').count(), 1);
+  await checkWidth(page, 'today, no coach card');
+  await standinPost('/standin/reset');
+  await page.goto(`${base}/`);
+}
+
 async function checkWidth(page, what) {
   const sideways = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   assert.ok(sideways <= 0, `${what}: no sideways scroll (${sideways} px too wide)`);
@@ -5148,6 +5598,12 @@ for (const theme of ['dark', 'light']) {
       console.log(`recent, use again ${name} ${theme}: checks passed`);
       await checkUsage(page, name, theme);
       console.log(`usage ${name} ${theme}: checks passed`);
+    }
+    if (only('coach')) {
+      await checkCoach(page, name, theme);
+      console.log(`coach page, coaching a day ${name} ${theme}: checks passed`);
+      await checkCoachToday(page, name, theme);
+      console.log(`today's coach card ${name} ${theme}: checks passed`);
     }
     if (only('problems')) {
       await checkProblems(page, name, theme);

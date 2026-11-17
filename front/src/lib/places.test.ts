@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { MORE_PLACES, morePlaceHref, placeOf, SPACES, WORDS } from './places.js';
 
 describe('placeOf', () => {
-  it('lights More on its page and on Search, Recent and Usage, the rail too', () => {
-    for (const p of ['/more', '/search', '/recent', '/usage']) expect(placeOf(p)).toEqual({ tab: 'more', space: null, atMore: true });
+  it('lights More on its page and on Search, Recent, Usage and Coach, the rail too', () => {
+    for (const p of ['/more', '/search', '/recent', '/usage', '/coach', '/coach/status']) expect(placeOf(p)).toEqual({ tab: 'more', space: null, atMore: true });
   });
 
   it('keeps the tabs and the Spaces as they were', () => {
@@ -24,11 +24,11 @@ describe('More’s rows', () => {
     expect(MORE_PLACES.map((p) => p.name)).toEqual(['Coach', 'Recent', 'Usage', 'Settings']);
   });
 
-  it('open their page here, or app.’s while they have none (Coach until deploy 109, Settings until 111)', () => {
+  it('open their page here, or app.’s while they have none (Settings until deploy 111)', () => {
     const at = (k: string) => morePlaceHref(MORE_PLACES.find((p) => p.key === k)!, 'https://app.example.org');
     expect(at('recent')).toBe('/recent');
     expect(at('usage')).toBe('/usage');
-    expect(at('coach')).toBe('https://app.example.org/web/coach');
+    expect(at('coach')).toBe('/coach');
     expect(at('settings')).toBe('https://app.example.org/web/settings');
   });
 

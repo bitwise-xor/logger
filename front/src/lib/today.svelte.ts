@@ -9,8 +9,9 @@ import { getContext, setContext } from 'svelte';
 import { Answers } from './answers.svelte.js';
 import { freshRefs, type Day, type SaveAnswer, type Undo } from './day.js';
 import { hm } from './format.js';
+import { CoachRun } from './coachrun.svelte.js';
 import { LineKeys, readingText, wordsBack } from './logbox.js';
-import { makeKey } from './saver.js';
+import { makeKey, type FieldValues } from './saver.js';
 
 export type { Bar } from './answers.svelte.js';
 
@@ -27,6 +28,8 @@ export class Today extends Answers {
   /** The logging box's words, and the lines being read. */
   box = $state('');
   reading = $state<Reading[]>([]);
+  /** Today's Coach card (deploy 109): its button's one-press guard, and "still being read after 5 minutes". */
+  readonly coach = new CoachRun();
 
   #keys = new LineKeys();
   #lines = 0;
@@ -64,6 +67,14 @@ export class Today extends Answers {
     }
     if (!kept.fresh) return;
     this.handle(await this.saver.send<SaveAnswer>(kept.action, kept.fields), kept.action, kept.fields);
+  }
+
+  /**
+   * The Coach card's button (deploy 109): one press, one start (a day coaching costs about 6 cents; never sent again by itself:
+   * saver.ts). The answer's fresh day brings the card (working); a refusal says why in the bar.
+   */
+  startCoach(fields: FieldValues) {
+    return this.coach.press(() => this.tap('coach_day', 'coach_day', fields));
   }
 
   /** The box's textarea, so "Correct it" can put words in and the cursor after them. */

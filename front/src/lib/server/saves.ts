@@ -21,6 +21,7 @@ import { VALS, wordsOf } from '../gym.js';
 import { linesOf, wordsOfText } from '../homeparts.js';
 import { CATALOGUE_FILTERS, CATALOGUE_SORTS } from '../catalogue.js';
 import { askedOpen, askedTest } from '../medical.js';
+import { FILTERS } from '../coach.js';
 
 /** The form's fields: what `FormData` offers (and a plain test double). */
 export interface Fields {
@@ -263,6 +264,19 @@ export const SAVES = {
     body: (f) => ({ kind: 'week', start: dateOf(f, 'start'), end: dateOf(f, 'end') }),
     timeoutMs: 60_000,
   },
+  // The Coach card's button (deploy 109, Today and the Coach page): POST /coach/start with kind "day", the day twice. The door takes NO
+  // key and the page never sends it again by itself (saver.ts: not keyed, never kept; a day coaching costs about 6 cents). Today's
+  // answer brings the fresh Today (view "day", view_day), the Coach page's the fresh Coach page (view "coach", view_f, view_day).
+  // The Week review's own (`coach_start`, Trends) stays as it is.
+  coach_day: {
+    path: '/coach/start',
+    keyed: false,
+    body: (f) => {
+      const day = dateOf(f, 'start');
+      return { kind: 'day', start: day, end: day };
+    },
+    timeoutMs: 60_000,
+  },
   // Library's Foods tab (deploy 105): the Catalogue's six forms at /food/catalogue/<action> (docs/API.md). The door takes NO key and
   // has no Undo; the page never sends one again by itself (saver.ts: `catalogue_`). Ids and values as JSON numbers, ticks as true or
   // false. Each answers with the fresh Catalogue and the open food's box (view "catalogue" with view_q, view_f, view_s, view_food).
@@ -500,6 +514,11 @@ const HOME_ONLY: SaveName[] = [...HOME_SAVES, ...PICK_SAVES, ...ZONES_SAVES, ...
 /** The Trends page's (deploy 102, src/routes/(app)/trends): the Week review's button. No Undo exists for it. */
 export const TRENDS_SAVES: SaveName[] = ['coach_start'];
 /**
+ * The Coach page's (deploy 109, src/routes/(app)/coach): the day coaching's button. Today has it too (`coach_day` is not in any "only"
+ * list, so TODAY_SAVES keeps it by exclusion, as it must: Today's Coach card posts it to Today's own form action).
+ */
+export const COACH_SAVES: SaveName[] = ['coach_day'];
+/**
  * Library's Foods tab's (deploy 105, src/routes/(app)/library): the Catalogue's six forms, and a new food through the look-up and its
  * yes (`lookup`, `answer`: Today's saves, here asked for the Catalogue; the yes has the door's Undo of the new food). The six have no
  * Undo.
@@ -521,7 +540,7 @@ export const TODAY_SAVES: SaveName[] = SAVE_NAMES.filter(
     n === 'undo' ||
     (!FOOD_SAVES.includes(n) && !USUAL_SAVES.includes(n) && !HEALTH_SAVES.includes(n) && !HABITS_ONLY.includes(n) && !GYM_ONLY.includes(n) && !HOME_ONLY.includes(n) && !TRENDS_SAVES.includes(n) && !CATALOGUE_ONLY.includes(n) && !MEDICAL_ONLY.includes(n)),
 );
-export type View = 'day' | 'food' | 'usual' | 'health' | 'body' | 'habits' | 'gym' | 'gym_plan' | 'gym_exercises' | 'home' | 'home_pick' | 'home_zones' | 'home_history' | 'home_chore' | 'home_edit' | 'week' | 'catalogue' | 'labs' | 'labs_tests' | 'labs_meds';
+export type View = 'day' | 'food' | 'usual' | 'health' | 'body' | 'habits' | 'gym' | 'gym_plan' | 'gym_exercises' | 'home' | 'home_pick' | 'home_zones' | 'home_history' | 'home_chore' | 'home_edit' | 'week' | 'coach' | 'catalogue' | 'labs' | 'labs_tests' | 'labs_meds';
 
 /** A key as the browser makes them (src/lib/saver.ts): a random UUID or base64url; anything else is replaced. */
 const KEY = /^[A-Za-z0-9_-]{16,64}$/;
@@ -568,6 +587,11 @@ export function bodyFor(
   if (view === 'week') {
     const p = str(f, 'view_p', 4);
     if (p && ['7', 'last', '30', 'this'].includes(p)) body.view_p = p;
+  }
+  // The Coach page's fresh read (deploy 109): the page's filter (view_f); the card's day is view_day (set above).
+  if (view === 'coach') {
+    const fl = str(f, 'view_f', 10);
+    if (fl && (FILTERS as readonly string[]).includes(fl)) body.view_f = fl;
   }
   // The Catalogue's fresh read (deploy 105): the page's search, filter, order and open food (?q=, ?f=, ?s=, ?food=), so the answer
   // brings the list and the box on screen as the page shows them.

@@ -2,7 +2,7 @@
 // day asked for, and a gone session told apart from other problems.
 import { describe, expect, it } from 'vitest';
 import { makeDoor, type Fetch } from './door.js';
-import { bodyFor, CATALOGUE_SAVES, MEDICAL_MEDS_SAVES, MEDICAL_REPORTS_SAVES, EXERCISES_SAVES, LIBRARY_HABITS_SAVES, FOOD_SAVES, GYM_SAVES, HABITS_SAVES, HEALTH_SAVES, EDIT_SAVES, HISTORY_SAVES, HOME_SAVES, PICK_SAVES, PLAN_SAVES, runSave, SAVE_NAMES, SAVES, TODAY_SAVES, TRENDS_SAVES, USUAL_SAVES, ZONES_SAVES } from './saves.js';
+import { bodyFor, CATALOGUE_SAVES, MEDICAL_MEDS_SAVES, MEDICAL_REPORTS_SAVES, EXERCISES_SAVES, LIBRARY_HABITS_SAVES, FOOD_SAVES, GYM_SAVES, HABITS_SAVES, HEALTH_SAVES, EDIT_SAVES, HISTORY_SAVES, HOME_SAVES, PICK_SAVES, PLAN_SAVES, runSave, SAVE_NAMES, SAVES, TODAY_SAVES, TRENDS_SAVES, COACH_SAVES, USUAL_SAVES, ZONES_SAVES } from './saves.js';
 
 const TOKEN = 'f'.repeat(40);
 const SESSION = 's'.repeat(43);
@@ -191,7 +191,7 @@ describe('the Food day saves (step E)', () => {
     expect(TODAY_SAVES).not.toContain('usual_meal');
     expect(TODAY_SAVES).toContain('usual');
     expect(TODAY_SAVES).toContain('undo');
-    expect(new Set([...TODAY_SAVES, ...FOOD_SAVES, ...USUAL_SAVES, ...HEALTH_SAVES, ...HABITS_SAVES, ...GYM_SAVES, ...PLAN_SAVES, ...EXERCISES_SAVES, ...HOME_SAVES, ...PICK_SAVES, ...ZONES_SAVES, ...HISTORY_SAVES, ...EDIT_SAVES, ...TRENDS_SAVES, ...CATALOGUE_SAVES, ...LIBRARY_HABITS_SAVES, ...MEDICAL_REPORTS_SAVES, ...MEDICAL_MEDS_SAVES])).toEqual(new Set(SAVE_NAMES));
+    expect(new Set([...TODAY_SAVES, ...FOOD_SAVES, ...USUAL_SAVES, ...HEALTH_SAVES, ...HABITS_SAVES, ...GYM_SAVES, ...PLAN_SAVES, ...EXERCISES_SAVES, ...HOME_SAVES, ...PICK_SAVES, ...ZONES_SAVES, ...HISTORY_SAVES, ...EDIT_SAVES, ...TRENDS_SAVES, ...COACH_SAVES, ...CATALOGUE_SAVES, ...LIBRARY_HABITS_SAVES, ...MEDICAL_REPORTS_SAVES, ...MEDICAL_MEDS_SAVES])).toEqual(new Set(SAVE_NAMES));
   });
 });
 
@@ -819,6 +819,48 @@ describe('the Week review', () => {
     const r = await runSave(wrapped as typeof door, SESSION, 'coach_start', form({ start: '2026-11-09', end: '2026-11-10', view_p: 'this' }), undefined, 'week');
     expect(r.ok).toBe(true);
     expect(seen).toEqual([{ path: '/coach/start', body: { kind: 'week', start: '2026-11-09', end: '2026-11-10', view: 'week', view_p: 'this' }, timeout: true }]);
+  });
+});
+
+// Deploy 109: the day coaching's button (POST /coach/start, kind "day"), on Today's Coach card and on the Coach page: the day twice, never a
+// key, Today's fresh read (view "day", view_day) or the Coach page's (view "coach", view_f, view_day). Today keeps it (TODAY_SAVES is made
+// by exclusion); the Week review's button stays Trends' own.
+describe('the day coaching', () => {
+  it('starts a day coaching for the card\'s day twice, with no key', () => {
+    const body = bodyFor('coach_day', form({ start: '2026-11-14', end: '2026-11-15', key: KEY }), '2026-11-14', undefined, 'day');
+    expect(body).toEqual({ kind: 'day', start: '2026-11-14', end: '2026-11-14', view: 'day', view_day: '2026-11-14' });
+    expect(SAVES.coach_day.keyed).toBe(false);
+    expect(SAVES.coach_day.timeoutMs).toBe(60_000);
+  });
+
+  it('asks the Coach page for its filter and day', () => {
+    const body = bodyFor('coach_day', form({ start: '2026-11-14', view_f: 'weeks', view_day: '2026-11-14' }), '2026-11-14', undefined, 'coach');
+    expect(body).toEqual({ kind: 'day', start: '2026-11-14', end: '2026-11-14', view: 'coach', view_f: 'weeks', view_day: '2026-11-14' });
+  });
+
+  it('leaves out a filter that is none of the three and a day that is no day (the door then answers in its words)', () => {
+    const body = bodyFor('coach_day', form({ start: '14.11.2026', view_f: 'drinks', view_day: 'x' }), 'x', undefined, 'coach');
+    expect(body).toEqual({ kind: 'day', view: 'coach' });
+  });
+
+  it('is on Today\'s and the Coach page\'s form actions, not on Trends\'; the week review is on Trends\' only', () => {
+    expect(COACH_SAVES).toEqual(['coach_day']);
+    expect(TODAY_SAVES).toContain('coach_day');
+    expect(TODAY_SAVES).not.toContain('coach_start');
+    expect(TRENDS_SAVES).toEqual(['coach_start']);
+    expect(FOOD_SAVES).not.toContain('coach_day');
+  });
+
+  it('goes to /coach/start once, with 60 s for the door', async () => {
+    const seen: { path: string; body: Record<string, unknown>; timeout: boolean }[] = [];
+    const { door } = net(200, { v: 1, outcome: 'changed', head: 'The coach is reading your day: about 30 seconds.', coaching: { id: 8, state: 'working' }, day: {} });
+    const wrapped = { ...door, post: (path: string, session: string | null, body: Record<string, unknown>, timeoutMs?: number) => {
+      seen.push({ path, body, timeout: timeoutMs === 60_000 });
+      return door.post(path, session, body, timeoutMs);
+    } };
+    const r = await runSave(wrapped as typeof door, SESSION, 'coach_day', form({ start: '2026-11-16', view_day: '2026-11-16' }), '2026-11-16', 'day');
+    expect(r.ok).toBe(true);
+    expect(seen).toEqual([{ path: '/coach/start', body: { kind: 'day', start: '2026-11-16', end: '2026-11-16', view: 'day', view_day: '2026-11-16' }, timeout: true }]);
   });
 });
 

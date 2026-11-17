@@ -1,4 +1,5 @@
 <script lang="ts">
+  import CoachDayCard from '#lib/components/coach/CoachDayCard.svelte';
   import ThemeButton from '#lib/components/ThemeButton.svelte';
   import Chips from '#lib/components/today/Chips.svelte';
   import DayTimeline from '#lib/components/today/DayTimeline.svelte';
@@ -12,9 +13,12 @@
   import ProblemCard from '#lib/components/ProblemCard.svelte';
   import { Button } from '#lib/components/ui/button/index.js';
   import LogBox from '#lib/components/today/LogBox.svelte';
+  import { todayFields } from '#lib/coach.js';
+  import { pollWhileWorking } from '#lib/coachpoll.svelte.js';
   import { headerLine } from '#lib/day.js';
   import { dayLine } from '#lib/format.js';
   import { setToday, Today } from '#lib/today.svelte.js';
+  import { invalidateAll } from '$app/navigation';
   import { onMount, untrack } from 'svelte';
   import type { PageProps } from './$types';
 
@@ -28,6 +32,22 @@
   onMount(() => void today.resend());
 
   const day = $derived(today.day);
+  const coach = $derived(day?.coach ?? null);
+
+  // Today's Coach card (deploy 109): while the day is read, ask every 5 seconds (through this app's /coach/status) and read Today again
+  // in place when it is ready; after 5 minutes it says it takes longer, with Look again.
+  let again = $state(0);
+  pollWhileWorking({
+    id: () => (coach?.state === 'working' ? coach.id : null),
+    again: () => again,
+    over: () => void invalidateAll(),
+    slow: (on) => (today.coach.slow = on),
+  });
+  const lookAgain = () => {
+    today.coach.slow = false;
+    again++;
+    void invalidateAll();
+  };
   // The Food day (step E, deploy 84): its own page under Today.
   const foodHref = '/food';
 </script>
@@ -67,7 +87,9 @@
       <div class="order-7 empty:hidden desktop:order-none"><HabitsCard {day} /></div>
       <!-- the Home card (deploy 99): right after Habits, as on app. (its Gym card follows there; here the Gym card sits under the day) -->
       <div class="order-8 empty:hidden desktop:order-none"><HomeCard {day} /></div>
-      <div class="order-9 empty:hidden desktop:order-none"><GratitudeLink {day} href="{data.appUrl}/web/gratitude" /></div>
+      <!-- the Coach card (deploy 109): after Home on phones, last of the cards on the PC; none when Settings hides it (day.coach null) -->
+      <div class="order-9 empty:hidden desktop:order-none">{#if coach}<CoachDayCard card={coach} run={today.coach} fields={todayFields(coach)} start={(f) => void today.startCoach(f)} {lookAgain} appUrl={data.appUrl} title={coach.title} links />{/if}</div>
+      <div class="order-10 empty:hidden desktop:order-none"><GratitudeLink {day} href="{data.appUrl}/web/gratitude" /></div>
     </div>
   </main>
 {/if}

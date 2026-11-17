@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { goto, invalidateAll } from '$app/navigation';
+  import { invalidateAll } from '$app/navigation';
   import ProblemCard from '#lib/components/ProblemCard.svelte';
   import DaysCard from '#lib/components/trends/DaysCard.svelte';
   import FoodCard from '#lib/components/trends/FoodCard.svelte';
@@ -7,8 +7,8 @@
   import HealthCard from '#lib/components/trends/HealthCard.svelte';
   import ReviewCard from '#lib/components/trends/ReviewCard.svelte';
   import TrendsTabs from '#lib/components/trends/TrendsTabs.svelte';
-  import { loginHref } from '#lib/next.js';
-  import { headLine, periodHref, StatusPoll, statusOf } from '#lib/week.js';
+  import { pollWhileWorking } from '#lib/coachpoll.svelte.js';
+  import { headLine, periodHref } from '#lib/week.js';
   import { WeekPage } from '#lib/weekpage.svelte.js';
   import { untrack } from 'svelte';
   import type { PageProps } from './$types';
@@ -25,25 +25,14 @@
   const w = $derived(page.week);
   const review = $derived(w?.review ?? null);
 
-  // While the review is read: ask every 5 seconds (through this app's /trends/status), and when it is no longer working read the
+  // While the review is read: ask every 5 seconds (through this app's /coach/status), and when it is no longer working read the
   // week again in place (no reload). After 5 minutes stop and say it takes longer, with Look again (as app.).
   let again = $state(0);
-  $effect(() => {
-    const id = review?.state === 'working' ? review.id : null;
-    void again;
-    if (id === null || id === undefined) return;
-    const poll = new StatusPoll({
-      ask: async () => {
-        const r = await fetch(`/trends/status?id=${id}`, { cache: 'no-store', headers: { accept: 'application/json' } });
-        return statusOf(r.status, await r.json().catch(() => null));
-      },
-      over: () => void invalidateAll(),
-      signedOut: () => void goto(loginHref(location.pathname + location.search)),
-      slow: () => (page.slow = true),
-    });
-    untrack(() => (page.slow = false));
-    poll.start();
-    return () => poll.stop();
+  pollWhileWorking({
+    id: () => (review?.state === 'working' ? review.id : null),
+    again: () => again,
+    over: () => void invalidateAll(),
+    slow: (on) => (page.slow = on),
   });
   const lookAgain = () => {
     page.slow = false;

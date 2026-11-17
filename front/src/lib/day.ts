@@ -11,6 +11,7 @@ import type { Exercises, Plan } from './gymplan.js';
 import type { HomeCard, HomePick, Now } from './home.js';
 import type { Edit, History, Zones } from './homeparts.js';
 import type { Usual } from './usual.js';
+import type { Card, CoachRead } from './coach.js';
 
 // ---- the door's shapes (docs/API.md; front/tests/samples/day.json is a real answer) ----------------------------------------
 
@@ -164,6 +165,8 @@ export interface Day {
   gym?: GymCard | null;
   /** Today's Home card (deploy 98/99); null: a past day, no chores, or the card hidden in Settings > Today page. */
   home?: HomeCard | null;
+  /** Today's Coach card (deploy 107/109); null: the card is hidden in Settings > Today page. */
+  coach?: Card | null;
 }
 
 export interface Undo {
@@ -467,6 +470,9 @@ export interface SaveAnswer {
   home_zones?: Zones;
   home_history?: History;
   home_edit?: Edit;
+  /** Deploy 109: a day coaching's start asks for the Coach page ("view": "coach", with "view_f"); the coaching it started (null when refused). */
+  coach?: CoachRead;
+  coaching?: { id: number; state: string } | null;
 }
 
 /** The rows a save added (in the fresh day, not in the one shown before): they get a blue edge (the mockup). */
