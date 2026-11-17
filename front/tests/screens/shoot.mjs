@@ -5772,8 +5772,52 @@ async function checkSettings(page, name, theme) {
 }
 
 /**
+ * Deploy 113: Change on a To review row leads to this app's page where there is one. The sample's three rows: a thought (app., with
+ * the small tag), a food (its day with the entry open: the Food day shows it, its editor open) and a weight (Health, which opens a
+ * day only by a tap). Each link is followed once; every Change is still 44 px high on phones and tablets.
+ */
+async function checkReviewChange(page, name, theme) {
+  await page.goto(`${base}/`);
+  const review = page.locator('[data-review]');
+  await review.waitFor();
+  const rows = day.needs.review;
+  const links = review.locator('[data-change]');
+  assert.equal(await links.count(), rows.length, 'a Change link per row');
+  for (const [i, r] of rows.entries()) {
+    const link = links.nth(i);
+    assert.equal(await link.evaluate((e) => e.textContent.replace(/\s+/g, ' ').trim().startsWith('Change')), true, `${r.ref}: the link text is Change`);
+    const href = await link.getAttribute('href');
+    if (r.kind === 'thought') {
+      assert.match(href, /^https?:\/\/[^/]+\/web\/$/, 'a thought stays at app.');
+      assert.equal(await link.locator('[data-app-tag]').count(), 1, 'a thought: the app. tag');
+    } else {
+      assert.equal(await link.locator('[data-app-tag]').count(), 0, `${r.ref}: no app. tag`);
+      assert.equal(href, r.kind === 'food' ? `/food?day=${r.day}&open=${r.ref}` : '/health', `${r.ref}: where Change leads`);
+    }
+    if (name !== 'pc') assert.ok((await link.boundingBox()).height >= 44, `${r.ref}: Change is 44 px high`);
+  }
+  if (name === 'phone') await review.screenshot({ path: `${out}/today-review-change-${name}-${theme}.png` });
+
+  // the food: the Food day of that day, the entry open
+  const food = rows.find((r) => r.kind === 'food');
+  await review.locator(`[data-change][href^="/food"]`).click();
+  await page.waitForURL(new RegExp(`/food\\?day=${food.day}&open=${food.ref}$`));
+  await page.locator(`[data-row="${food.ref}"]`).waitFor();
+  await page.locator(`[data-food-editor="${food.ref}"]`).waitFor();
+  assert.equal(await page.locator('[data-food-editor]').count(), 1, 'the food: its entry is the one open');
+
+  // the weight: the Health page
+  await page.goto(`${base}/`);
+  await review.waitFor();
+  await review.locator('[data-change][href="/health"]').click();
+  await page.waitForURL(/\/health$/);
+  await page.locator('[data-charts]').waitFor();
+  await page.goto(`${base}/`);
+}
+
+/**
  * The links that left app. with deploy 111 and Today following the two switches: More's Settings row, the Habits and Library lines, the
- * Health page's height link, Your goals on Today, the sign-in page's line; no footer line; the Needs card's Change stays app.'s; with
+ * Health page's height link, Your goals on Today, the sign-in page's line; no footer line; the Needs card's Change (checkReviewChange); with
  * `shown` false the To review items are one line and the Gratitude card is gone, with `shown` missing (an older door) both show.
  */
 async function checkSettingsLinks(page, name, theme) {
@@ -5796,8 +5840,9 @@ async function checkSettingsLinks(page, name, theme) {
   assert.equal(await page.getByText('Settings and the rest are').count(), 0, 'no footer line on Today');
   const goals = page.locator('[data-card="coach"] [data-coach-link]').last();
   assert.equal(await goals.getAttribute('href'), '/settings/coach', 'Your goals on Today');
-  // Change on a To review row stays app.'s (the door's row has no food id)
-  for (const href of await page.locator('[data-review] a', { hasText: 'Change' }).evaluateAll((els) => els.map((e) => e.getAttribute('href')))) assert.match(href, /^https?:\/\/[^/]+\/web\/$/);
+  // Change on a To review row: a thought's stays app.'s, the food's and the weight's are this app's (checkReviewChange, deploy 113)
+  const changes = await page.locator('[data-review] [data-change]').evaluateAll((els) => els.map((e) => e.getAttribute('href')));
+  assert.deepEqual(changes.map((h) => h.replace(/^https?:\/\/[^/]+/, '')), ['/web/', '/food?day=2026-11-16&open=f5', '/health']);
   assert.equal(await page.locator('[data-review-hidden]').count(), 0);
   assert.equal(await page.locator('[data-card="gratitude"]').count(), 1);
 
@@ -6098,7 +6143,10 @@ for (const theme of ['dark', 'light']) {
     if (name === 'phone') await page.screenshot({ path: `${out}/signin-wrong-${name}-${theme}.png` });
     await signIn(page);
     await page.screenshot({ path: `${out}/today-${name}-${theme}.png`, fullPage: true });
-    if (only('today')) await checkToday(page, name);
+    if (only('today')) {
+      await checkToday(page, name);
+      await checkReviewChange(page, name, theme);
+    }
     await checkWidth(page, 'today');
     if (only('saves')) {
       await checkSaves(page, name, theme);

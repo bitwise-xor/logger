@@ -4,7 +4,7 @@
  */
 import { dayOf, hm, hours, n, plain } from './format.js';
 import type { FoodDay } from './food.js';
-import type { Body, BodyDue, Health } from './health.js';
+import { MEASURES, type Body, type BodyDue, type Health } from './health.js';
 import type { Habits } from './habits.js';
 import type { GymCard, Workout } from './gym.js';
 import type { Exercises, Plan } from './gymplan.js';
@@ -427,6 +427,25 @@ export function reviewText(r: Review): string {
   if (r.kind === 'food') return `${r.label} ${n(r.v1)} ${r.unit ?? ''}`.trim();
   if (r.kind === 'measurement') return `${r.label} ${n(r.v1, 1)}${r.v2 !== null ? `/${n(r.v2)}` : ''} ${r.unit ?? ''}`.trim();
   return `${r.label}${r.at ? ` ${hm(r.at)}` : ''}`;
+}
+
+/**
+ * Where a To review row's "Change" leads (deploy 113): a page of this app where one can change that entry, else the old app
+ * (`app` true: the link wears the small "app." tag). Food: its day with the entry open (?open=f<id>). A tape measurement (waist,
+ * hips, chest, upper arm, thigh): the Health page's body form on that day's session (?measure=1&mday=). Any other measurement
+ * (weight, blood pressure, sugar): /health, whose day rows open on a tap (no address opens one). An event (a habit tick or a
+ * sleep entry): the door's row has no `type` for it, only a label, so the two cannot be told apart: app. A thought is words:
+ * app. Anything odd (a ref that does not match its kind, a day that is not yyyy-mm-dd, an unknown kind): app.
+ */
+export function changeLink(r: Pick<Review, 'ref' | 'kind' | 'day' | 'type'>, appUrl: string): { href: string; app: boolean } {
+  const old = { href: `${appUrl}/web/`, app: true };
+  const here = (href: string) => ({ href, app: false });
+  if (!/^\d{4}-\d\d-\d\d$/.test(r.day ?? '')) return old;
+  if (r.kind === 'food' && /^f\d{1,9}$/.test(r.ref)) return here(`/food?day=${r.day}&open=${r.ref}`);
+  if (r.kind === 'measurement' && /^m\d{1,9}$/.test(r.ref)) {
+    return here((MEASURES as string[]).includes(r.type ?? '') ? `/health?measure=1&mday=${r.day}#body` : '/health');
+  }
+  return old;
 }
 
 // ---- habits and chips ---------------------------------------------------------------------------------------------------------

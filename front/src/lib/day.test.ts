@@ -14,10 +14,12 @@ import {
   hiddenReviewText,
   needsCount,
   reviewShown,
+  changeLink,
   reviewText,
   timeline,
   type Day,
   type FoodRow,
+  type Review,
   type ValueRow,
 } from './day.js';
 
@@ -289,5 +291,42 @@ describe('saving in place', () => {
     expect([...freshRefs(SAMPLE, after)]).toEqual(['f999999']);
     expect(freshRefs(SAMPLE, SAMPLE).size).toBe(0);
     expect(freshRefs(after, SAMPLE).size).toBe(0); // an Undo takes a row away: nothing is new
+  });
+});
+
+describe('where Change on a To review row leads (deploy 113)', () => {
+  const APP = 'https://old.example';
+  const OLD = { href: `${APP}/web/`, app: true };
+  const byRef = (ref: string) => SAMPLE.needs.review.find((r) => r.ref === ref) as Review;
+  const [thought, foodRow, weight] = [byRef('t1'), byRef('f5'), byRef('m5')];
+  const row = (over: Partial<Review>): Review => ({ ...foodRow, ...over });
+
+  it('opens a food on its day with the entry open', () => {
+    expect(changeLink(foodRow, APP)).toEqual({ href: '/food?day=2026-11-16&open=f5', app: false });
+  });
+  it('sends a weight, pressure or sugar to Health, a tape measure to its day in the body form', () => {
+    expect(changeLink(weight, APP)).toEqual({ href: '/health', app: false });
+    for (const type of ['bp', 'blood_sugar']) expect(changeLink(row({ kind: 'measurement', ref: 'm9', type }), APP).href).toBe('/health');
+    expect(changeLink(row({ kind: 'measurement', ref: 'm9', type: null }), APP).href).toBe('/health');
+    for (const type of ['waist', 'hips', 'chest', 'upper_arm', 'thigh']) {
+      expect(changeLink(row({ kind: 'measurement', ref: 'm9', type, day: '2026-11-12' }), APP)).toEqual({ href: '/health?measure=1&mday=2026-11-12#body', app: false });
+    }
+  });
+  it('keeps thoughts and events at the old app, with the tag', () => {
+    expect(changeLink(thought, APP)).toEqual(OLD);
+    expect(changeLink(row({ kind: 'event', ref: 'e2', type: null, label: 'Wake-up' }), APP)).toEqual(OLD);
+    expect(changeLink(row({ kind: 'event', ref: 'e2', type: 'wake' }), APP)).toEqual(OLD);
+  });
+  it('falls back to the old app for odd input', () => {
+    expect(changeLink(row({ ref: 'm5' }), APP)).toEqual(OLD); // a food with a measurement's ref
+    expect(changeLink(row({ kind: 'measurement', ref: 'f5' }), APP)).toEqual(OLD);
+    expect(changeLink(row({ ref: 'f5/../x' }), APP)).toEqual(OLD);
+    expect(changeLink(row({ ref: 'f' }), APP)).toEqual(OLD);
+    expect(changeLink(row({ ref: 'f1234567890' }), APP)).toEqual(OLD);
+    expect(changeLink(row({ day: '' }), APP)).toEqual(OLD);
+    expect(changeLink(row({ day: '16.11.2026' }), APP)).toEqual(OLD);
+    expect(changeLink(row({ day: undefined as unknown as string }), APP)).toEqual(OLD);
+    expect(changeLink(row({ kind: 'measurement', ref: 'm5', type: 'waist', day: 'x&open=1' }), APP)).toEqual(OLD);
+    expect(changeLink(row({ kind: 'gratitude' as Review['kind'], ref: 'g1' }), APP)).toEqual(OLD);
   });
 });

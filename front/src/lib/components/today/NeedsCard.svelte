@@ -1,6 +1,7 @@
 <script lang="ts">
   import { dayOf, hm } from '#lib/format.js';
-  import { hiddenReviewText, needsCount, reviewShown, reviewText, type Answer, type Day, type Question } from '#lib/day.js';
+  import AppTag from '#lib/components/more/AppTag.svelte';
+  import { changeLink, hiddenReviewText, needsCount, reviewShown, reviewText, type Answer, type Day, type Question } from '#lib/day.js';
   import { getToday } from '#lib/today.svelte.js';
   import { bodyDueLine } from '#lib/health.js';
 
@@ -150,6 +151,7 @@
       <div class="flex flex-col gap-2" data-review>
         <span class="font-medium">To review</span>
         {#each needs.review as r (r.ref)}
+          {@const change = changeLink(r, appUrl)}
           <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
             <span class="min-w-0 flex-1 basis-48">
               {#if r.day !== day.day}<span class="num text-muted">{dayOf(r.day)} </span>{/if}{reviewText(r)}
@@ -163,9 +165,10 @@
                   >Looks right</button
                 >
               </form>
-              <!-- Changing an entry is app.'s: the door's review row has the entry's ref only (no food id), so a food's Library box
-                   cannot be opened from here (deploy 111), and the other kinds have no page here. -->
-              <a href="{appUrl}/web/" class="{btn} {STYLE.quiet} inline-flex items-center no-underline">Change</a>
+              <!-- Change leads to this app's page for the entry where there is one (food: its day with the row open; a tape measurement:
+                   the body form of its day; another measurement: Health), else to app. with its tag: a thought (words), an event (the
+                   door's row cannot tell a habit from a sleep entry) and anything odd (changeLink, deploy 113). -->
+              <a href={change.href} class="{btn} {STYLE.quiet} inline-flex items-center gap-1.5 no-underline" data-change>Change{#if change.app}<AppTag />{/if}</a>
             </span>
           </div>
         {/each}
