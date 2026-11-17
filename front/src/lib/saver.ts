@@ -75,10 +75,13 @@ export const KEYED = new Set([
  * Deploy 105: Library's Foods tab (`catalogue_`: values, words, barcode, basics, unit, reviewed) takes no key at the door and has no
  * Undo, so a second send would be a second change (a word added twice, a food hidden behind your back): never sent again by the page,
  * also not after a sign-in.
+ * Deploy 106: Medical's three forms (`labs_`: a value, a report, a course and its End) take no key at the door and have no Undo either:
+ * never sent again by the page, not after a sign-in (a change shown and said Yes to is made once, by a tap seen to work). A new course
+ * typed in the Medication page's box is Today's `log`, keyed and treated as Today's is.
  */
 export const NEVER_RESENT = new Set(['habit_day', 'gym_tick', 'home_tick', 'home_pickdone', 'home_picknext', 'home_earlier', 'home_alldone', 'home_startpoint']);
 export const mayResend = (action: string) =>
-  KEYED.has(action) && !NEVER_RESENT.has(action) && !action.startsWith('gym_') && !action.startsWith('home_') && !action.startsWith('coach_') && !action.startsWith('catalogue_');
+  KEYED.has(action) && !NEVER_RESENT.has(action) && !action.startsWith('gym_') && !action.startsWith('home_') && !action.startsWith('coach_') && !action.startsWith('catalogue_') && !action.startsWith('labs_');
 /** The saves that may have gone through although no answer came (a paid start): the network error does not say "nothing was saved". */
 const UNSURE = new Set(['coach_start']);
 /** The actions the AI reads (up to about 40 s; the look-up since deploy 90): their answer is never dropped for a tap made while they were read. */

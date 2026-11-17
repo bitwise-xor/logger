@@ -5,7 +5,7 @@
 
   let { data }: PageProps = $props();
 
-  // More (deploy 96, the Spaces menu): the Spaces as a list (Gym, Health, Habits, Home since deploy 99; Medical greyed until it moves here),
+  // More (deploy 96, the Spaces menu): the Spaces as a list (Gym, Health, Habits, Home since deploy 99, Medical since deploy 106: all live),
   // then one line that the rest is in the full app. On the PC the rail has the Spaces too.
 </script>
 
@@ -45,6 +45,6 @@
     </div>
   </section>
   <p class="m-0 rounded-card border border-dashed border-line p-3 text-muted" data-rest>
-    The rest is in the <a href="{data.appUrl}/web/">full app</a>.
+    Settings and the rest are in the <a href="{data.appUrl}/web/">full app</a>.
   </p>
 </main>

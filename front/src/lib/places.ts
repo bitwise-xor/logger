@@ -1,7 +1,8 @@
 /**
  * The places of the app (deploy 96, the Spaces menu): the tab or rail item a page belongs to, and the Spaces. The PC's rail shows
- * Today, Trends (a page of this app since deploy 102), Library (since deploy 105), the Spaces (Gym, Health, Habits, and Home since deploy 99) and More;
- * phones and tablets four tabs, with the Spaces on the More page (/more), where Medical waits greyed ("soon"). Plain TypeScript, so the tests need no browser.
+ * Today, Trends (a page of this app since deploy 102), Library (since deploy 105), the Spaces (Gym, Health, Habits, Home since deploy 99, and
+ * Medical since deploy 106) and More; phones and tablets four tabs, with the Spaces on the More page (/more). Plain TypeScript, so the tests
+ * need no browser.
  */
 
 export interface Space {
@@ -18,7 +19,7 @@ export const SPACES: Space[] = [
   { key: 'health', name: 'Health', href: '/health', sub: 'Weight, blood pressure, sugar, sleep, body' },
   { key: 'habits', name: 'Habits', href: '/habits', sub: 'Today’s ticks and the last 30 days' },
   { key: 'home', name: 'Home', href: '/home', sub: 'Chores by zone, a job for the time you have' },
-  { key: 'medical', name: 'Medical', href: null, sub: 'soon' },
+  { key: 'medical', name: 'Medical', href: '/medical', sub: 'Lab reports, tests over time, medication' },
 ];
 
 /**
@@ -48,4 +49,12 @@ export const LIBRARY_TABS: { key: LibraryTab; label: string; href: string }[] = 
   { key: 'usual', label: 'Usual meals', href: '/library/usual' },
   { key: 'habits', label: 'Habits', href: '/library/habits' },
   { key: 'exercises', label: 'Exercises', href: '/library/exercises' },
+];
+
+/** Medical's tabs (deploy 106): Reports, Tests over time and Medication, each its own page under /medical. */
+export type MedicalTab = 'reports' | 'tests' | 'meds';
+export const MEDICAL_TABS: { key: MedicalTab; label: string; href: string }[] = [
+  { key: 'reports', label: 'Reports', href: '/medical' },
+  { key: 'tests', label: 'Tests over time', href: '/medical/tests' },
+  { key: 'meds', label: 'Medication', href: '/medical/meds' },
 ];

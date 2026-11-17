@@ -5,7 +5,7 @@
 
   let { data, children }: LayoutProps = $props();
 
-  // The places (deploy 96, the Spaces menu): the PC's rail has Today, Trends, Library, then "Spaces" (Gym, Health, Habits, Home), then
+  // The places (deploy 96, the Spaces menu): the PC's rail has Today, Trends, Library, then "Spaces" (Gym, Health, Habits, Home, Medical), then
   // More; the Space you are in is the highlighted one. Phones and tablets keep four tabs, Today, Trends, Library and More; More is
   // the page /more with the Spaces, and it is highlighted on a Space's page too. Trends is a page of this app since deploy 102 (lit on
   // every /trends page), Library since deploy 105 (lit on every /library page).
@@ -52,7 +52,7 @@
   <div class="mx-auto flex w-full max-w-[960px] min-w-0 flex-1 flex-col desktop:mx-0 desktop:max-w-[1440px] gap-3 px-3.5 pt-3.5 pb-[calc(84px+var(--dock,0px))] desktop:px-6 desktop:pb-8">
     {@render children()}
     <p class="m-0 mt-auto pt-6 text-[13px] text-muted">
-      Medical, Settings and the rest are <a href="{data.appUrl}/web/">in the full app</a>.
+      Settings and the rest are <a href="{data.appUrl}/web/">in the full app</a>.
     </p>
   </div>
 </div>

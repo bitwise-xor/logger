@@ -20,6 +20,7 @@ import { SHOWS } from '../habits.js';
 import { VALS, wordsOf } from '../gym.js';
 import { linesOf, wordsOfText } from '../homeparts.js';
 import { CATALOGUE_FILTERS, CATALOGUE_SORTS } from '../catalogue.js';
+import { askedOpen, askedTest } from '../medical.js';
 
 /** The form's fields: what `FormData` offers (and a plain test double). */
 export interface Fields {
@@ -291,6 +292,50 @@ export const SAVES = {
     body: (f) => ({ id: int(f, 'id'), unit: str(f, 'unit', 30) ?? '', grams: str(f, 'grams', 20) === undefined ? null : foodNumber(f, 'grams') }),
   },
   catalogue_reviewed: { path: '/food/catalogue/reviewed', keyed: false, body: (f) => ({ id: int(f, 'id') }) },
+  // Medical's three forms (deploy 106, docs/API.md "Medical's saves"): a correction of a lab value, of a report's date, title, lab and notes,
+  // and of a medication course (or its End). The door takes NO key and has no Undo; the page never sends one again by itself (saver.ts:
+  // `labs_`, not after a sign-in either). Each is shown first (needs_confirmation, its read-back in the answer bar), then the same with
+  // confirmed. Only the fields typed over are sent (one left out stays as it is); a cleared one goes as null (empty). The answer brings
+  // the fresh read (view "labs" with view_open, "labs_meds").
+  labs_value: {
+    path: '/labs/value',
+    keyed: false,
+    body: (f) => ({ id: int(f, 'id'), value: typed(f, 'value', 60), unit: typed(f, 'unit', 30), ref: typed(f, 'ref', 60), confirmed: confirmedOf(f) }),
+  },
+  labs_report: {
+    path: '/labs/report',
+    keyed: false,
+    body: (f) => ({
+      id: int(f, 'id'),
+      collected: typedDate(f, 'collected'),
+      title: typed(f, 'title', 200),
+      provider: typed(f, 'provider', 200),
+      notes: typed(f, 'notes', 2000),
+      confirmed: confirmedOf(f),
+    }),
+  },
+  // act "save" (dose, how often, why, start, stop: empty stop = running) or "end" (a running course ends today)
+  labs_med: {
+    path: '/labs/med',
+    keyed: false,
+    body: (f) => {
+      const act = f.get('act') === 'end' ? 'end' : 'save';
+      return {
+        id: int(f, 'id'),
+        act,
+        ...(act === 'save'
+          ? {
+              dose: typed(f, 'dose', 60),
+              frequency: typed(f, 'frequency', 60),
+              indication: typed(f, 'indication', 120),
+              start: typedDate(f, 'start'),
+              stop: typedDate(f, 'stop'),
+            }
+          : {}),
+        confirmed: confirmedOf(f),
+      };
+    },
+  },
 } satisfies Record<string, Save>;
 
 /** The ten values of a food (docs/API.md, the Catalogue's values form), as the door names them. */
@@ -303,6 +348,24 @@ function foodNumber(f: Fields, name: string): number | string | null {
   const n = t.replace(',', '.');
   return /^\d{1,6}(\.\d{1,4})?$/.test(n) ? Number(n) : t;
 }
+
+/** A text of Medical's forms: left out when the form did not send it, null when it came empty (the door: null is empty), else as typed. */
+function typed(f: Fields, name: string, limit: number): string | null | undefined {
+  const v = f.get(name);
+  if (typeof v !== 'string') return undefined;
+  const t = v.trim().slice(0, limit);
+  return t === '' ? null : t;
+}
+
+/** A date of Medical's forms: left out, null when empty, else yyyy-mm-dd (anything else is sent as null: the door asks for the date). */
+function typedDate(f: Fields, name: string): string | null | undefined {
+  const v = f.get(name);
+  if (typeof v !== 'string') return undefined;
+  const t = v.trim();
+  return /^\d{4}-\d\d-\d\d$/.test(t) ? t : null;
+}
+
+const confirmedOf = (f: Fields): true | undefined => (f.get('confirmed') === '1' ? true : undefined);
 
 /** A date field (yyyy-mm-dd), or left out (the door then says it is missing). */
 function dateOf(f: Fields, name: string): string | undefined {
@@ -445,12 +508,20 @@ const CATALOGUE_ONLY: SaveName[] = ['catalogue_values', 'catalogue_words', 'cata
 export const CATALOGUE_SAVES: SaveName[] = [...CATALOGUE_ONLY, 'lookup', 'answer', 'undo'];
 /** Library's Habits tab's (deploy 105, src/routes/(app)/library/habits): the list's forms, as on the Habits page. */
 export const LIBRARY_HABITS_SAVES: SaveName[] = ['habits_manage'];
+/**
+ * Medical's (deploy 106, src/routes/(app)/medical): the Reports page's two forms (a value, a report's date, title, lab and notes), and the
+ * Medication page's form and End, with a new course through Today's typed line and its yes (`log`, `answer`, asked for the Medication
+ * read; the door's Undo comes with them, if any). The three Medical forms have no Undo.
+ */
+const MEDICAL_ONLY: SaveName[] = ['labs_value', 'labs_report', 'labs_med'];
+export const MEDICAL_REPORTS_SAVES: SaveName[] = ['labs_value', 'labs_report'];
+export const MEDICAL_MEDS_SAVES: SaveName[] = ['labs_med', 'log', 'answer', 'undo'];
 export const TODAY_SAVES: SaveName[] = SAVE_NAMES.filter(
   (n) =>
     n === 'undo' ||
-    (!FOOD_SAVES.includes(n) && !USUAL_SAVES.includes(n) && !HEALTH_SAVES.includes(n) && !HABITS_ONLY.includes(n) && !GYM_ONLY.includes(n) && !HOME_ONLY.includes(n) && !TRENDS_SAVES.includes(n) && !CATALOGUE_ONLY.includes(n)),
+    (!FOOD_SAVES.includes(n) && !USUAL_SAVES.includes(n) && !HEALTH_SAVES.includes(n) && !HABITS_ONLY.includes(n) && !GYM_ONLY.includes(n) && !HOME_ONLY.includes(n) && !TRENDS_SAVES.includes(n) && !CATALOGUE_ONLY.includes(n) && !MEDICAL_ONLY.includes(n)),
 );
-export type View = 'day' | 'food' | 'usual' | 'health' | 'body' | 'habits' | 'gym' | 'gym_plan' | 'gym_exercises' | 'home' | 'home_pick' | 'home_zones' | 'home_history' | 'home_chore' | 'home_edit' | 'week' | 'catalogue';
+export type View = 'day' | 'food' | 'usual' | 'health' | 'body' | 'habits' | 'gym' | 'gym_plan' | 'gym_exercises' | 'home' | 'home_pick' | 'home_zones' | 'home_history' | 'home_chore' | 'home_edit' | 'week' | 'catalogue' | 'labs' | 'labs_tests' | 'labs_meds';
 
 /** A key as the browser makes them (src/lib/saver.ts): a random UUID or base64url; anything else is replaced. */
 const KEY = /^[A-Za-z0-9_-]{16,64}$/;
@@ -509,6 +580,17 @@ export function bodyFor(
     if (so && (CATALOGUE_SORTS as readonly string[]).includes(so)) body.view_s = so;
     const food = str(f, 'view_food', 12);
     if (food && /^[Nn]?\d{1,9}$/.test(food)) body.view_food = Number(food.replace(/^[Nn]/, ''));
+  }
+  // Medical's fresh read (deploy 106): the Reports page's open report (view_open, R12 as the door says it), or the Tests page's search and test.
+  if (view === 'labs') {
+    const open = askedOpen(str(f, 'view_open', 12) ?? null);
+    if (open) body.view_open = `R${open}`;
+  }
+  if (view === 'labs_tests') {
+    const q = str(f, 'view_q', 60);
+    if (q) body.view_q = q;
+    const t = askedTest(str(f, 'view_t', 12) ?? null);
+    if (t) body.view_t = String(t);
   }
   if (save.keyed) {
     const key = str(f, 'key', 64);

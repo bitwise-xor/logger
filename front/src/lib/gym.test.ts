@@ -34,7 +34,7 @@ import {
   type GymRow,
   type Workout,
 } from './gym.js';
-import { LIBRARY_TABS, placeOf, SPACES } from './places.js';
+import { LIBRARY_TABS, MEDICAL_TABS, placeOf, SPACES } from './places.js';
 
 const read = (name: string) => JSON.parse(readFileSync(new URL(`../../tests/samples/${name}`, import.meta.url), 'utf8'));
 const W: Workout = read('gym.json').gym.gym;
@@ -192,15 +192,17 @@ describe('the cards', () => {
 });
 
 describe('the Spaces menu', () => {
-  it('lists Gym, Health, Habits and Home (deploy 99), then Medical for later', () => {
+  it('lists Gym, Health, Habits, Home (deploy 99) and Medical (deploy 106), every Space live', () => {
     expect(SPACES.map((s) => [s.name, s.href])).toEqual([
       ['Gym', '/gym'],
       ['Health', '/health'],
       ['Habits', '/habits'],
       ['Home', '/home'],
-      ['Medical', null],
+      ['Medical', '/medical'],
     ]);
     expect(SPACES.find((s) => s.key === 'home')!.sub).not.toBe('soon');
+    expect(SPACES.find((s) => s.key === 'medical')!.sub).toBe('Lab reports, tests over time, medication');
+    expect(SPACES.every((s) => s.href)).toBe(true);
   });
 
   it('knows the place of a page: Today for Today and the Food day, More for /more and every Space', () => {
@@ -226,6 +228,11 @@ describe('the Spaces menu', () => {
     expect(placeOf('/library/habits')).toEqual({ tab: 'library', space: null, atMore: false });
     expect(placeOf('/library/exercises')).toEqual({ tab: 'library', space: null, atMore: false });
     expect(placeOf('/libraryx')).toEqual({ tab: null, space: null, atMore: false });
+    // deploy 106: Medical is a Space, the More tab lit on every /medical page
+    expect(placeOf('/medical')).toEqual({ tab: 'more', space: 'medical', atMore: false });
+    expect(placeOf('/medical/tests')).toEqual({ tab: 'more', space: 'medical', atMore: false });
+    expect(placeOf('/medical/meds')).toEqual({ tab: 'more', space: 'medical', atMore: false });
+    expect(placeOf('/medicalx')).toEqual({ tab: null, space: null, atMore: false });
     // the Habits Space and the Gym keep their own pages
     expect(placeOf('/habits')).toEqual({ tab: 'more', space: 'habits', atMore: false });
     expect(placeOf('/gym/exercises')).toEqual({ tab: 'more', space: 'gym', atMore: false });
@@ -237,6 +244,16 @@ describe('the Spaces menu', () => {
       ['usual', 'Usual meals', '/library/usual'],
       ['habits', 'Habits', '/library/habits'],
       ['exercises', 'Exercises', '/library/exercises'],
+    ]);
+  });
+});
+
+describe("Medical's tabs", () => {
+  it('lists Reports, Tests over time and Medication, each its own page', () => {
+    expect(MEDICAL_TABS.map((t) => [t.key, t.label, t.href])).toEqual([
+      ['reports', 'Reports', '/medical'],
+      ['tests', 'Tests over time', '/medical/tests'],
+      ['meds', 'Medication', '/medical/meds'],
     ]);
   });
 });

@@ -42,6 +42,8 @@
 // Deploy 105: Library at logger. (checkLibrary and checkLibraryTabs say what): the Library tab live, Foods (search, chips, the order,
 // a food opened under its row or beside the list, values read back and confirmed, refusals next to their form, words, a unit, Looks
 // right, Hide, a new food through the look-up), Usual meals moved under Library (/food/usual redirects), Habits and Exercises tabs.
+// Deploy 106: Medical at logger. (checkMedicalPlace, checkMedicalReports, checkMedicalTests and checkMedicalMeds say what): Medical a live
+// Space (rail, /more, the More tab lit), Reports, Tests over time and Medication with their saves in place; Medical no longer in the footer.
 // Every check throws on a failure, so the script ends with an error.
 // Usage: node tests/screens/shoot.mjs <base url> <out dir> <stand-in url>
 import assert from 'node:assert/strict';
@@ -64,6 +66,7 @@ const WEEK = JSON.parse(readFileSync(new URL('../samples/week.json', import.meta
 const FOODTRENDS = JSON.parse(readFileSync(new URL('../samples/food_trends.json', import.meta.url), 'utf8'));
 const INSIGHTS = JSON.parse(readFileSync(new URL('../samples/insights.json', import.meta.url), 'utf8')).insights.insights;
 const CAT = JSON.parse(readFileSync(new URL('../samples/catalogue.json', import.meta.url), 'utf8'));
+const LABS = JSON.parse(readFileSync(new URL('../samples/labs.json', import.meta.url), 'utf8'));
 
 // What the page must show, worked out here from the sample on its own (not with the page's code).
 const even = (x) => {
@@ -209,7 +212,7 @@ async function checkSaves(page, name, theme) {
   if (name !== 'pc') {
     // step F: scrolled to the end, the logging box and its answer bar cover nothing (the page leaves room for both)
     await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-    const last = await page.getByText('Medical, Settings and the rest are').boundingBox();
+    const last = await page.getByText('Settings and the rest are').boundingBox();
     const dock = await page.locator('[data-logbox]').boundingBox();
     assert.ok(last.y + last.height <= dock.y + 1, `the logging box covers nothing at the end (${last.y + last.height} > ${dock.y})`);
   }
@@ -1590,11 +1593,11 @@ async function checkGym(page, name, theme) {
   // the places: on the PC the rail's Spaces group with Gym highlighted; on phones and tablets the More tab
   if (pc) {
     assert.ok(await page.locator('[data-rail-group]').isVisible(), 'the rail has the Spaces group');
-    assert.deepEqual(await page.locator('[data-rail-space]').allTextContents().then((x) => x.map((t) => t.trim())), ['Gym', 'Health', 'Habits', 'Home']);
+    assert.deepEqual(await page.locator('[data-rail-space]').allTextContents().then((x) => x.map((t) => t.trim())), ['Gym', 'Health', 'Habits', 'Home', 'Medical']);
     assert.equal(await page.locator('[data-rail-space="gym"]').getAttribute('aria-current'), 'page');
     assert.equal(await page.locator('[data-place="today"]').getAttribute('aria-current'), null);
     const order = await page.locator('[data-places] > a, [data-places] > span').evaluateAll((els) => els.filter((e) => e.offsetParent && e.textContent.trim()).map((e) => e.textContent.trim()));
-    assert.deepEqual(order, ['Logger', 'Today', 'Trends', 'Library', 'Spaces', 'Gym', 'Health', 'Habits', 'Home', 'More'], 'the rail');
+    assert.deepEqual(order, ['Logger', 'Today', 'Trends', 'Library', 'Spaces', 'Gym', 'Health', 'Habits', 'Home', 'Medical', 'More'], 'the rail');
   } else {
     assert.equal(await page.locator('[data-rail-group]').isVisible(), false);
     assert.equal(await page.locator('[data-place="more"]').getAttribute('aria-current'), 'true', 'the More tab is highlighted on /gym');
@@ -1775,11 +1778,11 @@ async function checkGym(page, name, theme) {
     await page.waitForURL(/\/more$/);
     assert.equal(await page.locator('[data-place="more"]').getAttribute('aria-current'), 'page');
     assert.deepEqual(await page.locator('[data-space]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-space'), e.tagName, e.hasAttribute('data-soon')])), [
-      ['gym', 'A', false], ['health', 'A', false], ['habits', 'A', false], ['home', 'A', false], ['medical', 'DIV', true],
+      ['gym', 'A', false], ['health', 'A', false], ['habits', 'A', false], ['home', 'A', false], ['medical', 'A', false],
     ]);
-    assert.match(await text(page.locator('[data-space="medical"]')), /soon$/);
+    assert.equal(await page.locator('[data-space="medical"]').getAttribute('href'), '/medical', 'deploy 106: Medical is a live Space');
     assert.equal(await page.locator('[data-space="home"]').getAttribute('href'), '/home', 'deploy 99: Home is a live Space');
-    assert.equal(await text(page.locator('[data-rest]')), 'The rest is in the full app.');
+    assert.equal(await text(page.locator('[data-rest]')), 'Settings and the rest are in the full app.');
     assert.match(await page.locator('[data-rest] a').getAttribute('href'), /\/web\/$/);
     if (name === 'phone') await page.screenshot({ path: `${out}/more-${name}-${theme}.png` });
     await checkWidth(page, 'more');
@@ -3149,7 +3152,7 @@ async function checkTrends(page, name, theme) {
   assert.equal(await page.locator('[data-place="more"]').getAttribute('aria-current'), null);
   assert.equal(await page.locator('[data-place="library"]').getAttribute('aria-current'), null);
   assert.equal(await page.locator('[data-place="library"]').evaluate((e) => e.tagName), 'A');
-  assert.ok(await page.getByText('Medical, Settings and the rest are').isVisible(), 'the footer says what is still in the full app');
+  assert.ok(await page.getByText('Settings and the rest are').isVisible(), 'the footer says what is still in the full app');
   assert.equal(await page.getByText('Trends, Library and the rest').count(), 0);
   // the tabs: all three are pages of this app since deploy 103 (no mark for the full app)
   assert.deepEqual(await page.locator('[data-tab]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-tab'), e.getAttribute('aria-current')])), [['week', 'page'], ['charts', null], ['insights', null]]);
@@ -3599,7 +3602,7 @@ async function checkLibrary(page, name, theme) {
   assert.equal(await tab.getAttribute('aria-current'), 'page');
   assert.match(await tab.getAttribute('class'), /text-blue/);
   for (const other of ['today', 'trends', 'more']) assert.equal(await page.locator(`[data-place="${other}"]`).getAttribute('aria-current'), null, other);
-  assert.ok(await page.getByText('Medical, Settings and the rest are').isVisible(), 'the footer says what is still in the full app');
+  assert.ok(await page.getByText('Settings and the rest are').isVisible(), 'the footer says what is still in the full app');
   assert.equal(await page.getByText('Library and the rest').count(), 0);
   assert.deepEqual(await page.locator('[data-tab]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-tab'), e.textContent.trim(), e.getAttribute('href'), e.getAttribute('aria-current')])), [
     ['foods', 'Foods', '/library', 'page'], ['usual', 'Usual meals', '/library/usual', null], ['habits', 'Habits', '/library/habits', null], ['exercises', 'Exercises', '/library/exercises', null]]);
@@ -3968,6 +3971,615 @@ async function checkLibraryTabs(page, name, theme) {
   await page.goto(`${base}/`);
 }
 
+/**
+ * Deploy 106: Medical at logger. (checkMedicalReports, checkMedicalTests and checkMedicalMeds say what): Medical live as a Space (the rail on the PC,
+ * /more and the More tab on phones), Reports (the flagged card, the list against the sample, a report opened under its row or beside the list, a value
+ * corrected through the pencil and "Yes, change", No, refusals next to their form, the report's form, a chip opening its test), Tests over time (the
+ * search, the list, one test with its chart and history, the thin cases, "Report"), Medication (the list, the pencil, End, Add a course read back with
+ * Yes and No). Every save changes the page in place; the three pages are served with the same no-store headers as the others.
+ */
+const MED_EXPECT = LABS.reports.labs;
+
+/** Medical live in the places: /more on phones and tablets (the More tab lit on every Medical page), the rail on the PC. */
+async function checkMedicalPlace(page, name, theme) {
+  await standinPost('/standin/reset');
+  const pc = name === 'pc';
+  await page.goto(`${base}/`);
+  if (!pc) {
+    await page.locator('[data-place="more"]').click();
+    await page.waitForURL(/\/more$/);
+    const sp = page.locator('[data-space="medical"]');
+    assert.equal(await sp.evaluate((e) => e.tagName), 'A', 'Medical is a link on More');
+    assert.equal(await sp.getAttribute('href'), '/medical');
+    assert.equal(await sp.evaluate((e) => e.hasAttribute('data-soon')), false);
+    assert.equal(await text(sp), 'Medical Lab reports, tests over time, medication');
+    assert.equal(await page.locator('[data-soon]').count(), 0, 'every Space is live');
+    assert.equal(await text(page.locator('[data-rest]')), 'Settings and the rest are in the full app.');
+    assert.match(await page.locator('[data-rest] a').getAttribute('href'), /\/web\/$/);
+    if (name === 'phone') await page.screenshot({ path: `${out}/medical-more-${name}-${theme}.png` });
+    await checkWidth(page, 'more, Medical live');
+    await sp.click();
+  } else {
+    const rail = page.locator('[data-rail-space="medical"]');
+    assert.equal(await rail.getAttribute('href'), '/medical', 'Medical in the rail');
+    assert.equal(await text(rail), 'Medical');
+    assert.deepEqual(await page.locator('[data-rail-space]').evaluateAll((els) => els.map((e) => e.getAttribute('data-rail-space'))), ['gym', 'health', 'habits', 'home', 'medical']);
+    await rail.click();
+  }
+  await page.waitForURL(/\/medical$/);
+  await page.locator('[data-card="reports"]').waitFor();
+  assert.equal(await page.locator('h1').textContent(), 'Medical');
+  if (pc) {
+    assert.equal(await page.locator('[data-rail-space="medical"]').getAttribute('aria-current'), 'page', 'Medical lit in the rail');
+    assert.match(await page.locator('[data-rail-space="medical"]').getAttribute('class'), /text-blue/);
+    assert.equal(await page.locator('[data-rail-space="gym"]').getAttribute('aria-current'), null, 'only Medical lit');
+  } else {
+    assert.equal(await page.locator('[data-place="more"]').getAttribute('aria-current'), 'true', 'the More tab lit on a Medical page');
+    assert.match(await page.locator('[data-place="more"]').getAttribute('class'), /text-blue/);
+  }
+  assert.equal(await page.locator('[data-place="today"]').getAttribute('aria-current'), null);
+  assert.equal(await page.locator('[data-place="library"]').getAttribute('aria-current'), null);
+  assert.ok(await page.getByText('Settings and the rest are').isVisible(), 'the footer names Settings and the rest');
+  assert.equal(await page.getByText('Medical, Settings').count(), 0, 'Medical is no longer in the full app');
+  assert.deepEqual(await page.locator('[data-tab]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-tab'), e.textContent.trim(), e.getAttribute('href'), e.getAttribute('aria-current')])), [
+    ['reports', 'Reports', '/medical', 'page'], ['tests', 'Tests over time', '/medical/tests', null], ['meds', 'Medication', '/medical/meds', null]]);
+  // the same no-caching headers as the front's other signed-in pages (hooks.server.ts sets them on every response)
+  const headers = {};
+  for (const [k, path] of [['reports', '/medical'], ['tests', '/medical/tests'], ['meds', '/medical/meds'], ['library', '/library'], ['today', '/']]) {
+    const r = await page.request.get(`${base}${path}`);
+    assert.equal(r.status(), 200, path);
+    headers[k] = ['cache-control', 'x-content-type-options', 'x-frame-options', 'referrer-policy', 'permissions-policy'].map((h) => r.headers()[h] ?? '(none)').join(' | ');
+  }
+  for (const k of ['reports', 'tests', 'meds']) assert.equal(headers[k], headers.library, `${k}: the same headers as /library`);
+  assert.equal(headers.library, headers.today);
+  assert.match(headers.reports, /^no-store \|/);
+  if (name === 'phone' && theme === 'dark') console.log(`medical pages' headers (cache-control | x-content-type-options | x-frame-options | referrer-policy | permissions-policy): ${headers.reports}`);
+}
+
+async function checkMedicalReports(page, name, theme) {
+  await standinPost('/standin/reset');
+  const pc = name === 'pc';
+  const phone = name === 'phone';
+  const shot = (n, full = false) => page.screenshot({ path: `${out}/medical-${n}-${name}-${theme}.png`, fullPage: full });
+  const bar = page.locator('[data-bar]');
+  const headIs = async (want) => {
+    await page.locator('[data-bar-head]', { hasText: want }).waitFor();
+    assert.equal(await text(page.locator('[data-bar-head]')), want, 'the answer bar');
+  };
+  const row = (id) => page.locator(`[data-report-row="${id}"]`);
+  const box = (id) => page.locator(`[data-box="${id}"]`);
+  const val = (id) => page.locator(`[data-value-row="${id}"]`);
+  const vtext = (id) => text(val(id).locator('[data-value-text]'));
+  const flagOf = (id) => val(id).locator('[data-flag]').getAttribute('data-flag');
+  const openReport = async (id) => {
+    await row(id).click();
+    await page.waitForURL(new RegExp(`open=R${id}$`));
+    await box(id).waitFor();
+  };
+  const reports = MED_EXPECT.reports;
+  const flagged = MED_EXPECT.flagged;
+
+  await page.goto(`${base}/medical`);
+  await page.locator('[data-card="reports"]').waitFor();
+  await page.evaluate(() => (window.__noReload = true));
+
+  // ---- the flagged card: the door's title, the date and the report's title, a chip per flagged value, the hint --------------------------
+  assert.equal(await text(page.locator('[data-flagged-title]')), flagged.heading);
+  assert.equal(await text(page.locator('[data-flagged-meta]')), `${flagged.date_text} · ${flagged.title}`);
+  assert.deepEqual(await page.locator('[data-chip]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-chip'), [...e.children].map((c) => c.textContent.trim()).join(' '), e.getAttribute('href')])),
+    flagged.chips.map((c) => [String(c.test_id), `${c.test} ${c.value} ${c.flag}`, `/medical/tests?t=${c.test_id}`]));
+  assert.match(await page.locator('[data-chip]').first().getAttribute('class'), /border-amber/, 'a chip is amber');
+  assert.equal(await text(page.locator('[data-flagged-hint]')), flagged.hint);
+
+  // ---- all reports, newest first -------------------------------------------------------------------------------------------------------
+  assert.deepEqual(await page.locator('[data-report-row]').evaluateAll((els) => els.map((e) => e.getAttribute('data-report-row'))), reports.map((r) => String(r.id)), 'newest first');
+  for (const r of reports) {
+    const el = row(r.id);
+    assert.equal(await text(el.locator('[data-report-date]')), r.date_text);
+    assert.equal(await text(el.locator('[data-report-title]')), r.title);
+    assert.equal(await text(el.locator('[data-kind]')), r.kind);
+    if (phone) {
+      assert.equal(await el.locator('[data-report-from]').isVisible(), false, 'phones: no "from"');
+      assert.equal(await text(el.locator('[data-report-counts]')), `${r.values} ${r.values === 1 ? 'value' : 'values'}${r.flagged ? ` · ${r.flagged} flagged` : ''}`);
+      assert.equal(await el.locator('[data-report-counts] .text-amber').count(), r.flagged ? 1 : 0, 'flagged is amber');
+    } else {
+      assert.equal(await text(el.locator('[data-report-from]')), r.provider);
+      assert.equal(await text(el.locator('[data-report-values]')), String(r.values));
+      assert.equal(await text(el.locator('[data-report-flagged]')), String(r.flagged));
+      assert.match(await el.locator('[data-report-flagged]').getAttribute('class'), r.flagged ? /text-amber/ : /text-muted/);
+    }
+  }
+  assert.equal(await text(page.locator('[data-hint]')), MED_EXPECT.hint, "the door's hint under the list");
+  if (pc) assert.equal(await text(page.locator('[data-side-hint]')), 'Pick a report Its values and notes open here.');
+  await shot('reports', !pc);
+  await checkWidth(page, 'medical reports');
+
+  // ---- a report opens in place (under its row; beside the list on the PC), a second tap closes it -------------------------------------
+  const R4 = LABS.open.labs.open;
+  await openReport(4);
+  if (pc) assert.equal(await page.locator('[data-side] [data-box="4"]').count(), 1, 'pc: the report beside the list');
+  else assert.equal(await page.locator('[data-report="4"] [data-box="4"]').count(), 1, `${name}: the report under its row`);
+  assert.equal(await row(4).getAttribute('aria-expanded'), 'true');
+  assert.deepEqual(await box(4).locator('[data-value-row]').evaluateAll((els) => els.map((e) => e.getAttribute('data-value-row'))), R4.values.map((v) => String(v.id)));
+  for (const v of R4.values) {
+    assert.equal(await text(val(v.id).locator('[data-value-test]')), v.test);
+    assert.equal(await val(v.id).locator('[data-value-link]').getAttribute('href'), `/medical/tests?t=${v.test_id}`, 'the name links to the test');
+    assert.equal(await vtext(v.id), v.text);
+    assert.equal(await text(val(v.id).locator('[data-value-range]')), v.range);
+    assert.equal(await flagOf(v.id), v.flag === 'N' ? 'none' : v.flag, `${v.test}: the flag`);
+    assert.equal(await val(v.id).locator('[data-pencil]').count(), 1);
+  }
+  assert.equal(await val(11).locator('[data-flag="H"]').count(), 1);
+  assert.match(await val(11).locator('[data-flag="H"]').getAttribute('class'), /text-amber/, 'a flag is amber');
+  if (phone) assert.ok((await val(10).locator('[data-pencil]').boundingBox()).height >= 44, 'the pencil is 44 px');
+  assert.equal(await page.evaluate(() => window.__noReload), true, 'a report opens without a reload');
+  await shot('report-open', true);
+  await checkWidth(page, 'medical, a report open');
+  await row(4).click();
+  await page.waitForURL(/\/medical$/);
+  await box(4).waitFor({ state: 'detached' });
+  await openReport(4);
+  await box(4).locator('[data-box-close]').click();
+  await page.waitForURL(/\/medical$/);
+  await box(4).waitFor({ state: 'detached' });
+
+  // ---- a value corrected: the pencil, Save shows it first (Yes, change / No), Yes changes the number and the flag on the page ---------------
+  await openReport(4);
+  await val(10).locator('[data-pencil]').click();
+  const form = val(10).locator('[data-form="value"]');
+  assert.equal(await form.locator('[data-edit="value"]').inputValue(), '13.8');
+  assert.equal(await form.locator('[data-edit="unit"]').inputValue(), 'g/dL');
+  assert.equal(await form.locator('[data-edit="ref"]').inputValue(), '13.5-17.5');
+  assert.equal(await text(form), `Value Unit Range Save Cancel ${R4.value_hint}`);
+  await form.locator('[data-edit="value"]').fill('12.9');
+  await form.locator('[data-save-value]').click();
+  await page.locator('[data-bar-yes]').waitFor();
+  assert.equal(await text(page.locator('[data-bar-yes]')), 'Yes, change');
+  assert.equal(await text(page.locator('[data-bar-no]')), 'No');
+  assert.ok((await text(bar)).includes(LABS.saves.value_ask.read_back.replace(/\s+/g, ' ')), "the door's read-back");
+  assert.equal(await vtext(10), '13.8 g/dL', 'nothing changed before Yes');
+  await shot('yes-change');
+  await checkWidth(page, 'medical, a value read back');
+  await page.locator('[data-bar-yes]').click();
+  await headIs(LABS.saves.value_done.head);
+  await page.waitForFunction(() => document.querySelector('[data-value-row="10"] [data-value-text]')?.textContent?.trim() === '12.9 g/dL');
+  assert.equal(await flagOf(10), 'L', 'the flag follows the new value');
+  assert.equal(await val(10).locator('[data-form]').count(), 0, 'the form closes');
+  assert.equal(await val(10).getAttribute('data-fresh'), '', 'a blue edge on the changed value');
+  assert.equal(await bar.getByRole('button', { name: 'Undo' }).count(), 0, 'no Undo');
+  assert.equal(await page.locator('[data-chip]').count(), 2, 'the flagged card follows: Ferritin and Haemoglobin');
+  assert.equal(await page.locator('[data-chip="19"]').count(), 1);
+  assert.equal(await text(row(4).locator(phone ? '[data-report-counts]' : '[data-report-flagged]')), phone ? '4 values · 2 flagged' : '2');
+  assert.equal(await page.evaluate(() => window.__noReload), true, 'the save changed the page in place');
+  // No leaves it: nothing is sent again, nothing changes
+  await val(10).locator('[data-pencil]').click();
+  assert.equal(await form.locator('[data-edit="value"]').inputValue(), '12.9');
+  await form.locator('[data-edit="value"]').fill('14.2');
+  await form.locator('[data-save-value]').click();
+  await page.locator('[data-bar-no]').click();
+  await bar.waitFor({ state: 'detached' });
+  assert.equal(await vtext(10), '12.9 g/dL', 'No saves nothing');
+  assert.equal(await form.locator('[data-edit="value"]').inputValue(), '14.2', 'what was typed stays after No');
+
+  // ---- refusals and "Nothing changed." next to their form, which keeps what was typed ----------------------------------------------------
+  await form.locator('[data-edit="value"]').fill('');
+  await form.locator('[data-save-value]').click();
+  await form.locator('[data-err="value:10"]').waitFor();
+  assert.equal(await text(form.locator('[data-err="value:10"]')), 'The value cannot be empty.');
+  assert.equal(await bar.count(), 0, 'a refusal is next to its form, not in the bar');
+  assert.equal(await form.locator('[data-edit="unit"]').inputValue(), 'g/dL', 'the rest stays');
+  assert.match(await form.locator('[data-err="value:10"]').getAttribute('class'), /text-amber/);
+  if (phone) await form.screenshot({ path: `${out}/medical-refusal-${name}-${theme}.png` });
+  await checkWidth(page, 'medical, a refusal');
+  await form.locator('[data-edit="value"]').fill('12.9');
+  await form.locator('[data-save-value]').click();
+  await form.locator('[data-err="value:10"]', { hasText: 'Nothing changed.' }).waitFor();
+  assert.equal(await bar.count(), 0, '"Nothing changed." is next to the form only');
+  await form.locator('[data-cancel-value]').click();
+  assert.equal(await val(10).locator('[data-form]').count(), 0);
+
+  // ---- the report's form: date, title, from and notes; refusals; shown first, then Yes -----------------------------------------------------
+  await box(4).locator('[data-report-toggle]').click();
+  const rf = box(4).locator('[data-form="report"]');
+  assert.equal(await rf.locator('[data-edit="collected"]').inputValue(), '2026-10-05');
+  assert.equal(await rf.locator('[data-edit="collected"]').getAttribute('type'), 'date');
+  assert.equal(await rf.locator('[data-edit="title"]').inputValue(), 'Annual check-up');
+  assert.equal(await rf.locator('[data-edit="provider"]').inputValue(), 'Zz Lab');
+  assert.equal(await text(rf.locator('label').last()), 'Notes');
+  await rf.locator('[data-edit="title"]').fill('');
+  await rf.locator('[data-save-report]').click();
+  await rf.locator('[data-err="report"]').waitFor();
+  assert.equal(await text(rf.locator('[data-err="report"]')), LABS.saves.report_refused.reason);
+  await rf.locator('[data-edit="title"]').fill('Yearly check-up');
+  await rf.locator('[data-edit="collected"]').fill('');
+  await rf.locator('[data-save-report]').click();
+  await rf.locator('[data-err="report"]', { hasText: "Give the report's date." }).waitFor();
+  assert.equal(await rf.locator('[data-edit="title"]').inputValue(), 'Yearly check-up', 'what was typed stays');
+  await checkWidth(page, 'medical, the report form, a refusal');
+  await rf.locator('[data-edit="collected"]').fill('2026-10-06');
+  await rf.locator('[data-edit="notes"]').fill('Fasting sample.');
+  await rf.locator('[data-save-report]').click();
+  await page.locator('[data-bar-yes]').waitFor();
+  assert.equal(await text(page.locator('[data-bar-yes]')), 'Yes, change');
+  assert.equal(await text(row(4).locator('[data-report-title]')), 'Annual check-up', 'nothing changed before Yes');
+  await page.locator('[data-bar-yes]').click();
+  await headIs('Changed the report.');
+  await page.waitForFunction(() => document.querySelector('[data-report-row="4"] [data-report-title]')?.textContent?.trim() === 'Yearly check-up');
+  assert.equal(await text(row(4).locator('[data-report-date]')), '06.10.2026');
+  assert.equal(await text(box(4).locator('[data-report-notes]')), 'Fasting sample.');
+  assert.equal(await box(4).locator('[data-form="report"]').count(), 0, 'the form closes');
+  assert.equal(await text(page.locator('[data-flagged-meta]')), '06.10.2026 · Yearly check-up', 'the flagged card follows');
+  assert.equal(await page.evaluate(() => window.__noReload), true, 'the report form saved in place');
+
+  // ---- the flagged card leads to the test; the test's name in a report too ------------------------------------------------------------------
+  await page.locator('[data-chip="20"]').click();
+  await page.waitForURL(/\/medical\/tests\?t=20$/);
+  await page.locator('[data-test="20"]').waitFor();
+  assert.equal(await text(page.locator('[data-test-name]')), 'Ferritin');
+  await page.goBack();
+  await page.waitForURL(/\/medical\?open=R4$/);
+  await box(4).waitFor();
+  await val(12).locator('[data-value-link]').click();
+  await page.waitForURL(/\/medical\/tests\?t=21$/);
+  await page.locator('[data-test="21"]').waitFor();
+
+  // ---- "Nothing flagged." once nothing is: the values corrected back, the door's words ------------------------------------------------------
+  await page.goto(`${base}/medical?open=R4`);
+  await box(4).waitFor();
+  for (const [id, to] of [[10, '13.8'], [11, '200']]) {
+    await val(id).locator('[data-pencil]').click();
+    await val(id).locator('[data-edit="value"]').fill(to);
+    await val(id).locator('[data-save-value]').click();
+    await page.locator('[data-bar-yes]').click();
+    await page.waitForFunction(([i, t]) => document.querySelector(`[data-value-row="${i}"] [data-value-text]`)?.textContent?.trim().startsWith(t), [id, to]);
+  }
+  await page.locator('[data-flagged-empty]').waitFor();
+  assert.equal(await text(page.locator('[data-flagged-empty]')), 'Nothing flagged.');
+  assert.equal(await page.locator('[data-chip]').count(), 0);
+  await checkWidth(page, 'medical, nothing flagged');
+
+  // ---- an imaging report: its value with the site; with none, the door's words and its notes --------------------------------------------------
+  await standinPost('/standin/reset');
+  await page.goto(`${base}/medical?open=R5`);
+  await box(5).waitFor();
+  assert.equal(await text(val(14).locator('[data-value-test]')), 'Liver');
+  assert.equal(await text(val(14).locator('[data-value-note]')), 'liver');
+  assert.equal(await vtext(14), 'slightly enlarged');
+  assert.equal(await flagOf(14), 'A');
+  await standinPost('/standin/labs-novalues');
+  await page.goto(`${base}/medical?open=R5`);
+  await box(5).waitFor();
+  assert.equal(await text(box(5).locator('[data-no-values]')), 'No values in this report.');
+  assert.equal(await text(box(5).locator('[data-report-notes]')), 'Notes of the invented ultrasound.');
+  await checkWidth(page, 'medical, an imaging report');
+  // a report that is not there: the list, none open
+  await page.goto(`${base}/medical?open=R99`);
+  await page.locator('[data-card="reports"]').waitFor();
+  assert.equal(await page.locator('[data-box]').count(), 0);
+  assert.equal(await page.locator('[data-report-row]').count(), 5);
+  // no reports: the door's words
+  await standinPost('/standin/labs-empty');
+  await page.goto(`${base}/medical`);
+  await page.locator('[data-empty]').waitFor();
+  assert.equal(await text(page.locator('[data-empty]')), 'No reports yet.');
+  assert.equal(await text(page.locator('[data-flagged-empty]')), 'Nothing flagged.');
+  await checkWidth(page, 'medical, no reports');
+  // the door off: the plain message with a link to app.'s Medical page
+  await standinPost('/standin/reset');
+  await standinPost('/standin/door-off');
+  await page.goto(`${base}/medical`);
+  await page.locator('[data-problem]').waitFor();
+  assert.match(await page.getByRole('link', { name: 'Open the full app' }).getAttribute('href'), /\/web\/labs$/);
+  await checkWidth(page, 'medical, door off');
+  await standinPost('/standin/up');
+  // the PC: the open report beside the list (kept for the owner)
+  if (pc) {
+    await page.goto(`${base}/medical?open=R4`);
+    await box(4).waitFor();
+    await shot('reports-side');
+  }
+  await page.goto(`${base}/`);
+}
+
+async function checkMedicalTests(page, name, theme) {
+  await standinPost('/standin/reset');
+  const pc = name === 'pc';
+  const phone = name === 'phone';
+  const shot = (n, full = false) => page.screenshot({ path: `${out}/medical-${n}-${name}-${theme}.png`, fullPage: full });
+  const T = LABS.tests.labs_tests;
+  const V = LABS.test.labs_tests;
+  const trow = (id) => page.locator(`[data-test-row="${id}"]`);
+
+  await page.goto(`${base}/medical/tests`);
+  await page.locator('[data-list]').waitFor();
+  await page.evaluate(() => (window.__noReload = true));
+  assert.equal(await page.locator('[data-tab="tests"]').getAttribute('aria-current'), 'page');
+  assert.equal(await page.locator('[data-search]').getAttribute('placeholder'), T.placeholder);
+  assert.equal(await text(page.locator('label[for="test-q"]')), 'Search a test');
+  assert.equal(await text(page.locator('[data-list-title]')), T.title);
+  assert.deepEqual(await page.locator('[data-test-row]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-test-row'), e.querySelector('[data-test-row-name]').textContent.trim(), e.querySelector('[data-test-row-count]').textContent.trim(), e.querySelector('[data-test-row-unit]')?.textContent.trim()])),
+    T.tests.map((t) => [String(t.id), t.name, `${t.values} values`, t.unit]));
+  if (pc) assert.equal(await text(page.locator('[data-side-hint]')), 'Pick a test Its chart and history open here.');
+  await shot('tests', !pc);
+  await checkWidth(page, 'medical tests');
+
+  // ---- the search: Enter and a pause in typing ask (the focus stays); the matches, one match opens its test, nothing found ---------------------
+  await page.locator('[data-search]').pressSequentially('in', { delay: 40 });
+  await page.waitForURL(/\/medical\/tests\?q=in$/);
+  await page.waitForFunction(() => !document.querySelector('[data-list-title]'));
+  assert.equal(await page.evaluate(() => document.activeElement?.hasAttribute('data-search')), true, 'the search box keeps the focus');
+  assert.equal(await page.locator('[data-search]').inputValue(), 'in');
+  assert.deepEqual(await page.locator('[data-test-row]').evaluateAll((els) => els.map((e) => e.getAttribute('data-test-row'))), ['20', '19', '21'], 'the matches, most values first, then by name');
+  await page.locator('[data-search]').fill('zzqq');
+  await page.locator('[data-search]').press('Enter');
+  await page.waitForURL(/q=zzqq/);
+  await page.locator('[data-empty]').waitFor();
+  assert.equal(await text(page.locator('[data-empty]')), LABS.no_test.labs_tests.empty);
+  await checkWidth(page, 'medical tests, nothing found');
+  // one match opens its test by itself
+  await page.locator('[data-search]').fill('vit');
+  await page.locator('[data-search]').press('Enter');
+  await page.waitForURL(/q=vit$/);
+  await page.locator('[data-test="21"]').waitFor();
+  assert.equal(await text(page.locator('[data-test-name]')), 'Vitamin D');
+  if (pc) assert.equal(await page.locator('[data-side] [data-test="21"]').count(), 1, 'pc: the test beside the list');
+  if (pc) assert.deepEqual(await page.locator('[data-test-row]').evaluateAll((els) => els.map((e) => e.getAttribute('data-test-row'))), ['21'], 'the list: the one match');
+  else assert.equal(await page.locator('[data-test-row]').count(), 0, `${name}: the test is a view of its own`);
+  assert.equal(await page.evaluate(() => window.__noReload), true, 'the search asked without a reload');
+
+  // ---- one test from the list: the search kept in "‹ All tests"; the chart, its dots and a tap, the thin cases --------------------------------
+  await page.locator('[data-search]').fill('in');
+  await page.locator('[data-search]').press('Enter');
+  await page.waitForURL(/q=in$/);
+  await trow(21).waitFor();
+  await trow(21).click();
+  await page.waitForURL(/\/medical\/tests\?q=in&t=21$/);
+  await page.locator('[data-test="21"]').waitFor();
+  assert.equal(await text(page.locator('[data-test-name]')), V.test.name);
+  assert.equal(await text(page.locator('[data-test-count]')), '4 values');
+  if (pc) {
+    assert.equal(await page.locator('[data-side] [data-test="21"]').count(), 1, 'pc: the test beside the list');
+    assert.equal(await trow(21).getAttribute('aria-current'), 'true', 'its row is lit');
+    assert.equal(await page.locator('[data-test-row]').count(), 3, 'the list stays');
+    assert.equal(await page.locator('[data-back]').count(), 0, 'no back link beside the list');
+  } else {
+    assert.equal(await page.locator('[data-test-row]').count(), 0, `${name}: the test is a view of its own`);
+    assert.equal(await page.locator('[data-back]').getAttribute('href'), '/medical/tests?q=in', 'back keeps the search');
+    assert.equal(await text(page.locator('[data-back]')), '‹ All tests');
+    assert.equal(await page.locator('[data-search]').inputValue(), 'in', 'the search stays above the test');
+  }
+  const chart = page.locator('[data-test-chart] [data-chart="test"]');
+  await chart.locator('svg').waitFor();
+  assert.equal(await chart.locator('svg').getAttribute('aria-label'), V.card.chart.label);
+  assert.equal(await chart.locator('.band').count(), 1, 'the reference band');
+  assert.equal(await chart.locator('[data-mark="line"]').count(), 1);
+  assert.equal(await chart.locator('[data-mark="dot"]').count(), 4, 'a dot per value');
+  assert.equal(await chart.locator('[data-mark="dot"].w').count(), 2, 'the dots outside the range are amber');
+  assert.equal(await chart.locator('[data-mark="dot"].a').count(), 2);
+  assert.deepEqual(await page.locator('[data-test-chart] .legend').textContent().then((t) => t.replace(/\s+/g, ' ').trim()), 'reference range (from the newest value) outside the range');
+  // a tap on a dot shows the door's words
+  await chart.locator('[data-mark="dot"].w').first().click();
+  await chart.locator('[data-tip]').waitFor();
+  assert.equal(await text(chart.locator('[data-tip] text')), V.card.chart.series[2].pts[0][2], "the door's tooltip words");
+  await shot('test', !pc);
+  await checkWidth(page, 'medical tests, a test with its chart');
+  // the history, newest first: date, site, value, range, flag, Report
+  assert.deepEqual(await page.locator('[data-history-row]').evaluateAll((els) => els.map((e) => [e.querySelector('[data-history-date]').textContent.trim(), e.querySelector('[data-history-value]').textContent.trim(), e.querySelector('[data-history-range]').textContent.trim(), e.querySelector('[data-flag]').getAttribute('data-flag'), e.querySelector('[data-history-report]').getAttribute('href')])),
+    V.rows.map((r) => [r.date_text, r.value, r.range, r.flag === 'N' ? 'none' : r.flag, `/medical?open=R${r.report_id}`]));
+  if (!pc) {
+    await page.locator('[data-back]').click();
+    await page.waitForURL(/\/medical\/tests\?q=in$/);
+    await trow(20).waitFor();
+    assert.equal(await page.locator('[data-search]').inputValue(), 'in');
+  }
+  // "Report" opens that report
+  await page.goto(`${base}/medical/tests?t=21`);
+  await page.locator('[data-test="21"]').waitFor();
+  if (!pc) assert.equal(await page.locator('[data-back]').getAttribute('href'), '/medical/tests');
+  await page.locator('[data-history-row="9"] [data-history-report]').click();
+  await page.waitForURL(/\/medical\?open=R3$/);
+  await page.locator('[data-box="3"]').waitFor();
+  assert.equal(await text(page.locator('[data-box="3"] [data-value-row="9"] [data-value-text]')), '31 ng/mL');
+  // the thin cases: the door's message in place of the chart
+  await page.goto(`${base}/medical/tests?t=22`);
+  await page.locator('[data-thin]').waitFor();
+  assert.equal(await text(page.locator('[data-thin]')), LABS.one_value.labs_tests.card.note);
+  assert.equal(await page.locator('[data-chart]').count(), 0, 'no chart for one value');
+  assert.equal(await text(page.locator('[data-test-count]')), '1 value');
+  await checkWidth(page, 'medical tests, one value');
+  await standinPost('/standin/labs-oneday');
+  await page.goto(`${base}/medical/tests?t=21`);
+  await page.locator('[data-thin]').waitFor();
+  assert.match(await text(page.locator('[data-thin]')), /^All values are from one day/);
+  await standinPost('/standin/reset');
+  // a test that is not there: the list, nothing open
+  await page.goto(`${base}/medical/tests?t=999`);
+  await page.locator('[data-list]').waitFor();
+  assert.equal(await page.locator('[data-test]').count(), 0);
+  // the door off: the plain message with a link to app.'s Tests over time
+  await standinPost('/standin/door-off');
+  await page.goto(`${base}/medical/tests`);
+  await page.locator('[data-problem]').waitFor();
+  assert.match(await page.getByRole('link', { name: 'Open the full app' }).getAttribute('href'), /\/web\/labs\/tests$/);
+  await checkWidth(page, 'medical tests, door off');
+  await standinPost('/standin/up');
+  // the PC in light: the list with the test beside it (kept for the owner)
+  if (pc) {
+    await page.goto(`${base}/medical/tests?t=21`);
+    await page.locator('[data-test="21"]').waitFor();
+    await page.locator('[data-test-chart] svg').waitFor();
+    await shot('tests-side');
+  }
+  await page.goto(`${base}/`);
+}
+
+async function checkMedicalMeds(page, name, theme) {
+  await standinPost('/standin/reset');
+  const pc = name === 'pc';
+  const phone = name === 'phone';
+  const shot = (n, full = false) => page.screenshot({ path: `${out}/medical-${n}-${name}-${theme}.png`, fullPage: full });
+  const bar = page.locator('[data-bar]');
+  const headIs = async (want) => {
+    await page.locator('[data-bar-head]', { hasText: want }).waitFor();
+    assert.equal(await text(page.locator('[data-bar-head]')), want, 'the answer bar');
+  };
+  const med = (id) => page.locator(`[data-med="${id}"]`);
+  const M = LABS.meds.labs_meds;
+
+  await page.goto(`${base}/medical/meds`);
+  await page.locator('[data-card="meds"]').waitFor();
+  await page.evaluate(() => (window.__noReload = true));
+  assert.equal(await page.locator('[data-tab="meds"]').getAttribute('aria-current'), 'page');
+
+  // ---- the list against the sample: the door's order, name and ingredient, dose · how often · why, start to stop or "running" ----------------
+  assert.equal(await text(page.locator('#add-h')), 'Add a course');
+  assert.equal(await page.locator('[data-add-text]').getAttribute('placeholder'), 'started vitamin D 1000 IU daily');
+  assert.equal(await text(page.locator('[data-add]')), 'Add');
+  assert.equal(await text(page.locator('#meds-h')), 'Medication');
+  assert.equal(await text(page.locator('[data-running-count]')), `${M.running} running`);
+  assert.deepEqual(await page.locator('[data-med]').evaluateAll((els) => els.map((e) => e.getAttribute('data-med'))), M.meds.map((m) => String(m.id)), "the door's order");
+  for (const m of M.meds) {
+    const el = med(m.id);
+    assert.equal(await text(el.locator('[data-med-name]')), m.ingredient ? `${m.name} ${m.ingredient}` : m.name);
+    assert.equal(await el.locator('[data-med-ingredient]').count(), m.ingredient ? 1 : 0);
+    assert.equal(await text(el.locator('[data-med-line]')), [m.dose, m.frequency, m.indication ? `for ${m.indication}` : null].filter(Boolean).join(' · '));
+    const span = await el.locator('[data-med-span]').evaluate((e) => [...e.children].map((c) => c.textContent.trim()).join(' '));
+    assert.equal(span, `${m.start_text} to${m.stop_text ? ` ${m.stop_text}` : ''}${m.running ? ' running' : ''}`, `${m.name}: start to stop`);
+    assert.equal(await el.locator('[data-end]').count(), m.can_end ? 1 : 0, `${m.name}: End only for a running course with no stop date`);
+    assert.equal(await el.locator('[data-pencil]').count(), 1);
+  }
+  assert.equal(await text(page.locator('[data-hint]')), "A new course is one sentence, read back before it is saved. Today's box takes it too.");
+  await shot('meds', !pc);
+  await checkWidth(page, 'medical meds');
+
+  // ---- the pencil: dose, how often, why, start and stop (empty = running); shown first, Yes saves; refusals next to the form -----------------
+  await med(1).locator('[data-pencil]').click();
+  const f = med(1).locator('[data-form="med"]');
+  assert.equal(await f.locator('[data-edit="dose"]').inputValue(), '1000 IU');
+  assert.equal(await f.locator('[data-edit="frequency"]').inputValue(), 'daily');
+  assert.equal(await f.locator('[data-edit="indication"]').inputValue(), 'low vitamin D');
+  assert.equal(await f.locator('[data-edit="start"]').inputValue(), '2026-09-01');
+  assert.equal(await f.locator('[data-edit="stop"]').inputValue(), '');
+  assert.equal(await f.locator('[data-edit="start"]').getAttribute('type'), 'date');
+  assert.ok((await text(f)).includes('Stop (empty = running)'), "the door's words for the stop");
+  assert.ok((await text(f)).includes(M.form_hint));
+  await checkWidth(page, 'medical meds, the pencil');
+  await f.locator('[data-edit="stop"]').fill('2026-08-01');
+  await f.locator('[data-save-med]').click();
+  await f.locator('[data-err="med:1"]').waitFor();
+  assert.equal(await text(f.locator('[data-err="med:1"]')), 'stop 01.08.2026 lies before start 01.09.2026');
+  assert.equal(await bar.count(), 0, 'a refusal is next to its form');
+  assert.equal(await f.locator('[data-edit="stop"]').inputValue(), '2026-08-01', 'what was typed stays');
+  await f.locator('[data-edit="stop"]').fill('');
+  await f.locator('[data-edit="start"]').fill('');
+  await f.locator('[data-save-med]').click();
+  await f.locator('[data-err="med:1"]', { hasText: 'Give the start as a date.' }).waitFor();
+  await f.locator('[data-edit="start"]').fill('2026-09-01');
+  await f.locator('[data-save-med]').click();
+  await f.locator('[data-err="med:1"]', { hasText: 'Nothing changed.' }).waitFor();
+  assert.equal(await bar.count(), 0, '"Nothing changed." is next to the form only');
+  if (phone) await f.screenshot({ path: `${out}/medical-med-refusal-${name}-${theme}.png` });
+  await f.locator('[data-edit="dose"]').fill('2000 IU');
+  await f.locator('[data-save-med]').click();
+  await page.locator('[data-bar-yes]').waitFor();
+  assert.equal(await text(page.locator('[data-bar-yes]')), 'Yes, change');
+  assert.match(await text(bar), /OK changed D1: dose/);
+  assert.equal(await text(med(1).locator('[data-med-line]')), '1000 IU · daily · for low vitamin D', 'nothing changed before Yes');
+  await page.locator('[data-bar-no]').click();
+  await bar.waitFor({ state: 'detached' });
+  assert.equal(await text(med(1).locator('[data-med-line]')), '1000 IU · daily · for low vitamin D', 'No saves nothing');
+  await f.locator('[data-save-med]').click();
+  await page.locator('[data-bar-yes]').click();
+  await headIs('Changed Vitamin D 1000 IU.');
+  await page.waitForFunction(() => document.querySelector('[data-med="1"] [data-med-line]')?.textContent?.trim().startsWith('2000 IU'));
+  assert.equal(await med(1).locator('[data-form]').count(), 0, 'the form closes');
+  assert.equal(await med(1).getAttribute('data-fresh'), '', 'a blue edge on the changed course');
+  assert.equal(await bar.getByRole('button', { name: 'Undo' }).count(), 0, 'no Undo');
+  assert.equal(await page.evaluate(() => window.__noReload), true, 'the save changed the page in place');
+
+  // ---- End: the bar asks ("Yes, end it today", No); Yes ends it today: no longer running, no End -------------------------------------------
+  await med(1).locator('[data-end]').click();
+  await page.locator('[data-bar-yes]').waitFor();
+  assert.equal(await text(page.locator('[data-bar-yes]')), LABS.saves.end_ask.confirm.label);
+  assert.equal(await text(page.locator('[data-bar-no]')), 'No');
+  assert.match(await text(bar), /OK changed D1: stop_date/);
+  assert.equal(await med(1).locator('[data-pill="running"]').count(), 1, 'still running before Yes');
+  await page.locator('[data-bar-no]').click();
+  await bar.waitFor({ state: 'detached' });
+  assert.equal(await med(1).locator('[data-end]').count(), 1, 'No ends nothing');
+  await med(1).locator('[data-end]').click();
+  await page.locator('[data-bar-yes]').click();
+  await headIs('Vitamin D 1000 IU ended today.');
+  await page.waitForFunction(() => !document.querySelector('[data-med="1"] [data-pill="running"]'));
+  assert.equal(await med(1).locator('[data-end]').count(), 0, 'no End any more');
+  assert.equal(await med(1).locator('[data-med-span]').evaluate((e) => [...e.children].map((c) => c.textContent.trim()).join(' ')), '01.09.2026 to 17.11.2026');
+  assert.equal(await text(page.locator('[data-running-count]')), '1 running');
+  assert.deepEqual(await page.locator('[data-med]').evaluateAll((els) => els.map((e) => e.getAttribute('data-med'))), ['2', '1', '4', '3'], 'the list in the door\'s order after it');
+  // a course ended elsewhere meanwhile: its End on this page is refused in the door's words, on the row
+  await standinPost('/standin/reset');
+  await page.goto(`${base}/medical/meds`);
+  await med(1).locator('[data-end]').waitFor();
+  await standinPost('/standin/labs-end?id=1');
+  await med(1).locator('[data-end]').click();
+  await med(1).locator('[data-err="med:1"]').waitFor();
+  assert.equal(await text(med(1).locator('[data-err="med:1"]')), LABS.saves.end_again.reason);
+  assert.equal(await bar.count(), 0);
+  await checkWidth(page, 'medical meds, End refused');
+
+  // ---- Add a course: the sentence read back in the bar with Yes and No (through Today's typed line); Yes adds the row; No adds nothing -----
+  await standinPost('/standin/reset');
+  await page.goto(`${base}/medical/meds`);
+  await page.locator('[data-card="meds"]').waitFor();
+  await page.evaluate(() => (window.__noReload = true));
+  await page.locator('[data-add-text]').fill('started magnesium 300 mg evenings');
+  await page.locator('[data-add]').click();
+  await page.locator('[data-add]', { hasText: 'Reading…' }).waitFor();
+  assert.equal(await page.locator('[data-add]').isDisabled(), true, 'blocked while the door reads it');
+  await page.locator('[data-bar-yes]').waitFor();
+  assert.equal(await text(page.locator('[data-bar-yes]')), 'Yes');
+  assert.equal(await text(page.locator('[data-bar-no]')), 'No');
+  assert.ok((await text(bar)).includes('start Magnesium 300 mg evenings from 17.11.2026'), "the door's read-back");
+  assert.equal(await page.locator('[data-med]').count(), 4, 'nothing added before Yes');
+  await shot('add-read-back');
+  await checkWidth(page, 'medical meds, a course read back');
+  await page.locator('[data-bar-yes]').click();
+  await headIs('Changed.');
+  const added = page.locator('[data-med]', { has: page.locator('[data-med-name]', { hasText: 'Magnesium 300 mg' }) });
+  await added.waitFor();
+  assert.equal(await added.getAttribute('data-fresh'), '', 'the new row has a blue edge');
+  assert.equal(await text(added.locator('[data-med-line]')), '300 mg · evenings');
+  assert.equal(await added.locator('[data-pill="running"]').count(), 1);
+  assert.equal(await text(page.locator('[data-running-count]')), '3 running');
+  assert.equal(await page.locator('[data-add-text]').inputValue(), '', 'the box is emptied');
+  assert.ok((await text(bar)).includes('+ D5 Magnesium 300 mg'), 'the receipt');
+  // No: nothing is added
+  await page.locator('[data-add-text]').fill('started zinc 25 mg daily');
+  await page.locator('[data-add]').click();
+  await page.locator('[data-bar-no]').waitFor();
+  await page.locator('[data-bar-no]').click();
+  await bar.waitFor({ state: 'detached' });
+  assert.equal(await page.locator('[data-med-name]', { hasText: 'Zinc' }).count(), 0, 'No adds nothing');
+  assert.equal(await page.evaluate(() => window.__noReload), true, 'every save changed the page in place');
+  // the question was answered: Today's Needs you has none left of it
+  await page.goto(`${base}/`);
+  assert.equal(await page.getByText('started zinc 25 mg daily').count(), 0, 'the answered question is gone from Today');
+  // the empty list and the door off
+  await standinPost('/standin/labs-empty');
+  await page.goto(`${base}/medical/meds`);
+  await page.locator('[data-empty]').waitFor();
+  assert.equal(await text(page.locator('[data-empty]')), 'No medication recorded.');
+  assert.equal(await text(page.locator('[data-running-count]')), '0 running');
+  await checkWidth(page, 'medical meds, empty');
+  await standinPost('/standin/reset');
+  await standinPost('/standin/door-off');
+  await page.goto(`${base}/medical/meds`);
+  await page.locator('[data-problem]').waitFor();
+  assert.match(await page.getByRole('link', { name: 'Open the full app' }).getAttribute('href'), /\/web\/labs\/meds$/);
+  await checkWidth(page, 'medical meds, door off');
+  await standinPost('/standin/up');
+  await page.goto(`${base}/`);
+}
+
 async function checkWidth(page, what) {
   const sideways = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   assert.ok(sideways <= 0, `${what}: no sideways scroll (${sideways} px too wide)`);
@@ -4087,6 +4699,16 @@ for (const theme of ['dark', 'light']) {
       console.log(`library foods, the library tab ${name} ${theme}: checks passed`);
       await checkLibraryTabs(page, name, theme);
       console.log(`library usual meals, habits, exercises ${name} ${theme}: checks passed`);
+    }
+    if (only('medical')) {
+      await checkMedicalPlace(page, name, theme);
+      console.log(`medical in the places ${name} ${theme}: checks passed`);
+      await checkMedicalReports(page, name, theme);
+      console.log(`medical reports ${name} ${theme}: checks passed`);
+      await checkMedicalTests(page, name, theme);
+      console.log(`medical tests over time ${name} ${theme}: checks passed`);
+      await checkMedicalMeds(page, name, theme);
+      console.log(`medical medication ${name} ${theme}: checks passed`);
     }
     if (only('problems')) {
       await checkProblems(page, name, theme);

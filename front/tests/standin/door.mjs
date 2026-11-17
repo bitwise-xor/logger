@@ -103,6 +103,7 @@ const GYM = read('gym.json');
 const FOODTRENDS = read('food_trends.json');
 const INSIGHTS = read('insights.json');
 const CAT = read('catalogue.json');
+const LABS = read('labs.json');
 const READ_MS = 1200; // the AI's moment: long enough to see the "being read" row
 
 let state; // { day, usual, undo: {token, head, expires_at} | null, before: {day, usual} before the last save (for Undo), keys: Map, lines: Map, aiDown }
@@ -111,7 +112,7 @@ let mode = 'up'; // 'up' | 'core-down' | 'door-off' (step F)
 function reset() {
   state = { day: read('day.json').day, usual: usualStart(), undo: null, before: null, keys: new Map(), lines: new Map(), aiDown: false,
     scanned: new Map([[SCAN.barcode.code, SCAN.barcode.food]]), labelFail: false,
-    hv: healthStart(), sessions: sessionsStart(), hab: habitsStart(), dayKeys: new Set(), slow: 0, locked: new Set(), gym: gymStart(), watchNone: false, gymEmpty: false, home: homeStart(), week: weekStart(), fail: new Set(), cat: catStart() };
+    hv: healthStart(), sessions: sessionsStart(), hab: habitsStart(), dayKeys: new Set(), slow: 0, locked: new Set(), gym: gymStart(), watchNone: false, gymEmpty: false, home: homeStart(), week: weekStart(), fail: new Set(), cat: catStart(), labs: labsStart() };
   state.day.needs.body_due = structuredClone(HEALTH.day_body_due);
   // the notes of the food sample's rows (the same invented day), kept on the rows so an Undo puts them back too
   const notes = new Map(FOOD.food_day.food_day.rows.map((r) => [r.ref, r.note]));
@@ -2300,6 +2301,265 @@ function catAnswer(b) {
   return { ...SCAN.saves.answer, v: undefined, receipt: [`+ N${id} NEW food '${name}' (database): per 100 g: 61 kcal, P 1.0, F 2.3 (sat 0.3), C 9.0`], notes: [], undo: state.undo };
 }
 
+// ---- Deploy 106: Medical (Reports, Tests over time, Medication), from tests/samples/labs.json (real answers of the door for invented data) ------------
+// The three tabs are worked out from the values, reports and courses as they stand: R1 to R3 get invented values of the same three tests as R4's (the
+// sample gives the counts and the Vitamin D history; the flags follow a simple range rule: below the low end L, above the high end H, else none; an
+// imaging value keeps A), so the list, the flagged chips, the tests' counts and the charts agree with each other.
+const LB_TODAY = LABS.meds.labs_meds.today;
+const LB_FLAGS = { H: 'high', L: 'low', A: 'abnormal' };
+const LB_REPORT_REF = /^[Rr]?(\d{1,9})$/;
+
+function lbParseRange(ref) {
+  const t = String(ref ?? '').trim();
+  let m = /^(\d+(?:\.\d+)?)\s*-\s*(\d+(?:\.\d+)?)$/.exec(t);
+  if (m) return [Number(m[1]), Number(m[2])];
+  m = /^<\s*(\d+(?:\.\d+)?)$/.exec(t);
+  if (m) return [null, Number(m[1])];
+  m = /^>\s*(\d+(?:\.\d+)?)$/.exec(t);
+  return m ? [Number(m[1]), null] : [null, null];
+}
+
+/** The tests, the reports and the values as the invented data has them. */
+function labsStart() {
+  const open4 = LABS.open.labs.open.values;
+  const tests = new Map(open4.map((v) => [v.test_id, { id: v.test_id, name: v.test, unit: v.unit, ref: v.printed.ref }]));
+  const liver = LABS.open_imaging.labs.open.values[0];
+  tests.set(liver.test_id, { id: liver.test_id, name: liver.test, unit: null, ref: '' });
+  const reports = LABS.reports.labs.reports.map((r) => ({ id: r.id, date: r.date, title: r.title, kind: r.kind, provider: r.provider ?? '', notes: '' }));
+  const values = [];
+  const num = (id, report_id, test_id, v) => values.push({ id, report_id, test_id, value: String(v), unit: tests.get(test_id).unit, ref: tests.get(test_id).ref, site: null, note: null, abnormal: false });
+  // R1 to R3: three tests each (Haemoglobin, Ferritin, Vitamin D), invented
+  [[1, 12.1, 20, 18], [2, 14, 120, 22], [3, 12.8, 410, 31]].forEach(([r, hb, fe, d], i) => {
+    num(3 * i + 1, r, 19, hb);
+    num(3 * i + 2, r, 20, fe);
+    num(3 * i + 3, r, 21, d);
+  });
+  for (const v of open4) num(v.id, 4, v.test_id, v.printed.value);
+  values.push({ id: liver.id, report_id: 5, test_id: liver.test_id, value: liver.printed.value, unit: null, ref: '', site: liver.site, note: null, abnormal: true });
+  const meds = LABS.meds.labs_meds.meds.map((m) => ({ id: m.id, name: m.name, ingredient: m.ingredient, dose: m.dose, frequency: m.frequency, indication: m.indication, start: m.start, stop: m.stop }));
+  return { tests, reports, values, meds, nextValue: 20, nextMed: 5, asks: new Map() };
+}
+
+const lbDmy = (iso) => (iso ? dmy3(iso) : null);
+const lbNumber = (v) => (/^-?\d+(?:\.\d+)?$/.test(v.value) ? Number(v.value) : null);
+function lbFlag(v) {
+  if (v.abnormal) return 'A';
+  const n = lbNumber(v);
+  const [low, high] = lbParseRange(v.ref);
+  if (n === null) return 'N';
+  return low !== null && n < low ? 'L' : high !== null && n > high ? 'H' : 'N';
+}
+const lbText = (v) => [v.value, v.unit].filter(Boolean).join(' ');
+
+/** A lab value as the door sends it (LabValue). */
+function lbValueOut(v) {
+  const t = state.labs.tests.get(v.test_id);
+  const [low, high] = lbParseRange(v.ref);
+  const flag = lbFlag(v);
+  return { id: v.id, ref: `V${v.id}`, test_id: v.test_id, test: t.name, note: v.note, text: lbText(v), value: lbNumber(v), unit: v.unit || null,
+    range: v.ref || '-', ref_low: low, ref_high: high, flag, flag_word: LB_FLAGS[flag] ?? null, site: v.site, printed: { value: v.value, unit: v.unit ?? '', ref: v.ref } };
+}
+
+const lbReportOf = (id) => state.labs.reports.find((r) => r.id === id);
+const lbValuesOf = (id) => state.labs.values.filter((v) => v.report_id === id).sort((a, b) => a.id - b.id);
+const lbFlagged = (v) => ['H', 'L', 'A'].includes(lbFlag(v));
+
+/** GET /labs?open=: the Reports tab (the flagged card of the newest lab report, the reports newest first, the open one). */
+function labsOut(openRaw) {
+  const L = state.labs;
+  const reports = [...L.reports].sort((a, b) => (a.date === b.date ? b.id - a.id : a.date < b.date ? 1 : -1));
+  const newest = reports.find((r) => r.kind === 'lab');
+  const chips = newest ? lbValuesOf(newest.id).filter(lbFlagged).map(lbValueOut).sort((a, b) => a.test.localeCompare(b.test))
+    .map((v) => ({ test_id: v.test_id, test: v.test, value: v.text, range: v.range, flag: v.flag, flag_word: v.flag_word })) : [];
+  const flagged = newest && { report_id: newest.id, ref: `R${newest.id}`, date: newest.date, date_text: lbDmy(newest.date), title: newest.title,
+    heading: LABS.reports.labs.flagged.heading, hint: LABS.reports.labs.flagged.hint, empty: chips.length ? null : 'Nothing flagged.', chips };
+  const m = LB_REPORT_REF.exec(String(openRaw ?? ''));
+  const o = m ? lbReportOf(Number(m[1])) : null;
+  const sample = LABS.open.labs.open;
+  const open = o && { id: o.id, ref: `R${o.id}`, date: o.date, date_text: lbDmy(o.date), title: o.title, kind: o.kind, provider: o.provider || null, notes: o.notes || null,
+    values: lbValuesOf(o.id).map(lbValueOut), empty: lbValuesOf(o.id).length ? null : 'No values in this report.',
+    form: { collected: o.date, title: o.title, provider: o.provider, notes: o.notes }, value_hint: sample.value_hint, report_hint: sample.report_hint };
+  return { flagged, reports: reports.map((r) => ({ id: r.id, ref: `R${r.id}`, date: r.date, date_text: lbDmy(r.date), title: r.title, kind: r.kind, provider: r.provider || null,
+    values: lbValuesOf(r.id).length, flagged: lbValuesOf(r.id).filter(lbFlagged).length })), empty: reports.length ? null : 'No reports yet.',
+    hint: LABS.reports.labs.hint, open, limits: LABS.reports.labs.limits };
+}
+
+/** One test's values, oldest first, with the date and site. */
+function lbRows(testId) {
+  return state.labs.values.filter((v) => v.test_id === testId).map((v) => ({ v, r: lbReportOf(v.report_id) })).sort((a, b) => (a.r.date === b.r.date ? a.v.id - b.v.id : a.r.date < b.r.date ? -1 : 1));
+}
+
+/** app.'s test_chart: the band from the newest value, the dots by flag, a line when there is one value a day; or the thin cases' words. */
+function lbCard(test) {
+  const rows = lbRows(test.id);
+  const nums = rows.filter(({ v }) => lbNumber(v) !== null);
+  const card = { id: 'test', title: test.name, small: `${rows.length} values`, stat: [], chart: null, legend: [], note: null };
+  const dates = [...new Set(nums.map(({ r }) => r.date))].sort();
+  if (dates.length >= 2) {
+    const first = dates[0];
+    const days = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 86400_000);
+    const pt = ({ v, r }) => [days(first, r.date), lbNumber(v), `${lbDmy(r.date)}: ${lbText(v)}${v.site ? ` (${v.site})` : ''}`];
+    const newest = rows.at(-1).v;
+    const band = lbParseRange(newest.ref);
+    const one = dates.length === nums.length;
+    const dot = (cls, pick) => ({ mark: 'dot', cls, pts: nums.filter(({ v }) => pick(lbFlag(v))).map(pt) });
+    card.chart = { start: first, days: days(first, dates.at(-1)) + 1, label: `${test.name} over time`, years: true, band: band.some((b) => b !== null) ? band : null,
+      series: [...(one ? [{ mark: 'line', cls: 'a', pts: nums.map(pt) }] : []), dot('a', (f) => !['H', 'L', 'A'].includes(f)), dot('w', (f) => f === 'H' || f === 'L'), dot('r', (f) => f === 'A')] };
+    card.legend = [{ key: 'sq band', text: 'reference range (from the newest value)' }, { key: 'w', text: 'outside the range' + (one ? '' : '; no line: some days have several values') }];
+  } else if (nums.length > 1) card.note = 'All values are from one day (different sites); see them below. The chart starts with a second day.';
+  else if (nums.length) card.note = 'Only one value so far; the chart starts with the second.';
+  return card;
+}
+
+/** GET /labs/tests?q=&t=: the list (tests with numbers on three or more days, or the matches of q; one match opens it) or a test with its chart and rows. */
+function testsOut(q0, t0) {
+  const L = state.labs;
+  const q = String(q0 ?? '').slice(0, 60).trim();
+  const count = (id) => L.values.filter((v) => v.test_id === id).length;
+  let test = /^\d{1,9}$/.test(String(t0 ?? '')) ? L.tests.get(Number(t0)) ?? null : null;
+  let matches = [];
+  if (q && !test) {
+    matches = [...L.tests.values()].filter((t) => t.name.toLowerCase().includes(q.toLowerCase())).sort((a, b) => count(b.id) - count(a.id) || a.name.localeCompare(b.name));
+    if (matches.length === 1) test = matches[0];
+  }
+  if (!test && !q) {
+    matches = [...L.tests.values()].filter((t) => new Set(lbRows(t.id).map(({ r }) => r.date)).size >= 3).sort((a, b) => count(b.id) - count(a.id) || a.name.localeCompare(b.name));
+  }
+  const ref = (t) => ({ id: t.id, name: t.name, unit: t.unit, values: count(t.id) });
+  const listed = matches.length > 0 && !test;
+  const rows = test ? lbRows(test.id).reverse().map(({ v, r }) => {
+    const o = lbValueOut(v);
+    return { id: v.id, date: r.date, date_text: lbDmy(r.date), site: v.site, value: o.text, range: o.range, flag: o.flag, flag_word: o.flag_word, report_id: r.id, report_ref: `R${r.id}` };
+  }) : [];
+  return { q, placeholder: LABS.tests.labs_tests.placeholder, title: !q && !test && listed ? LABS.tests.labs_tests.title : null,
+    empty: !test && !listed ? (q ? 'No test with that name. Try another word.' : 'No test has numbers on three or more days yet.') : null,
+    tests: listed ? matches.map(ref) : [], test: test ? ref(test) : null, card: test ? lbCard(test) : null, rows };
+}
+
+/** The courses in app.'s order (running first, then by start, newest first), as the door sends them. */
+function medsOut() {
+  const meds = state.labs.meds.map((m) => {
+    const running = !m.stop || m.stop > LB_TODAY;
+    return { id: m.id, ref: `D${m.id}`, name: m.name, ingredient: m.ingredient, dose: m.dose, frequency: m.frequency, indication: m.indication, start: m.start, stop: m.stop,
+      start_text: lbDmy(m.start), stop_text: lbDmy(m.stop), running, can_end: running && !m.stop };
+  }).sort((a, b) => (a.running === b.running ? (a.start < b.start ? 1 : a.start > b.start ? -1 : b.id - a.id) : a.running ? -1 : 1));
+  const M = LABS.meds.labs_meds;
+  return { today: LB_TODAY, running: meds.filter((m) => m.running).length, empty: meds.length ? null : 'No medication recorded.', hint: M.hint, form_hint: M.form_hint, meds, limits: M.limits };
+}
+
+const lbNo = (outcome, reason) => [200, { outcome, head: outcome === 'unchanged' ? 'Nothing changed.' : 'Nothing saved.', reason, undo: null }];
+const lbOk = (head) => [200, { outcome: 'changed', head, undo: null }];
+const lbAsk = (readBack, label) => {
+  const { v: _v, ...ask } = LABS.saves.value_ask;
+  return [200, { ...ask, read_back: readBack, confirm: { label, no_label: 'No' }, undo: null }];
+};
+const lbIsDate = (s) => typeof s === 'string' && /^\d{4}-\d\d-\d\d$/.test(s) && !Number.isNaN(Date.parse(s));
+const lbTidy = (x) => String(x ?? '').split(/\s+/).filter(Boolean).join(' ');
+
+/** POST /labs/value, /labs/report, /labs/med: shown first (needs_confirmation), made with confirmed; the door's refusals and words; no key, no Undo. */
+function labsSave(action, b) {
+  const L = state.labs;
+  if (!Number.isInteger(b.id)) return [400, { error: 'bad_request', message: 'id must be a number.' }];
+  if (b.confirmed !== undefined && typeof b.confirmed !== 'boolean') return [400, { error: 'bad_request', message: 'confirmed must be true or false.' }];
+  const text = (k, most) => {
+    if (!(k in b)) return undefined;
+    if (b[k] === null) return '';
+    if (typeof b[k] !== 'string') return null;
+    return b[k];
+  };
+  if (action === 'value') {
+    const v = L.values.find((x) => x.id === b.id);
+    if (!v) return lbNo('rejected', 'That value is not there any more.');
+    const nv = text('value'), nu = text('unit'), nr = text('ref');
+    if ([nv, nu, nr].includes(null)) return [400, { error: 'bad_request', message: 'value must be text or null.' }];
+    const next = { value: nv === undefined ? v.value : lbTidy(nv), unit: nu === undefined ? v.unit ?? '' : lbTidy(nu), ref: nr === undefined ? v.ref : lbTidy(nr) };
+    if (!next.value) return lbNo('rejected', 'The value cannot be empty.');
+    if (next.value.length > 60 || next.unit.length > 30 || next.ref.length > 60) return [400, { error: 'bad_request', message: 'The text is too long.' }];
+    const changed = ['value', 'unit', 'ref'].filter((k) => next[k] !== (k === 'unit' ? v.unit ?? '' : v[k]));
+    if (!changed.length) return [200, { outcome: 'unchanged', head: 'Nothing changed.', reason: 'Nothing changed.', undo: null }];
+    const after = { ...v, value: next.value, unit: next.unit || null, ref: next.ref };
+    const t = L.tests.get(v.test_id);
+    const flag = lbFlag(after);
+    if (b.confirmed !== true) return lbAsk(`OK changed V${v.id}: conversion, flag, qualifier, ref_high, ref_low, ref_range_raw, unit, unit_raw, value, value_raw, value_text\nnow: ${t.name} ${lbText(after)} [${after.ref || '-'}]${flag === 'N' ? '' : ` ${flag}`}`, 'Yes, change');
+    Object.assign(v, after);
+    return lbOk(`Changed ${t.name}.`);
+  }
+  if (action === 'report') {
+    const r = lbReportOf(b.id);
+    if (!r) return lbNo('rejected', 'That report is not there any more.');
+    const got = { collected: !('collected' in b) ? undefined : b.collected === null ? '' : b.collected, title: text('title'), provider: text('provider'), notes: text('notes') };
+    if (got.collected !== undefined && typeof got.collected !== 'string') return [400, { error: 'bad_request', message: 'collected must be a date yyyy-mm-dd or null.' }];
+    if ([got.title, got.provider, got.notes].includes(null)) return [400, { error: 'bad_request', message: 'The text must be text or null.' }];
+    const next = { collected: got.collected ?? r.date, title: lbTidy(got.title ?? r.title), provider: lbTidy(got.provider ?? r.provider), notes: (got.notes ?? r.notes).trim() };
+    if (!lbIsDate(next.collected)) return lbNo('rejected', "Give the report's date.");
+    if (!next.title) return lbNo('rejected', 'The title cannot be empty.');
+    if (!next.provider) return lbNo('rejected', 'The lab cannot be empty.');
+    const changed = [['collected', r.date], ['title', r.title], ['provider', r.provider], ['notes', r.notes]].filter(([k, was]) => next[k] !== was).map(([k]) => k);
+    if (!changed.length) return [200, { outcome: 'unchanged', head: 'Nothing changed.', reason: 'Nothing changed.', undo: null }];
+    if (b.confirmed !== true) return lbAsk(`OK changed R${r.id}: ${changed.join(', ')}\nnow: ${lbDmy(next.collected)} ${next.title} (${next.provider})`, 'Yes, change');
+    Object.assign(r, { date: next.collected, title: next.title, provider: next.provider, notes: next.notes });
+    return lbOk('Changed the report.');
+  }
+  if (action === 'med') {
+    const m = L.meds.find((x) => x.id === b.id);
+    if (!m) return lbNo('rejected', 'That course is not there any more.');
+    if (!['save', 'end'].includes(b.act)) return [400, { error: 'bad_request', message: 'act must be save or end.' }];
+    const line = (x) => `D${x.id} ${x.name}${x.ingredient ? ` (${x.ingredient})` : ''} ${[x.dose, x.frequency].filter(Boolean).join(' ')}, from ${lbDmy(x.start)}${x.stop ? ` to ${lbDmy(x.stop)}` : ''}`;
+    if (b.act === 'end') {
+      if (m.stop) return [200, { outcome: 'unchanged', head: 'Nothing changed.', reason: 'That course has a stop date already.', undo: null }];
+      if (b.confirmed !== true) return lbAsk(`OK changed D${m.id}: stop_date\nnow: ${line({ ...m, stop: LB_TODAY })}`, 'Yes, end it today');
+      m.stop = LB_TODAY;
+      return lbOk(`${m.name} ended today.`);
+    }
+    const fields = ['dose', 'frequency', 'indication'];
+    const next = Object.fromEntries(fields.map((k) => [k, k in b ? lbTidy(b[k] ?? '') : m[k] ?? '']));
+    next.start = !('start' in b) ? m.start : b.start === null ? '' : b.start;
+    next.stop = !('stop' in b) ? m.stop ?? '' : b.stop === null ? '' : b.stop;
+    if (!lbIsDate(next.start)) return lbNo('rejected', 'Give the start as a date.');
+    if (next.stop && !lbIsDate(next.stop)) return lbNo('rejected', 'Give the stop as a date, or leave it empty.');
+    if (next.stop && next.stop < next.start) return lbNo('rejected', `stop ${lbDmy(next.stop)} lies before start ${lbDmy(next.start)}`);
+    const changed = [...fields, 'start', 'stop'].filter((k) => (next[k] || null) !== (m[k] || null));
+    if (!changed.length) return [200, { outcome: 'unchanged', head: 'Nothing changed.', reason: 'Nothing changed.', undo: null }];
+    const after = { ...m, ...Object.fromEntries(fields.map((k) => [k, next[k] || null])), start: next.start, stop: next.stop || null };
+    if (b.confirmed !== true) return lbAsk(`OK changed D${m.id}: ${changed.join(', ')}\nnow: ${line(after)}`, 'Yes, change');
+    Object.assign(m, after);
+    return lbOk(`Changed ${m.name}.`);
+  }
+  return [404, { error: 'not_found', message: 'Not found.' }];
+}
+
+/** POST /log with view "labs_meds": "started vitamin D 1000 IU daily" read back as the door's question (Yes or No through /answer); null: not a course. */
+function labsLog(b) {
+  const words = lbTidy(b.text);
+  const m = /^(?:started|start|begin|began)\s+(.+?)\s+(\d+(?:[.,]\d+)?\s*(?:mg|g|µg|mcg|iu|ml))\s*(.*)$/i.exec(words);
+  if (!m) return null;
+  const dose = m[2].replace(/\s+/, ' ').replace(/iu$/i, 'IU');
+  const name = `${m[1][0].toUpperCase()}${m[1].slice(1)} ${dose}`;
+  const course = { name, ingredient: null, dose, frequency: m[3] || null, indication: null, start: LB_TODAY, stop: null };
+  const readBack = `start ${name} ${m[3] || ''}`.replace(/\s+$/, '') + ` from ${lbDmy(LB_TODAY)}`;
+  const q = ask(LABS.saves.log_ask.questions[0], words, readBack);
+  state.day = { ...structuredClone(state.day) };
+  state.day.needs.questions.unshift(q);
+  state.labs.asks.set(q.id, course);
+  const { v: _v, ...rest } = LABS.saves.log_ask;
+  return { ...rest, questions: [q], read_back: `Preview, nothing changed yet:\n${readBack}` };
+}
+
+/** POST /answer to a typed course: yes adds the course, no closes the question. */
+function labsAnswer(b) {
+  const course = state.labs.asks.get(b.question_id);
+  if (!course) return null;
+  state.labs.asks.delete(b.question_id);
+  state.day = { ...structuredClone(state.day) };
+  state.day.needs.questions = state.day.needs.questions.filter((q) => q.id !== b.question_id);
+  const { v: _v, ...yes } = LABS.saves.log_yes;
+  if (String(b.reply).toLowerCase() !== 'yes') return { outcome: 'cancelled', head: 'Skipped.', undo: null };
+  const id = state.labs.nextMed++;
+  state.labs.meds = [...state.labs.meds, { id, ...course }];
+  return { ...yes, receipt: [`+ D${id} ${course.name} ${course.frequency ?? ''}, from ${lbDmy(LB_TODAY)}`.replace(' ,', ',')], undo: null };
+}
+
+
 reset();
 
 createServer(async (req, res) => {
@@ -2335,6 +2595,26 @@ createServer(async (req, res) => {
   if (req.url === '/standin/slow' && req.method === 'POST') {
     state.slow = 700; // the next day taps of the Habits page (and the Gym's ticks) take a moment
     return send(res, 200, { outcome: 'slow' });
+  }
+  // Medical (deploy 106): no reports and no courses; an imaging report with no values but notes; every value on one day; a course ended
+  // elsewhere (POST /standin/labs-end?id=1: its End on a page that does not know yet is refused in the door's words)
+  if (req.url === '/standin/labs-empty' && req.method === 'POST') {
+    Object.assign(state.labs, { reports: [], values: [], meds: [] });
+    return send(res, 200, { outcome: 'labs-empty' });
+  }
+  if (req.url === '/standin/labs-novalues' && req.method === 'POST') {
+    state.labs.values = state.labs.values.filter((v) => v.report_id !== 5);
+    lbReportOf(5).notes = 'Notes of the invented ultrasound.';
+    return send(res, 200, { outcome: 'labs-novalues' });
+  }
+  if (req.url === '/standin/labs-oneday' && req.method === 'POST') {
+    for (const r of state.labs.reports) r.date = '2026-10-05';
+    return send(res, 200, { outcome: 'labs-oneday' });
+  }
+  if (req.url.startsWith('/standin/labs-end') && req.method === 'POST') {
+    const m = state.labs.meds.find((x) => x.id === Number(new URL(req.url, 'http://standin').searchParams.get('id')));
+    if (m) m.stop = LB_TODAY;
+    return send(res, 200, { outcome: 'labs-end' });
   }
   if (req.url === '/standin/watch-none' && req.method === 'POST') {
     state.watchNone = true; // the watch has sent nothing: Activity shows the set-up guide
@@ -2514,6 +2794,17 @@ createServer(async (req, res) => {
     const item = itemOut(Number(m[1]));
     return item ? send(res, 200, { food_item: item, undo: undo() }, signedIn) : send(res, 404, { error: 'no_entry', message: 'That food is not there any more.' }, signedIn);
   }
+  if (url.pathname === '/api/v1/labs' && req.method === 'GET') {
+    const open = url.searchParams.get('open');
+    if (open !== null && open !== '' && !LB_REPORT_REF.test(open)) return send(res, 400, { error: 'bad_request', message: "open must be a report's id (R12 or 12)." }, signedIn);
+    return send(res, 200, { labs: labsOut(open), undo: undo() }, signedIn);
+  }
+  if (url.pathname === '/api/v1/labs/tests' && req.method === 'GET') {
+    const t = url.searchParams.get('t');
+    if (t !== null && t !== '' && !/^\d{1,9}$/.test(t)) return send(res, 400, { error: 'bad_request', message: "t must be a test's id." }, signedIn);
+    return send(res, 200, { labs_tests: testsOut(url.searchParams.get('q') ?? '', t), undo: undo() }, signedIn);
+  }
+  if (url.pathname === '/api/v1/labs/meds' && req.method === 'GET') return send(res, 200, { labs_meds: medsOut(), undo: undo() }, signedIn);
   if (url.pathname === '/api/v1/gym' && req.method === 'GET') return send(res, 200, { gym: gymOut(), undo: undo() }, signedIn);
   if (url.pathname === '/api/v1/gym/plan' && req.method === 'GET') return send(res, 200, { gym_plan: planOut(), undo: undo() }, signedIn);
   if (url.pathname === '/api/v1/gym/exercises' && req.method === 'GET') return send(res, 200, { gym_exercises: exercisesOut(), undo: undo() }, signedIn);
@@ -2531,7 +2822,7 @@ createServer(async (req, res) => {
   if (url.pathname === '/api/v1/foods' && req.method === 'GET') return send(res, 200, { foods: foods(url.searchParams.get('q')) }, signedIn);
   // A save's fresh read: the Food day or the usual meals when the body asks for it (view "food" with view_day, "usual"), else
   // Today; as the core, /usual/meal and /usual/new default to the usual meals and /usual/from_meal to the Food day.
-  const view = body.view ?? ({ '/api/v1/usual/meal': 'usual', '/api/v1/usual/new': 'usual', '/api/v1/usual/from_meal': 'food', '/api/v1/health/day': 'health', '/api/v1/body': 'body', '/api/v1/habit/day': 'habits', '/api/v1/habits/manage': 'habits' })[req.url] ?? (req.url.startsWith('/api/v1/food/catalogue/') ? 'catalogue' : req.url.startsWith('/api/v1/gym/') ? gymView(req.url.slice('/api/v1/gym/'.length), body) : req.url.startsWith('/api/v1/home/') ? homeView(req.url.slice('/api/v1/home/'.length)) : undefined);
+  const view = body.view ?? ({ '/api/v1/usual/meal': 'usual', '/api/v1/usual/new': 'usual', '/api/v1/usual/from_meal': 'food', '/api/v1/health/day': 'health', '/api/v1/body': 'body', '/api/v1/habit/day': 'habits', '/api/v1/habits/manage': 'habits' })[req.url] ?? (req.url.startsWith('/api/v1/food/catalogue/') ? 'catalogue' : req.url.startsWith('/api/v1/labs/med') ? 'labs_meds' : req.url.startsWith('/api/v1/labs/') ? 'labs' : req.url.startsWith('/api/v1/gym/') ? gymView(req.url.slice('/api/v1/gym/'.length), body) : req.url.startsWith('/api/v1/home/') ? homeView(req.url.slice('/api/v1/home/'.length)) : undefined);
   const range = [7, 30, 90].includes(body.range) ? body.range : 30;
   const fresh = () =>
     view === 'food' ? { food_day: foodDay(body.view_day) }
@@ -2548,6 +2839,9 @@ createServer(async (req, res) => {
     : view === 'home_chore' ? { home_chore: body.view_id ? hmChoreOut(body.view_id) : null }
     : view === 'home_edit' ? { home_edit: hmEditOut() }
     : view === 'catalogue' ? catView(body)
+    : view === 'labs' ? { labs: labsOut(body.view_open) }
+    : view === 'labs_tests' ? { labs_tests: testsOut(body.view_q, body.view_t) }
+    : view === 'labs_meds' ? { labs_meds: medsOut() }
     : view === 'habits' ? { habits: habitsOut(['tracked', 'untracked', 'retired', 'all'].includes(body.show) ? body.show : 'tracked') }
     : { day: dayOut(state.day) };
   if (req.url === '/api/v1/session' && req.method === 'DELETE') {
@@ -2577,6 +2871,8 @@ createServer(async (req, res) => {
     if (path === '/log') {
       await new Promise((r) => setTimeout(r, READ_MS));
       if (!sessions.has(bearer)) return send(res, 401, { error: 'signed_out', message: 'Sign in again.' });
+      const course = body.view === 'labs_meds' ? labsLog(body) : null;
+      if (course) return send(res, 200, { ...course, replayed: false, undo: undo(), ...fresh() }, signedIn);
       const r = logLine(body);
       if (r.day) {
         if (r.undo) [state.before, state.undo] = [{ day: state.day, usual: state.usual }, { token: randomBytes(12).toString('base64url'), head: r.undo, expires_at: new Date(Date.now() + 15 * 60_000).toISOString() }];
@@ -2620,6 +2916,25 @@ createServer(async (req, res) => {
       if (status !== 200) return send(res, status, out, signedIn);
       if (out.outcome === 'changed') state.undo = null; // as app., a change here ends the session's Undo bar
       const answer = { ...base, ...out, v: 1, tone: ['changed', 'unchanged'].includes(out.outcome) ? 'ok' : 'warning' };
+      return send(res, 200, { ...answer, ...fresh() }, signedIn);
+    }
+    if (path.startsWith('/labs/')) {
+      if ('key' in body) return send(res, 400, { error: 'bad_request', message: 'The stand-in: Medical takes no key.' }, signedIn);
+      if (state.slow) await new Promise((r) => setTimeout(r, state.slow)); // POST /standin/slow
+      const [status, out] = labsSave(path.slice('/labs/'.length), body);
+      if (status !== 200) return send(res, status, out, signedIn);
+      if (out.outcome === 'changed') state.undo = null; // as app., a change here ends the session's Undo bar
+      // the Reports tab answers with the report of the change open (as the door does)
+      if ((path === '/labs/value' || path === '/labs/report') && !('view_open' in body)) {
+        const rid = path === '/labs/report' ? body.id : state.labs.values.find((x) => x.id === body.id)?.report_id;
+        if (rid) body.view_open = `R${rid}`;
+      }
+      const answer = { ...base, ...out, v: 1, tone: ['changed', 'unchanged'].includes(out.outcome) ? 'ok' : 'warning' };
+      return send(res, 200, { ...answer, ...fresh() }, signedIn);
+    }
+    if (body.view === 'labs_meds' && path === '/answer' && state.labs.asks.has(body.question_id)) {
+      const out = labsAnswer(body);
+      const answer = { ...base, ...out, tone: ['changed', 'cancelled'].includes(out.outcome) ? 'ok' : 'warning' };
       return send(res, 200, { ...answer, ...fresh() }, signedIn);
     }
     if (body.view === 'catalogue' && (path === '/lookup' || (path === '/answer' && state.cat.lookups.has(body.question_id)))) {

@@ -8,7 +8,7 @@ skeleton, the sign-in and an empty Today. Step B (deploy 79): Today read-only fr
 (deploy 80): the taps save in place (water, Again and usual chips, habits, check-in, review, Health card, question buttons,
 Try again / Delete for a message not read yet, Undo). Step D (deploy 81): the logging box. Step E (deploy 84): the Food day.
 Step F (deploy 85): polish (plain messages when the core is down or the door is off, back to your page after a sign-in, phone,
-tablet and PC width). Then the trial runs (below). Deploy 87: the Usual meals page. Deploy 88: Today shows each food's and meal's macros, a pie of the day's kcal from protein, carbs and fat in the Energy card (app.'s macro colours, `--macro-*` in `app.css`), a one-line logging box that grows, and two habits per row. Deploy 90: scan, label photo, look-up and voice in the logging box (step 1a of the move to `logger.`, below). Deploy 92: the Health page with body measurements (step 1b, below). Deploy 94: the Habits page (step 1c, below). Deploy 96: the Gym's Workout page, the Gym card on Today and the Spaces menu (step 2, below). Deploy 97: Gym's other five parts (below). Deploy 99: Home's Now and Pick pages with the timer, the Home card on Today and Home in the Spaces menu (step 3, below). Deploy 100: Home's other four pages (Zones, History, a chore's page, Edit zones). Deploy 102: Trends' Week tab with the Week review; the Trends tab is live (below). Deploy 103: Trends' Charts and Insights tabs (step 4 done). Deploy 105: Library (Foods, Usual meals, Habits, Exercises; the Library tab is live, below).
+tablet and PC width). Then the trial runs (below). Deploy 87: the Usual meals page. Deploy 88: Today shows each food's and meal's macros, a pie of the day's kcal from protein, carbs and fat in the Energy card (app.'s macro colours, `--macro-*` in `app.css`), a one-line logging box that grows, and two habits per row. Deploy 90: scan, label photo, look-up and voice in the logging box (step 1a of the move to `logger.`, below). Deploy 92: the Health page with body measurements (step 1b, below). Deploy 94: the Habits page (step 1c, below). Deploy 96: the Gym's Workout page, the Gym card on Today and the Spaces menu (step 2, below). Deploy 97: Gym's other five parts (below). Deploy 99: Home's Now and Pick pages with the timer, the Home card on Today and Home in the Spaces menu (step 3, below). Deploy 100: Home's other four pages (Zones, History, a chore's page, Edit zones). Deploy 102: Trends' Week tab with the Week review; the Trends tab is live (below). Deploy 103: Trends' Charts and Insights tabs (step 4 done). Deploy 105: Library (the Library tab live). Deploy 106: Medical, a live Space with Reports, Tests over time and Medication (below). Deploy 105: Library (Foods, Usual meals, Habits, Exercises; the Library tab is live, below).
 
 ## How it fits
 
@@ -238,9 +238,28 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   the path). The stand-in answers GET `/food/catalogue`, `/food/item` and POST `/food/catalogue/<action>`, `/lookup` and `/answer` with view
   catalogue from `tests/samples/catalogue.json` (the samples' lists come out byte for byte); `SHOOT_ONLY=library` runs these checks. Also: the
   footer reads "Medical, Settings and the rest are in the full app"; `usual.test.ts` no longer has svelte-check errors.
+- **Medical** (deploy 106, step 5 continued; a live Space: the PC rail's Spaces group, `/more`, the More tab lit on every `/medical` page; `SPACES`
+  has `href: '/medical'` and `MEDICAL_TABS` the tabs; the footer and More now say "Settings and the rest are in the full app"). Header "Medical" with
+  Reports · Tests over time · Medication, each its own page (`MedicalHeader`; `src/lib/medical.ts` has the types, addresses, row lines and form rules
+  with tests, the door's `/labs`, `/labs/tests`, `/labs/meds`; nothing of a value, test or medicine is logged). **Reports** (`/medical`, `?open=R12`): the
+  flagged card (a chip per flagged value, each to `/medical/tests?t=`), all reports newest first, a report opens under its row on phones and tablets and
+  in a column from 1100 px (`ReportBox`): a row per value (name linking to its test, note, value, range, flag, pencil), the pencil's form (value, unit,
+  range: `labs_value` with only the changed fields, shown first, "Yes, change" in the answer bar sends it again with `confirmed`, No drops it), the notes
+  and "Change date, title or notes" (`labs_report`, the same way). A refusal or "Nothing changed." is amber next to its form and keeps what was typed.
+  **Tests over time** (`/medical/tests`, `?q=`, `?t=`), read only: the search (Enter or a pause, focus kept), the door's list, one test (phones and tablets:
+  its own view with "‹ All tests", keeping q; from 1100 px beside the list) with the chart part drawing the door's chart object (band, dots by flag, a tap
+  shows the door's words) or the thin-case message, and the history with "Report" to `/medical?open=R<id>`. The page reads the list and, with `t`, the
+  test (two calls: the door's list is empty while a test is open); a search with one match opens it by itself and "‹ All tests" then goes to the list
+  without q. **Medication** (`/medical/meds`): "Add a course" sends the sentence through Today's `log` save (same saver, answer bar and line keys) with
+  view `labs_meds`; the read-back of its question comes in the bar with Yes and No (`answer` with the same view); the card with "n running" and a row per
+  course in the door's order (pencil: `labs_med` act save, dates as date inputs, an empty stop = running; End: act end, "Yes, end it today"). None of
+  `labs_value`, `labs_report`, `labs_med` has a key or Undo, and none is ever sent again by the page (`mayResend` refuses `labs_`). The stand-in serves
+  the three reads and the saves from `tests/samples/labs.json` (R1 to R3's values are invented; flags follow a range rule; POST `/standin/labs-empty`,
+  `/standin/labs-novalues`, `/standin/labs-oneday`, `/standin/labs-end?id=1`); `SHOOT_ONLY=medical` runs these checks. All pages carry `Cache-Control:
+  no-store` (`hooks.server.ts`, every response).
 - The Spaces menu (deploy 96): `src/lib/places.ts` says where a page belongs. The PC rail: Today, Trends, Library, then "Spaces"
   (Gym, Health, Habits, Home since deploy 99; the one you are in highlighted), then More. Phones and tablets keep four tabs; More is the page `/more`
-  (`src/routes/(app)/more`): the Spaces as a list (Medical greyed, "soon"; Home since deploy 99), then one line that the rest is in the full app.
+  (`src/routes/(app)/more`): the Spaces as a list (Home since deploy 99, Medical since deploy 106: every Space is live), then one line that the rest is in the full app.
   On a Space's page the More tab is highlighted. Trends and Library stayed greyed (Trends is live since deploy 102, its three tabs since 103; Library since 105). Deploy 96 also fixed two things on the Habits page:
   after a day tick the open calendar is scrolled above the answer bar (phones and tablets), and app.'s "in the calendar below" is
   worded "in Last 30 days" (`helpText` in `habits.ts`).

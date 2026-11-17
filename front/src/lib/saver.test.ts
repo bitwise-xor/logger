@@ -1,6 +1,6 @@
 // Saving in place in the browser, against a faked network: the key rule, newest answer wins, and the re-send after a sign-in.
 import { describe, expect, it } from 'vitest';
-import { mayResend, RESEND_ITEM, RESEND_MS, Saver, type ActionResult } from './saver.js';
+import { KEYED, mayResend, RESEND_ITEM, RESEND_MS, Saver, type ActionResult } from './saver.js';
 
 interface Call {
   url: string;
@@ -368,6 +368,53 @@ describe('the saver', () => {
     expect(await s.resend()).toBeNull();
     expect(n.calls).toHaveLength(taps.length);
     expect(store.m.has(RESEND_ITEM)).toBe(false);
+  });
+
+  it('Medical (deploy 106): sends no key with a value, report or course form and never keeps one for a re-send, not even a kept old one', async () => {
+    const n = fakeNet();
+    const store = memory();
+    const s = new Saver({ ...n, storage: store, newKey: () => 'never-a-key-000001', page: '/medical' });
+    const taps: [string, Record<string, string>][] = [
+      ['labs_value', { id: '10', value: '12.9', view: 'labs', view_open: 'R4' }],
+      ['labs_value', { id: '10', value: '12.9', confirmed: '1', view: 'labs' }],
+      ['labs_report', { id: '4', title: 'Check-up', view: 'labs' }],
+      ['labs_med', { id: '1', act: 'save', dose: '2000 IU', view: 'labs_meds' }],
+      ['labs_med', { id: '1', act: 'end', confirmed: '1', view: 'labs_meds' }],
+    ];
+    for (const [i, [action, fields]] of taps.entries()) {
+      const r = s.send(action, { ...fields });
+      await tick();
+      expect(n.calls[i]!.url).toBe(`/medical?/${action}`);
+      expect(n.calls[i]!.fields, action).not.toHaveProperty('key');
+      n.calls[i]!.answer({ type: 'failure', status: 401, data: { signedOut: true } });
+      expect(await r).toEqual({ kind: 'signed_out' });
+      expect(store.m.has(RESEND_ITEM), action).toBe(false);
+      expect(mayResend(action), action).toBe(false);
+    }
+    expect(mayResend('labs_anything_new')).toBe(false);
+    expect(KEYED.has('labs_value') || KEYED.has('labs_report') || KEYED.has('labs_med')).toBe(false);
+    // one kept by an old tab with a key is not sent again either
+    for (const action of ['labs_value', 'labs_report', 'labs_med']) {
+      store.setItem(RESEND_ITEM, JSON.stringify({ action, fields: { id: '2', value: '1', key: 'old-key-0123456789' }, at: Date.now(), page: '/medical' }));
+      expect(await s.resend(), action).toBeNull();
+      expect(store.m.has(RESEND_ITEM), action).toBe(false);
+    }
+    expect(n.calls).toHaveLength(taps.length);
+  });
+
+  it('Medication (deploy 106): a new course is Today\'s typed line (keyed, kept for the sign-in as Today\'s is); its yes and no go through /answer', async () => {
+    const n = fakeNet();
+    const s = new Saver({ ...n, storage: memory(), newKey: () => 'course-key-000001', page: '/medical/meds' });
+    void s.send('log', { text: 'started vitamin D 1000 IU daily', view: 'labs_meds' });
+    await tick();
+    expect(n.calls[0]!.url).toBe('/medical/meds?/log');
+    expect(n.calls[0]!.fields).toMatchObject({ key: ['course-key-000001'], view: ['labs_meds'] });
+    void s.send('answer', { question_id: 'p1', reply: 'yes', view: 'labs_meds' });
+    await tick();
+    expect(n.calls[1]!.url).toBe('/medical/meds?/answer');
+    expect(n.calls[1]!.fields).not.toHaveProperty('key');
+    expect(mayResend('log')).toBe(true);
+    expect(mayResend('answer')).toBe(false);
   });
 
   // Step D: the logging box's typed line

@@ -2,7 +2,7 @@
 // day asked for, and a gone session told apart from other problems.
 import { describe, expect, it } from 'vitest';
 import { makeDoor, type Fetch } from './door.js';
-import { bodyFor, CATALOGUE_SAVES, EXERCISES_SAVES, LIBRARY_HABITS_SAVES, FOOD_SAVES, GYM_SAVES, HABITS_SAVES, HEALTH_SAVES, EDIT_SAVES, HISTORY_SAVES, HOME_SAVES, PICK_SAVES, PLAN_SAVES, runSave, SAVE_NAMES, SAVES, TODAY_SAVES, TRENDS_SAVES, USUAL_SAVES, ZONES_SAVES } from './saves.js';
+import { bodyFor, CATALOGUE_SAVES, MEDICAL_MEDS_SAVES, MEDICAL_REPORTS_SAVES, EXERCISES_SAVES, LIBRARY_HABITS_SAVES, FOOD_SAVES, GYM_SAVES, HABITS_SAVES, HEALTH_SAVES, EDIT_SAVES, HISTORY_SAVES, HOME_SAVES, PICK_SAVES, PLAN_SAVES, runSave, SAVE_NAMES, SAVES, TODAY_SAVES, TRENDS_SAVES, USUAL_SAVES, ZONES_SAVES } from './saves.js';
 
 const TOKEN = 'f'.repeat(40);
 const SESSION = 's'.repeat(43);
@@ -191,7 +191,7 @@ describe('the Food day saves (step E)', () => {
     expect(TODAY_SAVES).not.toContain('usual_meal');
     expect(TODAY_SAVES).toContain('usual');
     expect(TODAY_SAVES).toContain('undo');
-    expect(new Set([...TODAY_SAVES, ...FOOD_SAVES, ...USUAL_SAVES, ...HEALTH_SAVES, ...HABITS_SAVES, ...GYM_SAVES, ...PLAN_SAVES, ...EXERCISES_SAVES, ...HOME_SAVES, ...PICK_SAVES, ...ZONES_SAVES, ...HISTORY_SAVES, ...EDIT_SAVES, ...TRENDS_SAVES, ...CATALOGUE_SAVES, ...LIBRARY_HABITS_SAVES])).toEqual(new Set(SAVE_NAMES));
+    expect(new Set([...TODAY_SAVES, ...FOOD_SAVES, ...USUAL_SAVES, ...HEALTH_SAVES, ...HABITS_SAVES, ...GYM_SAVES, ...PLAN_SAVES, ...EXERCISES_SAVES, ...HOME_SAVES, ...PICK_SAVES, ...ZONES_SAVES, ...HISTORY_SAVES, ...EDIT_SAVES, ...TRENDS_SAVES, ...CATALOGUE_SAVES, ...LIBRARY_HABITS_SAVES, ...MEDICAL_REPORTS_SAVES, ...MEDICAL_MEDS_SAVES])).toEqual(new Set(SAVE_NAMES));
   });
 });
 
@@ -871,5 +871,70 @@ describe('the Catalogue (Library)', () => {
     const r = await runSave(door, SESSION, 'catalogue_values', form({ id: '2', kcal: '70', ...VIEW }), undefined, 'catalogue');
     expect(r.ok).toBe(true);
     expect(seen).toEqual([{ path: '/api/v1/food/catalogue/values', body: { id: 2, kcal: 70, past: false, ...fresh }, timeout: true }]);
+  });
+});
+
+// Deploy 106: Medical's forms (POST /labs/value, /labs/report, /labs/med): the id as a number, only the fields sent (a cleared one null),
+// dates as dates, never a key, confirmed only on Yes, and the page's view for the fresh read. A new course is Today's `log` and `answer`.
+describe('Medical (the Medical Space)', () => {
+  const b = (n: Parameters<typeof bodyFor>[0], f: Record<string, string>, view: Parameters<typeof bodyFor>[4] = 'labs') => bodyFor(n, form(f), undefined, undefined, view);
+
+  it('a value: only the fields typed over, the cleared one as null, confirmed only on Yes, never a key, the open report asked for', () => {
+    expect(b('labs_value', { id: '10', value: ' 12.9 ', key: KEY, view_open: 'R4' })).toEqual({ id: 10, value: '12.9', view: 'labs', view_open: 'R4' });
+    expect(b('labs_value', { id: '10', value: '', unit: 'mmol/L', ref: '' })).toEqual({ id: 10, value: null, unit: 'mmol/L', ref: null, view: 'labs' });
+    expect(b('labs_value', { id: '10', value: '12.9', confirmed: '1', view_open: 'r4' })).toEqual({ id: 10, value: '12.9', confirmed: true, view: 'labs', view_open: 'R4' });
+    // nothing typed over: only the id (the door says "Nothing changed.")
+    expect(b('labs_value', { id: '10' })).toEqual({ id: 10, view: 'labs' });
+    // a view_open that is no report is left out
+    expect(b('labs_value', { id: '10', view_open: 'x1' })).toEqual({ id: 10, view: 'labs' });
+  });
+
+  it('a report: the date as a date (anything else null: the door asks for it), the texts as typed, a cleared one null', () => {
+    expect(b('labs_report', { id: '4', collected: '2026-10-06', title: 'Check-up', provider: '', notes: 'Fasting.' })).toEqual({
+      id: 4, collected: '2026-10-06', title: 'Check-up', provider: null, notes: 'Fasting.', view: 'labs',
+    });
+    expect(b('labs_report', { id: '4', collected: '' })).toEqual({ id: 4, collected: null, view: 'labs' });
+    expect(b('labs_report', { id: '4', collected: '6.10.2026' })).toEqual({ id: 4, collected: null, view: 'labs' });
+    expect(b('labs_report', { id: '4', title: 'Check-up', confirmed: '1' })).toEqual({ id: 4, title: 'Check-up', confirmed: true, view: 'labs' });
+  });
+
+  it('a course: save with its fields (an empty stop null = running), End with none; the Medication read asked for', () => {
+    expect(b('labs_med', { id: '1', act: 'save', dose: '2000 IU', frequency: '', indication: 'low vitamin D', start: '2026-09-01', stop: '' }, 'labs_meds')).toEqual({
+      id: 1, act: 'save', dose: '2000 IU', frequency: null, indication: 'low vitamin D', start: '2026-09-01', stop: null, view: 'labs_meds',
+    });
+    expect(b('labs_med', { id: '1', act: 'end', dose: 'ignored', key: KEY }, 'labs_meds')).toEqual({ id: 1, act: 'end', view: 'labs_meds' });
+    expect(b('labs_med', { id: '1', act: 'end', confirmed: '1' }, 'labs_meds')).toEqual({ id: 1, act: 'end', confirmed: true, view: 'labs_meds' });
+    expect(b('labs_med', { id: '1', dose: '1 mg' }, 'labs_meds')).toMatchObject({ act: 'save', dose: '1 mg' });
+  });
+
+  it('asks the Tests read for its search and test (digits only), the Medication read for nothing more', () => {
+    expect(b('answer', { question_id: 'p1', reply: 'yes', view_q: 'vit', view_t: '21' }, 'labs_tests')).toEqual({ question_id: 'p1', reply: 'yes', view: 'labs_tests', view_q: 'vit', view_t: '21' });
+    expect(b('answer', { question_id: 'p1', reply: 'yes', view_t: 'a21' }, 'labs_tests')).toEqual({ question_id: 'p1', reply: 'yes', view: 'labs_tests' });
+    expect(b('log', { text: 'started vitamin D 1000 IU daily', key: KEY }, 'labs_meds')).toEqual({ text: 'started vitamin D 1000 IU daily', key: KEY, view: 'labs_meds' });
+    expect(b('answer', { question_id: 'p1', reply: 'yes' }, 'labs_meds')).toEqual({ question_id: 'p1', reply: 'yes', view: 'labs_meds' });
+  });
+
+  it('takes no key for any of the three, goes to /labs/<form>, and stays off Today', () => {
+    for (const n of ['labs_value', 'labs_report', 'labs_med'] as const) {
+      expect(SAVES[n].keyed, n).toBe(false);
+      expect(SAVES[n].path).toBe(`/labs/${n.slice('labs_'.length)}`);
+      expect(TODAY_SAVES).not.toContain(n);
+    }
+    expect(MEDICAL_REPORTS_SAVES).toEqual(['labs_value', 'labs_report']);
+    expect(MEDICAL_MEDS_SAVES).toEqual(['labs_med', 'log', 'answer', 'undo']);
+    expect(TODAY_SAVES).toContain('log');
+  });
+
+  it('goes to /labs/value once, without a key', async () => {
+    const { door, seen } = net(200, { v: 1, outcome: 'needs_confirmation', head: 'Nothing saved yet: please confirm.', labs: {} });
+    const r = await runSave(door, SESSION, 'labs_value', form({ id: '10', value: '12.9', view_open: 'R4' }), undefined, 'labs');
+    expect(r.ok).toBe(true);
+    expect(seen).toEqual([{ path: '/api/v1/labs/value', body: { id: 10, value: '12.9', view: 'labs', view_open: 'R4' }, timeout: true }]);
+  });
+
+  it('the typed course goes to /log with its key, 60 s for the AI, and asks for the Medication read', async () => {
+    const { door, seen } = net(200, { v: 1, outcome: 'needs_confirmation', head: 'Nothing saved yet: please confirm.', labs_meds: {} });
+    await runSave(door, SESSION, 'log', form({ text: 'started vitamin D 1000 IU daily', key: KEY }), undefined, 'labs_meds');
+    expect(seen).toEqual([{ path: '/api/v1/log', body: { text: 'started vitamin D 1000 IU daily', key: KEY, view: 'labs_meds' }, timeout: true }]);
   });
 });
