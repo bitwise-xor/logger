@@ -100,7 +100,7 @@ def setup() -> dict:
     c = lambda x: {"text": x, "code": True}  # noqa: E731
     return {"title": "No watch data yet", "token_set": bool(watch.token()),
             "intro": "The watch data comes from the iPhone app Health Auto Export (Premium). Set up two automations of the kind REST API:",
-            "steps": [[t("Address "), c(f"https://log.19hospitalroad.fyi{watch.PATH}"), t(", format JSON, export version 2.")],
+            "steps": [[t("Address "), c(f"https://logger-mcp.19hospitalroad.fyi{watch.PATH}"), t(", format JSON, export version 2.")],
                       [t("A header "), c("Authorization"), t(" with the value "), c("Bearer"), t(f", a space and your token. The token {ready}.")],
                       [t("First automation: Health Metrics with Step Count, Active Energy, Apple Exercise Time, Resting Heart Rate, Heart Rate "
                          "Variability, Walking + Running Distance, Flights Climbed, Sleep Analysis and Heart Rate; Summarize Data on, by hour.")],

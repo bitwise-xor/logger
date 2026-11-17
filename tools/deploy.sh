@@ -34,7 +34,7 @@ for i in $(seq 1 40); do
   s=$(docker inspect -f '{{.State.Health.Status}}' logger-v2-core 2>/dev/null); [ "$s" = healthy ] && break; sleep 3
 done
 echo "container health: $s"; [ "$s" = healthy ] || echo "CHECK FAILED: not healthy"
-echo -n "public /health: "; curl -s -m 15 https://log.19hospitalroad.fyi/health </dev/null; echo
+echo -n "public /health: "; curl -s -m 15 https://logger-mcp.19hospitalroad.fyi/health </dev/null; echo
 echo "== files inside the container match the checkout"
 bad=0
 for f in $(cd core && find app migrations -type f ! -path '*/__pycache__/*' | sort); do
@@ -107,7 +107,7 @@ for p in /web/ /web/food /web/settings /web/nothing; do
 done
 echo -n "POST /web/log without a session -> "; curl -sk -m 10 -o /dev/null -w "%{http_code}\n" -X POST -H "Origin: https://app.19hospitalroad.fyi" --resolve app.19hospitalroad.fyi:443:127.0.0.1 -d "text=x" https://app.19hospitalroad.fyi/web/log </dev/null
 echo -n "static manifest -> "; curl -sk -m 10 -o /dev/null -w "%{http_code} %{content_type}\n" --resolve app.19hospitalroad.fyi:443:127.0.0.1 https://app.19hospitalroad.fyi/web/static/manifest.webmanifest </dev/null
-echo -n "log. host /web/login (must be 404) -> "; curl -s -m 10 -o /dev/null -w "%{http_code}\n" https://log.19hospitalroad.fyi/web/login </dev/null
+echo -n "logger-mcp. host /web/login (must be 404) -> "; curl -s -m 10 -o /dev/null -w "%{http_code}\n" https://logger-mcp.19hospitalroad.fyi/web/login </dev/null
 echo "== errors in the log since start"; docker logs --since 2m logger-v2-core 2>&1 | grep -iE "error|traceback|exception" | head -n 10 || true; echo "(end of errors)"
 # 02.11.2026 (disk at 86%): keep the last three rollback images (restyle-5035cd8 is never touched) and 1 GB of build cache.
 # 17.11.2026: the newest three by number, not "N-3": the numbers have gaps since the front end has its own deploys, so old ones stayed.
