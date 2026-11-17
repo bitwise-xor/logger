@@ -76,7 +76,9 @@ echo -n "app. still answers -> "; curl -sk -m 10 -o /dev/null -w "%{http_code} %
 
 echo "== errors in the log since start"; docker logs --since 2m logger-v2-front 2>&1 | grep -iE "error|exception" | head -n 10 || true; echo "(end of errors)"
 echo "== clean-up"
-old="logger-v2-front:front-fixes$((N - 3))"
-docker image inspect "$old" >/dev/null 2>&1 && docker rmi "$old" >/dev/null && echo "removed $old (the last three rollback images stay)"
+# the newest three by number, not "N-3" (17.11.2026: the numbers have gaps since the core has its own deploys, so old ones stayed)
+docker images --format '{{.Tag}}' logger-v2-front | grep -E '^front-fixes[0-9]+$' | sed 's/^front-fixes//' | sort -rn | tail -n +4 | while read -r n; do
+  docker rmi "logger-v2-front:front-fixes$n" >/dev/null && echo "removed logger-v2-front:front-fixes$n (the newest three rollback images stay)"
+done
 docker builder prune -f --reserved-space 1gb </dev/null | tail -n 1 | sed 's/^/build cache freed: /'
 docker images --format '{{.Repository}}:{{.Tag}} {{.Size}}' | grep -E 'logger-v2-front'; df -h / | tail -n 1
