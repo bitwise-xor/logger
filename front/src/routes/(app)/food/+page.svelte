@@ -80,7 +80,7 @@
     <FoodRows day={fd} />
     <div class="flex flex-wrap gap-1.5">
       <a href="/#log-text" class="{pill} bg-text font-medium text-bg desktop:hidden">+ Add food</a>
-      <a href="/food/usual" class="{pill} border border-line bg-panel text-text desktop:min-h-9" data-usual-link>Usual meals</a>
+      <a href="/library/usual" class="{pill} border border-line bg-panel text-text desktop:min-h-9" data-usual-link>Usual meals</a>
     </div>
   </main>
 {/if}

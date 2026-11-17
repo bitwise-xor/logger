@@ -59,9 +59,9 @@
               type="button"
               class="{btn} border-0 bg-amber text-on-amber"
               disabled={today.busy[`confirm:${bar.confirm.action}`]}
-              onclick={() => today.confirm()}>{bar.confirm.label}</button
+              onclick={() => today.confirm()} data-bar-yes>{bar.confirm.label}</button
             >
-            <button type="button" class="{btn} border border-amber bg-transparent text-text" onclick={() => today.closeBar()}
+            <button type="button" class="{btn} border border-amber bg-transparent text-text" onclick={() => today.no()} data-bar-no
               >{bar.confirm.noLabel}</button
             >
           </div>

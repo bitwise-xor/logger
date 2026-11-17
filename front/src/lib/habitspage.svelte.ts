@@ -2,7 +2,8 @@
  * The Habits page's state in the browser (deploy 94): the read on screen (the door's Habits), the habit whose calendar is open,
  * the row of "Your habits" with a form or a question open (Edit, Delete) and its draft, the New habit form, the rows and the
  * day a save changed (blue edge), and why the last list form was refused. The answer bar and the taps on their way are the
- * shared part (answers.svelte.ts). Every save goes to a form action of /habits (habit, habit_day, habits_manage, undo) and its
+ * shared part (answers.svelte.ts). Every save goes to a form action of /habits (habit, habit_day, habits_manage, undo; Library's Habits
+ * tab, deploy 105: of /library/habits, the list's forms only) and its
  * answer brings the fresh read with the filter shown (view "habits"). A tick of a day has Undo in the answer bar; the list's forms
  * have none (docs/API.md), and a refusal of one is said next to its form, which keeps what was typed.
  */
@@ -45,10 +46,13 @@ export class HabitsPage extends Answers {
   /** Why a list form was refused, and where to say it (whereOf). */
   err = $state<null | { where: string; text: string }>(null);
 
+  /** The page whose form actions the saves call and whose address the filter keeps: /habits, or Library's /library/habits (deploy 105). */
+  readonly path: string;
   #loaded: Habits | null = null;
 
-  constructor(habits: Habits | null, undo: Undo | null) {
-    super('/habits');
+  constructor(habits: Habits | null, undo: Undo | null, path = '/habits') {
+    super(path);
+    this.path = path;
     this.load(habits, undo);
   }
 

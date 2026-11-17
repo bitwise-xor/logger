@@ -2,7 +2,7 @@
 // day asked for, and a gone session told apart from other problems.
 import { describe, expect, it } from 'vitest';
 import { makeDoor, type Fetch } from './door.js';
-import { bodyFor, EXERCISES_SAVES, FOOD_SAVES, GYM_SAVES, HABITS_SAVES, HEALTH_SAVES, EDIT_SAVES, HISTORY_SAVES, HOME_SAVES, PICK_SAVES, PLAN_SAVES, runSave, SAVE_NAMES, SAVES, TODAY_SAVES, TRENDS_SAVES, USUAL_SAVES, ZONES_SAVES } from './saves.js';
+import { bodyFor, CATALOGUE_SAVES, EXERCISES_SAVES, LIBRARY_HABITS_SAVES, FOOD_SAVES, GYM_SAVES, HABITS_SAVES, HEALTH_SAVES, EDIT_SAVES, HISTORY_SAVES, HOME_SAVES, PICK_SAVES, PLAN_SAVES, runSave, SAVE_NAMES, SAVES, TODAY_SAVES, TRENDS_SAVES, USUAL_SAVES, ZONES_SAVES } from './saves.js';
 
 const TOKEN = 'f'.repeat(40);
 const SESSION = 's'.repeat(43);
@@ -191,7 +191,7 @@ describe('the Food day saves (step E)', () => {
     expect(TODAY_SAVES).not.toContain('usual_meal');
     expect(TODAY_SAVES).toContain('usual');
     expect(TODAY_SAVES).toContain('undo');
-    expect(new Set([...TODAY_SAVES, ...FOOD_SAVES, ...USUAL_SAVES, ...HEALTH_SAVES, ...HABITS_SAVES, ...GYM_SAVES, ...PLAN_SAVES, ...EXERCISES_SAVES, ...HOME_SAVES, ...PICK_SAVES, ...ZONES_SAVES, ...HISTORY_SAVES, ...EDIT_SAVES, ...TRENDS_SAVES])).toEqual(new Set(SAVE_NAMES));
+    expect(new Set([...TODAY_SAVES, ...FOOD_SAVES, ...USUAL_SAVES, ...HEALTH_SAVES, ...HABITS_SAVES, ...GYM_SAVES, ...PLAN_SAVES, ...EXERCISES_SAVES, ...HOME_SAVES, ...PICK_SAVES, ...ZONES_SAVES, ...HISTORY_SAVES, ...EDIT_SAVES, ...TRENDS_SAVES, ...CATALOGUE_SAVES, ...LIBRARY_HABITS_SAVES])).toEqual(new Set(SAVE_NAMES));
   });
 });
 
@@ -819,5 +819,57 @@ describe('the Week review', () => {
     const r = await runSave(wrapped as typeof door, SESSION, 'coach_start', form({ start: '2026-11-09', end: '2026-11-10', view_p: 'this' }), undefined, 'week');
     expect(r.ok).toBe(true);
     expect(seen).toEqual([{ path: '/coach/start', body: { kind: 'week', start: '2026-11-09', end: '2026-11-10', view: 'week', view_p: 'this' }, timeout: true }]);
+  });
+});
+
+// Deploy 105: Library's Foods tab (POST /food/catalogue/<action>): ids and values as numbers, only the values sent, ticks as true or
+// false, never a key, and the page's view for the fresh Catalogue and box. The look-up and its yes are Today's saves, asked for it.
+describe('the Catalogue (Library)', () => {
+  const VIEW = { view_q: 'oat', view_f: 'drinks', view_s: 'name', view_food: '3' };
+  const fresh = { view: 'catalogue', view_q: 'oat', view_f: 'drinks', view_s: 'name', view_food: 3 };
+
+  it('sends only the values typed, as numbers (a comma too), past as true or false, confirmed only on Yes, and never a key', () => {
+    expect(bodyFor('catalogue_values', form({ id: '2', kcal: '70', protein: '11,5', past: '1', key: KEY, ...VIEW }), undefined, undefined, 'catalogue')).toEqual({
+      id: 2, kcal: 70, protein: 11.5, past: true, ...fresh,
+    });
+    expect(bodyFor('catalogue_values', form({ id: '2', kcal: '70', confirmed: '1' }), undefined, undefined, 'catalogue')).toEqual({ id: 2, kcal: 70, past: false, confirmed: true, view: 'catalogue' });
+    // something that is not a number goes as typed: the door's 400 says so
+    expect(bodyFor('catalogue_values', form({ id: '2', fat: 'lots' }), undefined, undefined, 'catalogue')).toMatchObject({ fat: 'lots' });
+  });
+
+  it('builds the words, barcode, basics, unit and reviewed bodies as the door takes them', () => {
+    const b = (n: Parameters<typeof bodyFor>[0], f: Record<string, string>) => bodyFor(n, form(f), undefined, undefined, 'catalogue');
+    expect(b('catalogue_words', { id: '1', act: 'add', word: ' Porridge ' })).toEqual({ id: 1, act: 'add', word: 'Porridge', view: 'catalogue' });
+    expect(b('catalogue_barcode', { id: '1', barcode: '4000 0000' })).toEqual({ id: 1, barcode: '4000 0000', view: 'catalogue' });
+    expect(b('catalogue_basics', { id: '6', name: 'Apple', hide: '1' })).toEqual({ id: 6, name: 'Apple', drink: false, hide: true, view: 'catalogue' });
+    expect(b('catalogue_unit', { id: '5', unit: 'slice', grams: '35' })).toEqual({ id: 5, unit: 'slice', grams: 35, view: 'catalogue' });
+    expect(b('catalogue_unit', { id: '5', unit: 'slice', grams: '' })).toEqual({ id: 5, unit: 'slice', grams: null, view: 'catalogue' });
+    expect(b('catalogue_reviewed', { id: '5' })).toEqual({ id: 5, view: 'catalogue' });
+  });
+
+  it('asks the look-up and its answer for the Catalogue, and leaves out a view that is not one', () => {
+    expect(bodyFor('lookup', form({ text: 'crispbread', ...VIEW }), undefined, undefined, 'catalogue')).toEqual({ text: 'crispbread', ...fresh });
+    expect(bodyFor('answer', form({ question_id: 'p1', reply: 'yes', view_food: 'N12' }), undefined, undefined, 'catalogue')).toEqual({ question_id: 'p1', reply: 'yes', view: 'catalogue', view_food: 12 });
+    expect(bodyFor('answer', form({ question_id: 'p1', reply: 'no', view_f: 'odd', view_s: 'best', view_food: 'x1' }), undefined, undefined, 'catalogue')).toEqual({ question_id: 'p1', reply: 'no', view: 'catalogue' });
+  });
+
+  it('takes no key for any of the six and keeps them off Today', () => {
+    const six = ['catalogue_values', 'catalogue_words', 'catalogue_barcode', 'catalogue_basics', 'catalogue_unit', 'catalogue_reviewed'] as const;
+    for (const n of six) {
+      expect(SAVES[n].keyed, n).toBe(false);
+      expect(SAVES[n].path).toBe(`/food/catalogue/${n.slice('catalogue_'.length)}`);
+      expect(TODAY_SAVES).not.toContain(n);
+    }
+    expect(CATALOGUE_SAVES).toEqual([...six, 'lookup', 'answer', 'undo']);
+    expect(TODAY_SAVES).toContain('lookup');
+    expect(TODAY_SAVES).toContain('answer');
+    expect(LIBRARY_HABITS_SAVES).toEqual(['habits_manage']);
+  });
+
+  it('goes to /food/catalogue/values once, without a key', async () => {
+    const { door, seen } = net(200, { v: 1, outcome: 'needs_confirmation', head: 'Nothing saved yet: please confirm.', catalogue: {}, food_item: null });
+    const r = await runSave(door, SESSION, 'catalogue_values', form({ id: '2', kcal: '70', ...VIEW }), undefined, 'catalogue');
+    expect(r.ok).toBe(true);
+    expect(seen).toEqual([{ path: '/api/v1/food/catalogue/values', body: { id: 2, kcal: 70, past: false, ...fresh }, timeout: true }]);
   });
 });

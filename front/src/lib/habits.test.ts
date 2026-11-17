@@ -20,6 +20,7 @@ import {
   groupTitle,
   helpText,
   habitsHref,
+  LIBRARY_WHERE,
   isFull,
   newDraft,
   newFields,
@@ -54,6 +55,9 @@ describe('the filter', () => {
     expect(askedShow('everything')).toBe('tracked');
     expect(habitsHref('tracked')).toBe('/habits');
     expect(habitsHref('untracked')).toBe('/habits?show=untracked');
+    // deploy 105: Library's Habits tab has the same filter at its own address
+    expect(habitsHref('tracked', '/library/habits')).toBe('/library/habits');
+    expect(habitsHref('all', '/library/habits')).toBe('/library/habits?show=all');
   });
 
   it("shows each filter with the read's count and marks the one shown", () => {
@@ -61,6 +65,7 @@ describe('the filter', () => {
     expect(chips(habits).map((c) => c.current)).toEqual([true, false, false, false]);
     expect(chips(all).find((c) => c.current)?.key).toBe('all');
     expect(chips(habits).map((c) => c.href)).toEqual(['/habits', '/habits?show=untracked', '/habits?show=retired', '/habits?show=all']);
+    expect(chips(habits, '/library/habits').map((c) => c.href)).toEqual(['/library/habits', '/library/habits?show=untracked', '/library/habits?show=retired', '/library/habits?show=all']);
   });
 
   it('titles a group with how many habits it has', () => {
@@ -265,6 +270,8 @@ describe('the line under the filter (deploy 96)', () => {
     const h = SAMPLE.habits.habits as Habits;
     expect(h.help).toContain('in the calendar below');
     expect(helpText(h)).toBe('Tracked habits show on Today (unless hidden under Settings > Today page) and in Last 30 days.');
+    // deploy 105: Library's Habits tab has no calendar
+    expect(helpText(h, LIBRARY_WHERE)).toBe('Tracked habits show on Today (unless hidden under Settings > Today page) and on the Habits page.');
     expect(helpText({ help: 'Retired: hidden everywhere; the history stays. Bring one back any time.', days: 30 })).toBe(
       'Retired: hidden everywhere; the history stays. Bring one back any time.',
     );

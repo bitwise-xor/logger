@@ -144,6 +144,11 @@ export abstract class Answers {
     await this.tap(c.action, `confirm:${c.action}`, { ...fields, ...this.yes(c) });
   }
 
+  /** The read-back's "No": nothing is sent, the bar closes (Library's look-up answers its question "no", deploy 105). */
+  async no() {
+    this.closeBar();
+  }
+
   async undo() {
     const u = this.bar?.undo;
     if (u) await this.tap('undo', 'undo', { token: u.token });

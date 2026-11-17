@@ -1,6 +1,6 @@
 <script lang="ts">
   import ProblemCard from '#lib/components/ProblemCard.svelte';
-  import ThemeButton from '#lib/components/ThemeButton.svelte';
+  import LibraryHeader from '#lib/components/library/LibraryHeader.svelte';
   import AnswerBar from '#lib/components/today/AnswerBar.svelte';
   import UsualCards from '#lib/components/usual/UsualCards.svelte';
   import UsualEditor from '#lib/components/usual/UsualEditor.svelte';
@@ -11,7 +11,8 @@
 
   let { data }: PageProps = $props();
 
-  // Deploy 87: the usual meals, under the Food day (its "Usual meals", and "Edit" by Today's usual chips). Phones and tablets
+  // Deploy 87: the usual meals (the Food day's "Usual meals", and "Edit" by Today's usual chips); since deploy 105 Library's tab
+  // /library/usual, under the Library header (/food/usual leads here). Phones and tablets
   // show the list or the open meal; from 1100 px the list on the left and the open meal on the right. Saves change the page in
   // place (src/lib/usualpage.svelte.ts).
   const page = setUsualPage(untrack(() => new UsualPage(data.usual, data.undo, data.open)));
@@ -41,26 +42,16 @@
 
 <svelte:head><title>Usual meals · Logger</title></svelte:head>
 
-<header class="flex-col gap-0.5 desktop:flex desktop:flex-row desktop:flex-wrap desktop:items-end desktop:gap-3 {editing ? 'hidden' : 'flex'}">
-  <div class="flex flex-col gap-0.5 desktop:flex-1">
-    <a href="/food" class="inline-flex min-h-11 items-center self-start font-medium no-underline desktop:min-h-0 desktop:text-[13px]">‹ Food day</a>
-    <div class="flex items-center gap-2">
-      <h1 class="m-0 flex-1 text-[26px] leading-[1.1] font-semibold tracking-tight desktop:text-[30px]">Usual meals</h1>
-      <span class="desktop:hidden"><ThemeButton /></span>
-    </div>
-    {#if page.list}
-      <p class="m-0 mt-1 text-[13px] text-muted desktop:mt-0.5" data-count>
-        {countLine(page.list)} <span class="desktop:hidden">Tap one to change it.</span><span class="hidden desktop:inline">Pick one to change it.</span>
-      </p>
-    {/if}
+<LibraryHeader on="usual" hidden={editing} />
+
+{#if page.list}
+  <div class="flex-wrap items-center gap-3 desktop:flex {editing ? 'hidden' : 'flex'}">
+    <p class="m-0 flex-1 text-[13px] text-muted" data-count>
+      {countLine(page.list)} <span class="desktop:hidden">Tap one to change it.</span><span class="hidden desktop:inline">Pick one to change it.</span>
+    </p>
+    <button type="button" class="{primary} hidden desktop:inline-block" onclick={() => page.newMeal()} data-new-usual>+ New usual meal</button>
   </div>
-  {#if page.list}
-    <span class="hidden items-center gap-2 desktop:flex">
-      <button type="button" class={primary} onclick={() => page.newMeal()} data-new-usual>+ New usual meal</button>
-      <ThemeButton />
-    </span>
-  {/if}
-</header>
+{/if}
 
 {#if !page.list}
   <ProblemCard kind={data.problem ?? 'trouble'} appHref="{data.appUrl}/web/food/usual" />

@@ -73,6 +73,15 @@
 // unknown), remove, goalset, zonenew, zoneedit, zoneactive, chorenew, choreedit, choreactive, chorezones, with the core's checks and
 // refusals (a zone name in use, a number out of range, a whole-flat chore needing a zone); keys replay (alldone, startpoint, earlier), Undo
 // of alldone, startpoint, remove and earlier; the Edit forms have none.
+// Deploy 105: Library's Foods tab, from tests/samples/catalogue.json (real answers of the door for an invented catalogue): GET
+// /food/catalogue?q=&f=&s= worked out from the foods as they stand (q in name, words, N number and barcode; f all, drinks, new (added in
+// the 14 days to 17.11.2026), review; s the eight orders, ties by name, as the samples show; bad f or s 400), GET /food/item?id= (the
+// samples' boxes, the other foods' made the same way; not there 404 no_entry), POST /food/catalogue/values (only the values sent; read
+// back first, then saved with confirmed; a recipe food refused), words (add, remove; another food's name or word refused in the core's
+// words), barcode (8 to 14 digits), basics (a name another food has refused; hide takes it out of the list), unit (the same name again
+// changes its grams), reviewed; none has a key or Undo, the same values again are "Nothing changed.". POST /lookup and /answer with view
+// "catalogue": a read-back of the words typed as a question (after a moment), its yes adds the food (Undo takes it out again), its no
+// closes it; every catalogue save answers with the Catalogue of view_q, view_f, view_s and the box of view_food.
 import { createServer } from 'node:http';
 import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
@@ -93,6 +102,7 @@ const HABITS = read('habits.json');
 const GYM = read('gym.json');
 const FOODTRENDS = read('food_trends.json');
 const INSIGHTS = read('insights.json');
+const CAT = read('catalogue.json');
 const READ_MS = 1200; // the AI's moment: long enough to see the "being read" row
 
 let state; // { day, usual, undo: {token, head, expires_at} | null, before: {day, usual} before the last save (for Undo), keys: Map, lines: Map, aiDown }
@@ -101,7 +111,7 @@ let mode = 'up'; // 'up' | 'core-down' | 'door-off' (step F)
 function reset() {
   state = { day: read('day.json').day, usual: usualStart(), undo: null, before: null, keys: new Map(), lines: new Map(), aiDown: false,
     scanned: new Map([[SCAN.barcode.code, SCAN.barcode.food]]), labelFail: false,
-    hv: healthStart(), sessions: sessionsStart(), hab: habitsStart(), dayKeys: new Set(), slow: 0, locked: new Set(), gym: gymStart(), watchNone: false, gymEmpty: false, home: homeStart(), week: weekStart(), fail: new Set() };
+    hv: healthStart(), sessions: sessionsStart(), hab: habitsStart(), dayKeys: new Set(), slow: 0, locked: new Set(), gym: gymStart(), watchNone: false, gymEmpty: false, home: homeStart(), week: weekStart(), fail: new Set(), cat: catStart() };
   state.day.needs.body_due = structuredClone(HEALTH.day_body_due);
   // the notes of the food sample's rows (the same invented day), kept on the rows so an Undo puts them back too
   const notes = new Map(FOOD.food_day.food_day.rows.map((r) => [r.ref, r.note]));
@@ -2076,6 +2086,220 @@ function coachStatus(id) {
 
 const KEYED = ['/gym/tick', '/health/day', '/home/tick', '/home/pickdone', '/home/picknext', '/home/earlier', '/home/alldone', '/home/startpoint', '/body', '/food/labeladd', '/log', '/water', '/again', '/usual', '/habit', '/checkin', '/health', '/held/retry', '/held/delete', '/usual/meal', '/usual/new', '/usual/from_meal'];
 
+// ---- Library's Foods tab (deploy 105) ---------------------------------------------------------------------------------------------
+
+const CT_TODAY = '2026-11-17';
+const CT_VALUES = CAT.items.oats.food_item.values.map(({ key, label }) => ({ key, label }));
+const CT_WORDS = CAT.items.oats.food_item.words;
+const CT_LIMITS = CAT.items.oats.food_item.limits;
+const CT_FILTERS = CAT.all.catalogue.filters.map(({ key, label }) => ({ key, label }));
+const CT_SORTS = CAT.all.catalogue.sorts.map(({ key, label }) => ({ key, label }));
+const CT_HINTS = Object.fromEntries(['all', 'review', 'new'].map((k) => [CAT[k].catalogue.sort, CAT[k].catalogue.hint]));
+const dmy3 = (iso) => `${iso.slice(8, 10)}.${iso.slice(5, 7)}.${iso.slice(0, 4)}`;
+const dmyShort = (iso) => `${iso.slice(8, 10)}.${iso.slice(5, 7)}.${iso.slice(2, 4)}`;
+const ctTidy = (x) => String(x ?? '').split(/\s+/).filter(Boolean).join(' ');
+
+/** The catalogue's foods: the sample's rows, with the samples' boxes where there is one (values, units, barcode, source, recipe). */
+function catStart() {
+  const boxes = new Map([...Object.values(CAT.items).map((x) => x.food_item), CAT.saves.values_ask.food_item].map((i) => [i.id, i]));
+  const foods = CAT.all.catalogue.rows.map((r) => {
+    const it = boxes.get(r.id);
+    const values = Object.fromEntries(CT_VALUES.map((v) => [v.key, null]));
+    if (it) for (const v of it.values) values[v.key] = v.value;
+    else Object.assign(values, r.per_100);
+    return { id: r.id, name: r.name, basis: r.basis, drink: r.drink, active: true, review: r.review,
+      reason: it?.review_reason ?? (r.review ? 'values from an estimate' : null), aliases: [...r.aliases],
+      units: it ? it.units.map((u) => ({ unit: u.unit, grams: u.grams })) : [], barcode: it?.barcode ?? null, values,
+      eaten: r.eaten, first: it?.first ?? r.last, last: r.last, added: r.added,
+      source: it ? structuredClone(it.source) : { line: 'database', source: 'database', brand: null, note: null }, recipe: it?.recipe ?? null };
+  });
+  return { foods, lookups: new Map(), next: Math.max(...foods.map((f) => f.id)) + 1 };
+}
+
+const ctText = (n) => (n === null ? '?' : String(n));
+function ctRow(f) {
+  const per = { kcal: f.values.kcal, protein: f.values.protein, fat: f.values.fat, carbs: f.values.carbs };
+  return { id: f.id, ref: `N${f.id}`, name: f.name, review: f.review, drink: f.drink, aliases: [...f.aliases], basis: f.basis, per_100: per,
+    per_100_text: Object.fromEntries(Object.entries(per).map(([k, v]) => [k, ctText(v)])), eaten: f.eaten, last: f.last,
+    last_text: f.last ? ddmm(f.last) : '–', added: f.added, added_text: dmyShort(f.added) };
+}
+
+/** GET /food/catalogue as the door answers: the active foods matching q and f, in the order s (ties by name). */
+function catalogueOut(q0, f, s) {
+  const q = String(q0 ?? '').trim().slice(0, 60);
+  const k = q.toLowerCase();
+  const since = shiftIso(CT_TODAY, -14);
+  let foods = state.cat.foods.filter((x) => x.active);
+  if (k) foods = foods.filter((x) => x.name.toLowerCase().includes(k) || x.aliases.some((a) => a.includes(k)) || `n${x.id}` === k || (x.barcode ?? '').includes(k));
+  if (f === 'drinks') foods = foods.filter((x) => x.drink);
+  if (f === 'new') foods = foods.filter((x) => x.added >= since);
+  if (f === 'review') foods = foods.filter((x) => x.review);
+  const num = (x) => x ?? -1;
+  const by = {
+    eaten: (a, b) => b.eaten - a.eaten, recent: (a, b) => b.eaten - a.eaten,
+    last: (a, b) => (b.last ?? '').localeCompare(a.last ?? ''), added: (a, b) => b.added.localeCompare(a.added),
+    kcal: (a, b) => num(b.values.kcal) - num(a.values.kcal), kcal_low: (a, b) => num(a.values.kcal) - num(b.values.kcal),
+    protein: (a, b) => num(b.values.protein) - num(a.values.protein), name: () => 0,
+  }[s];
+  foods = [...foods].sort((a, b) => by(a, b) || a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+  const rows = foods.slice(0, 400).map(ctRow);
+  const label = CT_SORTS.find((x) => x.key === s).label;
+  return { q, filter: f, sort: s, filters: CT_FILTERS.map((x) => ({ ...x, on: x.key === f })), sorts: CT_SORTS.map((x) => ({ ...x, on: x.key === s })),
+    limit: 400, more: foods.length > 400 ? 'Showing the first 400; search to find others.' : null, empty: rows.length ? null : 'No food matches.',
+    hint: CT_HINTS[s] ?? `Sorted by: ${label.toLowerCase()}. Click a food to see and change it.`, placeholder: CAT.all.catalogue.placeholder,
+    count: rows.length, rows };
+}
+
+/** GET /food/item: one food's box (a hidden one too). */
+function itemOut(id) {
+  const f = state.cat.foods.find((x) => x.id === id);
+  if (!f) return null;
+  const per = `values per 100 ${f.basis}`;
+  const eaten = f.eaten ? `eaten ${f.eaten} times, last ${dmy3(f.last)}` : 'eaten 0 times';
+  const line = [f.source.source, f.source.brand, f.source.note].filter(Boolean).join(' · ');
+  return { id: f.id, ref: `N${f.id}`, name: f.name, basis: f.basis,
+    source: { ...f.source, line, text: `Source: ${line} · added ${dmy3(f.added)} · ${eaten} · ${per}` },
+    needs_review: f.review, review_reason: f.review ? f.reason : null,
+    values: CT_VALUES.map((v) => ({ ...v, value: f.values[v.key] })), aliases: [...f.aliases], drink: f.drink, active: f.active,
+    units: f.units.map((u) => ({ ...u, text: `1 ${u.unit} = ${u.grams} ${f.basis}` })), barcode: f.barcode, eaten: f.eaten,
+    first: f.eaten ? f.first : null, last: f.last, last_text: f.last ? dmy3(f.last) : null, added: f.added, added_text: dmy3(f.added),
+    recipe: f.recipe, values_editable: !f.recipe,
+    past: f.eaten ? { n: f.eaten, text: `Also recalculate the ${f.eaten} past ${f.eaten === 1 ? 'entry' : 'entries'} (${dmy3(f.first)} to ${dmy3(f.last)})` } : null,
+    words: structuredClone(CT_WORDS), limits: structuredClone(CT_LIMITS) };
+}
+
+const CT_F = ['all', 'drinks', 'new', 'review'];
+const CT_S = CT_SORTS.map((x) => x.key);
+/** A save's fresh read (view "catalogue"): the Catalogue of view_q, view_f, view_s and the box of view_food when it is in the list. */
+function catView(b) {
+  const cat = catalogueOut(typeof b.view_q === 'string' ? b.view_q : '', CT_F.includes(b.view_f) ? b.view_f : 'all', CT_S.includes(b.view_s) ? b.view_s : 'eaten');
+  const id = typeof b.view_food === 'number' ? b.view_food : Number(/^[Nn]?(\d+)$/.exec(String(b.view_food ?? ''))?.[1] ?? NaN);
+  return { catalogue: cat, food_item: cat.rows.some((r) => r.id === id) ? itemOut(id) : null };
+}
+
+const ctNo = (outcome, reason) => [200, { outcome, head: outcome === 'unchanged' ? 'Nothing changed.' : 'Nothing saved.', reason, undo: null }];
+const ctOk = (head) => [200, { outcome: 'changed', head, undo: null }];
+const ctBad = (message) => [400, { error: 'bad_request', message }];
+const ctKey = (w) => w.toLowerCase();
+
+/** POST /food/catalogue/<action>: webfood's checks and words; no key, no Undo (the session's Undo goes). */
+function catalogueSave(action, b) {
+  if (!Number.isInteger(b.id)) return ctBad('id must be a number.');
+  const f = state.cat.foods.find((x) => x.id === b.id);
+  if (!f) return ctNo('rejected', 'Unknown food.');
+  const ref = `N${f.id}`;
+  if (action === 'values') {
+    const changed = {};
+    for (const v of CT_VALUES) {
+      const n = b[v.key];
+      if (n === undefined || n === null) continue;
+      if (typeof n !== 'number') return ctBad(`${v.key} must be a number or null.`);
+      if (n < 0) return ctNo('rejected', `${v.label}: give a number of 0 or more.`);
+      if (f.values[v.key] === null || Math.abs(n - f.values[v.key]) > 1e-9) changed[v.key] = n;
+    }
+    if (b.past !== undefined && typeof b.past !== 'boolean') return ctBad('past must be true or false.');
+    if (!Object.keys(changed).length) return ctNo('unchanged', 'Nothing changed.');
+    if (f.recipe) return ctNo('rejected', `${ref} is calculated from recipe ${f.recipe}: change the recipe (${f.recipe}) instead`);
+    if (b.confirmed !== true) {
+      const said = Object.entries(changed).map(([k, n]) => `${k} ${ctText(f.values[k])} -> ${n}`).join(', ');
+      const past = b.past === true && f.eaten ? `\npast entries rewritten from the food: ${f.eaten}` : '\npast entries keep their old values (only from now on)';
+      const { v: _v, food_item: _i, ...ask } = CAT.saves.values_ask;
+      return [200, { ...ask, read_back: `OK changed ${ref} ${f.name}: ${said}${past}` }];
+    }
+    Object.assign(f.values, changed);
+    return ctOk(`Changed ${ref} ${f.name}.`);
+  }
+  if (action === 'words') {
+    if (!['add', 'remove'].includes(b.act)) return ctBad('act must be add or remove.');
+    const w = ctTidy(b.word).toLowerCase().slice(0, 60);
+    if (!/\p{L}/u.test(w)) return ctNo('rejected', 'Type a word first.');
+    if (b.act === 'remove') {
+      if (!f.aliases.includes(w)) return ctNo('unchanged', 'Nothing changed.');
+      f.aliases = f.aliases.filter((a) => a !== w);
+      return ctOk(`"${w}" no longer means ${ref} ${f.name}.`);
+    }
+    if (ctKey(f.name) === w || f.aliases.includes(w)) return ctNo('unchanged', `'${w}' is already a name or alias of ${ref}`);
+    const other = state.cat.foods.find((x) => x.active && x.id !== f.id && ctKey(x.name) === w);
+    if (other) return ctNo('rejected', `'${w}' is the name of N${other.id} ${other.name}: an alias must not shadow another food`);
+    const alias = state.cat.foods.find((x) => x.active && x.id !== f.id && x.aliases.includes(w));
+    if (alias) return ctNo('rejected', `'${w}' is already an alias of N${alias.id} ${alias.name}: remove it there first, or use a more specific word`);
+    if (f.aliases.length >= 20) return ctNo('rejected', `${ref} would have ${f.aliases.length + 1} aliases (maximum 20)`);
+    f.aliases = [...f.aliases, w];
+    return ctOk(`"${w}" now means ${ref} ${f.name}.`);
+  }
+  if (action === 'barcode') {
+    if (b.barcode !== undefined && b.barcode !== null && typeof b.barcode !== 'string') return ctBad('barcode must be text or null.');
+    const code = String(b.barcode ?? '').replace(/\s/g, '');
+    if (!/^\d{8,14}$/.test(code)) return ctNo('rejected', 'A barcode is 8 to 14 digits.');
+    if (code === (f.barcode ?? '')) return ctNo('unchanged', 'Nothing changed.');
+    f.barcode = code;
+    return ctOk(`Barcode ${code} saved for ${ref} ${f.name}.`);
+  }
+  if (action === 'basics') {
+    for (const k of ['drink', 'hide']) if (b[k] !== undefined && b[k] !== null && typeof b[k] !== 'boolean') return ctBad(`${k} must be true or false.`);
+    const name = ctTidy(b.name ?? f.name).slice(0, 120);
+    if (name.length < 2) return ctNo('rejected', 'Give the food a name.');
+    const drink = b.drink ?? f.drink;
+    const hide = b.hide ?? !f.active;
+    const said = [];
+    if (name !== f.name) {
+      if (state.cat.foods.some((x) => x.id !== f.id && ctKey(x.name) === ctKey(name))) return ctNo('rejected', `a food called '${name}' already exists`);
+      said.push(`name "${name}"`);
+    }
+    if (drink !== f.drink) said.push(drink ? 'a drink' : 'not a drink');
+    if (hide === f.active) said.push(hide ? 'hidden from the lists' : 'back in the lists');
+    if (!said.length) return ctNo('unchanged', 'Nothing changed.');
+    Object.assign(f, { name, drink, active: !hide });
+    return ctOk(`${ref} ${name}: ${said.join(', ')}.`);
+  }
+  if (action === 'unit') {
+    if (b.grams !== undefined && b.grams !== null && typeof b.grams !== 'number') return ctBad('grams must be a number.');
+    const unit = ctTidy(b.unit).toLowerCase().slice(0, 30);
+    if (!unit || !/\p{L}/u.test(unit) || ['g', 'ml', 'kg', 'l'].includes(unit)) return ctNo('rejected', 'Name the unit, e.g. slice, piece, scoop or cup.');
+    const g = b.grams;
+    if (typeof g !== 'number' || !(g > 0 && g <= 2000)) return ctNo('rejected', `Give its weight as a number above 0 and at most 2000 ${f.basis}.`);
+    f.units = [...f.units.filter((u) => u.unit !== unit), { unit, grams: g }];
+    return ctOk(`1 ${unit} of ${f.name} = ${g} ${f.basis}.`);
+  }
+  if (action === 'reviewed') {
+    f.review = false;
+    return ctOk(`Kept. ${ref} ${f.name} is no longer flagged.`);
+  }
+  return [404, { error: 'not_found', message: 'Not found.' }];
+}
+
+/** POST /lookup with view "catalogue": after a moment, the words typed read back as the door's question (Yes or No through /answer). */
+async function catLookUp(b) {
+  await new Promise((r) => setTimeout(r, 900)); // the look-up takes a moment: the button says it is working
+  const word = ctTidy(b.text).slice(0, 120);
+  if (!word) return rejected('Give a name or a barcode to look up.');
+  const name = word[0].toUpperCase() + word.slice(1);
+  const sample = SCAN.saves.lookup;
+  const readBack = `Open Food Facts has ${name}: 61 kcal, P 1, F 2.3 (sat 0.3), C 9, sugar 4 per 100 g (it would be added as "${name}")`;
+  const q = ask(sample.questions[0], null, readBack);
+  state.day = { ...structuredClone(state.day) };
+  state.day.needs.questions.unshift(q);
+  state.cat.lookups.set(q.id, name);
+  return { ...sample, questions: [q], read_back: `${readBack}.` };
+}
+
+/** POST /answer to a look-up of the catalogue: yes adds the food (with Undo, as the door's /answer), no closes the question. */
+function catAnswer(b) {
+  const name = state.cat.lookups.get(b.question_id);
+  if (!name) return null;
+  state.cat.lookups.delete(b.question_id);
+  state.day = { ...structuredClone(state.day) };
+  state.day.needs.questions = state.day.needs.questions.filter((q) => q.id !== b.question_id);
+  if (String(b.reply).toLowerCase() !== 'yes') return { outcome: 'cancelled', head: 'Skipped.', undo: null };
+  const id = state.cat.next++;
+  state.before = { day: state.day, usual: state.usual, cat: structuredClone(state.cat) }; // Undo takes the new food out again
+  state.cat.foods = [...state.cat.foods, { id, name, basis: 'g', drink: false, active: true, review: false, reason: null, aliases: [],
+    units: [], barcode: null, values: { ...Object.fromEntries(CT_VALUES.map((v) => [v.key, null])), kcal: 61, protein: 1, fat: 2.3, sat_fat: 0.3, carbs: 9, sugar_total: 4 },
+    eaten: 0, first: null, last: null, added: CT_TODAY, source: { line: 'database', source: 'database', brand: null, note: null }, recipe: null }];
+  state.undo = { token: randomBytes(12).toString('base64url'), head: `Saved: + N${id} NEW food '${name}' (database)`, expires_at: new Date(Date.now() + 15 * 60_000).toISOString() };
+  return { ...SCAN.saves.answer, v: undefined, receipt: [`+ N${id} NEW food '${name}' (database): per 100 g: 61 kcal, P 1.0, F 2.3 (sat 0.3), C 9.0`], notes: [], undo: state.undo };
+}
+
 reset();
 
 createServer(async (req, res) => {
@@ -2277,6 +2501,19 @@ createServer(async (req, res) => {
     if (!/^\d+$/.test(id)) return send(res, 400, { error: 'bad_request', message: "id must be a coaching's id." }, signedIn);
     return send(res, 200, { coaching: coachStatus(id), undo: undo() }, signedIn);
   }
+  if (url.pathname === '/api/v1/food/catalogue' && req.method === 'GET') {
+    const f = url.searchParams.get('f') || 'all';
+    const so = url.searchParams.get('s') || 'eaten';
+    if (!CT_F.includes(f)) return send(res, 400, { error: 'bad_request', message: 'f must be all, drinks, new or review.' }, signedIn);
+    if (!CT_S.includes(so)) return send(res, 400, { error: 'bad_request', message: `s must be ${CT_S.slice(0, -1).join(', ')} or ${CT_S.at(-1)}.` }, signedIn);
+    return send(res, 200, { catalogue: catalogueOut(url.searchParams.get('q') ?? '', f, so), undo: undo() }, signedIn);
+  }
+  if (url.pathname === '/api/v1/food/item' && req.method === 'GET') {
+    const m = /^[Nn]?(\d{1,9})$/.exec(url.searchParams.get('id') ?? '');
+    if (!m) return send(res, 400, { error: 'bad_request', message: "id must be a food's id (N12 or 12)." }, signedIn);
+    const item = itemOut(Number(m[1]));
+    return item ? send(res, 200, { food_item: item, undo: undo() }, signedIn) : send(res, 404, { error: 'no_entry', message: 'That food is not there any more.' }, signedIn);
+  }
   if (url.pathname === '/api/v1/gym' && req.method === 'GET') return send(res, 200, { gym: gymOut(), undo: undo() }, signedIn);
   if (url.pathname === '/api/v1/gym/plan' && req.method === 'GET') return send(res, 200, { gym_plan: planOut(), undo: undo() }, signedIn);
   if (url.pathname === '/api/v1/gym/exercises' && req.method === 'GET') return send(res, 200, { gym_exercises: exercisesOut(), undo: undo() }, signedIn);
@@ -2294,7 +2531,7 @@ createServer(async (req, res) => {
   if (url.pathname === '/api/v1/foods' && req.method === 'GET') return send(res, 200, { foods: foods(url.searchParams.get('q')) }, signedIn);
   // A save's fresh read: the Food day or the usual meals when the body asks for it (view "food" with view_day, "usual"), else
   // Today; as the core, /usual/meal and /usual/new default to the usual meals and /usual/from_meal to the Food day.
-  const view = body.view ?? ({ '/api/v1/usual/meal': 'usual', '/api/v1/usual/new': 'usual', '/api/v1/usual/from_meal': 'food', '/api/v1/health/day': 'health', '/api/v1/body': 'body', '/api/v1/habit/day': 'habits', '/api/v1/habits/manage': 'habits' })[req.url] ?? (req.url.startsWith('/api/v1/gym/') ? gymView(req.url.slice('/api/v1/gym/'.length), body) : req.url.startsWith('/api/v1/home/') ? homeView(req.url.slice('/api/v1/home/'.length)) : undefined);
+  const view = body.view ?? ({ '/api/v1/usual/meal': 'usual', '/api/v1/usual/new': 'usual', '/api/v1/usual/from_meal': 'food', '/api/v1/health/day': 'health', '/api/v1/body': 'body', '/api/v1/habit/day': 'habits', '/api/v1/habits/manage': 'habits' })[req.url] ?? (req.url.startsWith('/api/v1/food/catalogue/') ? 'catalogue' : req.url.startsWith('/api/v1/gym/') ? gymView(req.url.slice('/api/v1/gym/'.length), body) : req.url.startsWith('/api/v1/home/') ? homeView(req.url.slice('/api/v1/home/'.length)) : undefined);
   const range = [7, 30, 90].includes(body.range) ? body.range : 30;
   const fresh = () =>
     view === 'food' ? { food_day: foodDay(body.view_day) }
@@ -2310,6 +2547,7 @@ createServer(async (req, res) => {
     : view === 'home_history' ? { home_history: hmHistoryOut(body.view_limit) }
     : view === 'home_chore' ? { home_chore: body.view_id ? hmChoreOut(body.view_id) : null }
     : view === 'home_edit' ? { home_edit: hmEditOut() }
+    : view === 'catalogue' ? catView(body)
     : view === 'habits' ? { habits: habitsOut(['tracked', 'untracked', 'retired', 'all'].includes(body.show) ? body.show : 'tracked') }
     : { day: dayOut(state.day) };
   if (req.url === '/api/v1/session' && req.method === 'DELETE') {
@@ -2325,6 +2563,7 @@ createServer(async (req, res) => {
       }
       if (state.before.hv) [state.hv, state.sessions] = [state.before.hv, state.before.sessions];
       if (state.before.hab) state.hab = state.before.hab;
+      if (state.before.cat) state.cat = state.before.cat;
       const head = state.before.gymUndo ?? state.before.homeUndo ?? 'Undone.';
       if (state.before.gym) state.gym = state.before.gym;
       if (state.before.home) state.home = state.before.home;
@@ -2373,6 +2612,20 @@ createServer(async (req, res) => {
       if (status !== 200) return send(res, status, out, signedIn);
       const answer = { ...base, ...out, v: 1, tone: out.outcome === 'rejected' ? 'warning' : 'ok' };
       if (KEYED.includes(path) && body.key && answer.outcome !== 'rejected') state.keys.set(body.key, answer);
+      return send(res, 200, { ...answer, ...fresh() }, signedIn);
+    }
+    if (path.startsWith('/food/catalogue/')) {
+      if ('key' in body) return send(res, 400, { error: 'bad_request', message: 'The stand-in: the catalogue takes no key.' }, signedIn);
+      const [status, out] = catalogueSave(path.slice('/food/catalogue/'.length), body);
+      if (status !== 200) return send(res, status, out, signedIn);
+      if (out.outcome === 'changed') state.undo = null; // as app., a change here ends the session's Undo bar
+      const answer = { ...base, ...out, v: 1, tone: ['changed', 'unchanged'].includes(out.outcome) ? 'ok' : 'warning' };
+      return send(res, 200, { ...answer, ...fresh() }, signedIn);
+    }
+    if (body.view === 'catalogue' && (path === '/lookup' || (path === '/answer' && state.cat.lookups.has(body.question_id)))) {
+      const out = path === '/lookup' ? await catLookUp(body) : catAnswer(body);
+      const { v: _v, ...rest } = out;
+      const answer = { ...base, ...rest, tone: rest.tone ?? (['saved', 'cancelled'].includes(rest.outcome) ? 'ok' : 'warning') };
       return send(res, 200, { ...answer, ...fresh() }, signedIn);
     }
     if (path === '/coach/start') {

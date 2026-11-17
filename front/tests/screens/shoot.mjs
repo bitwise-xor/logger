@@ -39,6 +39,9 @@
 // Deploy 99: Home's Now and Pick pages with the timer, Today's Home card and Home in the Spaces menu (checkHome says what).
 // Deploy 102: Trends' Week tab with the Week review and the Trends tab live (checkTrends says what), and on the Habits page the open
 // calendar's last week reachable above the answer bar at every width.
+// Deploy 105: Library at logger. (checkLibrary and checkLibraryTabs say what): the Library tab live, Foods (search, chips, the order,
+// a food opened under its row or beside the list, values read back and confirmed, refusals next to their form, words, a unit, Looks
+// right, Hide, a new food through the look-up), Usual meals moved under Library (/food/usual redirects), Habits and Exercises tabs.
 // Every check throws on a failure, so the script ends with an error.
 // Usage: node tests/screens/shoot.mjs <base url> <out dir> <stand-in url>
 import assert from 'node:assert/strict';
@@ -60,6 +63,7 @@ const HOME = JSON.parse(readFileSync(new URL('../samples/home.json', import.meta
 const WEEK = JSON.parse(readFileSync(new URL('../samples/week.json', import.meta.url), 'utf8'));
 const FOODTRENDS = JSON.parse(readFileSync(new URL('../samples/food_trends.json', import.meta.url), 'utf8'));
 const INSIGHTS = JSON.parse(readFileSync(new URL('../samples/insights.json', import.meta.url), 'utf8')).insights.insights;
+const CAT = JSON.parse(readFileSync(new URL('../samples/catalogue.json', import.meta.url), 'utf8'));
 
 // What the page must show, worked out here from the sample on its own (not with the page's code).
 const even = (x) => {
@@ -205,7 +209,7 @@ async function checkSaves(page, name, theme) {
   if (name !== 'pc') {
     // step F: scrolled to the end, the logging box and its answer bar cover nothing (the page leaves room for both)
     await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-    const last = await page.getByText('Library and the rest are').boundingBox();
+    const last = await page.getByText('Medical, Settings and the rest are').boundingBox();
     const dock = await page.locator('[data-logbox]').boundingBox();
     assert.ok(last.y + last.height <= dock.y + 1, `the logging box covers nothing at the end (${last.y + last.height} > ${dock.y})`);
   }
@@ -506,7 +510,8 @@ async function checkUsual(page, name, theme) {
   await standinPost('/standin/reset');
   await page.goto(`${base}/food`);
   await page.getByRole('link', { name: 'Usual meals', exact: true }).click();
-  await page.getByRole('heading', { name: 'Usual meals', exact: true }).waitFor();
+  await page.waitForURL(/\/library\/usual$/); // deploy 105: under Library
+  await page.locator('[data-tab="usual"][aria-current="page"]').waitFor();
   await page.evaluate(() => (window.__noReload = true));
   const pc = name === 'pc';
   const bar = page.locator('[data-bar]');
@@ -634,7 +639,7 @@ async function checkUsual(page, name, theme) {
   assert.ok(await page.evaluate(() => window.__noReload === true), 'no reload during the saves');
 
   // the Food day: "Save as usual meal" on each meal but the drinks; a used name refused (the name kept), then saved
-  await page.getByRole('link', { name: '‹ Food day' }).click();
+  await page.goto(`${base}/food`); // deploy 105: the usual meals are under Library, with no back link to the Food day
   await page.getByRole('heading', { name: 'Food', exact: true }).waitFor();
   const meals = [...new Set(foodDay.rows.map((r) => r.meal))].filter((m) => m !== 0);
   assert.equal(await page.locator('[data-save-usual]').count(), meals.length, 'Save as usual meal on each meal, not the drinks');
@@ -659,7 +664,7 @@ async function checkUsual(page, name, theme) {
   // Today: "Edit" by the usual chips leads here
   await page.goto(`${base}/`);
   await page.locator('[data-usual-edit]').click();
-  await page.getByRole('heading', { name: 'Usual meals', exact: true }).waitFor();
+  await page.waitForURL(/\/library\/usual$/);
 }
 
 /** Step F: the core down, the door off, and the way back; the sign-in page in both; `next` after a sign-in. */
@@ -3130,7 +3135,7 @@ async function checkTrends(page, name, theme) {
     assert.equal(await page.locator('[data-chart], svg[data-chart], [data-card="charts"]').count(), 0, 'no food charts on the Week tab');
   };
 
-  // ---- the tab bar: Trends is live and lit on /trends; Library stays greyed -------------------------------------------------------
+  // ---- the tab bar: Trends is live and lit on /trends (Library is a link since deploy 105) ---------------------------------------
   await page.goto(`${base}/`);
   await page.locator('[data-place="trends"]').click();
   await page.waitForURL(/\/trends$/);
@@ -3142,9 +3147,9 @@ async function checkTrends(page, name, theme) {
   assert.match(await trendsTab.getAttribute('class'), /text-blue/);
   assert.equal(await page.locator('[data-place="today"]').getAttribute('aria-current'), null);
   assert.equal(await page.locator('[data-place="more"]').getAttribute('aria-current'), null);
-  assert.equal(await page.locator('[data-place="library"]').getAttribute('aria-disabled'), 'true');
-  assert.equal(await page.locator('[data-place="library"]').evaluate((e) => e.tagName), 'SPAN');
-  assert.ok(await page.getByText('Library and the rest are').isVisible(), 'the footer says what is still in the full app');
+  assert.equal(await page.locator('[data-place="library"]').getAttribute('aria-current'), null);
+  assert.equal(await page.locator('[data-place="library"]').evaluate((e) => e.tagName), 'A');
+  assert.ok(await page.getByText('Medical, Settings and the rest are').isVisible(), 'the footer says what is still in the full app');
   assert.equal(await page.getByText('Trends, Library and the rest').count(), 0);
   // the tabs: all three are pages of this app since deploy 103 (no mark for the full app)
   assert.deepEqual(await page.locator('[data-tab]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-tab'), e.getAttribute('aria-current')])), [['week', 'page'], ['charts', null], ['insights', null]]);
@@ -3560,6 +3565,409 @@ async function checkTrendsTabs(page, name, theme) {
   await page.goto(`${base}/`);
 }
 
+/** Deploy 105: Library's Foods tab (the Library tab live; the catalogue against the samples; every form saving in place). */
+async function checkLibrary(page, name, theme) {
+  await standinPost('/standin/reset');
+  const pc = name === 'pc';
+  const phone = name === 'phone';
+  const shot = (n, full = false) => page.screenshot({ path: `${out}/library-${n}-${name}-${theme}.png`, fullPage: full });
+  const bar = page.locator('[data-bar]');
+  const headIs = async (want) => {
+    await page.locator('[data-bar-head]', { hasText: want }).waitFor();
+    assert.equal(await text(page.locator('[data-bar-head]')), want, 'the answer bar');
+  };
+  const refs = () => page.locator('[data-food-row]').evaluateAll((els) => els.map((e) => e.querySelector('[data-food-ref]').textContent.trim()));
+  const row = (id) => page.locator(`[data-food-row="${id}"]`);
+  const box = (id) => page.locator(`[data-box="${id}"]`);
+  const macros = (id) => text(row(id).locator(name === 'phone' ? '[data-food-macros]' : '[data-food-macros-wide]'));
+  const macroOf = (r) => `${r.per_100_text.kcal} kcal · P ${r.per_100_text.protein} · F ${r.per_100_text.fat} · C ${r.per_100_text.carbs} per 100 ${r.basis}`;
+  const openFood = async (id) => {
+    await row(id).click();
+    await page.waitForURL(new RegExp(`food=N${id}`));
+    await box(id).waitFor();
+  };
+  const ALL = CAT.all.catalogue;
+
+  // ---- the Library tab is live, lit on /library; the footer no longer names it -----------------------------------------------------
+  await page.goto(`${base}/`);
+  await page.locator('[data-place="library"]').click();
+  await page.waitForURL(/\/library$/);
+  await page.locator('[data-list]').waitFor();
+  const tab = page.locator('[data-place="library"]');
+  assert.equal(await tab.evaluate((e) => e.tagName), 'A');
+  assert.equal(await tab.getAttribute('href'), '/library');
+  assert.equal(await tab.getAttribute('aria-current'), 'page');
+  assert.match(await tab.getAttribute('class'), /text-blue/);
+  for (const other of ['today', 'trends', 'more']) assert.equal(await page.locator(`[data-place="${other}"]`).getAttribute('aria-current'), null, other);
+  assert.ok(await page.getByText('Medical, Settings and the rest are').isVisible(), 'the footer says what is still in the full app');
+  assert.equal(await page.getByText('Library and the rest').count(), 0);
+  assert.deepEqual(await page.locator('[data-tab]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-tab'), e.textContent.trim(), e.getAttribute('href'), e.getAttribute('aria-current')])), [
+    ['foods', 'Foods', '/library', 'page'], ['usual', 'Usual meals', '/library/usual', null], ['habits', 'Habits', '/library/habits', null], ['exercises', 'Exercises', '/library/exercises', null]]);
+  await page.evaluate(() => (window.__noReload = true));
+
+  // ---- the list against the sample: rows, pills, words, numbers, the count, the door's chips and orders --------------------------
+  assert.deepEqual(await refs(), ALL.rows.map((r) => r.ref), 'the rows in the door\'s order');
+  for (const r of ALL.rows) {
+    assert.equal(await text(row(r.id).locator('[data-food-name]')), r.name);
+    assert.equal(await macros(r.id), macroOf(r), `${r.ref}: kcal · P · F · C`);
+    assert.deepEqual(await row(r.id).locator('[data-pill]').allTextContents(), [r.review ? 'review' : null, r.drink ? 'drink' : null].filter(Boolean), `${r.ref}: pills`);
+    assert.equal(await row(r.id).locator('[data-food-words]').count() ? await text(row(r.id).locator('[data-food-words]')) : '', r.aliases.join(', '));
+    if (!phone) assert.equal(await text(row(r.id).locator('[data-food-stats]')), `Eaten ${r.eaten}× · Last ${r.last_text} · Added ${r.added_text}`);
+    else assert.equal(await row(r.id).locator('[data-food-stats]').isVisible(), false, 'phones: no stats column');
+  }
+  assert.equal(await text(page.locator('[data-count]')), '13 foods');
+  assert.equal(await page.locator('[data-search]').getAttribute('placeholder'), ALL.placeholder);
+  assert.deepEqual(await page.locator('[data-filter]').evaluateAll((els) => els.map((e) => [e.textContent.trim(), e.getAttribute('aria-current')])), ALL.filters.map((f) => [f.label, f.on ? 'page' : null]));
+  assert.deepEqual(await page.locator('[data-sort] option').allTextContents(), ALL.sorts.map((x) => x.label));
+  assert.equal(await page.locator('[data-sort]').inputValue(), 'eaten');
+  if (pc) assert.equal(await text(page.locator('[data-side-hint]')), 'Pick a food Its values, words, units and barcode open here.');
+  await shot('foods', !pc);
+  await checkWidth(page, 'library foods');
+
+  // ---- the search: a pause in typing asks (the focus stays); Enter asks at once; nothing found --------------------------------------
+  await page.locator('[data-search]').pressSequentially('oat', { delay: 40 });
+  await page.waitForURL(/\/library\?q=oat$/);
+  await page.waitForFunction(() => document.querySelectorAll('[data-food-row]').length === 2);
+  assert.deepEqual(await refs(), ['N1', 'N3'], 'oat: Oat flakes and Oat drink');
+  assert.equal(await page.evaluate(() => document.activeElement?.hasAttribute('data-search')), true, 'the search box keeps the focus');
+  assert.equal(await page.locator('[data-search]').inputValue(), 'oat');
+  await page.locator('[data-search]').fill('zzqq');
+  await page.locator('[data-search]').press('Enter');
+  await page.waitForURL(/q=zzqq/);
+  await page.locator('[data-empty]').waitFor();
+  assert.equal(await text(page.locator('[data-empty]')), CAT.none.catalogue.empty);
+  assert.equal(await text(page.locator('[data-count]')), '0 foods');
+  await checkWidth(page, 'library foods, nothing found');
+  await page.locator('[data-search]').fill('');
+  await page.locator('[data-search]').press('Enter');
+  await page.waitForURL(/\/library$/);
+  await page.waitForFunction(() => document.querySelectorAll('[data-food-row]').length === 13);
+
+  // ---- a chip and the order --------------------------------------------------------------------------------------------------
+  await page.locator('[data-filter="drinks"]').click();
+  await page.waitForURL(/f=drinks/);
+  await page.waitForFunction(() => document.querySelectorAll('[data-food-row]').length === 3);
+  assert.deepEqual(await refs(), CAT.drinks.catalogue.rows.map((r) => r.ref));
+  assert.equal(await page.locator('[data-filter="drinks"]').getAttribute('aria-current'), 'page');
+  await page.locator('[data-filter="review"]').click();
+  await page.waitForURL(/f=review/);
+  await page.waitForFunction(() => document.querySelectorAll('[data-food-row]').length === 2);
+  await page.locator('[data-sort]').selectOption('name');
+  await page.waitForURL(/f=review&s=name/);
+  await page.waitForFunction(() => /s=name/.test(document.querySelector('[data-filter="new"]')?.getAttribute('href') ?? ''));
+  assert.deepEqual(await refs(), CAT.review.catalogue.rows.map((r) => r.ref));
+  await page.locator('[data-filter="new"]').click();
+  await page.waitForURL(/f=new&s=name/);
+  await page.locator('[data-sort]').selectOption('added');
+  await page.waitForURL(/f=new&s=added/);
+  await page.waitForFunction(() => document.querySelector('[data-food-row]')?.getAttribute('data-food-row') === '7');
+  assert.deepEqual(await refs(), CAT.new.catalogue.rows.map((r) => r.ref));
+  await page.locator('[data-filter="all"]').click();
+  await page.waitForURL(/\/library\?s=added$/);
+  await page.waitForFunction(() => document.querySelectorAll('[data-food-row]').length === 13);
+  await page.locator('[data-sort]').selectOption('eaten');
+  await page.waitForURL(/\/library$/);
+  await page.waitForFunction(() => document.querySelector('[data-food-row]')?.getAttribute('data-food-row') === '4');
+  await page.waitForFunction(() => document.querySelectorAll('[data-food-row]').length === 13);
+  assert.equal(await page.evaluate(() => window.__noReload), true, 'search, chips and order without a reload');
+
+  // ---- a food opens in place (under its row; beside the list on the PC), a second tap closes it -------------------------------
+  const OATS = CAT.items.oats.food_item;
+  await openFood(1);
+  const b1 = box(1);
+  if (pc) assert.equal(await page.locator('[data-side] [data-box="1"]').count(), 1, 'pc: the box beside the list');
+  else assert.equal(await page.locator('[data-food="1"] [data-box="1"]').count(), 1, `${name}: the box under its row`);
+  assert.equal(await row(1).getAttribute('aria-expanded'), 'true');
+  assert.equal(await text(b1.locator('[data-box-source]')), OATS.source.text);
+  for (const v of OATS.values) {
+    const input = b1.locator(`[data-value="${v.key}"]`);
+    assert.equal(await input.inputValue(), v.value === null ? '' : String(v.value), v.key);
+    assert.equal(await input.getAttribute('placeholder'), 'unknown');
+  }
+  assert.equal(await text(b1.locator('label:has([data-past])')), OATS.past.text);
+  assert.equal(await b1.locator('[data-past]').isChecked(), false, 'the tick is off');
+  assert.deepEqual(await b1.locator('[data-word]').evaluateAll((els) => els.map((e) => e.getAttribute('data-word'))), OATS.aliases);
+  assert.equal(await text(b1.locator('[data-barcode]')), OATS.barcode);
+  assert.equal(await b1.locator('[data-review-bar]').count(), 0);
+  if (pc) assert.equal(await text(b1.locator('[data-box-name]')), OATS.name);
+  await shot('food-open', !pc);
+  await checkWidth(page, 'library, a food open');
+  await row(1).click();
+  await page.waitForURL(/\/library$/);
+  await b1.waitFor({ state: 'detached' });
+
+  // ---- values: only what changed is sent; read back in the bar (Yes, change / No); Yes saves, the row's numbers change ------------
+  await openFood(2);
+  const b2 = box(2);
+  await b2.locator('[data-value="kcal"]').fill('70');
+  await b2.locator('label:has([data-past])').click();
+  assert.equal(await b2.locator('[data-past]').isChecked(), true, 'the tick is on');
+  await b2.locator('[data-save-values]').click();
+  await page.locator('[data-bar-yes]').waitFor();
+  assert.equal(await text(page.locator('[data-bar-yes]')), 'Yes, change');
+  assert.equal(await text(page.locator('[data-bar-no]')), 'No');
+  assert.ok((await text(bar)).includes(CAT.saves.values_ask.read_back.replace(/\s+/g, ' ')), 'the door\'s read-back');
+  assert.equal(await macros(2), '63 kcal · P 11 · F 0.2 · C 4 per 100 g', 'nothing changed before Yes');
+  await shot('yes-change');
+  await checkWidth(page, 'library, values read back');
+  await page.locator('[data-bar-yes]').click();
+  await headIs(CAT.saves.values_done.head);
+  assert.equal(await macros(2), '70 kcal · P 11 · F 0.2 · C 4 per 100 g', 'the row\'s numbers change in place');
+  assert.equal(await b2.locator('[data-value="kcal"]').inputValue(), '70');
+  assert.equal(await b2.locator('[data-past]').isChecked(), false, 'the tick is off again after the save');
+  assert.equal(await bar.getByRole('button', { name: 'Undo' }).count(), 0, 'no Undo');
+  // No drops a change
+  await b2.locator('[data-value="kcal"]').fill('75');
+  await b2.locator('[data-save-values]').click();
+  await page.locator('[data-bar-no]').click();
+  await bar.waitFor({ state: 'detached' });
+  assert.equal(await macros(2), '70 kcal · P 11 · F 0.2 · C 4 per 100 g', 'No saves nothing');
+  // the same values again: "Nothing changed." next to the form, not in the bar; a cleared value is said before sending
+  await b2.locator('[data-value="kcal"]').fill('70');
+  await b2.locator('[data-save-values]').click();
+  await b2.locator('[data-err="values"]').waitFor();
+  assert.equal(await text(b2.locator('[data-err="values"]')), 'Nothing changed.');
+  assert.equal(await bar.count(), 0, '"Nothing changed." is next to the form only');
+  await b2.locator('[data-value="protein"]').fill('');
+  await b2.locator('[data-save-values]').click();
+  assert.equal(await text(b2.locator('[data-err="values"]')), 'Protein g: give a number (an unknown value cannot be set here).');
+  await b2.locator('[data-value="protein"]').fill('11');
+
+  // ---- name and use: a name another food has is refused next to the form and stays; a bad barcode likewise ----------------------
+  await b2.locator('[data-basics-name]').fill('Apple');
+  await b2.locator('[data-basics-save]').click();
+  await b2.locator('[data-err="basics"]').waitFor();
+  assert.equal(await text(b2.locator('[data-err="basics"]')), "a food called 'Apple' already exists");
+  assert.equal(await b2.locator('[data-basics-name]').inputValue(), 'Apple', 'the name typed stays');
+  assert.equal(await bar.count(), 0, 'a refusal is next to its form, not in the bar');
+  await b2.locator('[data-basics-name]').fill('Skyr');
+  await b2.locator('[data-barcode-input]').fill('123');
+  await b2.locator('[data-barcode-set]').click();
+  await b2.locator('[data-err="barcode"]').waitFor();
+  assert.equal(await text(b2.locator('[data-err="barcode"]')), 'A barcode is 8 to 14 digits.');
+  assert.equal(await b2.locator('[data-barcode-input]').inputValue(), '123');
+  if (phone) await b2.screenshot({ path: `${out}/library-refusals-${name}-${theme}.png` });
+  await checkWidth(page, 'library, refusals');
+  await b2.locator('[data-barcode-input]').fill('4000 0000');
+  await b2.locator('[data-barcode-set]').click();
+  await headIs('Barcode 40000000 saved for N2 Skyr.');
+  assert.equal(await text(b2.locator('[data-barcode]')), '40000000');
+  assert.equal(await b2.locator('[data-barcode-input]').inputValue(), '');
+
+  // ---- words: added (the row shows it), another food's word refused, removed -------------------------------------------------------
+  await b2.locator('[data-word-input]').fill('Curd');
+  await b2.locator('[data-word-add]').click();
+  await headIs('"curd" now means N2 Skyr.');
+  await b2.locator('[data-word="curd"]').waitFor();
+  assert.equal(await b2.locator('[data-word-input]').inputValue(), '');
+  assert.equal(await text(row(2).locator('[data-food-words]')), 'quark, curd');
+  await b2.locator('[data-word-input]').fill('porridge');
+  await b2.locator('[data-word-add]').click();
+  await b2.locator('[data-err="word"]').waitFor();
+  assert.equal(await text(b2.locator('[data-err="word"]')), CAT.saves.word_refused.reason);
+  assert.equal(await b2.locator('[data-word-input]').inputValue(), 'porridge');
+  await b2.locator('[data-word-remove="curd"]').click();
+  await headIs('"curd" no longer means N2 Skyr.');
+  await b2.locator('[data-word="curd"]').waitFor({ state: 'detached' });
+  assert.equal(await text(row(2).locator('[data-food-words]')), 'quark');
+
+  // ---- a food that needs review: a unit added, Looks right ---------------------------------------------------------------------
+  await openFood(5);
+  const b5 = box(5);
+  assert.equal(await box(2).count(), 0, 'one box at a time');
+  assert.equal(await text(b5.locator('[data-review-bar]')), `${CAT.items.rye.food_item.review_reason} Looks right`);
+  assert.deepEqual(await b5.locator('[data-unit]').allTextContents(), ['1 slice = 35 g']);
+  await b5.locator('[data-unit-name]').fill('slice');
+  await b5.locator('[data-unit-grams]').fill('abc');
+  await b5.locator('[data-unit-add]').click();
+  await b5.locator('[data-err="unit"]').waitFor();
+  assert.equal(await text(b5.locator('[data-err="unit"]')), 'Give its weight as a number above 0 and at most 2000 g.');
+  await b5.locator('[data-unit-name]').fill('thick slice');
+  await b5.locator('[data-unit-grams]').fill('50');
+  await b5.locator('[data-unit-add]').click();
+  await headIs(CAT.saves.unit.head);
+  assert.deepEqual(await b5.locator('[data-unit]').allTextContents(), CAT.saves.unit.food_item.units.map((u) => u.text));
+  assert.equal(await b5.locator('[data-unit-name]').inputValue(), '');
+  await b5.locator('[data-looks-right]').click();
+  await headIs('Kept. N5 Rye bread is no longer flagged.');
+  await b5.locator('[data-review-bar]').waitFor({ state: 'detached' });
+  assert.equal(await row(5).locator('[data-pill="review"]').count(), 0, 'the row loses its pill');
+  assert.equal(await row(5).getAttribute('data-fresh'), '', 'a blue edge on the changed row');
+
+  // ---- a recipe food: its values read only -------------------------------------------------------------------------------------
+  await openFood(14);
+  assert.equal(await box(14).locator('[data-value="kcal"]').getAttribute('readonly'), '');
+  assert.equal(await box(14).locator('[data-save-values]').count(), 0);
+  assert.match(await text(box(14).locator('[data-recipe]')), /recipe C1/);
+
+  // ---- Hide: the row and the box go, the address forgets the food ----------------------------------------------------------------
+  await openFood(6);
+  await box(6).locator('[data-switch="hide"]').click();
+  assert.equal(await box(6).locator('[data-switch="hide"]').getAttribute('aria-checked'), 'true');
+  await box(6).locator('[data-basics-save]').click();
+  await headIs(CAT.saves.hidden.head);
+  await row(6).waitFor({ state: 'detached' });
+  await box(6).waitFor({ state: 'detached' });
+  await page.waitForURL(/\/library$/);
+  assert.equal(await text(page.locator('[data-count]')), '12 foods');
+
+  // ---- + New food: the look-up (the button says it is working), its read-back with Yes and No in the bar; Yes adds the row ----------
+  await page.locator('[data-new-food]').click();
+  const nf = page.locator('[data-new-form]');
+  await nf.locator('[data-new-text]').fill('crispbread');
+  await nf.locator('[data-look-up]').click();
+  await nf.locator('[data-look-up]', { hasText: 'Looking…' }).waitFor();
+  assert.equal(await nf.locator('[data-look-up]').isDisabled(), true, 'blocked while it looks');
+  await page.locator('[data-bar-yes]').waitFor();
+  assert.match(await text(bar), /Open Food Facts has Crispbread: .* \(it would be added as "Crispbread"\)\./);
+  assert.equal(await text(page.locator('[data-bar-yes]')), 'Yes');
+  assert.equal(await text(page.locator('[data-bar-no]')), 'No');
+  if (phone) await shot('new-food');
+  await checkWidth(page, 'library, a new food read back');
+  await page.locator('[data-bar-yes]').click();
+  await headIs('Saved.');
+  const added = page.locator('[data-food-row]', { has: page.locator('[data-food-name]', { hasText: 'Crispbread' }) });
+  await added.waitFor();
+  assert.equal(await added.getAttribute('data-fresh'), '', 'the new row has a blue edge');
+  await nf.waitFor({ state: 'detached' });
+  // No: nothing is added
+  await page.locator('[data-new-food]').click();
+  await nf.locator('[data-new-text]').fill('rice cakes');
+  await nf.locator('[data-look-up]').click();
+  await page.locator('[data-bar-no]').click();
+  await bar.waitFor({ state: 'detached' });
+  assert.equal(await page.locator('[data-food-name]', { hasText: 'Rice cakes' }).count(), 0, 'No adds nothing');
+  assert.equal(await page.evaluate(() => window.__noReload), true, 'every save changed the page in place');
+  await checkWidth(page, 'library, after the saves');
+
+  // ---- a food that is not there: the door's words in place of its box, the list still shows -------------------------------------
+  await page.goto(`${base}/library?food=N99`);
+  await page.locator('[data-gone]').waitFor();
+  assert.equal(await text(page.locator('[data-gone]')), 'That food is not there any more.');
+  assert.ok((await page.locator('[data-food-row]').count()) > 10, 'the list still shows');
+  // the door off: the plain message with a link to app.'s Catalogue
+  await standinPost('/standin/door-off');
+  await page.goto(`${base}/library`);
+  await page.locator('[data-problem]').waitFor();
+  assert.match(await page.getByRole('link', { name: 'Open the full app' }).getAttribute('href'), /\/web\/food\/catalogue$/);
+  await checkWidth(page, 'library, door off');
+  await standinPost('/standin/up');
+  // the PC in light: the list with a box beside it (kept for the owner)
+  if (pc) {
+    await standinPost('/standin/reset');
+    await page.goto(`${base}/library?food=N3`);
+    await box(3).waitFor();
+    await shot('foods-side');
+  }
+  await page.goto(`${base}/`);
+}
+
+/** Deploy 105: Library's Usual meals, Habits and Exercises tabs (the same parts and saves as their own pages). */
+async function checkLibraryTabs(page, name, theme) {
+  await standinPost('/standin/reset');
+  const pc = name === 'pc';
+  const shot = (n, full = true) => page.screenshot({ path: `${out}/library-${n}-${name}-${theme}.png`, fullPage: full });
+  const bar = page.locator('[data-bar]');
+  const headIs = async (want) => {
+    await page.locator('[data-bar-head]', { hasText: want }).waitFor();
+    assert.equal(await text(page.locator('[data-bar-head]')), want, 'the answer bar');
+  };
+  const lit = async (key) => {
+    assert.equal(await page.locator(`[data-tab="${key}"]`).getAttribute('aria-current'), 'page', `${key}: its tab`);
+    assert.equal(await page.locator('[data-place="library"]').getAttribute('aria-current'), 'true', `${key}: the Library tab lit`);
+  };
+
+  // ---- Usual meals: /food/usual (with its query) leads here; Today's and the Food day's links point here ---------------------------
+  await page.goto(`${base}/food/usual?open=${USUAL[0].meal_id}`);
+  await page.waitForURL(new RegExp(`/library/usual\\?open=${USUAL[0].meal_id}$`));
+  await page.locator(`[data-usual-editor="${USUAL[0].meal_id}"]`).waitFor();
+  await page.goto(`${base}/library/usual`);
+  await page.locator('[data-usual]').first().waitFor();
+  await lit('usual');
+  assert.equal(await page.getByText('‹ Food day').count(), 0, 'no back link: the Library header');
+  assert.match(await text(page.locator('[data-count]')), /^\d+ meals? and \d+ drinks?, by name\./);
+  if (pc) await page.locator(`[data-usual-editor]`).waitFor();
+  await shot('usual');
+  await checkWidth(page, 'library usual meals');
+  await page.goto(`${base}/`);
+  assert.equal(await page.locator('[data-usual-edit]').getAttribute('href'), '/library/usual');
+  await page.goto(`${base}/food`);
+  assert.equal(await page.locator('[data-usual-link]').getAttribute('href'), '/library/usual');
+
+  // ---- Habits: Your habits under the Library header, the filter at this address, the saves as on the Habits page ------------------
+  const hb = HABITS.habits.habits;
+  await page.goto(`${base}/library`);
+  await page.locator('[data-tab="habits"]').click();
+  await page.waitForURL(/\/library\/habits$/);
+  await page.locator('[data-card="list"]').waitFor();
+  await page.evaluate(() => (window.__noReload = true));
+  await lit('habits');
+  assert.equal(await page.locator('[data-card="ticks"]').count(), 0, 'the ticks stay on the Habits page');
+  assert.deepEqual(await page.locator('[data-chips] a').evaluateAll((els) => els.map((e) => e.getAttribute('href'))), ['/library/habits', '/library/habits?show=untracked', '/library/habits?show=retired', '/library/habits?show=all']);
+  assert.equal(await text(page.locator('[data-help]')), hb.help.replace('in the calendar below', 'on the Habits page'));
+  assert.equal(await text(page.locator('[data-settings-line]')), "Which habits show on Today, and their order: in app.'s Settings for now.");
+  assert.match(await page.locator('[data-settings-line] a').getAttribute('href'), /\/web\/settings/);
+  await shot('habits');
+  await checkWidth(page, 'library habits');
+  await page.locator('[data-show="all"]').click();
+  await page.waitForURL(/\/library\/habits\?show=all$/);
+  await page.locator('[data-habit-row="ayurveda"]').waitFor();
+  await page.locator('[data-show="tracked"]').click();
+  await page.waitForURL(/\/library\/habits$/);
+  // a new habit: a used name refused next to the form, then added; Retire and Bring back
+  await page.locator('[data-new-habit]').click();
+  const form = page.locator('[data-new-form]');
+  await form.locator('input[name=label]').fill('stretching');
+  await form.getByRole('button', { name: 'Add' }).click();
+  await form.locator('[data-refusal]').waitFor();
+  assert.equal(await text(form.locator('[data-refusal]')), 'There is already a log type called stretching.');
+  assert.equal(await form.locator('input[name=label]').inputValue(), 'stretching');
+  await form.locator('input[name=label]').fill('Evening walk');
+  await form.getByRole('button', { name: 'Add' }).click();
+  await headIs('Added the habit Evening walk. It is tracked: tick it above or log it by its name.');
+  const walk = page.locator('[data-habit-row="evening_walk"]');
+  await walk.waitFor();
+  assert.equal(await walk.getAttribute('data-changed'), '');
+  await walk.getByRole('button', { name: 'Retire' }).click();
+  await headIs('Retired Evening walk. Its history stays; it is hidden everywhere. Find it under Retired to bring it back.');
+  await walk.waitFor({ state: 'detached' });
+  assert.equal(await page.evaluate(() => window.__noReload), true, 'the Habits tab saved in place');
+  if (name === 'phone') await shot('habits-saved', false);
+  await checkWidth(page, 'library habits, after the saves');
+  // the Habits Space keeps its own page, with its ticks
+  await page.goto(`${base}/habits`);
+  await page.locator('[data-card="ticks"]').waitFor();
+  assert.equal(await page.locator('[data-place="library"]').getAttribute('aria-current'), null);
+
+  // ---- Exercises: the Gym's list under the Library header, the same saves -----------------------------------------------------
+  const EX = GYM.exercises.gym_exercises;
+  await page.goto(`${base}/library/exercises`);
+  await page.locator('[data-card="exercises"]').waitFor();
+  await page.evaluate(() => (window.__noReload = true));
+  await lit('exercises');
+  assert.deepEqual((await page.locator('[data-ex-name]').allTextContents()).map((t) => t.trim()), EX.exercises.map((x) => x.name));
+  await shot('exercises');
+  await checkWidth(page, 'library exercises');
+  await page.locator('[data-rename="1"]').click();
+  const rn = page.locator('[data-rename-form="1"]');
+  await rn.locator('[data-rename-name]').fill('Seated row');
+  await rn.locator('[data-rename-go]').click();
+  assert.equal(await text(rn.locator('[data-err]')), 'Seated row is already in your list.');
+  await rn.locator('[data-rename-name]').fill('Flat bench press');
+  await rn.locator('[data-rename-go]').click();
+  await headIs('Renamed Bench press to Flat bench press. Its history moved with it.');
+  assert.equal(await text(page.locator('[data-ex="1"] [data-ex-name]')), 'Flat bench press');
+  await page.locator('[data-active-btn="2"]').click();
+  await headIs('Retired Shoulder press. Its history stays.');
+  assert.equal(await text(page.locator('[data-active-btn="2"]')), 'Bring back');
+  assert.equal(await page.evaluate(() => window.__noReload), true, 'the Exercises tab saved in place');
+  // the Gym keeps its own Exercises part (it shows the same data)
+  await page.goto(`${base}/gym/exercises`);
+  await page.locator('[data-card="exercises"]').waitFor();
+  assert.equal(await text(page.locator('[data-ex="1"] [data-ex-name]')), 'Flat bench press');
+  await page.goto(`${base}/`);
+}
+
 async function checkWidth(page, what) {
   const sideways = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   assert.ok(sideways <= 0, `${what}: no sideways scroll (${sideways} px too wide)`);
@@ -3673,6 +4081,12 @@ for (const theme of ['dark', 'light']) {
       console.log(`trends week, the week review, the trends tab ${name} ${theme}: checks passed`);
       await checkTrendsTabs(page, name, theme);
       console.log(`trends charts and insights ${name} ${theme}: checks passed`);
+    }
+    if (only('library')) {
+      await checkLibrary(page, name, theme);
+      console.log(`library foods, the library tab ${name} ${theme}: checks passed`);
+      await checkLibraryTabs(page, name, theme);
+      console.log(`library usual meals, habits, exercises ${name} ${theme}: checks passed`);
     }
     if (only('problems')) {
       await checkProblems(page, name, theme);

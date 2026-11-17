@@ -19,6 +19,7 @@ import { bodyValues, healthValues } from '../health.js';
 import { SHOWS } from '../habits.js';
 import { VALS, wordsOf } from '../gym.js';
 import { linesOf, wordsOfText } from '../homeparts.js';
+import { CATALOGUE_FILTERS, CATALOGUE_SORTS } from '../catalogue.js';
 
 /** The form's fields: what `FormData` offers (and a plain test double). */
 export interface Fields {
@@ -261,7 +262,47 @@ export const SAVES = {
     body: (f) => ({ kind: 'week', start: dateOf(f, 'start'), end: dateOf(f, 'end') }),
     timeoutMs: 60_000,
   },
+  // Library's Foods tab (deploy 105): the Catalogue's six forms at /food/catalogue/<action> (docs/API.md). The door takes NO key and
+  // has no Undo; the page never sends one again by itself (saver.ts: `catalogue_`). Ids and values as JSON numbers, ticks as true or
+  // false. Each answers with the fresh Catalogue and the open food's box (view "catalogue" with view_q, view_f, view_s, view_food).
+  // values: only the values the owner changed (one left out stays as it is); shown first, then the same with confirmed.
+  catalogue_values: {
+    path: '/food/catalogue/values',
+    keyed: false,
+    body: (f) => ({
+      id: int(f, 'id'),
+      ...Object.fromEntries(CATALOGUE_VALUES.filter((k) => str(f, k, 20) !== undefined).map((k) => [k, foodNumber(f, k)])),
+      past: f.get('past') === '1',
+      confirmed: f.get('confirmed') === '1' ? true : undefined,
+    }),
+  },
+  catalogue_words: { path: '/food/catalogue/words', keyed: false, body: (f) => ({ id: int(f, 'id'), act: str(f, 'act', 10), word: str(f, 'word', 60) ?? '' }) },
+  catalogue_barcode: { path: '/food/catalogue/barcode', keyed: false, body: (f) => ({ id: int(f, 'id'), barcode: str(f, 'barcode', 40) ?? '' }) },
+  // name, drink, hide: the form comes filled in, so all three are sent (the door keeps one left out as it is)
+  catalogue_basics: {
+    path: '/food/catalogue/basics',
+    keyed: false,
+    body: (f) => ({ id: int(f, 'id'), name: str(f, 'name', 120) ?? '', drink: f.get('drink') === '1', hide: f.get('hide') === '1' }),
+  },
+  // a unit and its weight (grams, or ml for a drink); empty grams is null (the door then asks for it)
+  catalogue_unit: {
+    path: '/food/catalogue/unit',
+    keyed: false,
+    body: (f) => ({ id: int(f, 'id'), unit: str(f, 'unit', 30) ?? '', grams: str(f, 'grams', 20) === undefined ? null : foodNumber(f, 'grams') }),
+  },
+  catalogue_reviewed: { path: '/food/catalogue/reviewed', keyed: false, body: (f) => ({ id: int(f, 'id') }) },
 } satisfies Record<string, Save>;
+
+/** The ten values of a food (docs/API.md, the Catalogue's values form), as the door names them. */
+export const CATALOGUE_VALUES = ['kcal', 'protein', 'fat', 'sat_fat', 'carbs', 'fibre', 'sugar_total', 'sugar_added', 'sodium_mg', 'caffeine_mg'] as const;
+
+/** A food's number (a value, a unit's grams): "12.5" or "12,5" as 12.5; anything else as typed (the door then answers 400). */
+function foodNumber(f: Fields, name: string): number | string | null {
+  const t = str(f, name, 20);
+  if (t === undefined) return null;
+  const n = t.replace(',', '.');
+  return /^\d{1,6}(\.\d{1,4})?$/.test(n) ? Number(n) : t;
+}
 
 /** A date field (yyyy-mm-dd), or left out (the door then says it is missing). */
 function dateOf(f: Fields, name: string): string | undefined {
@@ -367,7 +408,7 @@ function yes(f: Fields): Body {
 
 export type SaveName = keyof typeof SAVES;
 export const SAVE_NAMES = Object.keys(SAVES) as SaveName[];
-/** The Food day's form actions (src/routes/(app)/food), the Usual meals page's (src/routes/(app)/food/usual); Today has all the others. */
+/** The Food day's form actions (src/routes/(app)/food), the Usual meals page's (src/routes/(app)/library/usual since deploy 105); Today has all the others. */
 export const FOOD_SAVES: SaveName[] = ['food_entry', 'food_note', 'usual_from_meal', 'undo'];
 export const USUAL_SAVES: SaveName[] = ['usual_meal', 'usual_new', 'undo'];
 /** The Health page's (deploy 92, src/routes/(app)/health): a day's row, a body session, Undo. */
@@ -395,12 +436,21 @@ export const EDIT_SAVES: SaveName[] = ['home_goalset', 'home_zonenew', 'home_zon
 const HOME_ONLY: SaveName[] = [...HOME_SAVES, ...PICK_SAVES, ...ZONES_SAVES, ...HISTORY_SAVES, ...EDIT_SAVES];
 /** The Trends page's (deploy 102, src/routes/(app)/trends): the Week review's button. No Undo exists for it. */
 export const TRENDS_SAVES: SaveName[] = ['coach_start'];
+/**
+ * Library's Foods tab's (deploy 105, src/routes/(app)/library): the Catalogue's six forms, and a new food through the look-up and its
+ * yes (`lookup`, `answer`: Today's saves, here asked for the Catalogue; the yes has the door's Undo of the new food). The six have no
+ * Undo.
+ */
+const CATALOGUE_ONLY: SaveName[] = ['catalogue_values', 'catalogue_words', 'catalogue_barcode', 'catalogue_basics', 'catalogue_unit', 'catalogue_reviewed'];
+export const CATALOGUE_SAVES: SaveName[] = [...CATALOGUE_ONLY, 'lookup', 'answer', 'undo'];
+/** Library's Habits tab's (deploy 105, src/routes/(app)/library/habits): the list's forms, as on the Habits page. */
+export const LIBRARY_HABITS_SAVES: SaveName[] = ['habits_manage'];
 export const TODAY_SAVES: SaveName[] = SAVE_NAMES.filter(
   (n) =>
     n === 'undo' ||
-    (!FOOD_SAVES.includes(n) && !USUAL_SAVES.includes(n) && !HEALTH_SAVES.includes(n) && !HABITS_ONLY.includes(n) && !GYM_ONLY.includes(n) && !HOME_ONLY.includes(n) && !TRENDS_SAVES.includes(n)),
+    (!FOOD_SAVES.includes(n) && !USUAL_SAVES.includes(n) && !HEALTH_SAVES.includes(n) && !HABITS_ONLY.includes(n) && !GYM_ONLY.includes(n) && !HOME_ONLY.includes(n) && !TRENDS_SAVES.includes(n) && !CATALOGUE_ONLY.includes(n)),
 );
-export type View = 'day' | 'food' | 'usual' | 'health' | 'body' | 'habits' | 'gym' | 'gym_plan' | 'gym_exercises' | 'home' | 'home_pick' | 'home_zones' | 'home_history' | 'home_chore' | 'home_edit' | 'week';
+export type View = 'day' | 'food' | 'usual' | 'health' | 'body' | 'habits' | 'gym' | 'gym_plan' | 'gym_exercises' | 'home' | 'home_pick' | 'home_zones' | 'home_history' | 'home_chore' | 'home_edit' | 'week' | 'catalogue';
 
 /** A key as the browser makes them (src/lib/saver.ts): a random UUID or base64url; anything else is replaced. */
 const KEY = /^[A-Za-z0-9_-]{16,64}$/;
@@ -447,6 +497,18 @@ export function bodyFor(
   if (view === 'week') {
     const p = str(f, 'view_p', 4);
     if (p && ['7', 'last', '30', 'this'].includes(p)) body.view_p = p;
+  }
+  // The Catalogue's fresh read (deploy 105): the page's search, filter, order and open food (?q=, ?f=, ?s=, ?food=), so the answer
+  // brings the list and the box on screen as the page shows them.
+  if (view === 'catalogue') {
+    const q = str(f, 'view_q', 60);
+    if (q) body.view_q = q;
+    const fl = str(f, 'view_f', 10);
+    if (fl && (CATALOGUE_FILTERS as readonly string[]).includes(fl)) body.view_f = fl;
+    const so = str(f, 'view_s', 10);
+    if (so && (CATALOGUE_SORTS as readonly string[]).includes(so)) body.view_s = so;
+    const food = str(f, 'view_food', 12);
+    if (food && /^[Nn]?\d{1,9}$/.test(food)) body.view_food = Number(food.replace(/^[Nn]/, ''));
   }
   if (save.keyed) {
     const key = str(f, 'key', 64);

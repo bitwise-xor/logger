@@ -1,7 +1,7 @@
 /**
  * The Usual meals page's state in the browser (deploy 87): the list, the meal open to change (its draft: every change kept until
  * one Save), the food search, and the meal a save or an Undo touched (blue edge). The answer bar and the taps on their way are the
- * shared part (answers.svelte.ts). Every save goes to a form action of /food/usual (usual_meal, usual_new, undo) and its answer
+ * shared part (answers.svelte.ts). Every save goes to a form action of /library/usual (/food/usual until deploy 105) (usual_meal, usual_new, undo) and its answer
  * brings the whole list fresh (view "usual"), which replaces the page with no reload. A refusal says why next to Save and keeps
  * the edits.
  */
@@ -54,7 +54,7 @@ export class UsualPage extends Answers {
   });
 
   constructor(list: Usual[] | null, undo: Undo | null, open: number | null) {
-    super('/food/usual');
+    super('/library/usual');
     this.load(list, undo, open);
   }
 

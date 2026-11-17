@@ -2,6 +2,7 @@
  * The Gym's Exercises part's state in the browser (deploy 97): the read on screen (the door's Exercises), the exercise being
  * renamed and the name typed, "+ New exercise" (open while the list is empty) and what is typed there, the row a save just changed
  * (blue edge) and why a form was refused (next to it; it keeps what was typed). Every save goes to a form action of /gym/exercises
+ * (or of Library's /library/exercises, deploy 105)
  * and its answer brings the fresh Exercises read (view "gym_exercises"). None has Undo and none takes a key; none is ever sent
  * again by the page (saver.ts).
  */
@@ -26,8 +27,9 @@ export class ExercisesPage extends Answers {
 
   #loaded: Exercises | null = null;
 
-  constructor(exercises: Exercises | null) {
-    super('/gym/exercises');
+  /** path: the page whose form actions the saves call: /gym/exercises, or Library's /library/exercises (deploy 105). */
+  constructor(exercises: Exercises | null, path = '/gym/exercises') {
+    super(path);
     this.load(exercises);
   }
 

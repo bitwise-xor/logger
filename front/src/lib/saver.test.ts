@@ -338,6 +338,38 @@ describe('the saver', () => {
     expect(store.m.has(RESEND_ITEM)).toBe(false);
   });
 
+  it('Library (deploy 105): sends no key with a Catalogue form and never keeps one for a re-send after a sign-in, not even a kept old one', async () => {
+    const n = fakeNet();
+    const store = memory();
+    const s = new Saver({ ...n, storage: store, newKey: () => 'never-a-key-000001', page: '/library' });
+    const taps: [string, Record<string, string>][] = [
+      ['catalogue_values', { id: '2', kcal: '70', view: 'catalogue' }],
+      ['catalogue_words', { id: '2', act: 'add', word: 'curd' }],
+      ['catalogue_barcode', { id: '2', barcode: '40000000' }],
+      ['catalogue_basics', { id: '6', name: 'Apple', hide: '1' }],
+      ['catalogue_unit', { id: '5', unit: 'slice', grams: '35' }],
+      ['catalogue_reviewed', { id: '5' }],
+      ['lookup', { text: 'crispbread', view: 'catalogue' }],
+      ['answer', { question_id: 'p1', reply: 'yes', view: 'catalogue' }],
+    ];
+    for (const [i, [action, fields]] of taps.entries()) {
+      const r = s.send(action, { ...fields });
+      await tick();
+      expect(n.calls[i]!.url).toBe(`/library?/${action}`);
+      expect(n.calls[i]!.fields, action).not.toHaveProperty('key');
+      n.calls[i]!.answer({ type: 'failure', status: 401, data: { signedOut: true } });
+      expect(await r).toEqual({ kind: 'signed_out' });
+      expect(store.m.has(RESEND_ITEM), action).toBe(false);
+      expect(mayResend(action), action).toBe(false);
+    }
+    expect(mayResend('catalogue_anything_new')).toBe(false);
+    // one kept by an old tab with a key is not sent again either
+    store.setItem(RESEND_ITEM, JSON.stringify({ action: 'catalogue_words', fields: { id: '2', act: 'add', word: 'curd', key: 'old-key-0123456789' }, at: Date.now(), page: '/library' }));
+    expect(await s.resend()).toBeNull();
+    expect(n.calls).toHaveLength(taps.length);
+    expect(store.m.has(RESEND_ITEM)).toBe(false);
+  });
+
   // Step D: the logging box's typed line
   it('never drops a typed line\'s answer for a tap made while the AI read it (its day is read after that tap\'s)', async () => {
     const n = fakeNet();
@@ -401,11 +433,11 @@ describe('the saver', () => {
     const n = fakeNet();
     const store = memory();
     let i = 0;
-    const s = new Saver({ ...n, storage: store, newKey: () => `usual-key-${++i}`, page: '/food/usual' });
+    const s = new Saver({ ...n, storage: store, newKey: () => `usual-key-${++i}`, page: '/library/usual' });
     const first = s.send('usual_meal', { meal_id: '84', action: 'save', name: 'A', food_id: ['10'], amount: ['60'] });
     const second = s.send('usual_meal', { meal_id: '84', action: 'save', name: 'B', food_id: ['10'], amount: ['65'] });
     await tick();
-    expect(n.calls[0]!.url).toBe('/food/usual?/usual_meal');
+    expect(n.calls[0]!.url).toBe('/library/usual?/usual_meal');
     expect(n.calls[0]!.fields.key).toEqual(['usual-key-1']);
     expect(n.calls[1]!.fields.key).toEqual(['usual-key-2']);
     n.calls[1]!.answer(ok('Changed the usual meal "B".'));
@@ -421,10 +453,10 @@ describe('the saver', () => {
     const today = new Saver({ ...n, storage: store, page: '/' });
     expect(today.takeKept()).toBeNull();
     expect(store.m.has(RESEND_ITEM)).toBe(true);
-    const back = new Saver({ ...n, storage: store, page: '/food/usual' });
+    const back = new Saver({ ...n, storage: store, page: '/library/usual' });
     const again = back.resend();
     await tick();
-    expect(n.calls[3]!.url).toBe('/food/usual?/usual_new');
+    expect(n.calls[3]!.url).toBe('/library/usual?/usual_new');
     expect(n.calls[3]!.fields.key).toEqual(['usual-key-3']);
     expect(n.calls[3]!.fields.food_id).toEqual(['11']);
     n.calls[3]!.answer(ok('Saved.'));

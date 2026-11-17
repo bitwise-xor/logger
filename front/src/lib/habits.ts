@@ -14,9 +14,9 @@ export function askedShow(raw: string | null | undefined): Show {
   return SHOWS.find((s) => s === raw) ?? 'tracked';
 }
 
-/** The page's address for a filter (tracked is the plain address). */
-export function habitsHref(show: Show): string {
-  return show === 'tracked' ? '/habits' : `/habits?show=${show}`;
+/** The page's address for a filter (tracked is the plain address); `base`: the Habits page, or Library's Habits tab (deploy 105). */
+export function habitsHref(show: Show, base = '/habits'): string {
+  return show === 'tracked' ? base : `${base}?show=${show}`;
 }
 
 export interface ChecklistHabit {
@@ -164,8 +164,8 @@ export const dayFields = (c: Pick<CalHabit, 'name'>, iso: string): FieldValues =
 // ---- your habits ---------------------------------------------------------------------------------------------------------------
 
 /** The filter's chips with their counts ("Tracked · 5"). */
-export function chips(h: Habits): { key: Show; text: string; href: string; current: boolean }[] {
-  return h.shows.map((s) => ({ key: s.key, text: `${s.label} · ${s.count}`, href: habitsHref(s.key), current: s.key === h.show }));
+export function chips(h: Habits, base = '/habits'): { key: Show; text: string; href: string; current: boolean }[] {
+  return h.shows.map((s) => ({ key: s.key, text: `${s.label} · ${s.count}`, href: habitsHref(s.key, base), current: s.key === h.show }));
 }
 
 /** A group's title with its number of habits ("Intake · 1"). */
@@ -192,7 +192,9 @@ export function rowActions(h: ListHabit) {
  * The line under the filter (deploy 96): the door's words (app.'s HELP), but app.'s "in the calendar below" is worded for this page,
  * where the calendar is the "Last 30 days" card, above the list on phones and to its left on the PC.
  */
-export const helpText = (h: Pick<Habits, 'help' | 'days'>) => h.help.replace('in the calendar below', `in Last ${h.days} days`);
+export const helpText = (h: Pick<Habits, 'help' | 'days'>, where = `in Last ${h.days} days`) => h.help.replace('in the calendar below', where);
+/** Library's Habits tab (deploy 105) has no calendar: the line points to the Habits page. */
+export const LIBRARY_WHERE = 'on the Habits page';
 
 /** The names whose row is new or different in the fresh list (they get a blue edge). */
 export function changedNames(before: Habits | null, after: Habits): Set<string> {

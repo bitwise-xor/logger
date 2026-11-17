@@ -34,7 +34,7 @@ import {
   type GymRow,
   type Workout,
 } from './gym.js';
-import { placeOf, SPACES } from './places.js';
+import { LIBRARY_TABS, placeOf, SPACES } from './places.js';
 
 const read = (name: string) => JSON.parse(readFileSync(new URL(`../../tests/samples/${name}`, import.meta.url), 'utf8'));
 const W: Workout = read('gym.json').gym.gym;
@@ -206,7 +206,8 @@ describe('the Spaces menu', () => {
   it('knows the place of a page: Today for Today and the Food day, More for /more and every Space', () => {
     expect(placeOf('/')).toEqual({ tab: 'today', space: null, atMore: false });
     expect(placeOf('/food')).toEqual({ tab: 'today', space: null, atMore: false });
-    expect(placeOf('/food/usual')).toEqual({ tab: 'today', space: null, atMore: false });
+    // deploy 105: the usual meals are Library's tab; /food/usual only redirects there
+    expect(placeOf('/library/usual')).toEqual({ tab: 'library', space: null, atMore: false });
     expect(placeOf('/more')).toEqual({ tab: 'more', space: null, atMore: true });
     expect(placeOf('/gym')).toEqual({ tab: 'more', space: 'gym', atMore: false });
     expect(placeOf('/health')).toEqual({ tab: 'more', space: 'health', atMore: false });
@@ -220,5 +221,22 @@ describe('the Spaces menu', () => {
     expect(placeOf('/trends')).toEqual({ tab: 'trends', space: null, atMore: false });
     expect(placeOf('/trends/charts')).toEqual({ tab: 'trends', space: null, atMore: false });
     expect(placeOf('/trendsetter')).toEqual({ tab: null, space: null, atMore: false });
+    // deploy 105: Library is a tab of this app, lit on every /library page
+    expect(placeOf('/library')).toEqual({ tab: 'library', space: null, atMore: false });
+    expect(placeOf('/library/habits')).toEqual({ tab: 'library', space: null, atMore: false });
+    expect(placeOf('/library/exercises')).toEqual({ tab: 'library', space: null, atMore: false });
+    expect(placeOf('/libraryx')).toEqual({ tab: null, space: null, atMore: false });
+    // the Habits Space and the Gym keep their own pages
+    expect(placeOf('/habits')).toEqual({ tab: 'more', space: 'habits', atMore: false });
+    expect(placeOf('/gym/exercises')).toEqual({ tab: 'more', space: 'gym', atMore: false });
+  });
+
+  it("lists Library's four tabs, each its own page", () => {
+    expect(LIBRARY_TABS.map((t) => [t.key, t.label, t.href])).toEqual([
+      ['foods', 'Foods', '/library'],
+      ['usual', 'Usual meals', '/library/usual'],
+      ['habits', 'Habits', '/library/habits'],
+      ['exercises', 'Exercises', '/library/exercises'],
+    ]);
   });
 });

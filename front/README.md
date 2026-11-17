@@ -8,7 +8,7 @@ skeleton, the sign-in and an empty Today. Step B (deploy 79): Today read-only fr
 (deploy 80): the taps save in place (water, Again and usual chips, habits, check-in, review, Health card, question buttons,
 Try again / Delete for a message not read yet, Undo). Step D (deploy 81): the logging box. Step E (deploy 84): the Food day.
 Step F (deploy 85): polish (plain messages when the core is down or the door is off, back to your page after a sign-in, phone,
-tablet and PC width). Then the trial runs (below). Deploy 87: the Usual meals page. Deploy 88: Today shows each food's and meal's macros, a pie of the day's kcal from protein, carbs and fat in the Energy card (app.'s macro colours, `--macro-*` in `app.css`), a one-line logging box that grows, and two habits per row. Deploy 90: scan, label photo, look-up and voice in the logging box (step 1a of the move to `logger.`, below). Deploy 92: the Health page with body measurements (step 1b, below). Deploy 94: the Habits page (step 1c, below). Deploy 96: the Gym's Workout page, the Gym card on Today and the Spaces menu (step 2, below). Deploy 97: Gym's other five parts (below). Deploy 99: Home's Now and Pick pages with the timer, the Home card on Today and Home in the Spaces menu (step 3, below). Deploy 100: Home's other four pages (Zones, History, a chore's page, Edit zones). Deploy 102: Trends' Week tab with the Week review; the Trends tab is live (below). Deploy 103: Trends' Charts and Insights tabs (step 4 done).
+tablet and PC width). Then the trial runs (below). Deploy 87: the Usual meals page. Deploy 88: Today shows each food's and meal's macros, a pie of the day's kcal from protein, carbs and fat in the Energy card (app.'s macro colours, `--macro-*` in `app.css`), a one-line logging box that grows, and two habits per row. Deploy 90: scan, label photo, look-up and voice in the logging box (step 1a of the move to `logger.`, below). Deploy 92: the Health page with body measurements (step 1b, below). Deploy 94: the Habits page (step 1c, below). Deploy 96: the Gym's Workout page, the Gym card on Today and the Spaces menu (step 2, below). Deploy 97: Gym's other five parts (below). Deploy 99: Home's Now and Pick pages with the timer, the Home card on Today and Home in the Spaces menu (step 3, below). Deploy 100: Home's other four pages (Zones, History, a chore's page, Edit zones). Deploy 102: Trends' Week tab with the Week review; the Trends tab is live (below). Deploy 103: Trends' Charts and Insights tabs (step 4 done). Deploy 105: Library (Foods, Usual meals, Habits, Exercises; the Library tab is live, below).
 
 ## How it fits
 
@@ -212,10 +212,36 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   stand-in answers GET `/food/trends` (the three ranges of `tests/samples/food_trends.json`, a bad range 400) and `/insights`
   (`tests/samples/insights.json`); POST `/standin/trends?fail=food,health,body,gym,insights` makes those reads answer 500, POST `/standin/body-none`
   leaves no body session; `SHOOT_ONLY=trends` runs these checks too.
+- Library (deploy 105, the move's step 5; the door's routes came with deploy 104): the Library tab is a link (lit on every `/library` path:
+  `placeOf`), the title "Library" with the tabs Foods · Usual meals · Habits · Exercises (`components/library/LibraryHeader.svelte`,
+  `LIBRARY_TABS` in `places.ts`), each its own page. **Foods** (`/library`, `?q=&f=all|drinks|new|review&s=<one of the eight orders>&food=N12`;
+  `src/lib/catalogue.ts` the door's shapes and plain rules, `cataloguepage.svelte.ts` the state): GET /food/catalogue and, with `food`, GET
+  /food/item at once (a 404 says "That food is not there any more." in place of the box, the list stays); the search (the door's placeholder;
+  Enter, or 400 ms after the last key, keeping the focus: `goto` with `replace` and `reset: false`), the door's chips and eight orders, the
+  count and the door's limit note, a row per food (`FoodRow.svelte`: ref, name, "review" and "drink", the words, kcal · P · F · C per 100 g or
+  ml; from the tablet width Eaten, Last, Added); a row opens its box (`FoodBox.svelte`) under it on phones and tablets and in a 400 px column
+  beside the list from 1100 px (Svelte's `MediaQuery`); a second tap or Close closes it. The box, in the door's words: the source line, the
+  review bar with "Looks right" (`catalogue_reviewed`), the ten values (unknown = empty, "unknown"; a recipe food read only) with the door's
+  "Also recalculate …" tick (off again after each save) and Save (`catalogue_values` with only the changed values: the door reads it back,
+  the answer bar's "Yes, change" sends it again with `confirmed`, No drops it), the words (× and Add: `catalogue_words`), Name and use (name,
+  Drink, Hide, Save: `catalogue_basics`; hidden, the box closes and the row goes), the units (`catalogue_unit`), the barcode
+  (`catalogue_barcode`). Every save sends `view: "catalogue"` with view_q, view_f, view_s, view_food and puts the fresh Catalogue and box on
+  screen; a refusal and "Nothing changed." are said next to their form, which keeps what was typed (a known value cleared, a value or a
+  unit's weight that is not a number are said before sending, in app.'s words). None has a key or Undo, and none is ever sent again by the
+  page (`mayResend` refuses `catalogue_`). "+ New food": "Name or barcode" and "Look up" = Today's `lookup` save with view catalogue (the button
+  says "Looking…"); its question's read-back comes in the answer bar with Yes and No (`yes()`/`no()` of `Answers`: the question's `answer`
+  through POST /answer, view catalogue); Yes shows the new row with a blue edge (the door's Undo takes it out again). **Usual meals** moved to
+  `/library/usual` unchanged in function (`/food/usual` redirects there with its query, 302; Today's Edit and the Food day link here; the
+  search is `/library/usual/foods`). **Habits** (`/library/habits?show=`): the Habits page's "Your habits" card (`HabitsPage` with the path,
+  `chips(h, base)`), the `habits_manage` saves, a line with the link to app.'s Settings; one column of 720 px at most (the Habits Space keeps
+  its page). **Exercises** (`/library/exercises`): the Gym's list (`ExerciseList.svelte`, shared with `/gym/exercises`; `ExercisesPage` with
+  the path). The stand-in answers GET `/food/catalogue`, `/food/item` and POST `/food/catalogue/<action>`, `/lookup` and `/answer` with view
+  catalogue from `tests/samples/catalogue.json` (the samples' lists come out byte for byte); `SHOOT_ONLY=library` runs these checks. Also: the
+  footer reads "Medical, Settings and the rest are in the full app"; `usual.test.ts` no longer has svelte-check errors.
 - The Spaces menu (deploy 96): `src/lib/places.ts` says where a page belongs. The PC rail: Today, Trends, Library, then "Spaces"
   (Gym, Health, Habits, Home since deploy 99; the one you are in highlighted), then More. Phones and tablets keep four tabs; More is the page `/more`
   (`src/routes/(app)/more`): the Spaces as a list (Medical greyed, "soon"; Home since deploy 99), then one line that the rest is in the full app.
-  On a Space's page the More tab is highlighted. Trends and Library stayed greyed (Trends is live since deploy 102; its three tabs since 103). Deploy 96 also fixed two things on the Habits page:
+  On a Space's page the More tab is highlighted. Trends and Library stayed greyed (Trends is live since deploy 102, its three tabs since 103; Library since 105). Deploy 96 also fixed two things on the Habits page:
   after a day tick the open calendar is scrolled above the answer bar (phones and tablets), and app.'s "in the calendar below" is
   worded "in Last 30 days" (`helpText` in `habits.ts`).
 - The chart part (deploy 92; for Trends and Gym too): `components/chart/Chart.svelte` draws a chart description of the door

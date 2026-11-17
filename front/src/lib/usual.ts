@@ -232,10 +232,10 @@ export function saveFields(d: Draft): { action: 'usual_meal' | 'usual_new'; fiel
 /** Delete (usual_meal with action delete). */
 export const deleteFields = (d: Draft): FieldValues => ({ meal_id: String(d.meal_id), action: 'delete' });
 
-// ---- the search (GET /foods?q= through /food/usual/foods here) ---------------------------------------------------------------
+// ---- the search (GET /foods?q= through /library/usual/foods here) ---------------------------------------------------------------
 
 /** Where the browser asks for foods: this app's own route, which asks the door. */
-export const searchUrl = (q: string) => `/food/usual/foods?q=${encodeURIComponent(q.trim().slice(0, 100))}`;
+export const searchUrl = (q: string) => `/library/usual/foods?q=${encodeURIComponent(q.trim().slice(0, 100))}`;
 
 /** "380 kcal · 13 g protein per 100 g". */
 export const perText = (h: FoodHit) => `${n(h.per_100.kcal)} kcal · ${n(h.per_100.protein)} g protein per 100 ${h.unit}`;

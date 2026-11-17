@@ -64,11 +64,11 @@ describe('the editor', () => {
 
   it('works out the total of a changed amount from the item’s own values', () => {
     const d = draftOf(breakfast);
-    d.rows[0] = { ...d.rows[0], amount: 90 }; // oats 60 g -> 90 g: 228 kcal -> 342
+    d.rows[0] = { ...d.rows[0]!, amount: 90 }; // oats 60 g -> 90 g: 228 kcal -> 342
     const t = totals(live(d));
     expect(t.kcal).toBeCloseTo(342 + 126);
     expect(t.protein).toBeCloseTo(7.8 * 1.5 + 22);
-    expect(rowStatus(d.rows[0])).toBe('Changed · was 60 g');
+    expect(rowStatus(d.rows[0]!)).toBe('Changed · was 60 g');
     expect(changeLine(d)).toBe('1 change, not saved yet. One Save for all, one Undo.');
   });
 
@@ -85,7 +85,7 @@ describe('the editor', () => {
 
   it('swaps a food: the same amount, the new food’s values per 100', () => {
     const d = draftOf(breakfast);
-    d.rows[0] = swapped(d.rows[0], oatsMix);
+    d.rows[0] = swapped(d.rows[0]!, oatsMix);
     expect(rowStatus(d.rows[0])).toBe('Swapped · was Oats');
     expect(totals([d.rows[0]]).kcal).toBeCloseTo((oatsMix.per_100.kcal * 60) / 100);
     d.rows[0] = { ...d.rows[0], amount: 100 };
@@ -94,12 +94,12 @@ describe('the editor', () => {
 
   it('removes a saved food until Save (struck through), and drops a food added here', () => {
     const d = draftOf(breakfast);
-    d.rows = removed(d, d.rows[1].id);
+    d.rows = removed(d, d.rows[1]!.id);
     expect(d.rows.map(rowStatus)).toEqual(['', 'Removed']);
     expect(totals(live(d)).kcal).toBeCloseTo(228);
     d.rows = [...d.rows, addedRow(oatsMix, 'n1')];
-    expect(rowStatus(d.rows[2])).toBe('New');
-    expect(d.rows[2].amount).toBe(100);
+    expect(rowStatus(d.rows[2]!)).toBe('New');
+    expect(d.rows[2]!.amount).toBe(100);
     d.rows = removed(d, 'n1');
     expect(d.rows).toHaveLength(2);
     expect(changeCount(d)).toBe(1);
@@ -123,7 +123,7 @@ describe('the editor', () => {
     d.rows = Array.from({ length: 9 }, (_, k) => addedRow(oatsMix, `n${k}`));
     expect(problem(d)).toBe('Up to 8 foods in a new usual meal.');
     const e = draftOf(cocoa);
-    e.rows = removed(e, e.rows[0].id);
+    e.rows = removed(e, e.rows[0]!.id);
     expect(problem(e)).toMatch(/use Delete/);
   });
 });
@@ -132,7 +132,7 @@ describe('what a Save sends', () => {
   it('a changed meal: its id, the name and the whole list in order, without the removed foods', () => {
     const d = draftOf(breakfast);
     d.name = 'Big breakfast';
-    d.rows = removed(d, d.rows[0].id);
+    d.rows = removed(d, d.rows[0]!.id);
     d.rows = [...d.rows, { ...addedRow(oatsMix, 'n1'), amount: 150 }];
     expect(saveFields(d)).toEqual({
       action: 'usual_meal',
@@ -155,7 +155,7 @@ describe('what a Save sends', () => {
 
 describe('the search', () => {
   it('asks this app’s own route, the words trimmed', () => {
-    expect(searchUrl('  oat milk ')).toBe('/food/usual/foods?q=oat%20milk');
+    expect(searchUrl('  oat milk ')).toBe('/library/usual/foods?q=oat%20milk');
     expect(perText(oatsMix)).toBe('140 kcal · 6 g protein per 100 g');
   });
 
@@ -164,8 +164,8 @@ describe('the search', () => {
     const s = new FoodSearch((q) => new Promise((done) => (waiting[q] = done)));
     const first = s.find('o');
     const second = s.find('oa');
-    waiting.oa([oatsMix]);
-    waiting.o(hits);
+    waiting.oa!([oatsMix]);
+    waiting.o!(hits);
     expect(await second).toEqual([oatsMix]);
     expect(await first).toBeNull();
   });
