@@ -67,6 +67,11 @@ echo -n "/ signed out -> "; curl -sk -m 10 -o /dev/null -w "%{http_code} %{redir
 echo -n "sign-in from another origin (must be 403) -> "; curl -sk -m 10 -o /dev/null -w "%{http_code}\n" -X POST -H "Origin: https://example.com" -d "password=x&code=1" "${L[@]}" https://logger.19hospitalroad.fyi/login </dev/null
 echo -n "headers: "; curl -sk -m 10 -D - -o /dev/null "${L[@]}" https://logger.19hospitalroad.fyi/login </dev/null | grep -ciE "^(content-security-policy|x-frame-options|x-content-type-options|referrer-policy):" | sed 's/$/ of 4 security headers/'
 echo -n "the door is not reachable through logger. (must be 404 from the front) -> "; curl -sk -m 10 -o /dev/null -w "%{http_code}\n" "${L[@]}" https://logger.19hospitalroad.fyi/api/v1/session </dev/null
+# the home-screen app and the nudges' service worker (deploy 112): served signed out, never the sign-in page
+m=$(curl -sk -m 10 -o /dev/null -w "%{http_code} %{content_type}" "${L[@]}" https://logger.19hospitalroad.fyi/manifest.webmanifest </dev/null)
+echo "/manifest.webmanifest signed out -> $m"; [[ "$m" =~ ^200\ application/manifest\+json ]] || echo "CHECK FAILED: not 200 with a manifest type"
+w=$(curl -sk -m 10 -o /dev/null -w "%{http_code} %{content_type}" "${L[@]}" https://logger.19hospitalroad.fyi/sw.js </dev/null)
+echo "/sw.js signed out -> $w"; [[ "$w" =~ ^200\ (text|application)/javascript ]] || echo "CHECK FAILED: not 200 with a JavaScript type"
 echo -n "app. still answers -> "; curl -sk -m 10 -o /dev/null -w "%{http_code} %{redirect_url}\n" --resolve app.19hospitalroad.fyi:443:127.0.0.1 https://app.19hospitalroad.fyi/web/ </dev/null
 
 echo "== errors in the log since start"; docker logs --since 2m logger-v2-front 2>&1 | grep -iE "error|exception" | head -n 10 || true; echo "(end of errors)"

@@ -303,12 +303,30 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   checked first, in app.'s words: `settings.ts`); the Today page tab saves every tap at once (a switch or an arrow posts the whole group; the list is the
   door's fresh read); "Show everything again" and "Sign out all others" are asked first in the answer bar. Export's Download is a plain form POST to
   `/settings/export/download` (`+server.ts`: the door's POST /export through `door.postFile`, the ZIP handed through with the door's Content-Type and
-  Content-Disposition and no-store; a failure goes back to the tab with `?failed=1`). The "This device: Turn on" card comes with deploy 112
-  (`components/settings/ThisDevice.svelte`, empty now). Also with 111: no footer line any more; Habits, Library > Habits, Health's height and every
+  Content-Disposition and no-store; a failure goes back to the tab with `?failed=1`). The "This device" card came with deploy 112 (below). Also with 111: no footer line any more; Habits, Library > Habits, Health's height and every
   "Your goals" (`GOALS_HERE`) open Settings here; Today hides the To review items (one line instead) and the Gratitude card when `day.shown` says so.
   The stand-in answers the seven reads and the saves from `tests/samples/settings.json`, POST `/export` with a small ZIP made there (POST
   `/standin/settings?export_fail=1&shown=0&noshown=1&nopush=1`; GET `/standin/push-tests`, `/standin/exports`); `SHOOT_ONLY=settings` runs these checks
   (the variable must reach the container: `docker run -e SHOOT_ONLY=settings`).
+- The home-screen app and notifications from logger. (deploy 112). `static/manifest.webmanifest` ("Logger", id/start_url/scope "/",
+  standalone, the dark background; app.'s icons copied to `static/`: icon-192/512.png, any and maskable, apple-touch-icon.png) and the
+  head tags in `src/app.html` (manifest, apple-touch-icon, the apple-/mobile-web-app metas, two theme-color metas that `static/theme.js`
+  and `lib/theme.svelte.ts` set to the chosen theme's background). `static/sw.js` is a plain worker as small as app.'s: push shows the
+  core's `{title, body, url, tag}` (icon /icon-192.png); a tap opens a logger. page in an open logger. window (focus, then `navigate`;
+  else a new window) and another address (the gratitude list at app.) in a new window as it came; `skipWaiting`/`clients.claim` so a
+  new version takes over and open pages can be moved; no fetch handler, no caching, nothing offline. It is a static file, NOT SvelteKit's
+  `src/service-worker` (none exists, so nothing registers it): it is registered only by "Turn on" in Settings > Notifications. That
+  card, "This device" (`components/settings/ThisDevice.svelte`, the rules in `lib/pushdevice.ts`, which takes the browser's parts as
+  arguments): not possible (no notifications in this browser, an iPhone outside the Home Screen app, the door's `public_key` null),
+  blocked, off ("Turn on": the permission, `/sw.js` registered for "/" and ready, the subscription with the door's key, then the form
+  action `push_subscribe`, which checks the shape and adds the browser's User-Agent before the door's `/push/subscribe`; refused or
+  failed: the browser's subscription is ended again), on ("On since …", "Turn off on this device": `push_off` and the browser's
+  unsubscribe). The CSP says `worker-src 'self'; manifest-src 'self'`. Static files come from adapter-node with an ETag and no
+  Cache-Control (the browser checks a worker script for changes itself). Tests: `pushdevice.test.ts` (the states, the key, the order with
+  fakes), `sw.test.ts` (sw.js run with a fake `self`); the stand-in answers POST `/push/subscribe` as the core (POST
+  `/standin/settings?nothis=1&nokey=1`; GET `/standin/push-subscribed`); the screens check the files signed out, the tags, the manifest as
+  Chromium reads it, no worker before a press, the real `/sw.js` registering under the real CSP, and the card with the browser's parts
+  stubbed in the page (an iPhone's User-Agent). A real push cannot be sent from the test container: check on a phone.
 - The Spaces menu (deploy 96): `src/lib/places.ts` says where a page belongs. The PC rail: Today, Trends, Library, then "Spaces"
   (Gym, Health, Habits, Home since deploy 99; the one you are in highlighted), then More. Phones and tablets keep four tabs; More is the page `/more`
   (`src/routes/(app)/more`): the Spaces as a list (Home since deploy 99, Medical since deploy 106: every Space is live).

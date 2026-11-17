@@ -53,6 +53,11 @@ export class SettingsPage<T> extends Answers {
     this.show({ tone: 'warning', head, lines: [], undo: null, confirm: { readBack: '', label: yes, noLabel: 'No', action, fields } });
   }
 
+  /** What the browser itself said, in the answer bar (deploy 112: "This device", e.g. "Notifications were not allowed."). */
+  tell(head: string) {
+    this.show({ tone: 'warning', head, lines: [], undo: null, confirm: null });
+  }
+
   protected inlineRefusal(action: string) {
     return action in FORM_OF;
   }

@@ -8,5 +8,9 @@
   } catch {
     // Storage is blocked: dark.
   }
-  document.documentElement.setAttribute('data-theme', choice === 'light' ? 'light' : 'dark');
+  var theme = choice === 'light' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', theme);
+  // The phone's bar above the page (deploy 112): the page's own background, whatever the device's setting.
+  var metas = document.querySelectorAll('meta[name="theme-color"]');
+  for (var i = 0; i < metas.length; i++) metas[i].setAttribute('content', theme === 'light' ? '#f1f1ee' : '#0c0d0f');
 })();

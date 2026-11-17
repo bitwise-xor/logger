@@ -5,6 +5,8 @@
 export type Theme = 'light' | 'dark';
 
 const KEY = 'logger-theme';
+/** The page's background of each theme (tokens.css --bg), for the phone's bar above the page. */
+const BAR: Record<Theme, string> = { dark: '#0c0d0f', light: '#f1f1ee' };
 const inBrowser = typeof window !== 'undefined';
 
 function stored(): Theme {
@@ -26,7 +28,11 @@ class ThemeState {
     } catch {
       // The choice then lasts until the page is closed.
     }
-    if (inBrowser) document.documentElement.setAttribute('data-theme', this.current);
+    if (inBrowser) {
+      document.documentElement.setAttribute('data-theme', this.current);
+      // the phone's bar above the page follows (deploy 112; the two theme-color metas of app.html)
+      for (const m of document.querySelectorAll('meta[name="theme-color"]')) m.setAttribute('content', BAR[this.current]);
+    }
   }
 }
 

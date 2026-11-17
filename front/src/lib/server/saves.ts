@@ -23,6 +23,7 @@ import { CATALOGUE_FILTERS, CATALOGUE_SORTS } from '../catalogue.js';
 import { askedOpen, askedTest } from '../medical.js';
 import { FILTERS } from '../coach.js';
 import { hoursOf, NUDGE_HOURS, NUDGE_KEYS } from '../settings.js';
+import { subscriptionProblem } from '../pushdevice.js';
 
 /** The form's fields: what `FormData` offers (and a plain test double). */
 export interface Fields {
@@ -32,11 +33,18 @@ export interface Fields {
 
 type Body = Record<string, unknown>;
 
+/** What the form action knows besides the form (deploy 112): the browser's User-Agent header, for /push/subscribe's device name. */
+export interface Asked {
+  userAgent?: string | null;
+}
+
 interface Save {
   path: string;
   /** The door's route takes a re-send key (docs/API.md): a re-sent tap then saves once. */
   keyed: boolean;
-  body: (f: Fields) => Body;
+  body: (f: Fields, asked: Asked) => Body;
+  /** Why the form cannot go to the door (checked first; the door is not asked): "Not saved." with these words. */
+  check?: (f: Fields) => string | null;
   /** /log and /held/retry read the words with the AI: up to about 40 s. */
   timeoutMs?: number;
 }
@@ -372,6 +380,19 @@ export const SAVES = {
   // the notifications of a device (here or at app.) off; a test to every device
   push_off: { path: '/push/off', keyed: false, body: (f) => ({ id: int(f, 'id') }) },
   push_test: { path: '/push/test', keyed: false, body: () => ({}) },
+  // Notifications on this device (deploy 112): the browser's subscription from "This device" (src/lib/pushdevice.ts), checked here
+  // first (an https address of up to 1000 characters, the two keys base64url of up to 200 and 100); the device's name comes from the
+  // browser's User-Agent header, which the page does not send itself. The door checks the push service and the keys as app. does.
+  push_subscribe: {
+    path: '/push/subscribe',
+    keyed: false,
+    check: (f) => subscriptionProblem({ endpoint: f.get('endpoint'), p256dh: f.get('p256dh'), auth: f.get('auth') }),
+    body: (f, asked) => ({
+      endpoint: f.get('endpoint'),
+      keys: { p256dh: f.get('p256dh'), auth: f.get('auth') },
+      user_agent: (asked.userAgent ?? '').slice(0, 300) || undefined,
+    }),
+  },
 } satisfies Record<string, Save>;
 
 /** A number of a Settings form as the door takes it (a comma too); empty is left out; anything else as typed (the page checks first). */
@@ -620,7 +641,7 @@ export const SETTINGS_TODAY_SAVES: SaveName[] = ['settings_today', 'settings_tod
 export const SETTINGS_BODY_SAVES: SaveName[] = ['settings_height', 'settings_body'];
 export const SETTINGS_COACH_SAVES: SaveName[] = ['settings_coach'];
 export const SETTINGS_DEVICES_SAVES: SaveName[] = ['settings_device', 'settings_others'];
-export const SETTINGS_NOTIFY_SAVES: SaveName[] = ['settings_nudges', 'push_off', 'push_test'];
+export const SETTINGS_NOTIFY_SAVES: SaveName[] = ['settings_nudges', 'push_off', 'push_test', 'push_subscribe'];
 export const SETTINGS_ONLY: SaveName[] = [
   ...SETTINGS_TARGETS_SAVES,
   ...SETTINGS_TODAY_SAVES,
@@ -647,9 +668,10 @@ export function bodyFor(
   viewDay: string | undefined,
   newKey: () => string = () => crypto.randomUUID(),
   view: View = 'day',
+  asked: Asked = {},
 ): Body {
   const save: Save = SAVES[name];
-  const body: Body = { ...save.body(f), view };
+  const body: Body = { ...save.body(f, asked), view };
   if (viewDay && /^\d{4}-\d\d-\d\d$/.test(viewDay)) body.view_day = viewDay;
   // The Health page's fresh read (deploy 92): its range (7, 30 or 90) and "Show all".
   if (view === 'health' || view === 'body') {
@@ -735,10 +757,13 @@ export async function runSave<A>(
   f: Fields,
   viewDay?: string,
   view: View = 'day',
+  asked: Asked = {},
 ): Promise<SaveResult<A>> {
   const save: Save = SAVES[name];
+  const wrong = save.check?.(f);
+  if (wrong) return { ok: false, status: 400, signedOut: false, message: wrong };
   try {
-    const { body, expiresAt } = await door.post<A>(save.path, session, bodyFor(name, f, viewDay, undefined, view), save.timeoutMs);
+    const { body, expiresAt } = await door.post<A>(save.path, session, bodyFor(name, f, viewDay, undefined, view, asked), save.timeoutMs);
     return { ok: true, answer: body, expiresAt };
   } catch (error) {
     const kind = problemOf(error);

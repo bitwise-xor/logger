@@ -55,6 +55,10 @@
 // refusal on each, the Today page's switch, arrows and reset, a device signed out and all others, a device's notifications off with the
 // "twice" line, the test, the nudges, the export's ZIP and its headers), the links that left app. (More, Habits, Library, Health, Your
 // goals, the sign-in line), no footer line anywhere, and Today following the To review and Gratitude switches.
+// Deploy 112: the home-screen app and "This device" (checkThisDevice says what): the manifest, icons and worker served signed out with
+// their types, the head tags, the manifest read by the browser and the real /sw.js registered under the real CSP, no worker before a
+// press; the card with the browser's parts stubbed: off, Turn on (in order), on with "this device" and the twice line, Turn off; blocked;
+// the iPhone hint; the door's refusal leaving the device off and the subscription ended; the server without a key.
 // Every check throws on a failure, so the script ends with an error.
 // Usage: node tests/screens/shoot.mjs <base url> <out dir> <stand-in url>
 import assert from 'node:assert/strict';
@@ -5817,6 +5821,221 @@ async function checkSettingsLinks(page, name, theme) {
   await page.goto(`${base}/`);
 }
 
+/**
+ * Deploy 112: the home-screen app and notifications on this device. Signed out: /manifest.webmanifest, /sw.js and the icons answer 200
+ * with their types (no sign-in redirect) and the sign-in page has the head tags; signed in: the tags, the CSP's worker-src and
+ * manifest-src, the manifest as the browser reads it (no errors), no service worker before a press, and the real /sw.js registering for
+ * "/" under the real CSP (then removed; a real push cannot be sent here). Then "This device" in a context with an iPhone's User-Agent
+ * (so the door names the device "iPhone, Safari", as the sample's app. row) and the browser's notification parts stubbed per page.
+ */
+const IPHONE_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1';
+/** The browser's notification parts, faked in the page (mode: home = from the Home Screen, permission asked and granted; tab = Safari's
+ * tab, not from the Home Screen; denied = blocked in the settings; unknown = a push address the door does not know). window.__push logs. */
+function pushStub(mode) {
+  const P = (window.__push = { log: [], unsubscribed: 0 });
+  Object.defineProperty(Navigator.prototype, 'standalone', { configurable: true, get: () => mode !== 'tab' });
+  if (mode === 'tab') {
+    delete window.PushManager; // as Safari in a tab
+    return;
+  }
+  class FakeNotification {
+    static permission = mode === 'denied' ? 'denied' : 'default';
+    static async requestPermission() {
+      P.log.push('requestPermission');
+      FakeNotification.permission = 'granted';
+      return 'granted';
+    }
+  }
+  Object.defineProperty(window, 'Notification', { configurable: true, writable: true, value: FakeNotification });
+  const endpoint = mode === 'unknown' ? 'https://push.example.org/send/invented-endpoint' : 'https://web.push.apple.com/invented-endpoint-1';
+  const keys = { p256dh: 'B' + 'A'.repeat(86), auth: 'C'.repeat(22) };
+  let sub = null;
+  const pushManager = {
+    getSubscription: async () => (P.log.push('getSubscription'), sub),
+    subscribe: async (o) => {
+      P.log.push(`subscribe ${o.userVisibleOnly} ${o.applicationServerKey.length}`);
+      sub = {
+        endpoint,
+        toJSON: () => ({ endpoint, expirationTime: null, keys }),
+        unsubscribe: async () => {
+          P.log.push('unsubscribe');
+          P.unsubscribed++;
+          sub = null;
+          return true;
+        },
+      };
+      return sub;
+    },
+  };
+  const reg = { scope: `${location.origin}/`, pushManager };
+  const container = {
+    controller: null,
+    register: async (url, o) => (P.log.push(`register ${url} ${o.scope}`), reg),
+    get ready() {
+      P.log.push('ready');
+      return Promise.resolve(reg);
+    },
+    getRegistration: async () => reg,
+    getRegistrations: async () => [reg],
+    addEventListener() {},
+    removeEventListener() {},
+  };
+  Object.defineProperty(Navigator.prototype, 'serviceWorker', { configurable: true, get: () => container });
+}
+
+async function checkThisDevice(page, name, theme) {
+  await standinPost('/standin/reset');
+  const N = SETTINGS.notify.settings_notify;
+
+  // ---- signed out: the files and their types, never the sign-in page ----------------------------------------------------------------
+  const files = [['/manifest.webmanifest', /^application\/manifest\+json/], ['/sw.js', /^text\/javascript/], ['/icon-192.png', /^image\/png$/], ['/icon-512.png', /^image\/png$/], ['/apple-touch-icon.png', /^image\/png$/]];
+  for (const [path, type] of files) {
+    const r = await fetch(`${base}${path}`, { redirect: 'manual' });
+    assert.equal(r.status, 200, `${path} signed out`);
+    assert.match(r.headers.get('content-type') ?? '', type, `${path}: its type`);
+    if (name === 'phone' && theme === 'dark' && path !== '/icon-512.png' && path !== '/apple-touch-icon.png')
+      console.log(`${path}: ${['content-type', 'cache-control', 'etag', 'last-modified', 'content-security-policy'].map((h) => `${h}=${r.headers.get(h)}`).join('; ')}`);
+  }
+  const manifest = await (await fetch(`${base}/manifest.webmanifest`)).json();
+  assert.deepEqual([manifest.id, manifest.name, manifest.short_name, manifest.start_url, manifest.scope, manifest.display], ['/', 'Logger', 'Logger', '/', '/', 'standalone']);
+  assert.deepEqual(manifest.icons.map((i) => `${i.src} ${i.sizes} ${i.purpose}`), ['/icon-192.png 192x192 any', '/icon-512.png 512x512 any', '/icon-512.png 512x512 maskable']);
+  const sw = await (await fetch(`${base}/sw.js`)).text();
+  assert.ok(sw.includes("addEventListener('push'") && !sw.includes("addEventListener('fetch'"), 'the worker: push, no fetch handler');
+  const login = await (await fetch(`${base}/login`)).text();
+  for (const tag of ['rel="manifest"', 'rel="apple-touch-icon"', 'name="apple-mobile-web-app-capable" content="yes"', 'name="mobile-web-app-capable" content="yes"', 'name="apple-mobile-web-app-title" content="Logger"', 'name="apple-mobile-web-app-status-bar-style"', 'name="theme-color"'])
+    assert.ok(login.includes(tag), `the sign-in page has ${tag}`);
+
+  // ---- signed in: the tags, the CSP, the manifest as the browser reads it, no worker until a press, the real worker ---------------------
+  const resp = await page.goto(`${base}/settings/notifications`);
+  await page.locator('[data-this-device]').waitFor();
+  const csp = resp?.headers()['content-security-policy'] ?? '';
+  assert.match(csp, /worker-src 'self'/);
+  assert.match(csp, /manifest-src 'self'/);
+  assert.match(csp, /script-src 'self'/);
+  const head = await page.evaluate(() => ({
+    manifest: document.querySelector('link[rel=manifest]')?.href,
+    touch: document.querySelector('link[rel=apple-touch-icon]')?.href,
+    title: document.querySelector('meta[name=apple-mobile-web-app-title]')?.content,
+    bars: [...document.querySelectorAll('meta[name=theme-color]')].map((m) => m.content),
+  }));
+  const bar = theme === 'light' ? '#f1f1ee' : '#0c0d0f';
+  assert.deepEqual(head, { manifest: `${base}/manifest.webmanifest`, touch: `${base}/apple-touch-icon.png`, title: 'Logger', bars: [bar, bar] }, 'the head tags; the bar is the theme\'s background');
+  const cdp = await page.context().newCDPSession(page);
+  const got = await cdp.send('Page.getAppManifest');
+  await cdp.detach();
+  assert.equal(got.url, `${base}/manifest.webmanifest`);
+  assert.deepEqual(got.errors, [], 'the browser read the manifest without errors');
+  assert.equal(JSON.parse(got.data).name, 'Logger');
+  assert.equal(await page.evaluate(async () => (await navigator.serviceWorker.getRegistrations()).length), 0, 'no service worker before a press');
+  // nothing on the card touched the browser: still none after it ran
+  // (the test browser blocks notifications: the card says so once it ran in the browser; a card waiting has its button disabled)
+  await page.waitForFunction(() => document.querySelector('[data-this-device]')?.getAttribute('data-this-device') === 'blocked' || document.querySelector('[data-device-on]:not([disabled]), [data-device-off]:not([disabled])'));
+  assert.equal(await page.evaluate(async () => (await navigator.serviceWorker.getRegistrations()).length), 0, 'still none once the card ran');
+  const real = await page.evaluate(async () => {
+    const r = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+    const ready = await navigator.serviceWorker.ready;
+    const out = { scope: ready.scope, script: ready.active?.scriptURL ?? null, push: 'pushManager' in ready };
+    await r.unregister();
+    return out;
+  });
+  assert.deepEqual(real, { scope: `${base}/`, script: `${base}/sw.js`, push: true }, 'the real worker registers for "/" under the real CSP');
+
+  // ---- "This device", the browser's parts stubbed --------------------------------------------------------------------------------
+  const ctx = await browser.newContext({ viewport: page.viewportSize(), deviceScaleFactor: name === 'phone' ? 2 : 1, userAgent: IPHONE_UA });
+  if (theme === 'light') await ctx.addInitScript(() => localStorage.setItem('logger-theme', 'light'));
+  const first = await ctx.newPage();
+  await first.goto(`${base}/`);
+  await signIn(first);
+  await first.close();
+  const shot = (p, n) => p.screenshot({ path: `${out}/settings-device-${n}-${name}-${theme}.png`, fullPage: true });
+  const stubbed = async (mode) => {
+    const p = await ctx.newPage();
+    await p.addInitScript(pushStub, mode);
+    await p.goto(`${base}/settings/notifications`);
+    await p.locator('[data-this-device]').waitFor();
+    return p;
+  };
+  const stateOf = async (p) => [await p.locator('[data-this-device]').getAttribute('data-this-device'), await text(p.locator('[data-device-state]'))];
+  const headOn = async (p, want) => {
+    await p.locator('[data-bar-head]', { hasText: want }).waitFor();
+    assert.equal(await text(p.locator('[data-bar-head]')), want, 'the answer bar');
+  };
+
+  // off (the sample's rows, none of them this device) -> Turn on -> on, with the twice line -> Turn off on this device
+  await standinPost('/standin/settings?nothis=1');
+  const p = await stubbed('home');
+  assert.deepEqual(await stateOf(p), ['off', 'Off on this device']);
+  const card = await p.locator('[data-this-device]').boundingBox();
+  const list = await p.locator('[data-subscriptions]').boundingBox();
+  assert.ok(card && list && card.y + card.height <= list.y, 'This device above the list');
+  await p.locator('[data-device-on]:not([disabled])').waitFor();
+  assert.equal(await p.locator('[data-device-hint]').count(), 0, 'an iPhone from the Home Screen: no hint');
+  const appIphone = N.subscriptions.find((s) => s.address === 'logger' && N.subscriptions.some((a) => a.address === 'app' && a.name === s.name));
+  await p.locator(`[data-subscription="${appIphone.id}"] [data-push-off]`).click();
+  await p.locator('[data-twice]').waitFor({ state: 'detached' });
+  await shot(p, 'off');
+  await checkWidth(p, 'settings, this device off');
+  await p.locator('[data-device-on]').click();
+  await p.locator('[data-this-device="on"]').waitFor();
+  await headOn(p, 'Notifications are on for this device.');
+  assert.deepEqual(await p.evaluate(() => window.__push.log), ['requestPermission', 'register /sw.js /', 'ready', 'getSubscription', 'subscribe true 65'], 'the order of the press');
+  const [, onLine] = await stateOf(p);
+  assert.match(onLine, /^On since \d\d\.\d\d\.\d{4}$/);
+  const mine = p.locator('[data-subscription]', { has: p.locator('[data-this]') });
+  assert.equal(await mine.count(), 1, 'one row is this device');
+  assert.equal(await text(mine.locator('[data-address]')), 'logger.');
+  assert.match(await text(mine), /^iPhone, Safari logger\. this device/);
+  assert.match(await text(mine.locator('[data-line]')), /^on since \d\d\.\d\d\.\d{4}, nothing delivered yet$/);
+  assert.equal(await text(p.locator('[data-twice]')), 'This phone is on at app. too: nudges arrive twice until you turn that one off.');
+  const kept = await (await fetch(`${standin}/standin/push-subscribed`)).json();
+  assert.deepEqual({ subscribed: kept.subscribed, user_agent: kept.user_agent }, { subscribed: 1, user_agent: IPHONE_UA }, 'the door got the browser\'s User-Agent from the front end');
+  await p.locator('[data-bar] button[aria-label="Close"], [data-bar-close]').first().click().catch(() => {});
+  await shot(p, 'on');
+  await checkWidth(p, 'settings, this device on');
+  await p.locator('[data-device-off]').click();
+  await p.locator('[data-this-device="off"]').waitFor();
+  await headOn(p, SETTINGS.saves.push_off.head);
+  assert.equal(await mine.count(), 0, 'the row is gone');
+  assert.equal(await p.locator('[data-twice]').count(), 0);
+  assert.equal(await p.evaluate(() => window.__push.unsubscribed), 1, 'the browser\'s subscription ended');
+  await p.close();
+
+  // the door does not know the push address: refused, the device stays off, the subscription is ended again
+  const u = await stubbed('unknown');
+  await u.locator('[data-device-on]:not([disabled])').click();
+  await u.locator('[data-bar-head]').waitFor();
+  assert.match(await text(u.locator('[data-bar]')), /Not a known push service\./);
+  await u.waitForFunction(() => window.__push.unsubscribed === 1);
+  assert.deepEqual(await stateOf(u), ['off', 'Off on this device']);
+  assert.equal(await u.locator('[data-subscription] [data-this]').count(), 0);
+  await u.close();
+
+  // blocked in the browser's settings: the words, no button
+  const d = await stubbed('denied');
+  await d.locator('[data-this-device="blocked"]').waitFor();
+  assert.equal(await text(d.locator('[data-device-why]')), 'Notifications are blocked for logger. in this browser\'s settings.');
+  assert.equal(await d.locator('[data-device-on]').count(), 0);
+  await d.close();
+
+  // an iPhone in Safari's tab (not from the Home Screen): the hint, no button
+  const tab = await stubbed('tab');
+  await tab.locator('[data-this-device="cannot"]').waitFor();
+  assert.equal(await text(tab.locator('[data-device-why]')), 'On an iPhone: open logger. from the Home Screen first (Share, then Add to Home Screen).');
+  assert.equal(await tab.locator('[data-device-on]').count(), 0);
+  await shot(tab, 'iphone');
+  await checkWidth(tab, 'settings, this device on an iPhone tab');
+  await tab.close();
+
+  // the server without a key
+  await standinPost('/standin/settings?nokey=1');
+  const k = await stubbed('home');
+  await k.locator('[data-this-device="cannot"]').waitFor();
+  assert.equal(await text(k.locator('[data-device-why]')), 'Notifications are not set up on the server.');
+  await k.close();
+  await ctx.close();
+  await standinPost('/standin/reset');
+}
+
 async function checkWidth(page, what) {
   const sideways = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   assert.ok(sideways <= 0, `${what}: no sideways scroll (${sideways} px too wide)`);
@@ -5968,6 +6187,8 @@ for (const theme of ['dark', 'light']) {
       console.log(`settings, its seven tabs ${name} ${theme}: checks passed`);
       await checkSettingsLinks(page, name, theme);
       console.log(`settings links, today's two switches ${name} ${theme}: checks passed`);
+      await checkThisDevice(page, name, theme);
+      console.log(`home-screen app, notifications on this device ${name} ${theme}: checks passed`);
     }
     if (only('problems')) {
       await checkProblems(page, name, theme);

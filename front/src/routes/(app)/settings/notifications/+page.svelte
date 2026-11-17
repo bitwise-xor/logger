@@ -16,7 +16,7 @@
   // Settings > Notifications (deploy 111): every device that gets nudges, here (logger.) and at app., each with "Turn off"; the amber
   // line when one phone is on at both (the door's `twice`: each nudge comes twice); "Send a test notification" (only when there are
   // devices; the door's refusal when none took it is in the answer bar); the Nudges form (the master switch, each nudge's switch and
-  // hours after waking, the gratitude one's note), Save. "This device" (Turn on here) comes with deploy 112: ThisDevice.svelte.
+  // hours after waking, the gratitude one's note), Save. Deploy 112: "This device" on top (Turn on here, Turn off): ThisDevice.svelte.
   const page = untrack(() => new SettingsPage<SettingsNotify>('notify', data.read, '/settings/notifications'));
   $effect.pre(() => page.load(data.read));
   const s = $derived(page.read);
@@ -45,8 +45,8 @@
   <ProblemCard kind={data.problem ?? 'trouble'} appHref="{data.appUrl}{settingsAppPath('notify')}" />
 {:else}
   <main class={S.main}>
-    <!-- deploy 112: the "This device" card (Turn on) -->
-    <ThisDevice />
+    <!-- deploy 112: the "This device" card (Turn on, Turn off on this device) -->
+    <ThisDevice {page} read={s} />
 
     <section class={S.card} aria-labelledby="subs-h" data-subscriptions>
       <h2 id="subs-h" class={S.h2}>Devices that get nudges</h2>

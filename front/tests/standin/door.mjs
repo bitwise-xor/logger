@@ -107,6 +107,10 @@
 // GET /standin/exports counts them; POST /standin/settings?export_fail=1 makes it the door's 500). GET /day's `shown` follows the Today page
 // tab's "review:box" and "card:gratitude" (and the Coach card "card:coach"; the first two start as day.json's `shown`); POST /standin/settings?shown=0 hides both, ?noshown=1 leaves
 // `shown` out (an older door), ?nopush=1 no device gets nudges.
+// Deploy 112: POST /push/subscribe as the core (api.push_subscribe): keys must be an object (400), app.'s checks (an https address of a
+// known push service, a 65-byte key and a 16-byte secret) else "Not a known push service.", kept by its endpoint with address logger.,
+// `this` and the device's name from user_agent (settingspage.device_name), `twice` again; POST /standin/settings?nothis=1 (no row is this
+// device), ?nokey=1 (public_key null); GET /standin/push-subscribed: how many were kept and the last user_agent.
 import { createServer } from 'node:http';
 import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
@@ -2717,7 +2721,7 @@ function settingsStart() {
   const shown = read('day.json').day.shown ?? { review: true, gratitude: true };
   s.today.groups.find((g) => g.kind === 'review').items.find((x) => x.id === 'box').shown = shown.review;
   s.today.groups.find((g) => g.kind === 'card').items.find((x) => x.id === 'gratitude').shown = shown.gratitude;
-  return { ...s, defaults, gone: new Set(), tests: 0, exports: 0, exportFail: false, noShown: false };
+  return { ...s, defaults, gone: new Set(), tests: 0, exports: 0, exportFail: false, noShown: false, endpoints: new Map(), subscribed: 0, lastAgent: null, subIds: 900 };
 }
 /** A Today page item shown (Settings > Today page), as todaypage reads it. */
 const setShown = (kind, id) => state.settings.today.groups.find((g) => g.kind === kind)?.items.find((x) => x.id === id)?.shown !== false;
@@ -2728,6 +2732,32 @@ function stTwice(n) {
   const names = (a) => new Set(n.subscriptions.filter((s) => s.address === a).map((s) => s.name));
   const app = names('app');
   return [...names('logger')].some((x) => app.has(x));
+}
+
+/** The core's text(): null for a wrong kind, '' for none, else cut to the limit. */
+const stText = (v, limit) => (v === undefined || v === null || v === '' ? '' : typeof v === 'string' || typeof v === 'number' ? String(v).slice(0, limit) : null);
+/** webpush.allowed: https on Apple's, Google's, Mozilla's or Microsoft's push service. */
+function stPushHost(endpoint) {
+  try {
+    const u = new URL(endpoint);
+    const host = u.hostname.toLowerCase();
+    return u.protocol === 'https:' && ['push.apple.com', 'googleapis.com', 'mozilla.com', 'mozaws.net', 'notify.windows.com'].some((s) => host === s || host.endsWith(`.${s}`));
+  } catch {
+    return false;
+  }
+}
+/** webpush.valid_keys, roughly: base64url, a 65-byte key starting 0x04 (the curve point is not checked here) and a 16-byte secret. */
+function stKeys(p256dh, auth) {
+  const bytes = (x) => (/^[A-Za-z0-9_-]*={0,2}$/.test(x) ? Buffer.from(x, 'base64url') : null);
+  const k = bytes(p256dh);
+  const a = bytes(auth);
+  return !!k && !!a && k.length === 65 && k[0] === 4 && a.length === 16;
+}
+/** settingspage.device_name: "iPhone, Safari" from a User-Agent. */
+function stDeviceName(ua) {
+  const system = [['iPhone', 'iPhone'], ['iPad', 'iPad'], ['Android', 'Android'], ['Windows', 'Windows'], ['Macintosh', 'Mac'], ['Linux', 'Linux']].find(([k]) => ua.includes(k))?.[1] ?? '';
+  const browser = [['Edg/', 'Edge'], ['OPR/', 'Opera'], ['Firefox/', 'Firefox'], ['CriOS', 'Chrome'], ['FxiOS', 'Firefox'], ['Chrome/', 'Chrome'], ['Safari/', 'Safari']].find(([k]) => ua.includes(k))?.[1] ?? '';
+  return [system, browser].filter(Boolean).join(', ') || 'Unknown device';
 }
 
 /** A Settings save's own tab, when the body names no view (as the core's default). */
@@ -2842,6 +2872,25 @@ function settingsSave(path, body) {
     N.twice = stTwice(N);
     return [200, stOk('Notifications are off for that device.')];
   }
+  if (path === '/push/subscribe') {
+    const N = S.notify;
+    const keys = body.keys;
+    if (typeof keys !== 'object' || keys === null || Array.isArray(keys)) return bad('keys must be {p256dh, auth}.');
+    const endpoint = stText(body.endpoint, 1000);
+    if (endpoint === null || stText(keys.p256dh, 200) === null || stText(keys.auth, 100) === null) return bad('endpoint, keys must be text.');
+    if (!stPushHost(endpoint) || !stKeys(stText(keys.p256dh, 200), stText(keys.auth, 100))) return [200, stRefuse('Not a known push service.')];
+    const agent = stText(body.user_agent, 300) ?? '';
+    S.subscribed++;
+    S.lastAgent = agent;
+    const id = S.endpoints.get(endpoint);
+    const row = { id: id ?? ++S.subIds, name: stDeviceName(agent), address: 'logger', on_since: new Date().toISOString(), last_delivered: null, this: true };
+    const had = N.subscriptions.find((s) => s.id === id);
+    if (had) Object.assign(had, { name: row.name, address: 'logger', this: true });
+    else N.subscriptions.push(row);
+    S.endpoints.set(endpoint, row.id);
+    N.twice = stTwice(N);
+    return [200, stOk('Notifications are on for this device.')];
+  }
   if (path === '/push/test') {
     const n = S.notify.subscriptions.length;
     S.tests++;
@@ -2911,6 +2960,7 @@ createServer(async (req, res) => {
   }
   // deploy 111: Settings' states (see the header) and counts
   if (req.url === '/standin/push-tests' && req.method === 'GET') return send(res, 200, { tests: state.settings.tests });
+  if (req.url === '/standin/push-subscribed' && req.method === 'GET') return send(res, 200, { subscribed: state.settings.subscribed, user_agent: state.settings.lastAgent });
   if (req.url === '/standin/exports' && req.method === 'GET') return send(res, 200, { exports: state.settings.exports, last: state.settings.export.last });
   if (req.url.startsWith('/standin/settings?') && req.method === 'POST') {
     const q = new URL(req.url, 'http://standin').searchParams;
@@ -2918,6 +2968,8 @@ createServer(async (req, res) => {
     if (q.has('noshown')) state.settings.noShown = q.get('noshown') === '1';
     if (q.get('shown') === '0') for (const [k, id] of [['review', 'box'], ['card', 'gratitude']]) state.settings.today.groups.find((g) => g.kind === k).items.find((x) => x.id === id).shown = false;
     if (q.get('nopush') === '1') Object.assign(state.settings.notify, { subscriptions: [], twice: false });
+    if (q.get('nothis') === '1') for (const s of state.settings.notify.subscriptions) s.this = false;
+    if (q.get('nokey') === '1') state.settings.notify.public_key = null;
     return send(res, 200, { outcome: 'settings' });
   }
   // deploy 102: the Week's states (see weekOut), and how many review starts the stand-in got

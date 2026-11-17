@@ -6,7 +6,17 @@
     <meta name="color-scheme" content="dark light" />
     <meta name="robots" content="noindex, nofollow" />
     <link rel="icon" href="%sveltekit.assets%/favicon.svg" type="image/svg+xml" />
-    <!-- Blocking on purpose: it sets <html data-theme> before first paint. -->
+    <!-- The home-screen app (deploy 112): "Logger", app.'s picture; static/manifest.webmanifest. The bar colour is the page's own
+         background, dark or light: these two follow the device, theme.js and the theme button set both to the theme chosen here. -->
+    <meta name="theme-color" content="#0c0d0f" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#f1f1ee" media="(prefers-color-scheme: light)" />
+    <link rel="manifest" href="%sveltekit.assets%/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="%sveltekit.assets%/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Logger" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <!-- Blocking on purpose: it sets <html data-theme> (and the bar colour) before first paint. -->
     <script src="%sveltekit.assets%/theme.js"></script>
     %sveltekit.head%
   </head>

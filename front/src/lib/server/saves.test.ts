@@ -6,6 +6,8 @@ import { bodyFor, CATALOGUE_SAVES, MEDICAL_MEDS_SAVES, MEDICAL_REPORTS_SAVES, EX
 import { mayResend } from '../saver.js';
 
 const TOKEN = 'f'.repeat(40);
+/** A browser's push subscription as the page sends it (invented: an address of the right shape, keys of the right lengths). */
+const SUB = { endpoint: 'https://fcm.googleapis.com/fcm/send/invented-endpoint-1', p256dh: 'B' + 'A'.repeat(86), auth: 'C'.repeat(22) };
 const SESSION = 's'.repeat(43);
 const KEY = '0b7c3c4e-2f7a-4a59-9d4e-6f1f0f2b9a11';
 
@@ -123,7 +125,7 @@ describe('a save through the door', () => {
   it('calls each route once per tap', async () => {
     for (const name of SAVE_NAMES) {
       const n = net();
-      await runSave(n.door, SESSION, name, form({ key: KEY }));
+      await runSave(n.door, SESSION, name, form(name === 'push_subscribe' ? { ...SUB, key: KEY } : { key: KEY }));
       expect(n.seen.map((s) => s.path)).toEqual([`/api/v1${SAVES[name].path}`]);
     }
   });
@@ -986,7 +988,7 @@ describe('Medical (the Medical Space)', () => {
 // the coach's parts only when the form had them, the nudges' switches as true or false; never a key, never in Today's actions, never
 // sent again by the page; each tab's fresh read asked for.
 describe('Settings', () => {
-  const NAMES = ['settings_targets', 'settings_today', 'settings_today_reset', 'settings_height', 'settings_body', 'settings_coach', 'settings_device', 'settings_others', 'settings_nudges', 'push_off', 'push_test'] as const;
+  const NAMES = ['settings_targets', 'settings_today', 'settings_today_reset', 'settings_height', 'settings_body', 'settings_coach', 'settings_device', 'settings_others', 'settings_nudges', 'push_off', 'push_test', 'push_subscribe'] as const;
 
   it('are on their tabs\' form actions only, take no key and are never sent again by the page', () => {
     expect([...SETTINGS_TARGETS_SAVES, ...SETTINGS_TODAY_SAVES, ...SETTINGS_BODY_SAVES, ...SETTINGS_COACH_SAVES, ...SETTINGS_DEVICES_SAVES, ...SETTINGS_NOTIFY_SAVES].sort()).toEqual([...NAMES].sort());
@@ -1002,7 +1004,7 @@ describe('Settings', () => {
   });
 
   it('go to the door\'s routes', () => {
-    expect(NAMES.map((n) => SAVES[n].path)).toEqual(['/settings/targets', '/settings/today', '/settings/today_reset', '/settings/height', '/settings/body', '/settings/coach', '/settings/device', '/settings/others', '/settings/nudges', '/push/off', '/push/test']);
+    expect(NAMES.map((n) => SAVES[n].path)).toEqual(['/settings/targets', '/settings/today', '/settings/today_reset', '/settings/height', '/settings/body', '/settings/coach', '/settings/device', '/settings/others', '/settings/nudges', '/push/off', '/push/test', '/push/subscribe']);
   });
 
   it('food targets: the date, the nine as numbers (a comma too), an empty one as null (no target), the note left out when empty', () => {
@@ -1041,5 +1043,32 @@ describe('Settings', () => {
     expect(bodyFor('push_test', form({}), undefined, undefined, 'settings_notify')).toEqual({ view: 'settings_notify' });
     const body = bodyFor('settings_nudges', form({ on: '1', weight: '1', habits: '0', idle: '0', weight_after: '2,5', idle_hours: 'soon', gratitude_after: '13' }), undefined, undefined, 'settings_notify');
     expect(body).toEqual({ on: true, weight: true, habits: false, idle: false, weight_after: 2.5, gratitude_after: 13, view: 'settings_notify' });
+  });
+
+  // deploy 112: "This device" turned on
+  it('notifications on this device: the subscription with the browser\'s User-Agent (up to 300), checked before the door is asked', async () => {
+    expect(bodyFor('push_subscribe', form(SUB), undefined, undefined, 'settings_notify', { userAgent: 'Mozilla/5.0 (iPhone) Safari/604.1' })).toEqual({
+      endpoint: SUB.endpoint, keys: { p256dh: SUB.p256dh, auth: SUB.auth }, user_agent: 'Mozilla/5.0 (iPhone) Safari/604.1', view: 'settings_notify',
+    });
+    expect((bodyFor('push_subscribe', form(SUB), undefined, undefined, 'settings_notify', { userAgent: 'x'.repeat(400) }).user_agent as string).length).toBe(300);
+    expect(bodyFor('push_subscribe', form(SUB), undefined, undefined, 'settings_notify')).not.toHaveProperty('user_agent');
+    const n = net();
+    const r = await runSave(n.door, SESSION, 'push_subscribe', form(SUB), undefined, 'settings_notify', { userAgent: 'Mozilla/5.0 (X11; Linux x86_64) Chrome/140' });
+    expect(r.ok).toBe(true);
+    expect(n.seen).toEqual([{ path: '/api/v1/push/subscribe', body: { endpoint: SUB.endpoint, keys: { p256dh: SUB.p256dh, auth: SUB.auth }, user_agent: 'Mozilla/5.0 (X11; Linux x86_64) Chrome/140', view: 'settings_notify' }, timeout: true }]);
+    for (const bad of [
+      { ...SUB, endpoint: 'http://fcm.googleapis.com/fcm/send/x' },
+      { ...SUB, endpoint: 'https://' + 'a'.repeat(1000) },
+      { ...SUB, endpoint: 'not an address' },
+      { ...SUB, p256dh: 'B'.repeat(201) },
+      { ...SUB, p256dh: 'has spaces in it' },
+      { ...SUB, auth: 'C'.repeat(101) },
+      { endpoint: SUB.endpoint, p256dh: SUB.p256dh },
+    ]) {
+      const m = net();
+      const out = await runSave(m.door, SESSION, 'push_subscribe', form(bad), undefined, 'settings_notify');
+      expect(out).toMatchObject({ ok: false, status: 400, signedOut: false });
+      expect(m.seen, JSON.stringify(bad)).toEqual([]);
+    }
   });
 });

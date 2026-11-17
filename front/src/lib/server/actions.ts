@@ -16,7 +16,7 @@ export function formAction(name: SaveName, view: View, views: View[] = []) {
     // A page with two reads (the Health page: its days and charts, or the body card) says which one the answer brings.
     const asked = form.get('view');
     const shown = views.find((v) => v === asked) ?? view;
-    const r = await runSave(door, session, name, form, typeof viewDay === 'string' ? viewDay : undefined, shown);
+    const r = await runSave(door, session, name, form, typeof viewDay === 'string' ? viewDay : undefined, shown, { userAgent: request.headers.get('user-agent') });
     if (r.ok) {
       renewSession(cookies, session, r.expiresAt);
       return { answer: r.answer };

@@ -25,6 +25,10 @@ export default defineConfig({
           'media-src': ['self', 'blob:'],
           'font-src': ['self'],
           'connect-src': ['self'],
+          // the nudges' service worker (static/sw.js) and the home-screen app's manifest (deploy 112): this origin only, said
+          // here rather than left to the fallbacks (script-src, default-src)
+          'worker-src': ['self'],
+          'manifest-src': ['self'],
           'form-action': ['self'],
           'frame-ancestors': ['none'],
           'base-uri': ['none'],
