@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { page } from '$app/state';
   import ProblemCard from '#lib/components/ProblemCard.svelte';
   import GymHeader from '#lib/components/gym/GymHeader.svelte';
   import { cardDate, cardSub, exerciseLine } from '#lib/gymread.js';
@@ -8,7 +9,7 @@
 
   // The Gym's History part (deploy 97): app.'s History tab, read only. The last 60 workouts, newest first, each a card with its date,
   // its day of the split (or "Free workout") and times, and its exercises with their sets. A card keeps its anchor (#w<id>), so a
-  // link can jump to it; the card jumped to is marked. One column on phones and tablets, two from 1100 px.
+  // link can jump to it; the card jumped to is marked (by the address's hash, since a jump from another page of this app does not set :target). One column on phones and tablets, two from 1100 px.
   const list = $derived(data.workouts);
 </script>
 
@@ -26,7 +27,7 @@
       <article
         id={w.anchor}
         aria-labelledby="{w.anchor}-h"
-        class="flex min-w-0 scroll-mt-3 flex-col gap-1 rounded-card border border-line bg-panel px-3 py-3 target:border-blue desktop:px-3.5"
+        class="flex min-w-0 scroll-mt-3 flex-col gap-1 rounded-card border bg-panel px-3 py-3 desktop:px-3.5 {page.url.hash === `#${w.anchor}` ? 'border-blue' : 'border-line target:border-blue'}"
         data-workout={w.workout_id}
       >
         <div class="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">

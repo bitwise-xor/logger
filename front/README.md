@@ -257,6 +257,22 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   the three reads and the saves from `tests/samples/labs.json` (R1 to R3's values are invented; flags follow a range rule; POST `/standin/labs-empty`,
   `/standin/labs-novalues`, `/standin/labs-oneday`, `/standin/labs-end?id=1`); `SHOOT_ONLY=medical` runs these checks. All pages carry `Cache-Control:
   no-store` (`hooks.server.ts`, every response).
+- More, Search, Recent and Usage (deploy 108; the door's routes came with deploy 107; read only, no save): `/more` has the search field (a plain GET form to
+  `/search?q=`), the Spaces, a card with Coach, Recent, Usage and Settings, a quiet "Words" card (Ideas, Private and Gratitude link to app., each marked
+  "app.") and Sign out (Today keeps its own); on the PC the rows, the Words and Sign out are on the left and the Spaces on the right. Coach and Settings
+  still open app. (their rows carry a small "app." tag): `MORE_PLACES` in `src/lib/places.ts` has one `here: null` per row, to be set to `'/coach'` with
+  deploy 109 and `'/settings'` with deploy 111. `placeOf()` lights More on `/search`, `/recent` and `/usage` (phone bar and PC rail). Each of the three has
+  a header with a back chevron to `/more` and the theme button, and a failed read shows `ProblemCard` with app.'s own page. **Search** (`?q=`,
+  `src/lib/search.ts`): the door's five groups in its order with its titles and a count ("15+" when `more`), "none" for an empty group, the door's `hint` under
+  two letters; a food opens in Library (`?q=&food=N<id>`), a meal on its Food day (`?day=&open=f<id>`), a workout on the Gym's History (`?w=<id>#w<id>`:
+  the History page passes `w`, digits only, to the door, so an older workout has its card, marked), a chore on its page, a lab test on Tests over time
+  (`?t=`); one quiet line sends thoughts to app. (`/web/search?q=`), none are searched here. **Recent** (`src/lib/recent.ts`): the days and messages, a private
+  entry as the "Private" pill and its saved label only, "Use again" keeps the words in the tab's sessionStorage (`logger-use-again`, never the address) and goes
+  to Today, whose logging box takes them once and clears them; "Open day" is `/food?day=`; an amber line when messages are not read yet. **Usage**
+  (`?r=7|30|all`, `src/lib/usage.ts`): the door's range chips, the four tiles, "Cost per day" as the door's stacked bars through the chart part (Haiku grey,
+  Sonnet and Opus two blues, the door's legend), "By kind" with the All row and notes, the most expensive messages, the note. The stand-in answers GET `/search`
+  (the samples of `search.json`; "many" is a group cut at 15), `/recent`, `/usage` and `/gym/history?w=` (an unknown id comes as an older workout; POST
+  `/standin/recent-none`, `/standin/usage-empty`); `SHOOT_ONLY=more` runs these checks (the variable must reach the container: `docker run -e SHOOT_ONLY=more`).
 - The Spaces menu (deploy 96): `src/lib/places.ts` says where a page belongs. The PC rail: Today, Trends, Library, then "Spaces"
   (Gym, Health, Habits, Home since deploy 99; the one you are in highlighted), then More. Phones and tablets keep four tabs; More is the page `/more`
   (`src/routes/(app)/more`): the Spaces as a list (Home since deploy 99, Medical since deploy 106: every Space is live), then one line that the rest is in the full app.

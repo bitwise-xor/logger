@@ -82,6 +82,12 @@
 // changes its grams), reviewed; none has a key or Undo, the same values again are "Nothing changed.". POST /lookup and /answer with view
 // "catalogue": a read-back of the words typed as a question (after a moment), its yes adds the food (Undo takes it out again), its no
 // closes it; every catalogue save answers with the Catalogue of view_q, view_f, view_s and the box of view_food.
+// Deploy 108: More's Search, Recent and Usage, from tests/samples/search.json, recent.json and usage.json (real answers of the door for invented
+// data): GET /search?q= (the sample of that word: muesli, rowing, pull, stove, vitamin, zzqq; "many" is made here from the muesli sample, a food
+// group cut at 15 with `more`; under two letters the sample's hint; any other word has no match, as the sample's zzqq; the word is squeezed and
+// cut at 80 as the door does), GET /recent (the sample; POST /standin/recent-none: no message and none waiting), GET /usage?r=7|30|all (the
+// sample of that range, another r 400; POST /standin/usage-empty: no call in any range) and GET /gym/history?w=<id> (the sample, and a
+// workout that is not in it comes in its place by date as an older one: Pull day, 02.04.2026; w not digits 400).
 import { createServer } from 'node:http';
 import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
@@ -104,6 +110,9 @@ const FOODTRENDS = read('food_trends.json');
 const INSIGHTS = read('insights.json');
 const CAT = read('catalogue.json');
 const LABS = read('labs.json');
+const SEARCH = read('search.json');
+const RECENT = read('recent.json');
+const USAGE = read('usage.json');
 const READ_MS = 1200; // the AI's moment: long enough to see the "being read" row
 
 let state; // { day, usual, undo: {token, head, expires_at} | null, before: {day, usual} before the last save (for Undo), keys: Map, lines: Map, aiDown }
@@ -112,7 +121,7 @@ let mode = 'up'; // 'up' | 'core-down' | 'door-off' (step F)
 function reset() {
   state = { day: read('day.json').day, usual: usualStart(), undo: null, before: null, keys: new Map(), lines: new Map(), aiDown: false,
     scanned: new Map([[SCAN.barcode.code, SCAN.barcode.food]]), labelFail: false,
-    hv: healthStart(), sessions: sessionsStart(), hab: habitsStart(), dayKeys: new Set(), slow: 0, locked: new Set(), gym: gymStart(), watchNone: false, gymEmpty: false, home: homeStart(), week: weekStart(), fail: new Set(), cat: catStart(), labs: labsStart() };
+    hv: healthStart(), sessions: sessionsStart(), hab: habitsStart(), dayKeys: new Set(), slow: 0, locked: new Set(), gym: gymStart(), watchNone: false, gymEmpty: false, home: homeStart(), week: weekStart(), fail: new Set(), cat: catStart(), labs: labsStart(), recentNone: false, usageEmpty: false };
   state.day.needs.body_due = structuredClone(HEALTH.day_body_due);
   // the notes of the food sample's rows (the same invented day), kept on the rows so an Undo puts them back too
   const notes = new Map(FOOD.food_day.food_day.rows.map((r) => [r.ref, r.note]));
@@ -1352,8 +1361,18 @@ function activityOut(day) {
   return out;
 }
 
-/** GET /gym/history: the sample (none while the stand-in is empty). */
-const historyOut = () => ({ workouts: state.gymEmpty ? [] : GYM.history.gym_history.workouts });
+/**
+ * GET /gym/history?w=: the sample (none while the stand-in is empty); with w (deploy 107) a workout the last 60 do not hold comes in its place
+ * by date, as an older one (Pull day, 02.04.2026, one exercise).
+ */
+const historyOut = (w) => {
+  const list = state.gymEmpty ? [] : GYM.history.gym_history.workouts;
+  if (state.gymEmpty || w === null || list.some((x) => String(x.workout_id) === w)) return { workouts: list };
+  const old = { workout_id: Number(w), anchor: `w${w}`, day: '2026-04-02', split_day_id: null, split: 'Pull day', started_at: '2026-04-02T18:00:00+02:00', ended_at: '2026-04-02T18:40:00+02:00',
+    when: '18:00–18:40', exercises: [{ exercise_id: 99, name: 'Rowing', kind: 'weights', text: '3 × 8 at 24 kg', rows: [{ set_id: 9000 + Number(w), sets: 3, reps: 8, kg: 24, minutes: null, km: null, text: '3 × 8 at 24 kg' }] }] };
+  const at = list.findIndex((x) => x.day < old.day);
+  return { workouts: at < 0 ? [...list, old] : [...list.slice(0, at), old, ...list.slice(at)] };
+};
 
 /** The read a gym save answers with when the body names none (docs/API.md): its tab's. */
 const gymView = (action, b) =>
@@ -2301,6 +2320,33 @@ function catAnswer(b) {
   return { ...SCAN.saves.answer, v: undefined, receipt: [`+ N${id} NEW food '${name}' (database): per 100 g: 61 kcal, P 1.0, F 2.3 (sat 0.3), C 9.0`], notes: [], undo: state.undo };
 }
 
+// ---- Deploy 108: More's Search, Recent and Usage (tests/samples/search.json, recent.json, usage.json) ---------------------------------------------------
+/** GET /search?q=: the sample of that word; under two letters the hint; "many": a food group cut at 15; any other word finds nothing. */
+function searchOut(raw) {
+  const q = raw.replace(/\s+/g, ' ').trim().slice(0, 80);
+  if ([...q].length < 2) return { ...structuredClone(SEARCH.m.search), q };
+  const key = q.toLowerCase();
+  if (key === 'many') {
+    const s = structuredClone(SEARCH.zzqq.search);
+    s.foods.rows = Array.from({ length: 15 }, (_, i) => ({ id: `N${100 + i}`, food_id: 100 + i, name: `Invented many food ${i + 1}` }));
+    s.foods.more = true;
+    return { ...s, q };
+  }
+  return { ...structuredClone((SEARCH[key] ?? SEARCH.zzqq).search), q };
+}
+
+/** GET /recent: the sample; after POST /standin/recent-none no message and none waiting. */
+const recentOut = () => (state.recentNone ? { ...structuredClone(RECENT.recent), days: [], not_read: 0 } : structuredClone(RECENT.recent));
+
+/** GET /usage?r=: the sample of the range; after POST /standin/usage-empty no call in any range (no chart, no kinds, no costly message). */
+function usageOut(r) {
+  const u = structuredClone(USAGE[r].usage);
+  if (!state.usageEmpty) return u;
+  const none = { calls: 0, tokens_in: 0, tokens_out: 0, tokens_known: true, tokens_in_text: '0.0k', tokens_out_text: '0.0k', usd: 0, usd_text: '$0.00' };
+  return { ...u, first: null, tiles: { ...u.tiles, calls: 0, usd: 0, usd_text: '$0.00', per_message: null, per_message_text: '–', messages: 0, tokens_in: 0, tokens_out: 0, tokens_text: '0k / 0k', tokens_known: true, tokens_note: null },
+    chart: null, kinds: [], all: { kind: 'All', ...none }, kinds_note: null, pushes: 0, pushes_text: 'Phone notifications sent: 0 (free).', top: [] };
+}
+
 // ---- Deploy 106: Medical (Reports, Tests over time, Medication), from tests/samples/labs.json (real answers of the door for invented data) ------------
 // The three tabs are worked out from the values, reports and courses as they stand: R1 to R3 get invented values of the same three tests as R4's (the
 // sample gives the counts and the Vitamin D history; the flags follow a simple range rule: below the low end L, above the high end H, else none; an
@@ -2616,6 +2662,14 @@ createServer(async (req, res) => {
     if (m) m.stop = LB_TODAY;
     return send(res, 200, { outcome: 'labs-end' });
   }
+  if (req.url === '/standin/recent-none' && req.method === 'POST') {
+    state.recentNone = true;
+    return send(res, 200, { outcome: 'recent-none' });
+  }
+  if (req.url === '/standin/usage-empty' && req.method === 'POST') {
+    state.usageEmpty = true;
+    return send(res, 200, { outcome: 'usage-empty' });
+  }
   if (req.url === '/standin/watch-none' && req.method === 'POST') {
     state.watchNone = true; // the watch has sent nothing: Activity shows the set-up guide
     return send(res, 200, { outcome: 'watch-none' });
@@ -2808,7 +2862,18 @@ createServer(async (req, res) => {
   if (url.pathname === '/api/v1/gym' && req.method === 'GET') return send(res, 200, { gym: gymOut(), undo: undo() }, signedIn);
   if (url.pathname === '/api/v1/gym/plan' && req.method === 'GET') return send(res, 200, { gym_plan: planOut(), undo: undo() }, signedIn);
   if (url.pathname === '/api/v1/gym/exercises' && req.method === 'GET') return send(res, 200, { gym_exercises: exercisesOut(), undo: undo() }, signedIn);
-  if (url.pathname === '/api/v1/gym/history' && req.method === 'GET') return send(res, 200, { gym_history: historyOut(), undo: undo() }, signedIn);
+  if (url.pathname === '/api/v1/gym/history' && req.method === 'GET') {
+    const w = url.searchParams.get('w');
+    if (w !== null && !/^\d+$/.test(w)) return send(res, 400, { error: 'bad_request', message: "w must be a workout's id." }, signedIn);
+    return send(res, 200, { gym_history: historyOut(w), undo: undo() }, signedIn);
+  }
+  if (url.pathname === '/api/v1/search' && req.method === 'GET') return send(res, 200, { v: 1, search: searchOut(url.searchParams.get('q') ?? ''), undo: undo() }, signedIn);
+  if (url.pathname === '/api/v1/recent' && req.method === 'GET') return send(res, 200, { v: 1, recent: recentOut(), undo: undo() }, signedIn);
+  if (url.pathname === '/api/v1/usage' && req.method === 'GET') {
+    const r = url.searchParams.get('r') ?? '7';
+    if (!['7', '30', 'all'].includes(r)) return send(res, 400, { error: 'bad_request', message: 'r must be 7, 30 or all.' }, signedIn);
+    return send(res, 200, { v: 1, usage: usageOut(r), undo: undo() }, signedIn);
+  }
   if (url.pathname === '/api/v1/gym/progress' && req.method === 'GET') {
     const x = url.searchParams.get('x');
     if (x !== null && !/^\d+$/.test(x)) return send(res, 400, { error: 'bad_request', message: "x must be an exercise's id." }, signedIn);

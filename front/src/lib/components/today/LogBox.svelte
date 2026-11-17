@@ -1,6 +1,7 @@
 <script lang="ts">
   import AnswerBar from '#lib/components/today/AnswerBar.svelte';
   import ScanSheet from '#lib/components/today/ScanSheet.svelte';
+  import { tabStorage, takeWords } from '#lib/recent.js';
   import { getToday } from '#lib/today.svelte.js';
   import { afterNavigate } from '$app/navigation';
   import { onMount } from 'svelte';
@@ -62,6 +63,13 @@
   $effect(() => {
     today.bindBox(field);
     return () => today.bindBox(null);
+  });
+
+  // "Use again" on Recent (deploy 108) leaves a message's words in the tab's storage and comes here: they go into the box once, and the
+  // storage is cleared (the box keeps what is already typed: this is a new page, so it is empty).
+  onMount(() => {
+    const words = takeWords(tabStorage());
+    if (words && !today.box.trim()) today.refill(words);
   });
 
   // "+ Add food" on the Food day leads here (/#log-text): the box gets the cursor.

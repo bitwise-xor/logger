@@ -44,6 +44,10 @@
 // right, Hide, a new food through the look-up), Usual meals moved under Library (/food/usual redirects), Habits and Exercises tabs.
 // Deploy 106: Medical at logger. (checkMedicalPlace, checkMedicalReports, checkMedicalTests and checkMedicalMeds say what): Medical a live
 // Space (rail, /more, the More tab lit), Reports, Tests over time and Medication with their saves in place; Medical no longer in the footer.
+// Deploy 108: More's own page and Search, Recent and Usage (checkMoreHome, checkSearch, checkRecent and checkUsage say what): the field, the rows
+// (Coach and Settings still at app.), the Words, Sign out; Search's five groups and where each row leads (also an older workout by the door's w);
+// Recent with a private entry showing no words, the not-read line, Use again into Today's box and Open day; Usage's three ranges, the stacked
+// bars, By kind and the costly messages; More lit under every one of them.
 // Every check throws on a failure, so the script ends with an error.
 // Usage: node tests/screens/shoot.mjs <base url> <out dir> <stand-in url>
 import assert from 'node:assert/strict';
@@ -1782,8 +1786,8 @@ async function checkGym(page, name, theme) {
     ]);
     assert.equal(await page.locator('[data-space="medical"]').getAttribute('href'), '/medical', 'deploy 106: Medical is a live Space');
     assert.equal(await page.locator('[data-space="home"]').getAttribute('href'), '/home', 'deploy 99: Home is a live Space');
-    assert.equal(await text(page.locator('[data-rest]')), 'Settings and the rest are in the full app.');
-    assert.match(await page.locator('[data-rest] a').getAttribute('href'), /\/web\/$/);
+    assert.equal(await page.locator('[data-rest]').count(), 0, 'deploy 108: the dashed "Settings and the rest" box is gone (the footer line stays)');
+    assert.ok(await page.getByText('Settings and the rest are').isVisible(), 'the footer line stays until deploy 111');
     if (name === 'phone') await page.screenshot({ path: `${out}/more-${name}-${theme}.png` });
     await checkWidth(page, 'more');
     for (const sp of ['health', 'habits', 'gym']) {
@@ -3994,8 +3998,8 @@ async function checkMedicalPlace(page, name, theme) {
     assert.equal(await sp.evaluate((e) => e.hasAttribute('data-soon')), false);
     assert.equal(await text(sp), 'Medical Lab reports, tests over time, medication');
     assert.equal(await page.locator('[data-soon]').count(), 0, 'every Space is live');
-    assert.equal(await text(page.locator('[data-rest]')), 'Settings and the rest are in the full app.');
-    assert.match(await page.locator('[data-rest] a').getAttribute('href'), /\/web\/$/);
+    assert.equal(await page.locator('[data-rest]').count(), 0, 'deploy 108: the dashed "Settings and the rest" box is gone (the footer line stays)');
+    assert.ok(await page.getByText('Settings and the rest are').isVisible(), 'the footer line stays until deploy 111');
     if (name === 'phone') await page.screenshot({ path: `${out}/medical-more-${name}-${theme}.png` });
     await checkWidth(page, 'more, Medical live');
     await sp.click();
@@ -4580,6 +4584,431 @@ async function checkMedicalMeds(page, name, theme) {
   await page.goto(`${base}/`);
 }
 
+// ---- Deploy 108: More (its rows, the Words, Sign out), Search, Recent and Usage --------------------------------------------------------------------------------
+const SEARCH = JSON.parse(readFileSync(new URL('../samples/search.json', import.meta.url), 'utf8'));
+const RECENT = JSON.parse(readFileSync(new URL('../samples/recent.json', import.meta.url), 'utf8')).recent;
+const USAGE = JSON.parse(readFileSync(new URL('../samples/usage.json', import.meta.url), 'utf8'));
+
+/** The More tab (phones and tablets) or rail item (PC) is lit on a page under More; no other place is. */
+async function assertMoreLit(page, name, where) {
+  const more = page.locator('[data-place="more"]');
+  const cur = await more.getAttribute('aria-current');
+  assert.ok(cur === 'page' || cur === 'true', `${where}: More is lit (aria-current ${cur})`);
+  assert.match(await more.getAttribute('class'), /text-blue/, `${where}: More is blue`);
+  for (const p of ['today', 'trends', 'library']) assert.equal(await page.locator(`[data-place="${p}"]`).getAttribute('aria-current'), null, `${where}: ${p} is not lit`);
+  if (name === 'pc') {
+    assert.equal(await page.locator('[data-rail-space][aria-current]').count(), 0, `${where}: no Space is lit in the rail`);
+    assert.match(await more.getAttribute('class'), /desktop:bg-blue-bg/, `${where}: the rail's More has the lit background`);
+  }
+}
+
+/** More: the search field, the Spaces, the four rows (Coach and Settings still at app.), the Words, Sign out; PC in two columns. */
+async function checkMoreHome(page, name, theme) {
+  await standinPost('/standin/reset');
+  const pc = name === 'pc';
+  await page.goto(`${base}/`);
+  await page.locator('[data-place="more"]').click();
+  await page.waitForURL(/\/more$/);
+  assert.equal(await page.locator('h1').textContent(), 'More');
+  assert.equal(await page.locator('[data-place="more"]').getAttribute('aria-current'), 'page');
+  await assertMoreLit(page, name, 'more');
+  // the search field: a plain GET form to /search?q=
+  const form = page.locator('[data-search-form]');
+  assert.equal(await form.getAttribute('method'), 'GET');
+  assert.equal(await form.getAttribute('action'), '/search');
+  assert.equal(await page.locator('[data-search]').getAttribute('name'), 'q');
+  assert.equal(await page.locator('[data-search]').getAttribute('placeholder'), 'Search foods, meals, workouts, chores, tests');
+  assert.equal(await text(page.locator('label[for="more-q"]')), 'Search');
+  // the Spaces as before, then the four rows: Coach and Settings at app. with their tag, Recent and Usage here
+  assert.deepEqual(await page.locator('[data-space]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-space'), e.getAttribute('href')])),
+    [['gym', '/gym'], ['health', '/health'], ['habits', '/habits'], ['home', '/home'], ['medical', '/medical']]);
+  const rows = await page.locator('[data-more-place]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-more-place'), e.getAttribute('href'), e.getAttribute('data-where'), e.textContent.replace(/\s+/g, ' ').trim(), e.querySelector('[data-app-tag]') !== null]));
+  assert.deepEqual(rows.map((r) => r[0]), ['coach', 'recent', 'usage', 'settings']);
+  assert.match(rows[0][1], /^https?:\/\/[^/]+\/web\/coach$/, 'Coach opens app. until deploy 109');
+  assert.equal(rows[1][1], '/recent');
+  assert.equal(rows[2][1], '/usage');
+  assert.match(rows[3][1], /^https?:\/\/[^/]+\/web\/settings$/, 'Settings opens app. until deploy 111');
+  assert.deepEqual(rows.map((r) => r[2]), ['app', 'here', 'here', 'app']);
+  assert.deepEqual(rows.map((r) => r[4]), [true, false, false, true], 'the small "app." tag on the two rows that open app.');
+  assert.deepEqual(rows.map((r) => r[3]), ['Coach app. Every coaching, a day or a week', 'Recent What you sent, and what it saved', 'Usage AI calls and cost', 'Settings app. Targets, Today page, reminders, devices, export']);
+  // the Words: one quiet card, three links to app., each marked
+  assert.equal(await text(page.locator('[data-words] p')), 'Ideas, Private and Gratitude are in the full app until the journal app exists.');
+  const words = await page.locator('[data-word]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-word'), e.getAttribute('href'), e.textContent.replace(/\s+/g, ' ').trim()]));
+  assert.deepEqual(words.map((w) => [w[0], w[2]]), [['ideas', 'Ideas › app.'], ['private', 'Private › app.'], ['gratitude', 'Gratitude › app.']]);
+  assert.deepEqual(words.map((w) => w[1].replace(/^https?:\/\/[^/]+/, '')), ['/web/ideas', '/web/private', '/web/gratitude']);
+  // the dashed "Settings and the rest" box is gone; the footer line stays until deploy 111
+  assert.equal(await page.locator('[data-rest]').count(), 0, 'no dashed box');
+  assert.ok(await page.getByText('Settings and the rest are').isVisible(), 'the footer line stays');
+  assert.equal(await page.getByText('Settings and the rest are').count(), 1);
+  // Sign out: the form Today's header has
+  const so = page.locator('form[action="/signout"] button');
+  assert.equal(await so.count(), 1);
+  assert.equal(await text(so), 'Sign out');
+  assert.equal(await page.locator('form[action="/signout"]').getAttribute('method'), 'POST');
+  // the order: phones one column (search, Spaces, rows, Words, Sign out); the PC search on top, rows left and Spaces right
+  const box = async (sel) => (await page.locator(sel).first().boundingBox());
+  const [bs, bsp, bp, bw, bo] = [await box('[data-search]'), await box('[data-spaces]'), await box('[data-places-card]'), await box('[data-words]'), await box('form[action="/signout"] button')];
+  assert.ok(bs.y < bsp.y && bs.y < bp.y, 'the search is on top');
+  if (pc) {
+    assert.ok(bp.x < bsp.x, 'pc: the rows are on the left, the Spaces on the right');
+    assert.ok(Math.abs(bp.y - bsp.y) < 30, 'pc: both columns start together');
+    assert.ok(bw.y > bp.y + bp.height && bo.y > bw.y, 'pc: rows, Words, Sign out down the left column');
+    assert.ok(bw.x < bsp.x, 'pc: the Words are on the left');
+  } else {
+    assert.ok(bsp.y < bp.y && bp.y < bw.y && bw.y < bo.y, `${name}: the Spaces, the rows, the Words, Sign out in one column`);
+  }
+  await page.screenshot({ path: `${out}/more-page-${name}-${theme}.png`, fullPage: true });
+  await checkWidth(page, 'more');
+  // a search typed here goes to /search?q=
+  await page.locator('[data-search]').fill('muesli');
+  await page.locator('[data-search]').press('Enter');
+  await page.waitForURL(/\/search\?q=muesli$/);
+  assert.equal(await page.locator('[data-search]').inputValue(), 'muesli', 'Search keeps the words');
+  await page.goto(`${base}/more`);
+  // Recent and Usage open their pages; Coach and Settings leave for app. (not followed here)
+  await page.locator('[data-more-place="recent"]').click();
+  await page.waitForURL(/\/recent$/);
+  await page.goto(`${base}/more`);
+  await page.locator('[data-more-place="usage"]').click();
+  await page.waitForURL(/\/usage$/);
+  // the back chevron leads back to More
+  assert.equal(await page.locator('[data-back]').getAttribute('href'), '/more');
+  assert.equal(await page.locator('[data-back]').getAttribute('aria-label'), 'Back to More');
+  await page.locator('[data-back]').click();
+  await page.waitForURL(/\/more$/);
+  // Today keeps its own Sign out
+  await page.goto(`${base}/`);
+  assert.equal(await page.getByRole('button', { name: 'Sign out' }).count(), 1);
+}
+
+async function checkSearch(page, name, theme) {
+  await standinPost('/standin/reset');
+  const pc = name === 'pc';
+  const grp = (k) => page.locator(`[data-group="${k}"]`);
+  const hrefs = (k) => page.locator(`[data-group="${k}"] [data-row]`).evaluateAll((els) => els.map((e) => e.getAttribute('href')));
+  const KEYS = ['foods', 'ate', 'workouts', 'chores', 'tests'];
+
+  // ---- muesli: foods and meals found, the rest "none"; each row's link; the thoughts line ----
+  await page.goto(`${base}/search?q=muesli`);
+  await page.locator('[data-search-results]').waitFor();
+  const M = SEARCH.muesli.search;
+  assert.equal(await page.locator('h1').textContent(), 'Search');
+  assert.equal(await page.locator('[data-search]').inputValue(), 'muesli', 'the field keeps the words');
+  assert.equal(await page.locator('[data-back]').getAttribute('href'), '/more');
+  await assertMoreLit(page, name, 'search');
+  assert.equal(await text(page.locator('[data-results-for]')), 'Results for “muesli”');
+  assert.deepEqual(await page.locator('[data-group]').evaluateAll((els) => els.map((e) => e.getAttribute('data-group'))), KEYS, "the door's five groups in its order");
+  assert.deepEqual(await page.locator('[data-group] h2, [data-group][data-none] > span:first-child').evaluateAll((els) => els.map((e) => e.textContent.trim())), KEYS.map((k) => M[k].title), "the door's titles");
+  assert.deepEqual(await page.locator('[data-group]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-group'), e.hasAttribute('data-none'), e.querySelector('[data-count]')?.textContent.trim() ?? null])),
+    [['foods', false, '2'], ['ate', false, '2'], ['workouts', true, null], ['chores', true, null], ['tests', true, null]]);
+  for (const k of ['workouts', 'chores', 'tests']) assert.equal(await text(grp(k)), `${M[k].title} none`, `${k}: none, quietly`);
+  assert.deepEqual(await hrefs('foods'), M.foods.rows.map((r) => `/library?q=muesli&food=N${r.food_id}`));
+  assert.deepEqual(await hrefs('ate'), M.ate.rows.map((r) => `/food?day=${r.day}&open=${r.ref}`));
+  assert.deepEqual(await page.locator('[data-group="foods"] [data-row]').evaluateAll((els) => els.map((e) => e.textContent.replace(/\s+/g, ' ').trim())), M.foods.rows.map((r) => `${r.id} ${r.name}`));
+  assert.deepEqual(await page.locator('[data-group="ate"] [data-row]').evaluateAll((els) => els.map((e) => e.textContent.replace(/\s+/g, ' ').trim())), M.ate.rows.map((r) => [r.day_text, r.food, r.amount_text, r.note].filter(Boolean).join(' ')));
+  const th = page.locator('[data-thoughts]');
+  assert.equal(await text(th), 'Thoughts with “muesli” are searched in the full app ›');
+  assert.match(await th.getAttribute('href'), /^https?:\/\/[^/]+\/web\/search\?q=muesli$/);
+  assert.equal(await page.locator('[data-search-results]').getByText('idea', { exact: false }).count(), 0, 'no thought in the page');
+  await page.screenshot({ path: `${out}/search-${name}-${theme}.png`, fullPage: true });
+  await checkWidth(page, 'search, muesli');
+  // a row opens its place: a food in Library with the search and the food open; a meal on its day
+  await page.locator('[data-group="foods"] [data-row]').first().click();
+  await page.waitForURL(/\/library\?q=muesli&food=N1$/);
+  await page.locator('[data-box="1"]').waitFor();
+  await page.goBack();
+  await page.locator('[data-group="ate"] [data-row]').first().click();
+  await page.waitForURL(/\/food\?day=2026-11-17&open=f1$/);
+  assert.equal(await page.locator('[data-problem]').count(), 0);
+
+  // ---- the field searches again, with the words typed (spaces squeezed) ----
+  await page.goto(`${base}/search?q=muesli`);
+  await page.locator('[data-search]').fill('  rowing ');
+  await page.locator('[data-search]').press('Enter');
+  await page.waitForURL(/\/search\?q=\+\+rowing\+$/);
+  await page.locator('[data-search-results]').waitFor();
+  assert.equal(await page.locator('[data-search]').inputValue(), 'rowing', 'the words squeezed as the door takes them');
+
+  // ---- rowing: a workout; its link asks the History for that workout, which is older than the last 60 ----
+  const Rw = SEARCH.rowing.search.workouts.rows[0];
+  assert.deepEqual(await hrefs('workouts'), [`/gym/history?w=${Rw.workout_id}#${Rw.anchor}`]);
+  assert.equal(await text(page.locator('[data-group="workouts"] [data-row]')), `${Rw.day_text} ${Rw.split} ${Rw.text}`);
+  await checkWidth(page, 'search, rowing');
+  await page.locator('[data-group="workouts"] [data-row]').click();
+  await page.waitForURL(/\/gym\/history\?w=1#w1$/);
+  const card = page.locator(`[data-workout="${Rw.workout_id}"]`);
+  await card.waitFor();
+  assert.equal(await card.getAttribute('id'), Rw.anchor);
+  const edge = (sel) => page.locator(sel).evaluate((e) => getComputedStyle(e).borderTopColor);
+  assert.notEqual(await edge(`[data-workout="${Rw.workout_id}"]`), await edge('[data-workout="21"]'), 'the card jumped to is marked (blue edge)');
+  await page.waitForFunction((id) => { const r = document.getElementById(id).getBoundingClientRect(); return r.top < innerHeight && r.bottom > 0; }, Rw.anchor, { timeout: 5000 }); // scrolled into view
+  await checkWidth(page, 'gym history, a card jumped to');
+  // a workout the last 60 do not hold (w=999 is not in the sample) comes in its place by date, with its card marked
+  await page.goto(`${base}/gym/history?w=999#w999`);
+  const old = page.locator('[data-workout="999"]');
+  await old.waitFor();
+  assert.match(await text(old.locator('[data-date]')), /02\.04\.2026/, "an older workout has its card (the door's w)");
+  assert.equal(await text(old.locator('[data-line-name]')), 'Rowing');
+  assert.notEqual(await edge('[data-workout="999"]'), await edge('[data-workout="21"]'), 'the older card is marked too');
+  assert.equal(await page.locator('[data-workout]').last().getAttribute('data-workout'), '999', 'in its place by date: after every newer one');
+  await checkWidth(page, 'gym history, an older workout by w');
+  // w is passed on only as digits; a workout in the last 60 is listed once; no w: no extra card
+  await page.goto(`${base}/gym/history?w=abc`);
+  await page.locator('[data-history]').waitFor();
+  assert.equal(await page.locator('[data-problem]').count(), 0, 'w that is no id is dropped, not an error');
+  assert.equal(await page.locator('[data-workout="999"]').count(), 0);
+  await page.goto(`${base}/gym/history?w=21`);
+  await page.locator('[data-history]').waitFor();
+  assert.equal(await page.locator('[data-workout="21"]').count(), 1, 'a listed workout once');
+  await page.goto(`${base}/gym/history`);
+  await page.locator('[data-history]').waitFor();
+  assert.equal(await page.locator('[data-workout="999"]').count(), 0, 'without w the last 60 only');
+
+  // ---- stove: chores, one a starting point; each opens the chore's page ----
+  await page.goto(`${base}/search?q=stove`);
+  const C = SEARCH.stove.search.chores.rows;
+  assert.deepEqual(await hrefs('chores'), C.map((r) => `/home/chore?id=${r.chore_id}`));
+  assert.deepEqual(await page.locator('[data-group="chores"] [data-row]').evaluateAll((els) => els.map((e) => e.textContent.replace(/\s+/g, ' ').trim())), C.map((r) => `${r.label}${r.start ? ' starting point' : ''} ${r.day_text}`));
+  assert.equal(await page.locator('[data-group="chores"] [data-row]').count(), 2, 'a chore done twice is two rows');
+  await page.locator('[data-group="chores"] [data-row]').first().click();
+  await page.waitForURL(/\/home\/chore\?id=1$/);
+  await page.locator('[data-card="chore"]').waitFor();
+
+  // ---- vitamin: lab tests; a row opens that test ----
+  await page.goto(`${base}/search?q=vitamin`);
+  const T = SEARCH.vitamin.search.tests.rows;
+  assert.deepEqual(await hrefs('tests'), T.map((r) => `/medical/tests?t=${r.test_id}`));
+  assert.deepEqual(await page.locator('[data-group="tests"] [data-row]').evaluateAll((els) => els.map((e) => e.textContent.trim())), T.map((r) => r.name));
+  assert.equal(await text(page.locator('[data-group="tests"] [data-count]')), String(T.length));
+  await page.locator('[data-group="tests"] [data-row][href$="t=21"]').click();
+  await page.waitForURL(/\/medical\/tests\?t=21$/);
+  await page.locator('[data-test="21"]').waitFor();
+
+  // ---- nothing found: five quiet "none" and the thoughts line; under two letters or nothing: the door's hint ----
+  await page.goto(`${base}/search?q=zzqq`);
+  assert.equal(await page.locator('[data-group][data-none]').count(), 5);
+  assert.equal(await page.locator('[data-group] [data-row]').count(), 0);
+  assert.equal(await text(page.locator('[data-thoughts]')), 'Thoughts with “zzqq” are searched in the full app ›');
+  await checkWidth(page, 'search, nothing found');
+  for (const [url, hint] of [['/search?q=m', SEARCH.m.search.hint], ['/search', SEARCH.m.search.hint]]) {
+    await page.goto(`${base}${url}`);
+    await page.locator('[data-hint]').waitFor();
+    assert.equal(await text(page.locator('[data-hint]')), hint, `${url}: the door's hint`);
+    assert.equal(await page.locator('[data-group]').count(), 0);
+    assert.equal(await page.locator('[data-thoughts]').count(), 0, 'no thoughts line without a search');
+  }
+  await page.goto(`${base}/search?q=m`);
+  assert.equal(await page.locator('[data-search]').inputValue(), 'm');
+  if (name === 'phone') await page.screenshot({ path: `${out}/search-hint-${name}-${theme}.png` });
+  await checkWidth(page, 'search, hint');
+  // a group cut at 15 says "15+"
+  await page.goto(`${base}/search?q=many`);
+  assert.equal(await text(page.locator('[data-group="foods"] [data-count]')), '15+');
+  assert.equal(await page.locator('[data-group="foods"] [data-row]').count(), 15);
+  assert.match(await text(page.locator('[data-group="foods"] [data-more]')), /^The first 15 are shown/);
+  await checkWidth(page, 'search, 15+');
+  // the words come back safe: a q with markup is text, not markup
+  await page.goto(`${base}/search?q=${encodeURIComponent('<b>oat</b>')}`);
+  assert.equal(await page.locator('[data-results-for] b').count(), 0);
+  assert.equal(await text(page.locator('[data-results-for]')), 'Results for “<b>oat</b>”');
+  // the door off: the plain message with a link to app.'s Search
+  await standinPost('/standin/door-off');
+  await page.goto(`${base}/search?q=muesli`);
+  await page.locator('[data-problem]').waitFor();
+  assert.match(await page.getByRole('link', { name: 'Open the full app' }).getAttribute('href'), /\/web\/search$/);
+  await checkWidth(page, 'search, door off');
+  await standinPost('/standin/up');
+  await page.goto(`${base}/`);
+}
+
+async function checkRecent(page, name, theme) {
+  await standinPost('/standin/reset');
+  const pc = name === 'pc';
+  const msgs = RECENT.days.flatMap((d) => d.messages);
+  await page.goto(`${base}/recent`);
+  await page.locator('[data-recent]').waitFor();
+  assert.equal(await page.locator('h1').textContent(), 'Recent');
+  assert.equal(await page.locator('[data-back]').getAttribute('href'), '/more');
+  await assertMoreLit(page, name, 'recent');
+  // the amber line: n messages not read yet, to Today
+  const nr = page.locator('[data-not-read]');
+  assert.equal(await text(nr), '1 message not read yet › Today');
+  assert.equal(await nr.getAttribute('href'), '/');
+  assert.match(await nr.getAttribute('class'), /bg-amber-bg/);
+  // the days (the door's heads), the messages in the door's order
+  assert.deepEqual(await page.locator('[data-day] h2').evaluateAll((els) => els.map((e) => e.textContent.trim())), RECENT.days.map((d) => d.head));
+  assert.deepEqual(await page.locator('[data-message]').evaluateAll((els) => els.map((e) => e.getAttribute('data-message'))), msgs.map((m) => (m.private ? 'private' : String(m.id))));
+  for (const m of msgs) {
+    const el = page.locator(m.private ? `[data-message="private"]:has([data-time]:text-is("${m.time}"))` : `[data-message="${m.id}"]`);
+    assert.equal(await text(el.locator('[data-time]')), m.time);
+    assert.equal(await text(el.locator('[data-channel]')), m.channel_label);
+    if (m.private) {
+      // a private entry: the "Private" pill and its saved label, nothing else: no words, no saved pills, no buttons
+      assert.equal(await text(el), `${m.time} Private ${m.saved[0].text}`, 'a private entry shows its label only');
+      assert.equal(await el.locator('button, a').count(), 0, 'no Use again or Open day on a private entry');
+      continue;
+    }
+    assert.equal(await text(el.locator('[data-words]')), m.text);
+    if (m.saved.length) assert.deepEqual(await el.locator('[data-saved] li').evaluateAll((els) => els.map((e) => e.textContent.replace(/\s+/g, ' ').trim())), m.saved.map((s) => `${s.kind} ${s.text}`));
+    else assert.equal(await text(el.locator('[data-none]')), RECENT.none);
+    assert.equal(await el.locator('[data-use-again]').count(), m.again ? 1 : 0);
+    assert.equal(await el.locator('[data-open-day]').count(), m.open_day ? 1 : 0);
+    if (m.open_day) assert.equal(await el.locator('[data-open-day]').getAttribute('href'), `/food?day=${m.open_day}`);
+  }
+  // the channel pill: Claude blue, the web app neutral
+  assert.match(await page.locator('[data-message="2"] [data-channel]').getAttribute('class'), /text-blue/);
+  assert.match(await page.locator('[data-message="1"] [data-channel]').getAttribute('class'), /text-chip-text/);
+  assert.equal(await text(page.locator('main > p').last()), `${RECENT.small}. Private entries show only their kind.`);
+  await page.screenshot({ path: `${out}/recent-${name}-${theme}.png`, fullPage: true });
+  await checkWidth(page, 'recent');
+  // the page keeps no private word anywhere (the sample has none, and none is invented)
+  assert.equal(await page.locator('[data-message="private"] [data-words]').count(), 0);
+
+  // Open day: that day's Food page
+  await page.locator('[data-message="3"] [data-open-day]').click();
+  await page.waitForURL(/\/food\?day=2026-11-16$/);
+  assert.equal(await page.locator('[data-problem]').count(), 0);
+
+  // Use again: the words go into Today's logging box through the tab's storage, never the address; the box takes them once
+  await page.goto(`${base}/recent`);
+  await page.locator('[data-message="1"] [data-use-again]').click();
+  await page.waitForURL((u) => u.pathname === '/' && u.search === '', { timeout: 10000 });
+  await page.locator('#log-text').waitFor();
+  assert.equal(await page.locator('#log-text').inputValue(), msgs.find((m) => m.id === 1).again, 'the words are in the box');
+  assert.equal(page.url().includes('bircher'), false, 'never in the address');
+  assert.equal(await page.evaluate(() => sessionStorage.getItem('logger-use-again')), null, 'taken out of the storage');
+  assert.equal(await page.evaluate(() => document.activeElement?.id), 'log-text', 'the cursor is in the box');
+  await page.reload();
+  await page.locator('#log-text').waitFor();
+  assert.equal(await page.locator('#log-text').inputValue(), '', 'only once');
+  // the other message's words come in the same way (its own "again": without "at 09:30")
+  await page.goto(`${base}/recent`);
+  await page.locator('[data-message="2"] [data-use-again]').click();
+  await page.waitForURL((u) => u.pathname === '/');
+  await page.locator('#log-text').waitFor();
+  assert.equal(await page.locator('#log-text').inputValue(), 'green tea');
+  await page.locator('#log-text').fill('');
+  // the amber line leads to Today
+  await page.goto(`${base}/recent`);
+  await page.locator('[data-not-read]').click();
+  await page.waitForURL((u) => u.pathname === '/' && u.search === '');
+
+  // nothing waits, nothing sent: no amber line, the door's empty words
+  await standinPost('/standin/recent-none');
+  await page.goto(`${base}/recent`);
+  await page.locator('[data-empty]').waitFor();
+  assert.equal(await text(page.locator('[data-empty]')), RECENT.empty);
+  assert.equal(await page.locator('[data-not-read]').count(), 0);
+  await checkWidth(page, 'recent, empty');
+  await standinPost('/standin/reset');
+  // the door off: the plain message with a link to app.'s Recent
+  await standinPost('/standin/door-off');
+  await page.goto(`${base}/recent`);
+  await page.locator('[data-problem]').waitFor();
+  assert.match(await page.getByRole('link', { name: 'Open the full app' }).getAttribute('href'), /\/web\/recent$/);
+  await checkWidth(page, 'recent, door off');
+  await standinPost('/standin/up');
+  void pc;
+  await page.goto(`${base}/`);
+}
+
+async function checkUsage(page, name, theme) {
+  await standinPost('/standin/reset');
+  const pc = name === 'pc';
+  const fills = (sel) => page.locator(sel).evaluateAll((els) => els.map((e) => getComputedStyle(e).fill));
+  const rangeCheck = async (r) => {
+    const U = USAGE[r].usage;
+    assert.deepEqual(await page.locator('[data-range]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-range'), e.textContent.trim(), e.getAttribute('aria-current'), e.getAttribute('href')])),
+      U.ranges.map((x) => [x.r, x.label, x.current ? 'page' : null, x.r === '7' ? '/usage' : `/usage?r=${x.r}`]));
+    assert.equal(await text(page.locator('[data-since]')), U.since);
+    const t = U.tiles;
+    assert.deepEqual(await page.locator('[data-tile]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-tile'), e.querySelector('[data-tile-value]').textContent.trim()])),
+      [['calls', String(t.calls)], ['cost', t.usd_text], ['per_message', t.per_message_text], ['tokens', t.tokens_text]]);
+    assert.equal(await text(page.locator('[data-tile="per_message"] [data-tile-sub]')), `${t.messages} messages`);
+    assert.equal(await text(page.locator('[data-tile="tokens"] [data-tile-sub]')), t.tokens_note);
+    // the chart: a bar per point, by family; the door's legend
+    const marks = U.chart.series.reduce((n, s) => n + s.pts.length, 0);
+    assert.equal(await page.locator('[data-cost-chart] [data-mark="bar"]').count(), marks, 'a bar per point');
+    for (const s of U.chart.series) assert.equal(await page.locator(`[data-cost-chart] [data-mark="bar"].${s.cls}`).count(), s.pts.length);
+    assert.equal(await text(page.locator('[data-cost-chart] .legend')), U.legend.map((l) => l.text).join(' '));
+    assert.equal(await page.locator('[data-cost-chart] svg').getAttribute('aria-label'), U.chart.label);
+    // By kind: the door's rows and the All row; the note; the pushes
+    assert.deepEqual(await page.locator('[data-kinds] tbody tr').evaluateAll((els) => els.map((e) => [...e.children].map((c) => c.textContent.trim()))),
+      [...U.kinds, U.all].map((k) => [k.kind === 'All' ? 'All' : k.kind.charAt(0).toUpperCase() + k.kind.slice(1), String(k.calls), k.tokens_in_text, k.tokens_out_text, k.usd_text]));
+    assert.equal(await text(page.locator('[data-kinds-note]')), U.kinds_note);
+    assert.equal(await text(page.locator('[data-pushes]')), U.pushes_text);
+    // the costly messages: words or a private mark, kind, models, cost, "read again by the larger model"
+    assert.equal(await page.locator('[data-top-row]').count(), U.top.length);
+    for (const [i, x] of U.top.entries()) {
+      const row = page.locator('[data-top-row]').nth(i);
+      assert.equal(await text(row.locator('[data-top-line]')), [x.at_text, x.kind, x.models_text].join(' · '));
+      assert.equal(await text(row), [x.private ? 'private' : x.text ?? '–', x.usd_text, [x.at_text, x.kind, x.models_text].join(' · '), x.escalated ? 'read again by the larger model' : null].filter(Boolean).join(' '));
+      assert.equal(await row.locator('[data-private]').count(), x.private ? 1 : 0);
+      assert.equal(await row.locator('[data-escalated]').count(), x.escalated ? 1 : 0);
+    }
+    assert.equal(await text(page.locator('[data-note]')), U.note);
+  };
+
+  await page.goto(`${base}/usage`);
+  await page.locator('[data-usage]').waitFor();
+  assert.equal(await page.locator('h1').textContent(), 'Usage');
+  assert.equal(await page.locator('[data-back]').getAttribute('href'), '/more');
+  await assertMoreLit(page, name, 'usage');
+  await page.locator('[data-cost-chart] svg').waitFor();
+  await rangeCheck('7');
+  // Haiku neutral, Sonnet and Opus two blues: three different colours; the legend keys match them
+  const [fa, fb, fc] = [(await fills('[data-cost-chart] rect.a'))[0], (await fills('[data-cost-chart] rect.b'))[0], (await fills('[data-cost-chart] rect.c'))[0]];
+  assert.equal(new Set([fa, fb, fc]).size, 3, `three families, three colours (${fa} ${fb} ${fc})`);
+  const key = (c) => page.locator(`[data-cost-chart] .legend .key.${c}`).evaluate((e) => getComputedStyle(e).backgroundColor);
+  assert.deepEqual([await key('a'), await key('b'), await key('c')], [fa, fb, fc], 'the legend squares are the bars’ colours');
+  // a tap on a bar shows the door's words
+  await page.locator('[data-cost-chart] rect.c').first().click();
+  await page.locator('[data-cost-chart] [data-tip]').waitFor();
+  assert.equal(await text(page.locator('[data-cost-chart] [data-tip] text')), USAGE['7'].usage.chart.series.find((s) => s.cls === 'c').pts[0][2]);
+  await page.screenshot({ path: `${out}/usage-${name}-${theme}.png`, fullPage: true });
+  await checkWidth(page, 'usage, 7 days');
+  if (pc) assert.equal(await page.locator('[data-tile]').evaluateAll((els) => new Set(els.map((e) => Math.round(e.getBoundingClientRect().y))).size), 1, 'pc: the four tiles in one row');
+  else assert.equal(await page.locator('[data-tile]').evaluateAll((els) => new Set(els.map((e) => Math.round(e.getBoundingClientRect().y))).size), 2, `${name}: the tiles two by two`);
+  // the chips: 30 days and Everything
+  await page.locator('[data-range="30"]').click();
+  await page.waitForURL(/\/usage\?r=30$/);
+  await page.locator('[data-cost-chart] svg').waitFor();
+  await rangeCheck('30');
+  await checkWidth(page, 'usage, 30 days');
+  await page.locator('[data-range="all"]').click();
+  await page.waitForURL(/\/usage\?r=all$/);
+  await page.locator('[data-cost-chart] svg').waitFor();
+  await rangeCheck('all');
+  if (name === 'phone') await page.screenshot({ path: `${out}/usage-all-${name}-${theme}.png`, fullPage: true });
+  await checkWidth(page, 'usage, everything');
+  await page.locator('[data-range="7"]').click();
+  await page.waitForURL((u) => u.pathname === '/usage' && u.search === '');
+  // another r is dropped: 7 days
+  await page.goto(`${base}/usage?r=5`);
+  await page.locator('[data-usage]').waitFor();
+  assert.equal(await page.locator('[data-range="7"]').getAttribute('aria-current'), 'page');
+  // no call in the range: the door's words in place of the chart, the All row of zeros, no costly message
+  await standinPost('/standin/usage-empty');
+  await page.goto(`${base}/usage`);
+  await page.locator('[data-chart-empty]').waitFor();
+  assert.equal(await text(page.locator('[data-chart-empty]')), USAGE['7'].usage.empty);
+  assert.equal(await page.locator('[data-cost-chart] svg').count(), 0);
+  assert.deepEqual(await page.locator('[data-kinds] tbody tr').evaluateAll((els) => els.map((e) => e.children[0].textContent.trim())), ['All']);
+  assert.equal(await page.locator('[data-top-row]').count(), 0);
+  assert.equal(await text(page.locator('[data-tile="per_message"] [data-tile-value]')), '–');
+  assert.equal(await text(page.locator('[data-tile="per_message"] [data-tile-sub]')), 'no typed messages');
+  await checkWidth(page, 'usage, empty');
+  await standinPost('/standin/reset');
+  // the door off: the plain message with a link to app.'s Usage
+  await standinPost('/standin/door-off');
+  await page.goto(`${base}/usage`);
+  await page.locator('[data-problem]').waitFor();
+  assert.match(await page.getByRole('link', { name: 'Open the full app' }).getAttribute('href'), /\/web\/usage$/);
+  await checkWidth(page, 'usage, door off');
+  await standinPost('/standin/up');
+  await page.goto(`${base}/`);
+}
+
 async function checkWidth(page, what) {
   const sideways = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   assert.ok(sideways <= 0, `${what}: no sideways scroll (${sideways} px too wide)`);
@@ -4709,6 +5138,16 @@ for (const theme of ['dark', 'light']) {
       console.log(`medical tests over time ${name} ${theme}: checks passed`);
       await checkMedicalMeds(page, name, theme);
       console.log(`medical medication ${name} ${theme}: checks passed`);
+    }
+    if (only('more')) {
+      await checkMoreHome(page, name, theme);
+      console.log(`more: search field, rows, words, sign out ${name} ${theme}: checks passed`);
+      await checkSearch(page, name, theme);
+      console.log(`search ${name} ${theme}: checks passed`);
+      await checkRecent(page, name, theme);
+      console.log(`recent, use again ${name} ${theme}: checks passed`);
+      await checkUsage(page, name, theme);
+      console.log(`usage ${name} ${theme}: checks passed`);
     }
     if (only('problems')) {
       await checkProblems(page, name, theme);

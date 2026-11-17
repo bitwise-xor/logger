@@ -8,7 +8,8 @@
   // The places (deploy 96, the Spaces menu): the PC's rail has Today, Trends, Library, then "Spaces" (Gym, Health, Habits, Home, Medical), then
   // More; the Space you are in is the highlighted one. Phones and tablets keep four tabs, Today, Trends, Library and More; More is
   // the page /more with the Spaces, and it is highlighted on a Space's page too. Trends is a page of this app since deploy 102 (lit on
-  // every /trends page), Library since deploy 105 (lit on every /library page).
+  // every /trends page), Library since deploy 105 (lit on every /library page). Search, Recent and Usage (deploy 108) are pages under More:
+  // More is lit on them, on the PC's rail too.
   const here = $derived(placeOf(page.url.pathname));
 
   const tab = 'flex h-[52px] items-center justify-center text-[13px] font-medium no-underline desktop:h-9 desktop:justify-start desktop:rounded-lg desktop:px-2.5 desktop:text-sm';
@@ -43,7 +44,7 @@
     <!-- More: highlighted on its page, and on phones and tablets also on a Space's page (the PC highlights the Space itself). -->
     <a
       href="/more"
-      aria-current={here.atMore ? 'page' : here.tab === 'more' ? 'true' : undefined}
+      aria-current={here.atMore ? (page.url.pathname === '/more' ? 'page' : 'true') : here.tab === 'more' ? 'true' : undefined}
       class="{tab} {here.atMore ? on : here.tab === 'more' ? 'text-blue desktop:text-text desktop:hover:bg-panel2' : off}"
       data-place="more">More</a
     >
