@@ -1,11 +1,29 @@
 name: tests
 
-# The unit tests (no API key, no real data): a throwaway Postgres from tests/test-db.sh, then pytest.
+# The core's unit tests (no API key, no real data): a throwaway Postgres from tests/test-db.sh, then pytest.
 # The private golden-message tests (tests/golden) are not in the repository and not part of this.
+# Since 17.11.2026 it runs only when something it tests has changed: the core, the tests, the test database's start files,
+# compose.yaml (tests/test_hubtools.py reads it) and the front end's sample answers (tests/test_front_samples.py checks them).
+# A change to texts only (docs/, the idea lists) or to the front end alone starts no run here; the front end has its own
+# workflow (front.yml).
 on:
   push:
     branches: [main]
+    paths:
+      - "core/**"
+      - "tests/**"
+      - "db/**"
+      - "compose.yaml"
+      - "front/tests/samples/**"
+      - ".github/workflows/tests.yml"
   pull_request:
+    paths:
+      - "core/**"
+      - "tests/**"
+      - "db/**"
+      - "compose.yaml"
+      - "front/tests/samples/**"
+      - ".github/workflows/tests.yml"
 
 jobs:
   pytest:
@@ -24,21 +42,3 @@ jobs:
         run: tests/test-db.sh up
       - name: Run the tests
         run: .venv/bin/python -m pytest -q tests
-
-  # The new front end's unit tests (front/, vitest) and type check, in the same pinned Node image as tools/front-pnpm.
-  front:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    container:
-      image: node:24.22.2-slim@sha256:c86ecead9e55a5210ac1727de38a4ca840bf03dcaf34dc9749addbf383b1920c
-    defaults:
-      run:
-        working-directory: front
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install the pinned packages
-        run: corepack enable && COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm install --frozen-lockfile
-      - name: Run the tests
-        run: pnpm test
-      - name: Check the types
-        run: pnpm check

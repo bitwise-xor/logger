@@ -1,0 +1,32 @@
+name: front tests
+
+# The new front end's unit tests (front/, vitest) and type check, in the same pinned Node image as tools/front-pnpm.
+# Its own workflow since 17.11.2026 (before: a job of tests.yml), so it runs only when front/ has changed.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "front/**"
+      - ".github/workflows/front.yml"
+  pull_request:
+    paths:
+      - "front/**"
+      - ".github/workflows/front.yml"
+
+jobs:
+  front:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    container:
+      image: node:24.22.2-slim@sha256:c86ecead9e55a5210ac1727de38a4ca840bf03dcaf34dc9749addbf383b1920c
+    defaults:
+      run:
+        working-directory: front
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install the pinned packages
+        run: corepack enable && COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm install --frozen-lockfile
+      - name: Run the tests
+        run: pnpm test
+      - name: Check the types
+        run: pnpm check
