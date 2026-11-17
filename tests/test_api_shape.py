@@ -2,7 +2,7 @@
 the private guard on questions and on lines the AI files as private, one name per field (the old names gone since deploy 78), Undo on a
 reload, a mixed line's look-up in result, answer styles and refill buttons, the outcome's tone, no chat lines in read-backs, and
 Try again / Delete on a message not read yet; the usual-meal editor's shapes (deploy 86); the scanner's, label photo's and look-up's
-shapes (deploy 89); the Health page's and body measurements' shapes (deploy 91); the Habits page's shapes (deploy 93); the Gym's shapes (deploy 95); Home's shapes (deploy 98); Trends' shapes (deploy 101); Library's and Medical's shapes (deploy 104); Search's, Recent's, Usage's and Coach's shapes (deploy 107). Every name, food, number and sentence is invented."""
+shapes (deploy 89); the Health page's and body measurements' shapes (deploy 91); the Habits page's shapes (deploy 93); the Gym's shapes (deploy 95); Home's shapes (deploy 98); Trends' shapes (deploy 101); Library's and Medical's shapes (deploy 104); Search's, Recent's, Usage's and Coach's shapes (deploy 107); Settings' and notifications' shapes (deploy 110). Every name, food, number and sentence is invented."""
 from datetime import datetime, timedelta
 
 import pytest
@@ -604,3 +604,55 @@ def test_the_more_and_coach_shapes(sv, monkeypatch):
     j = sv.post("/coach/start", kind="day", start=t0, end="2999-01-01")  # refused: end after today
     assert set(j) == KEYS | {"day", "coaching"} and j["outcome"] == "rejected" and j["coaching"] is None
     assert set(sv.post("/coach/start", kind="day", start=t0, end=t0, view="coach")) == KEYS | {"coach", "coaching"}
+
+
+# ---- 17. Settings and notifications (deploy 110) --------------------------------------------------------------------------------------
+
+SETTINGS = {
+    "settings_targets": {"valid_from", "current", "fields", "history", "limits", "hint"},
+    "settings_today": {"groups", "hint"},
+    "settings_body": {"valid_from", "height", "heights", "height_range", "interval", "measures", "hints"},
+    "settings_coach": {"goals", "style", "max", "kinds", "facts", "model", "daily_limit"},
+    "settings_devices": {"devices", "others"},
+    "settings_notify": {"on", "on_label", "nudges", "awake_hours", "subscriptions", "public_key", "twice"},
+    "settings_export": {"title", "intro", "private_label", "button", "hint", "last"},
+}
+
+
+def test_the_settings_shapes(sv):
+    owner_sql("INSERT INTO food_targets (valid_from, kcal, note) VALUES ('2020-01-01', 2000, 'zz')")
+    owner_sql("INSERT INTO body_height (valid_from, height_cm) VALUES ('2020-01-01', 170)")
+    owner_sql("""INSERT INTO push_subscriptions (endpoint, p256dh, auth, user_agent, origin) VALUES ('https://web.push.apple.com/zz-shape', 'k', 'a', 'x', 'logger')""")
+    owner_sql("INSERT INTO audit_log (tool, outcome, client, detail) VALUES ('export', 'ok', 'web', '{\"private\": false}')")
+    try:
+        for name, keys in SETTINGS.items():
+            j = get(sv, "/settings/" + name.removeprefix("settings_"))
+            assert set(j) == {"v", name, "undo"} and set(j[name]) == keys, name
+        s = {name: get(sv, "/settings/" + name.removeprefix("settings_"))[name] for name in SETTINGS}
+        t = s["settings_targets"]
+        assert all(set(f) == {"key", "label", "unit", "value"} for f in t["fields"]) and set(t["current"]) == {"valid_from", "valid_from_text", "note"}
+        assert all(set(h) == {"valid_from", "valid_from_text", "values", "note"} for h in t["history"])
+        assert all(set(g) == {"kind", "heading", "items"} and all(set(i) == {"id", "label", "shown"} for i in g["items"]) for g in s["settings_today"]["groups"])
+        b = s["settings_body"]
+        assert set(b["height"]) == {"cm", "valid_from"} and all(set(h) == {"cm", "valid_from", "valid_from_text"} for h in b["heights"])
+        assert set(b["interval"]) == {"days", "min", "max", "default"} and all(set(m) == {"key", "label", "shown"} for m in b["measures"])
+        assert all(set(k) == {"kind", "title", "parts"} and all(set(p) == {"key", "label", "on"} for p in k["parts"]) for k in s["settings_coach"]["kinds"])
+        assert all(set(d) == {"id", "name", "address", "signed_in", "last_used", "expires", "current"} for d in s["settings_devices"]["devices"])
+        nt = s["settings_notify"]
+        assert all(set(x) == {"key", "label", "after", "on", "hours", "note"} and set(x["hours"]) == {"key", "value", "min", "max", "step", "default"}
+                   for x in nt["nudges"])
+        assert all(set(x) == {"id", "name", "address", "on_since", "last_delivered", "this"} for x in nt["subscriptions"]) and nt["subscriptions"]
+        assert set(s["settings_export"]["last"]) == {"at", "private", "text"} and OFFSET.search(s["settings_export"]["last"]["at"])
+        assert set(get(sv, "/day")["day"]["shown"]) == {"review", "gratitude"}
+        for path, body, view in (("/settings/targets", {"valid_from": "2021-01-01", "kcal": 1900}, "settings_targets"),
+                                 ("/settings/today", {"groups": {"card": [{"id": "home", "shown": False}]}}, "settings_today"),
+                                 ("/settings/today_reset", {}, "settings_today"), ("/settings/height", {"valid_from": "2021-01-01", "height": 171}, "settings_body"),
+                                 ("/settings/body", {"interval": 30}, "settings_body"), ("/settings/coach", {"goals": "zz"}, "settings_coach"),
+                                 ("/settings/others", {}, "settings_devices"), ("/settings/device", {"id": "x"}, "settings_devices"),
+                                 ("/settings/nudges", {"on": True}, "settings_notify"), ("/push/off", {"id": 999999}, "settings_notify"),
+                                 ("/push/subscribe", {"endpoint": "https://zz.example.test", "keys": {}}, "settings_notify"),
+                                 ("/settings/coach", {"goals": "zz", "view": "day"}, "day")):
+            assert set(sv.post(path, **body)) == KEYS | {view}, path
+    finally:
+        owner_sql("DELETE FROM food_targets")
+        owner_sql("DELETE FROM push_subscriptions WHERE endpoint = 'https://web.push.apple.com/zz-shape'")

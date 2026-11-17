@@ -90,6 +90,9 @@ checks = {
                                     + [reads.food_item(first_food())]),
   "door medical reads": lambda: str([reads.labs(""), reads.labs("R%d" % first_report()), reads.labs_tests("", ""), reads.labs_tests("", str(first_test())),
                                      reads.labs_meds()]),
+  "settings tabs": lambda: "".join(settingspage.render(sess, {"tab": t}) for t, _l in settingspage.TABS),
+  "door settings reads": lambda: str([reads.settings_targets(), reads.settings_today(), reads.settings_body(), reads.settings_coach(),
+                                      reads.settings_devices(sess), reads.settings_notify(sess), reads.settings_export()]),
 }
 for name, f in checks.items():
     try:

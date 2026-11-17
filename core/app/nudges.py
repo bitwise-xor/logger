@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 
 from psycopg.types.json import Jsonb
 
-from . import gratitude, habitaim, logbook, webpush
+from . import config, gratitude, habitaim, logbook, webpush
 from .db import connect
 from .when import BERLIN
 
@@ -95,13 +95,32 @@ def due(cur, now: datetime) -> list[dict]:
     return [dict(n, day=day) for n in out if n["kind"] not in sent]
 
 
+# A nudge's link on a device that turned notifications on at logger. (deploy 110, migration 032): app.'s pages that logger. has
+LOGGER_LINKS = {"/web/": "/", "/web": "/", "/web/settings?tab=notify": "/settings/notifications"}
+
+
+def link_for(url, origin: str):
+    """The link a message opens on a device of this origin. app.: as written (a relative /web/ path, its service worker resolves it).
+    logger.: its own page where it has one (Today, Settings > Notifications); any other app. page (the gratitude list: its words stay
+    at app.) as the full app's absolute address, so it never opens a page logger. does not have."""
+    url = url or "/web/"
+    if origin != "logger":
+        return url
+    if url in LOGGER_LINKS:
+        return LOGGER_LINKS[url]
+    if url.startswith("/web/") or url.startswith("/web?"):
+        return f"https://{config.APP_HOST}{url}"
+    return url
+
+
 def deliver(message: dict) -> int:
-    """Send one message to every subscribed device; drop the ones the push service says are gone. Devices reached."""
+    """Send one message to every subscribed device, with its link for the address the device subscribed at (link_for); drop the ones
+    the push service says are gone. Devices reached."""
     with connect() as c:
-        subs = c.execute("SELECT id, endpoint, p256dh, auth FROM push_subscriptions ORDER BY id").fetchall()
+        subs = c.execute("SELECT id, endpoint, p256dh, auth, origin FROM push_subscriptions ORDER BY id").fetchall()
     ok = 0
     for s in subs:
-        status = webpush.send(s, message)
+        status = webpush.send(s, message if s["origin"] != "logger" else {**message, "url": link_for(message.get("url"), "logger")})
         with connect() as c:
             if status in (404, 410):
                 c.execute("DELETE FROM push_subscriptions WHERE id = %s", (s["id"],))

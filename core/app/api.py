@@ -9,7 +9,7 @@ then, for every route but the sign-in, the owner's session as "Authorization: Be
 front end, migration 031; a session of app. never works here and the reverse). A session renews like a page view (30 days
 from its last use); the end comes back in the X-Session-Expires header. Every answer is JSON with "v": 1, never cached.
 The reads are reads.py; the saves call the same functions as the live forms (webactions, webfood, logbook, webundo, webheld, gym, home,
-coach, weblabs)."""
+coach, weblabs, websettings). One route answers a file instead of JSON (POST /export, deploy 110; route's download)."""
 import hashlib
 import hmac
 import json
@@ -20,9 +20,9 @@ from datetime import date, datetime, timedelta, timezone
 from psycopg.types.json import Jsonb
 from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, Response
 
-from . import body as tape, coach, coachpage, foodpage, gym, gympage, habitspage, healthpage, home as homelib, hubtools, labelread, labspage, logbook, privateline, reads, trendspage, usagepage, web, webactions, webentry, webfood, webhabits, webheld, weblabs, webundo, weekpage
+from . import body as tape, coach, coachpage, export, foodpage, gym, gympage, habitspage, healthpage, home as homelib, hubtools, labelread, labspage, logbook, nudges, privateline, reads, settingspage, trendspage, uiprefs, usagepage, web, webactions, webentry, webfood, webhabits, webheld, weblabs, webpush, websettings, webundo, weekpage
 from .ai.provider import ProviderError
 from .config import FRONT_TOKEN
 from .db import connect
@@ -100,11 +100,26 @@ def session_for(token: str):
     return {**row, "expires_at": r["expires_at"]}
 
 
-def route(path: str, method: str, signed_in: bool = True, photos: bool = False):
+class Download:
+    """A file instead of JSON (deploy 110, POST /export's ZIP): only a route registered with download=True may answer one; from any
+    other route it is a server error, so no other answer can ever leave the door as anything but the JSON of reply()."""
+
+    def __init__(self, data: bytes, media_type: str, filename: str):
+        self.data, self.media_type, self.filename = data, media_type, filename
+
+    def response(self, session) -> Response:
+        headers = {**_HEADERS, "Content-Disposition": f'attachment; filename="{self.filename}"'}
+        if session and session.get("expires_at"):
+            headers["X-Session-Expires"] = session["expires_at"].astimezone(timezone.utc).isoformat()
+        return Response(self.data, media_type=self.media_type, headers=headers)
+
+
+def route(path: str, method: str, signed_in: bool = True, photos: bool = False, download: bool = False):
     """Register a door route: fn(request, body, session) -> dict (or (dict, status)), run off the event loop. The checks of the
     module's docstring come first; a Refused becomes its JSON error; any other error a plain 500 (the kind goes to the log,
     never what was sent). photos: the body is multipart with one to three photos (body = {"photos": [(type, bytes)]}, see
-    _photos), not JSON; only this route may be larger than MAX_BODY (deploy 89, the label photo)."""
+    _photos), not JSON; only this route may be larger than MAX_BODY (deploy 89, the label photo). download: fn may answer a
+    Download (bytes, no-store, after the same checks); its errors are JSON as everywhere (deploy 110, POST /export)."""
     def wrap(fn):
         async def handler(request: Request):
             if not (door_open() and from_inside(request) and token_ok(request)):
@@ -138,6 +153,11 @@ def route(path: str, method: str, signed_in: bool = True, photos: bool = False):
                 return error(e.status, e.code, e.message)
             except Exception as e:  # noqa: BLE001 - the kind only
                 log.error("the door's %s %s failed: %s", method, path, type(e).__name__)
+                return error(500, "server_error", "Something went wrong. Nothing was lost; try again in a moment.")
+            if isinstance(out, Download):
+                if download:
+                    return out.response(session)
+                log.error("the door's %s %s answered a file without download=True", method, path)
                 return error(500, "server_error", "Something went wrong. Nothing was lost; try again in a moment.")
             out, status = out if isinstance(out, tuple) else (out, 200)
             return reply(out, status, session)
@@ -305,10 +325,15 @@ def food_entry(request, _body, _session):
 # choose which. The Undo record is kept in the session row, one per session, as the web app keeps one per device.
 
 class Form(dict):
-    """A JSON body as the live forms' functions read a form: .get(name), and .multi_items() (webfood._again)."""
+    """A JSON body as the live forms' functions read a form: .get(name), .multi_items() (webfood._again), and .getlist(name) for a
+    field a form sends once per ticked box (Settings > Body's show, deploy 110: its value here is a list)."""
 
     def multi_items(self):
         return list(self.items())
+
+    def getlist(self, name):
+        v = self.get(name)
+        return [str(x) for x in v] if isinstance(v, (list, tuple)) else [] if v is None else [str(v)]
 
 
 def _form(**fields) -> Form:
@@ -422,6 +447,8 @@ def saved(session, out: dict, body: dict, view: str = "day", private: bool = Fal
         res[shown] = LABS_VIEWS[shown](body)
     elif shown == "coach":  # the Coach page (deploy 107), as GET /coach with view_f (all when unknown) and view_day (a later day: today)
         res["coach"] = reads.coach_page(body.get("view_f") if body.get("view_f") in COACH_FILTERS else "all", _coach_day(asked))
+    elif shown in SETTINGS_VIEWS:  # a Settings tab (deploy 110), as its GET /settings/<tab>
+        res[shown] = SETTINGS_VIEWS[shown](session)
     else:
         res["day"] = reads.day(asked)
     return res
@@ -1739,3 +1766,240 @@ def _labs_route(action: str):
 
 for _action in LABS_FORMS:
     route(f"/labs/{_action}", "POST")(_labs_route(_action))
+
+
+# ---- Settings and notifications (deploy 110) -----------------------------------------------------------------------------------------
+# app.'s Settings tabs as data (reads.settings_*: settingspage's, coachpage's and export's data functions, which app.'s tabs draw from),
+# and their forms through app.'s own functions (websettings.ACTIONS, coach.goals_set) with their checks and words. As on app.: no key
+# (one sent is ignored) and no Undo (a change ends the session's Undo bar, as app.'s Settings forms do). Each save answers in the save
+# shape with the fresh tab (view settings_<tab>; the body's view chooses another). A field left out stays as it is now (the door
+# fills it in as app.'s form comes filled in), except Food targets, where a new row of targets is always all nine values (as app.).
+# Not here: the gratitude goal (it stays at app. with the gratitude list). Notifications for this address: POST /push/subscribe keeps
+# the browser's subscription with origin 'logger' (migration 032), so its nudges open logger.'s pages (nudges.link_for).
+
+SETTINGS_VIEWS = {"settings_targets": lambda s: reads.settings_targets(), "settings_today": lambda s: reads.settings_today(),
+                  "settings_body": lambda s: reads.settings_body(), "settings_coach": lambda s: reads.settings_coach(),
+                  "settings_devices": reads.settings_devices, "settings_notify": reads.settings_notify,
+                  "settings_export": lambda s: reads.settings_export()}
+
+
+def _settings_read(tab: str):
+    name = f"settings_{tab}"
+
+    def handler(_request, _body, session):
+        return {name: SETTINGS_VIEWS[name](session), "undo": _undo_out(session.get("undo"))}
+    handler.__name__ = f"{name}_read"
+    handler.__doc__ = f"app.'s Settings > {tab} as data (reads.{name}); see docs/API.md."
+    return handler
+
+
+for _tab in ("targets", "today", "body", "coach", "devices", "notify", "export"):
+    route(f"/settings/{_tab}", "GET")(_settings_read(_tab))
+
+
+def _setting(session, body: dict, fn, form: dict, view: str) -> dict:
+    """One Settings save: app.'s function on the form (Form), answered in the save shape with the fresh tab."""
+    f = Form(form)
+    return saved(session, _work(lambda: fn(f, None, session)), body, view=view)
+
+
+@route("/settings/targets", "POST")
+def settings_targets_save(_request, body, session):
+    """New food targets from a day: valid_from (yyyy-mm-dd), the nine values (numbers; left out or null: no target), note."""
+    form = {"valid_from": _day_text(body, "valid_from") or "", "note": _short(body, "note", 200) or ""}
+    form.update({k: _number(k, body.get(k)) for k, _l, _u in settingspage.TARGET_FIELDS})
+    return _setting(session, body, websettings.targets, form, "settings_targets")
+
+
+@route("/settings/height", "POST")
+def settings_height_save(_request, body, session):
+    """The height from a day: valid_from (yyyy-mm-dd), height (cm)."""
+    form = {"valid_from": _day_text(body, "valid_from") or "", "height": _number("height", body.get("height"))}
+    return _setting(session, body, websettings.height, form, "settings_body")
+
+
+def _keys(body: dict, name: str):
+    """A list of keys (strings); None when left out."""
+    v = body.get(name)
+    if v is None:
+        return None
+    if not isinstance(v, list) or not all(isinstance(x, str) for x in v):
+        raise Refused(400, "bad_request", f"{name} must be a list of keys.")
+    return v
+
+
+@route("/settings/body", "POST")
+def settings_body_save(_request, body, session):
+    """How often body measurements are due (interval, whole days) and which measures show (show: the keys shown); left out: as now."""
+    now = reads.settings_body()
+    n = body.get("interval")
+    if n is not None and (not isinstance(n, int) or isinstance(n, bool)):
+        raise Refused(400, "bad_request", "interval must be a whole number.")
+    show = _keys(body, "show")
+    form = {"interval": str(now["interval"]["days"] if n is None else n),
+            "show": [m["key"] for m in now["measures"] if m["shown"]] if show is None else show}
+    return _setting(session, body, websettings.body_settings, form, "settings_body")
+
+
+TODAY_KINDS = ("habit", "health", "usual", "review", "card")
+
+
+def _today_form(sent: dict) -> dict:
+    """The groups sent ({kind: [{id, shown}]} in the wanted order) as app.'s Today page form would post them: show_<kind>_<id> and
+    pos_<kind>_<id>. A group not sent, and an item of a group not in its list, as they are now (an item left out goes after the sent
+    ones, in its present order); an id that is not one of the group's is ignored."""
+    form = {}
+    with connect() as c, c.cursor() as cur:
+        prefs = uiprefs.load(cur)
+        groups = settingspage.today_items(cur)
+    for kind, _heading, items in groups:
+        items = uiprefs.ordered(items, lambda i: i[0], prefs["order"].get(kind, []))
+        known = {i for i, _l in items}
+        listed, shown = [], {}
+        for x in sent.get(kind) or []:
+            i = str(x["id"])
+            if i in known and i not in shown:
+                listed.append(i)
+                shown[i] = x["shown"]
+        listed += [i for i, _l in items if i not in shown]
+        for n, i in enumerate(listed, 1):
+            if shown.get(i, f"{kind}:{i}" not in prefs["hidden"]):
+                form[f"show_{kind}_{i}"] = "1"
+            form[f"pos_{kind}_{i}"] = str(n)
+    return form
+
+
+@route("/settings/today", "POST")
+def settings_today_save(_request, body, session):
+    """What shows on Today: groups {habit|health|usual|review|card: [{id, shown}]}, each list in the wanted order (one tap saves its
+    whole group); stored as app.'s form stores it (uiprefs.save: hidden and order)."""
+    groups = body.get("groups")
+    if not isinstance(groups, dict):
+        raise Refused(400, "bad_request", "groups must be an object of lists of {id, shown}.")
+    for kind, items in groups.items():
+        if kind not in TODAY_KINDS:
+            raise Refused(400, "bad_request", "groups: the groups are " + ", ".join(TODAY_KINDS[:-1]) + " and " + TODAY_KINDS[-1] + ".")
+        if not isinstance(items, list) or not all(isinstance(x, dict) and isinstance(x.get("id"), (str, int)) and not isinstance(x.get("id"), bool)
+                                                  and isinstance(x.get("shown"), bool) for x in items):
+            raise Refused(400, "bad_request", f"groups.{kind} must be a list of {{id, shown}}.")
+    return _setting(session, body, websettings.today, _today_form(groups), "settings_today")
+
+
+@route("/settings/today_reset", "POST")
+def settings_today_reset(_request, body, session):
+    """Everything on Today again, in the default order (uiprefs.reset)."""
+    return _setting(session, body, websettings.today_reset, {}, "settings_today")
+
+
+@route("/settings/coach", "POST")
+def settings_coach_save(_request, body, session):
+    """Settings > Coach: goals, style (text; left out: as now), parts {day: [keys on], week: [keys on]} (a kind left out: as now; parts
+    left out: the switches stay); "Keep at least one part …" refused with app.'s words."""
+    now = reads.settings_coach()
+    form = {"goals": now["goals"], "style": now["style"]}
+    for k in ("goals", "style"):
+        v = _short(body, k, 10 * coach.GOALS_MAX)
+        if v is not None:
+            if len("\n".join(" ".join(line.split()) for line in v.splitlines()).strip()) > coach.GOALS_MAX:  # as coach._clean reads it, uncut
+                raise Refused(400, "bad_request", f"{k} must be {coach.GOALS_MAX} characters or fewer.")
+            form[k] = v
+    parts = body.get("parts")
+    if parts is not None:
+        if not isinstance(parts, dict) or any(kind not in coach.PARTS for kind in parts):
+            raise Refused(400, "bad_request", "parts must be {day: [keys], week: [keys]}.")
+        form["parts"] = "1"
+        for kind in now["kinds"]:
+            on = _keys(parts, kind["kind"])
+            for p in kind["parts"]:
+                if (p["key"] in on) if on is not None else p["on"]:
+                    form[f"show_{kind['kind']}_{p['key']}"] = "1"
+    return _setting(session, body, coach.goals_set, form, "settings_coach")
+
+
+# app.'s refusal for the device in use points to app.'s Sign out at the top; logger.'s Sign out is on More
+DEVICE_WORDS = {"This is the device you are using; use Sign out at the top.": "This is the device you are using; use Sign out on More."}
+
+
+@route("/settings/device", "POST")
+def settings_device(_request, body, session):
+    """Sign one other device out (id: the device's id from GET /settings/devices; at app. or here)."""
+    out = _work(lambda: websettings.device(Form({"sid": text(body, "id", 40)}), None, session))
+    if out.get("reason") in DEVICE_WORDS:
+        out = {**out, "reason": DEVICE_WORDS[out["reason"]]}
+    return saved(session, out, body, view="settings_devices")
+
+
+@route("/settings/others", "POST")
+def settings_others(_request, body, session):
+    """Sign every other device out, at app. and here (websettings.others)."""
+    return _setting(session, body, websettings.others, {}, "settings_devices")
+
+
+NUDGE_SWITCHES = ("on",) + tuple(k for k, *_x in settingspage.NUDGE_ROWS)
+NUDGE_HOURS = tuple(hk for _k, hk, *_x in settingspage.NUDGE_ROWS)
+
+
+@route("/settings/nudges", "POST")
+def settings_nudges(_request, body, session):
+    """The nudges: on and each switch (true or false), each hours field (a number; clamped to its range in half hours, as app.); a field
+    left out stays as it is now (nudges.save stores the whole value: the door fills in every field)."""
+    with connect() as c, c.cursor() as cur:
+        now = nudges.load(cur)
+    form = {}
+    for k in NUDGE_SWITCHES:
+        v = _bool(body, k)
+        if v if v is not None else now[k]:
+            form[k] = "1"
+    for hk in NUDGE_HOURS:
+        v = body.get(hk)
+        form[hk] = str(now[hk]) if v is None else _number(hk, v, clear=False)
+    return _setting(session, body, websettings.nudge_settings, form, "settings_notify")
+
+
+@route("/push/subscribe", "POST")
+def push_subscribe(_request, body, session):
+    """Notifications on this device (the browser's subscription: endpoint, keys {p256dh, auth}, user_agent): app.'s checks (a known
+    push service, valid keys), kept with origin 'logger' and this session (this: true in GET /settings/notify)."""
+    keys = body.get("keys")
+    if not isinstance(keys, dict):
+        raise Refused(400, "bad_request", "keys must be {p256dh, auth}.")
+    endpoint = text(body, "endpoint", 1000)
+    p256dh, auth_key = text(keys, "p256dh", 200), text(keys, "auth", 100)
+    if not webpush.allowed(endpoint) or not webpush.valid_keys(p256dh, auth_key):
+        out = {"outcome": "rejected", "reason": "Not a known push service."}
+    else:
+        def keep():
+            with connect() as c:
+                c.execute("""INSERT INTO push_subscriptions (endpoint, p256dh, auth, user_agent, session_sid, origin) VALUES (%s, %s, %s, %s, %s, 'logger')
+                             ON CONFLICT (endpoint) DO UPDATE SET p256dh = EXCLUDED.p256dh, auth = EXCLUDED.auth, user_agent = EXCLUDED.user_agent,
+                               session_sid = EXCLUDED.session_sid, origin = EXCLUDED.origin, failures = 0""",
+                          (endpoint, p256dh, auth_key, text(body, "user_agent", 300), session["sid"]))
+                logbook._audit(c.cursor(), "web_change", "changed", {"what": "notifications on"}, logbook.WEB)
+            return {"outcome": "changed", "head": "Notifications are on for this device."}
+        out = _work(keep)
+    return saved(session, out, body, view="settings_notify")
+
+
+@route("/push/off", "POST")
+def push_off(_request, body, session):
+    """Notifications off for one device (id from GET /settings/notify's subscriptions; here or at app.)."""
+    return _setting(session, body, websettings.push_off, {"id": str(_int(body, "id"))}, "settings_notify")
+
+
+@route("/push/test", "POST")
+def push_test(_request, body, session):
+    """A test notification to every device (websettings.nudge_test); each opens its own address's Notifications tab."""
+    return _setting(session, body, websettings.nudge_test, {}, "settings_notify")
+
+
+@route("/export", "POST", download=True)
+def export_download(_request, body, session):
+    """The ZIP of everything logged (export.download, as app.'s /web/settings/export: the same file, file name and audit row);
+    private: true adds private.csv. The answer is the file itself (application/zip), not JSON; a failure is JSON (500)."""
+    private = _bool(body, "private")
+    try:
+        data, name = export.download(Form({"private": "1"} if private else {}), session)
+    except Exception as e:  # noqa: BLE001 - the kind only
+        log.error("the export failed: %s", type(e).__name__)
+        raise Refused(500, "server_error", export.FAILED) from None
+    return Download(data, "application/zip", name)
