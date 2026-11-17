@@ -4,12 +4,13 @@ runs the same function as the live form; the AI is a fake. Every route answers i
 never has its words in the answer. Every name, food, number and sentence is invented."""
 import json
 import time
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 import pytest
 
 from app import api, reads, service, webentry, webundo
 from app import web as webapp
+from app.rules import BERLIN
 from conftest import owner_sql
 from test_api_door import door, door_on, signed_in  # noqa: F401 - door_on is autouse
 from test_log import fake, off, skyr  # noqa: F401 - fixtures reused: the AI is a fake (off: no Open Food Facts)
@@ -519,10 +520,14 @@ def test_a_blood_pressure_needs_both_numbers(sv, fake):
 
 
 def test_a_wake_up_time(sv, fake):
-    j = shaped(sv.post("/health", row="wake", time="07:10", key="he-3"))
+    # An hour ago on the Berlin clock, so the test is the same at any time of day: a fixed "07:10" is yesterday's at night (it is read
+    # as the latest such time, not in the future), and more than 12 hours (cycle.NEW_DAY_H) after a wake-up the Today card starts
+    # Woke up empty for the next sleep, with no ref to correct (todaypage._next_sleep).
+    up = (datetime.now(BERLIN) - timedelta(hours=1)).strftime("%H:%M")
+    j = shaped(sv.post("/health", row="wake", time=up, key="he-3"))
     assert j["outcome"] == "saved" and got_undo(j)
     assert owner_sql("""SELECT to_char(event_at AT TIME ZONE 'Europe/Berlin', 'HH24:MI') AS t FROM events e
-                        JOIN log_types t ON t.id = e.type_id WHERE t.name = 'wake'""") == [{"t": "07:10"}]
+                        JOIN log_types t ON t.id = e.type_id WHERE t.name = 'wake'""") == [{"t": up}]
     assert {h["row"]: h for h in j["day"]["health"]}["wake"]["ref"].startswith("e")
 
 

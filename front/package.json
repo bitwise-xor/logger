@@ -15,7 +15,7 @@
     "dev": "vite dev --host 0.0.0.0 --port 3000",
     "build": "vite build",
     "preview": "node build",
-    "test": "vitest run",
+    "test": "svelte-kit sync && vitest run",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
   },
   "devDependencies": {

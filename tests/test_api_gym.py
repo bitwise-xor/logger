@@ -35,9 +35,22 @@ PLAIN = {"bench": "Bench press", "press": "Shoulder press", "row": "Seated row",
          "legs": "Legs", "arms": "Arms"}
 
 
+def weekday() -> int:
+    """Today's weekday on the logging day the app uses (Monday 0 ... Sunday 6)."""
+    return owner_sql("SELECT extract(isodow FROM log_day(now()))::int - 1 AS w")[0]["w"]
+
+
+def past_days(wd: int) -> list:
+    """How many days back each past workout is, oldest first: every third day, 19 of them, the newest on the Sunday before this week
+    (or earlier). The app picks today's day of the split as the first one not done yet THIS week (Monday to yesterday), and a workout
+    in this week would make that depend on the weekday the test runs on (the 17.11.2026 failures: Push done yesterday, so Pull is
+    today's day). With none in this week, today's day is Push (Day 1) on every weekday."""
+    return list(range(wd + 55, wd, -3))
+
+
 def invented(today_workout=True, plain=False) -> dict:
     """A three-day split (Zz push, Zz pull, Zz legs) with weights, bodyweight and cardio exercises, a removed day, a retired exercise,
-    an exercise never done; eight weeks of workouts; and (today_workout) a workout started today with two exercises done, the bench
+    an exercise never done; eight weeks of workouts (none in the current week before today: see past_days); and (today_workout) a workout started today with two exercises done, the bench
     in two rows. plain: the names of PLAIN instead. -> the ids by short name."""
     nm = (lambda k: PLAIN[k]) if plain else (lambda k: f"Zz {k}" if k not in ("pullup", "pushup", "flat") else
                                               {"pullup": "Zz pull-up", "pushup": "Zz push-up", "flat": "zz flat"}[k])
@@ -51,7 +64,7 @@ def invented(today_workout=True, plain=False) -> dict:
     plan = [("push", [(x["bench"], 3, 8, 50, None), (x["press"], 3, 10, 30, None), (x["pushup"], 3, 15, None, None), (x["bike"], None, None, None, 15)]),
             ("pull", [(x["row"], 3, 10, 40, None), (x["pullup"], 3, 5, None, None), (x["bike"], None, None, None, 20)]),
             ("legs", [(x["squat"], 3, 8, 60, None), (x["bike"], None, None, None, 25)])]
-    for k, back in enumerate(range(55, 0, -3)):  # every third day for eight weeks, Push, Pull, Legs in turn, a little heavier each time
+    for k, back in enumerate(past_days(weekday())):  # every third day for eight weeks, Push, Pull, Legs in turn, a little heavier each time
         name, rows = plan[k % 3]
         session(back, [(e, s, r, kg + k // 3 * 2.5 if kg else None, m and m + k % 4) for e, s, r, kg, m in rows], x[name])
     session(90, [(x["curl"], 3, 12, 10, None)], x["arms"])
@@ -251,6 +264,7 @@ def test_activity_with_watch_data(sv, fake, monkeypatch):
     monkeypatch.setenv("WATCH_TOKEN", TOKEN)
     x = invented(today_workout=False)
     t = datetime.now(rules.BERLIN).date()
+    owner_sql("DELETE FROM workouts WHERE day = %s", t - timedelta(days=3))  # the page matches the day's first workout: this test's own, whatever day it is
     post(client("log.19hospitalroad.fyi"), payload(t - timedelta(days=3)))
     owner_sql("INSERT INTO workouts (day, started_at, split_day_id) VALUES (%s, %s, %s)", t - timedelta(days=3),
               datetime.combine(t - timedelta(days=3), datetime.min.time(), rules.BERLIN) + timedelta(hours=18, minutes=5), x["pull"])
