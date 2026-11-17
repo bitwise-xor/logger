@@ -22,6 +22,7 @@ import { linesOf, wordsOfText } from '../homeparts.js';
 import { CATALOGUE_FILTERS, CATALOGUE_SORTS } from '../catalogue.js';
 import { askedOpen, askedTest } from '../medical.js';
 import { FILTERS } from '../coach.js';
+import { hoursOf, NUDGE_HOURS, NUDGE_KEYS } from '../settings.js';
 
 /** The form's fields: what `FormData` offers (and a plain test double). */
 export interface Fields {
@@ -350,7 +351,81 @@ export const SAVES = {
       };
     },
   },
+  // Settings (deploy 111; the door's routes came with 110), each through app.'s own function with its checks and words: no key (the
+  // door ignores one), no Undo (a change ends the session's Undo bar, as app.'s forms do), never sent again by the page (saver.ts).
+  // The nine targets: a field left empty is "no target" (null), as app.'s form; the row is all nine.
+  settings_targets: { path: '/settings/targets', keyed: false, body: (f) => targetsBody(f) },
+  // One tap on the Today page tab: its whole group, in the order wanted (the form's id and shown fields, pair by pair).
+  settings_today: { path: '/settings/today', keyed: false, body: (f) => todayBody(f) },
+  settings_today_reset: { path: '/settings/today_reset', keyed: false, body: () => ({}) },
+  settings_height: { path: '/settings/height', keyed: false, body: (f) => ({ valid_from: dateOf(f, 'valid_from'), height: decimalOf(f, 'height') }) },
+  // the measures shown always go (none ticked is app.'s "Keep at least one measure.")
+  settings_body: {
+    path: '/settings/body',
+    keyed: false,
+    body: (f) => ({ interval: decimalOf(f, 'interval'), show: f.getAll('show').filter((x): x is string => typeof x === 'string').slice(0, 10) }),
+  },
+  settings_coach: { path: '/settings/coach', keyed: false, body: (f) => coachBody(f) },
+  settings_device: { path: '/settings/device', keyed: false, body: (f) => ({ id: str(f, 'id', 64) }) },
+  settings_others: { path: '/settings/others', keyed: false, body: () => ({}) },
+  settings_nudges: { path: '/settings/nudges', keyed: false, body: (f) => nudgesBody(f) },
+  // the notifications of a device (here or at app.) off; a test to every device
+  push_off: { path: '/push/off', keyed: false, body: (f) => ({ id: int(f, 'id') }) },
+  push_test: { path: '/push/test', keyed: false, body: () => ({}) },
 } satisfies Record<string, Save>;
+
+/** A number of a Settings form as the door takes it (a comma too); empty is left out; anything else as typed (the page checks first). */
+function decimalOf(f: Fields, name: string): number | string | undefined {
+  const t = str(f, name, 20);
+  if (t === undefined) return undefined;
+  return /^-?\d{1,9}([.,]\d{1,6})?$/.test(t) ? Number(t.replace(',', '.')) : t;
+}
+
+/** Food targets (docs/API.md /settings/targets): the date, the nine numbers (empty: null, no target) and the note (left out when empty). */
+function targetsBody(f: Fields): Body {
+  const body: Body = { valid_from: dateOf(f, 'valid_from'), note: str(f, 'note', 200) };
+  for (const k of TARGET_KEYS) body[k] = decimalOf(f, k) ?? null;
+  return body;
+}
+
+/** The nine targets, as the door names them. */
+export const TARGET_KEYS = ['kcal', 'protein', 'fat', 'sat_fat', 'carbs', 'fibre', 'sugar_added', 'sodium_mg', 'water_ml'] as const;
+const TODAY_KINDS = ['habit', 'health', 'usual', 'review', 'card'];
+
+/** The Today page tab's group: {groups: {<kind>: [{id, shown}]}}, the ids in the order sent; an unknown kind sends no group. */
+function todayBody(f: Fields): Body {
+  const kind = str(f, 'group', 10);
+  const ids = f.getAll('id').slice(0, 200);
+  const shown = f.getAll('shown');
+  const items = ids.filter((id): id is string => typeof id === 'string').map((id, k) => ({ id: id.slice(0, 100), shown: shown[k] === '1' }));
+  return { groups: kind && TODAY_KINDS.includes(kind) ? { [kind]: items } : {} };
+}
+
+/** Settings > Coach: the two texts as typed (up to 2000, the door tidies them as app.), and the parts switched on when the form had them. */
+function coachBody(f: Fields): Body {
+  const text = (name: string) => {
+    const v = f.get(name);
+    return typeof v === 'string' ? v.slice(0, 2000) : undefined;
+  };
+  const on = (name: string) => f.getAll(name).filter((x): x is string => typeof x === 'string').slice(0, 20);
+  return { goals: text('goals'), style: text('style'), parts: f.get('parts') === '1' ? { day: on('day'), week: on('week') } : undefined };
+}
+
+/** The Nudges form: every switch true or false ("1"), every hours field a number (a field not a number is left out: as now). */
+function nudgesBody(f: Fields): Body {
+  const body: Body = {};
+  const flag = (name: string) => {
+    const v = f.get(name);
+    return typeof v === 'string' ? v === '1' : undefined;
+  };
+  body.on = flag('on');
+  for (const k of NUDGE_KEYS) body[k] = flag(k);
+  for (const k of NUDGE_HOURS) {
+    const v = f.get(k);
+    body[k] = hoursOf(typeof v === 'string' ? v : undefined);
+  }
+  return body;
+}
 
 /** The ten values of a food (docs/API.md, the Catalogue's values form), as the door names them. */
 export const CATALOGUE_VALUES = ['kcal', 'protein', 'fat', 'sat_fat', 'carbs', 'fibre', 'sugar_total', 'sugar_added', 'sodium_mg', 'caffeine_mg'] as const;
@@ -535,12 +610,32 @@ export const LIBRARY_HABITS_SAVES: SaveName[] = ['habits_manage'];
 const MEDICAL_ONLY: SaveName[] = ['labs_value', 'labs_report', 'labs_med'];
 export const MEDICAL_REPORTS_SAVES: SaveName[] = ['labs_value', 'labs_report'];
 export const MEDICAL_MEDS_SAVES: SaveName[] = ['labs_med', 'log', 'answer', 'undo'];
+/**
+ * Settings' tabs (deploy 111, src/routes/(app)/settings/*): Food targets, the Today page (a group's tap, Show everything again), Body
+ * (height, the measurements), Coach, Devices (sign one out, all others), Notifications (the nudges, a device's off, the test). None has
+ * a key or Undo, and none is in Today's actions.
+ */
+export const SETTINGS_TARGETS_SAVES: SaveName[] = ['settings_targets'];
+export const SETTINGS_TODAY_SAVES: SaveName[] = ['settings_today', 'settings_today_reset'];
+export const SETTINGS_BODY_SAVES: SaveName[] = ['settings_height', 'settings_body'];
+export const SETTINGS_COACH_SAVES: SaveName[] = ['settings_coach'];
+export const SETTINGS_DEVICES_SAVES: SaveName[] = ['settings_device', 'settings_others'];
+export const SETTINGS_NOTIFY_SAVES: SaveName[] = ['settings_nudges', 'push_off', 'push_test'];
+export const SETTINGS_ONLY: SaveName[] = [
+  ...SETTINGS_TARGETS_SAVES,
+  ...SETTINGS_TODAY_SAVES,
+  ...SETTINGS_BODY_SAVES,
+  ...SETTINGS_COACH_SAVES,
+  ...SETTINGS_DEVICES_SAVES,
+  ...SETTINGS_NOTIFY_SAVES,
+];
 export const TODAY_SAVES: SaveName[] = SAVE_NAMES.filter(
   (n) =>
     n === 'undo' ||
-    (!FOOD_SAVES.includes(n) && !USUAL_SAVES.includes(n) && !HEALTH_SAVES.includes(n) && !HABITS_ONLY.includes(n) && !GYM_ONLY.includes(n) && !HOME_ONLY.includes(n) && !TRENDS_SAVES.includes(n) && !CATALOGUE_ONLY.includes(n) && !MEDICAL_ONLY.includes(n)),
+    (!FOOD_SAVES.includes(n) && !USUAL_SAVES.includes(n) && !HEALTH_SAVES.includes(n) && !HABITS_ONLY.includes(n) && !GYM_ONLY.includes(n) && !HOME_ONLY.includes(n) && !TRENDS_SAVES.includes(n) && !CATALOGUE_ONLY.includes(n) && !MEDICAL_ONLY.includes(n) && !SETTINGS_ONLY.includes(n)),
 );
-export type View = 'day' | 'food' | 'usual' | 'health' | 'body' | 'habits' | 'gym' | 'gym_plan' | 'gym_exercises' | 'home' | 'home_pick' | 'home_zones' | 'home_history' | 'home_chore' | 'home_edit' | 'week' | 'coach' | 'catalogue' | 'labs' | 'labs_tests' | 'labs_meds';
+export type View = 'day' | 'food' | 'usual' | 'health' | 'body' | 'habits' | 'gym' | 'gym_plan' | 'gym_exercises' | 'home' | 'home_pick' | 'home_zones' | 'home_history' | 'home_chore' | 'home_edit' | 'week' | 'coach' | 'catalogue' | 'labs' | 'labs_tests' | 'labs_meds'
+  | 'settings_targets' | 'settings_today' | 'settings_body' | 'settings_coach' | 'settings_devices' | 'settings_notify';
 
 /** A key as the browser makes them (src/lib/saver.ts): a random UUID or base64url; anything else is replaced. */
 const KEY = /^[A-Za-z0-9_-]{16,64}$/;

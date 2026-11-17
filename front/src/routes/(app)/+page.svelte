@@ -15,7 +15,7 @@
   import LogBox from '#lib/components/today/LogBox.svelte';
   import { todayFields } from '#lib/coach.js';
   import { pollWhileWorking } from '#lib/coachpoll.svelte.js';
-  import { headerLine } from '#lib/day.js';
+  import { gratitudeShown, headerLine } from '#lib/day.js';
   import { dayLine } from '#lib/format.js';
   import { setToday, Today } from '#lib/today.svelte.js';
   import { invalidateAll } from '$app/navigation';
@@ -89,7 +89,8 @@
       <div class="order-8 empty:hidden desktop:order-none"><HomeCard {day} /></div>
       <!-- the Coach card (deploy 109): after Home on phones, last of the cards on the PC; none when Settings hides it (day.coach null) -->
       <div class="order-9 empty:hidden desktop:order-none">{#if coach}<CoachDayCard card={coach} run={today.coach} fields={todayFields(coach)} start={(f) => void today.startCoach(f)} {lookAgain} appUrl={data.appUrl} title={coach.title} links />{/if}</div>
-      <div class="order-10 empty:hidden desktop:order-none"><GratitudeLink {day} href="{data.appUrl}/web/gratitude" /></div>
+      <!-- the Gratitude card (at app.); none when Settings > Today page hides it (deploy 111: day.shown.gratitude false) -->
+      <div class="order-10 empty:hidden desktop:order-none">{#if gratitudeShown(day)}<GratitudeLink {day} href="{data.appUrl}/web/gratitude" />{/if}</div>
     </div>
   </main>
 {/if}

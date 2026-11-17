@@ -164,14 +164,14 @@ export const kcalText = (kcal: number) => n(kcal);
 export const appLink = (appUrl: string, href: string) => (/^\/[a-z]/.test(href) ? `${appUrl}${href}` : `${appUrl}/web/`);
 
 /**
- * Where Your goals leads here: Settings' Coach tab, which comes with deploy 111. THE one-line switch: put its path here (e.g.
- * '/settings?tab=coach') and every "Your goals" link (Trends, the Coach page, Today's card) follows; null: still app.'s page.
+ * Where Your goals leads here: Settings' Coach tab (deploy 111). THE one-line switch: every "Your goals" link (Trends, the Coach page,
+ * Today's card) follows it; null would be app.'s page again.
  */
-export const GOALS_HERE: string | null = null;
+export const GOALS_HERE: string | null = '/settings/coach';
 
 /**
  * The door's `/web/...` links (a coaching card's "All coachings" and "Your goals", docs/API.md) as this app's links, in ONE place:
- * `/web/coach` is the Coach page here (its `?f=` of days or weeks kept), Settings' Coach tab is `GOALS_HERE` (app.'s until deploy 111),
+ * `/web/coach` is the Coach page here (its `?f=` of days or weeks kept), Settings' Coach tab is `GOALS_HERE` (here since deploy 111),
  * anything else is app.'s page.
  */
 export function doorLink(appUrl: string, href: string): string {

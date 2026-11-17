@@ -71,6 +71,6 @@
     </form>
   </main>
   <p class="m-0 text-[13px] text-muted">
-    A trial of the new look. Everything is still in the <a href="{data.appUrl}/web/">full app</a>.
+    Ideas, Private and Gratitude are in the <a href="{data.appUrl}/web/">full app</a>.
   </p>
 </div>

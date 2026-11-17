@@ -260,7 +260,7 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
 - More, Search, Recent and Usage (deploy 108; the door's routes came with deploy 107; read only, no save): `/more` has the search field (a plain GET form to
   `/search?q=`), the Spaces, a card with Coach, Recent, Usage and Settings, a quiet "Words" card (Ideas, Private and Gratitude link to app., each marked
   "app.") and Sign out (Today keeps its own); on the PC the rows, the Words and Sign out are on the left and the Spaces on the right. Settings
-  still opens app. (its row carries a small "app." tag): `MORE_PLACES` in `src/lib/places.ts` has `here: null` for it, to be set to `'/settings'` with deploy 111 (Coach is
+  still opens app. (its row carries a small "app." tag): `MORE_PLACES` in `src/lib/places.ts` has `here: null` for it, set to `'/settings'` with deploy 111, below (Coach is
   `'/coach'` since deploy 109, below). `placeOf()` lights More on `/search`, `/recent`, `/usage` and (deploy 109) `/coach` (phone bar and PC rail). Each of the three has
   a header with a back chevron to `/more` and the theme button, and a failed read shows `ProblemCard` with app.'s own page. **Search** (`?q=`,
   `src/lib/search.ts`): the door's five groups in its order with its titles and a count ("15+" when `more`), "none" for an empty group, the door's `hint` under
@@ -293,9 +293,25 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   Coach page. The stand-in answers GET `/coach` (the lists of `tests/samples/coach.json`; days 13.11. working, 14.11. done, 15.11. failed, any other none), `coach` in GET `/day`,
   POST `/coach/start` kind "day" and `/coach/status` (POST `/standin/coach?polls=n&fail=1&limit=1&empty=1&off=1&day=…&state=…`; GET `/standin/coach-starts` counts the starts);
   `SHOOT_ONLY=coach` runs these checks (the variable must reach the container: `docker run -e SHOOT_ONLY=coach`).
+- Settings (deploy 111; the door's routes came with 110): `/settings` (redirects to `/settings/targets`) with seven tabs, each its own page:
+  `/settings/targets`, `/today`, `/body`, `/coach`, `/devices`, `/notifications`, `/export` (`SETTINGS_TABS` in `places.ts`; More's Settings row,
+  More lit; `SettingsHeader.svelte`: back to More, the theme button, the tabs scrolling sideways inside their row on phones). Each reads GET
+  `/settings/<tab>` (`server/settingsread.ts`; a failed read is `ProblemCard` with app.'s `/web/settings?tab=…`) and saves through form actions
+  (`saves.ts`: `settings_targets`, `settings_today`, `settings_today_reset`, `settings_height`, `settings_body`, `settings_coach`, `settings_device`,
+  `settings_others`, `settings_nudges`, `push_off`, `push_test`; no key, no Undo, never sent again by the page, none in Today's actions), each answer
+  bringing the tab's fresh read (`settingspage.svelte.ts`). A form's refusal stands next to it in the door's words (a field that is no number is
+  checked first, in app.'s words: `settings.ts`); the Today page tab saves every tap at once (a switch or an arrow posts the whole group; the list is the
+  door's fresh read); "Show everything again" and "Sign out all others" are asked first in the answer bar. Export's Download is a plain form POST to
+  `/settings/export/download` (`+server.ts`: the door's POST /export through `door.postFile`, the ZIP handed through with the door's Content-Type and
+  Content-Disposition and no-store; a failure goes back to the tab with `?failed=1`). The "This device: Turn on" card comes with deploy 112
+  (`components/settings/ThisDevice.svelte`, empty now). Also with 111: no footer line any more; Habits, Library > Habits, Health's height and every
+  "Your goals" (`GOALS_HERE`) open Settings here; Today hides the To review items (one line instead) and the Gratitude card when `day.shown` says so.
+  The stand-in answers the seven reads and the saves from `tests/samples/settings.json`, POST `/export` with a small ZIP made there (POST
+  `/standin/settings?export_fail=1&shown=0&noshown=1&nopush=1`; GET `/standin/push-tests`, `/standin/exports`); `SHOOT_ONLY=settings` runs these checks
+  (the variable must reach the container: `docker run -e SHOOT_ONLY=settings`).
 - The Spaces menu (deploy 96): `src/lib/places.ts` says where a page belongs. The PC rail: Today, Trends, Library, then "Spaces"
   (Gym, Health, Habits, Home since deploy 99; the one you are in highlighted), then More. Phones and tablets keep four tabs; More is the page `/more`
-  (`src/routes/(app)/more`): the Spaces as a list (Home since deploy 99, Medical since deploy 106: every Space is live), then one line that the rest is in the full app.
+  (`src/routes/(app)/more`): the Spaces as a list (Home since deploy 99, Medical since deploy 106: every Space is live).
   On a Space's page the More tab is highlighted. Trends and Library stayed greyed (Trends is live since deploy 102, its three tabs since 103; Library since 105). Deploy 96 also fixed two things on the Habits page:
   after a day tick the open calendar is scrolled above the answer bar (phones and tablets), and app.'s "in the calendar below" is
   worded "in Last 30 days" (`helpText` in `habits.ts`).

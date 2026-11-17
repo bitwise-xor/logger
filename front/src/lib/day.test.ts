@@ -10,7 +10,10 @@ import {
   macroBars,
   macroPie,
   macroText,
+  gratitudeShown,
+  hiddenReviewText,
   needsCount,
+  reviewShown,
   reviewText,
   timeline,
   type Day,
@@ -249,6 +252,20 @@ describe('needs you, habits, chips', () => {
     // "Body measurements due" counts as one (deploy 92: app. counts it with the items to review)
     d.needs.body_due = { last: '2026-10-15', days: 32 };
     expect(needsCount(d)).toBe(1);
+  });
+  it('follows Settings\' two switches (deploy 111): a hidden To review box counts as its one line, a hidden Gratitude card goes', () => {
+    expect(SAMPLE.shown).toEqual({ review: true, gratitude: true });
+    expect([reviewShown(SAMPLE), gratitudeShown(SAMPLE)]).toEqual([true, true]);
+    const d = copy();
+    d.shown = { review: false, gratitude: false };
+    expect([reviewShown(d), gratitudeShown(d)]).toEqual([false, false]);
+    expect(needsCount(d)).toBe(2 + 1 + 1 + 1);
+    d.needs.review = [];
+    expect(needsCount(d)).toBe(2 + 1 + 0 + 1);
+    // an older door without `shown`: both as before
+    delete d.shown;
+    expect([reviewShown(d), gratitudeShown(d)]).toEqual([true, true]);
+    expect([hiddenReviewText(1), hiddenReviewText(3)]).toEqual(['1 item to review is hidden here', '3 items to review are hidden here']);
   });
   it('names a thought by its type only', () => {
     const texts = SAMPLE.needs.review.map(reviewText);

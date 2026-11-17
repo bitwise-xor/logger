@@ -97,9 +97,20 @@
 // working until it has been asked `polls` times (2 unless POST /standin/coach?polls=n; 0 = never done), then done (a coaching joins the list)
 // or failed (?fail=1). Defaults: 15.11.2026 failed, 14.11.2026 done, 13.11.2026 working (stays working). Every start is counted (GET
 // /standin/coach-starts). POST /standin/coach?empty=1: no coaching at all; ?day=2026-11-15&state=none|working|done|failed sets a day's state.
+// Deploy 111: Settings at logger., from tests/samples/settings.json (real answers of the door for invented settings): GET /settings/<tab>
+// (targets, today, body, coach, devices, notify, export) as the state stands, and the saves as the core makes them (websettings, coach.goals_set):
+// /settings/targets (a new row, the same date replaced; the core's refusals), /settings/today (a group's order and switches, the rest after) and
+// /settings/today_reset, /settings/height and /settings/body (their refusals: "Keep at least one measure."), /settings/coach ("Keep at least
+// one part …"), /settings/device and /settings/others, /settings/nudges (hours clamped to half hours), /push/off and /push/test (none: the
+// core's refusal; GET /standin/push-tests counts the tests), each with the fresh tab for view "settings_<tab>", no key, no Undo (a change
+// ends the session's Undo). POST /export answers a small real ZIP made here (invented file names; private.csv only with private: true;
+// GET /standin/exports counts them; POST /standin/settings?export_fail=1 makes it the door's 500). GET /day's `shown` follows the Today page
+// tab's "review:box" and "card:gratitude" (and the Coach card "card:coach"; the first two start as day.json's `shown`); POST /standin/settings?shown=0 hides both, ?noshown=1 leaves
+// `shown` out (an older door), ?nopush=1 no device gets nudges.
 import { createServer } from 'node:http';
 import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import { crc32 } from 'node:zlib';
 
 const port = Number(process.argv[2] ?? 8099);
 const token = process.env.FRONT_TOKEN ?? '';
@@ -122,6 +133,7 @@ const LABS = read('labs.json');
 const SEARCH = read('search.json');
 const RECENT = read('recent.json');
 const USAGE = read('usage.json');
+const SETTINGS = read('settings.json');
 const READ_MS = 1200; // the AI's moment: long enough to see the "being read" row
 
 let state; // { day, usual, undo: {token, head, expires_at} | null, before: {day, usual} before the last save (for Undo), keys: Map, lines: Map, aiDown }
@@ -130,7 +142,7 @@ let mode = 'up'; // 'up' | 'core-down' | 'door-off' (step F)
 function reset() {
   state = { day: read('day.json').day, usual: usualStart(), undo: null, before: null, keys: new Map(), lines: new Map(), aiDown: false,
     scanned: new Map([[SCAN.barcode.code, SCAN.barcode.food]]), labelFail: false,
-    hv: healthStart(), sessions: sessionsStart(), hab: habitsStart(), dayKeys: new Set(), slow: 0, locked: new Set(), gym: gymStart(), watchNone: false, gymEmpty: false, home: homeStart(), week: weekStart(), coach: coachState(), fail: new Set(), cat: catStart(), labs: labsStart(), recentNone: false, usageEmpty: false };
+    hv: healthStart(), sessions: sessionsStart(), hab: habitsStart(), dayKeys: new Set(), slow: 0, locked: new Set(), gym: gymStart(), watchNone: false, gymEmpty: false, home: homeStart(), week: weekStart(), coach: coachState(), fail: new Set(), cat: catStart(), labs: labsStart(), recentNone: false, usageEmpty: false, settings: settingsStart() };
   state.day.needs.body_due = structuredClone(HEALTH.day_body_due);
   // the notes of the food sample's rows (the same invented day), kept on the rows so an Undo puts them back too
   const notes = new Map(FOOD.food_day.food_day.rows.map((r) => [r.ref, r.note]));
@@ -138,7 +150,11 @@ function reset() {
 }
 
 /** GET /day's day: the rows without the notes the stand-in keeps on them (the door's /day has none). */
-const dayOut = (d) => ({ ...d, rows: d.rows.map(({ note: _n, ...r }) => r), coach: coachDayCard() });
+const dayOut = (d) => {
+  const out = { ...d, rows: d.rows.map(({ note: _n, ...r }) => r), coach: setShown('card', 'coach') ? coachDayCard() : null, shown: { review: setShown('review', 'box'), gratitude: setShown('card', 'gratitude') } };
+  if (state.settings.noShown) delete out.shown;
+  return out;
+};
 
 /** The Food day as the door sends it: today from the day above; an earlier day is the sample's day before. */
 function foodDay(asked) {
@@ -2687,6 +2703,199 @@ function labsAnswer(b) {
 
 reset();
 
+// ---- Settings (deploy 111) ---------------------------------------------------------------------------------------------------------
+const ST_TODAY = '2026-11-17';
+const stDate = (iso) => `${iso.slice(8, 10)}.${iso.slice(5, 7)}.${iso.slice(0, 4)}`;
+const isDay = (x) => typeof x === 'string' && /^\d{4}-\d\d-\d\d$/.test(x);
+function settingsStart() {
+  const s = structuredClone(Object.fromEntries(['targets', 'today', 'body', 'coach', 'devices', 'notify', 'export'].map((k) => [k, SETTINGS[k][`settings_${k}`]])));
+  // the default order (app.'s today_items): habits as listed, the Health card's rows, usual meals by name, the box, the cards
+  const order = { health: ['bed', 'wake', 'weight', 'sugar', 'bp_morning', 'bp_evening'], card: ['gratitude', 'home', 'coach'] };
+  const defaults = s.today.groups.map((g) => ({ ...g, items: (order[g.kind] ? order[g.kind].map((id) => g.items.find((x) => x.id === id)) : [...g.items].sort((a, b) => a.label.localeCompare(b.label)))
+    .map((x) => ({ ...x, shown: true })) }));
+  // the two switches GET /day carries start as tests/samples/day.json has them (its Gratitude card shown), so Today stays the day sample
+  const shown = read('day.json').day.shown ?? { review: true, gratitude: true };
+  s.today.groups.find((g) => g.kind === 'review').items.find((x) => x.id === 'box').shown = shown.review;
+  s.today.groups.find((g) => g.kind === 'card').items.find((x) => x.id === 'gratitude').shown = shown.gratitude;
+  return { ...s, defaults, gone: new Set(), tests: 0, exports: 0, exportFail: false, noShown: false };
+}
+/** A Today page item shown (Settings > Today page), as todaypage reads it. */
+const setShown = (kind, id) => state.settings.today.groups.find((g) => g.kind === kind)?.items.find((x) => x.id === id)?.shown !== false;
+const stRefuse = (reason) => ({ outcome: 'rejected', tone: 'warning', head: 'Nothing saved.', reason });
+const stOk = (head, outcome = 'changed') => ({ outcome, tone: 'ok', head, reason: null });
+const stNumber = (v) => v === null || v === undefined || (typeof v === 'number' && Number.isFinite(v));
+function stTwice(n) {
+  const names = (a) => new Set(n.subscriptions.filter((s) => s.address === a).map((s) => s.name));
+  const app = names('app');
+  return [...names('logger')].some((x) => app.has(x));
+}
+
+/** A Settings save's own tab, when the body names no view (as the core's default). */
+const settingsView = (what) => `settings_${{ targets: 'targets', today: 'today', today_reset: 'today', height: 'body', body: 'body', coach: 'coach', device: 'devices', others: 'devices', nudges: 'notify' }[what] ?? 'targets'}`;
+
+/** POST /settings/<what>, /push/off, /push/test: [status, answer without the read], as websettings answers. */
+function settingsSave(path, body) {
+  const S = state.settings;
+  const bad = (m) => [400, { error: 'bad_request', message: m }];
+  if (path === '/settings/targets') {
+    if (!isDay(body.valid_from)) return [200, stRefuse('Give the date the targets start on.')];
+    const T = S.targets;
+    for (const f of T.fields) if (!stNumber(body[f.key])) return bad(`${f.key} must be a number or null.`);
+    for (const f of T.fields) {
+      const v = body[f.key];
+      if (v !== null && v !== undefined && (v < T.limits.min || v > T.limits.max)) return [200, stRefuse(`${f.label}: give a number from ${T.limits.min} to ${T.limits.max}, or leave it empty.`)];
+    }
+    if (T.fields.every((f) => body[f.key] === null || body[f.key] === undefined)) return [200, stRefuse('Give at least one target.')];
+    const values = Object.fromEntries(T.fields.map((f) => [f.key, body[f.key] ?? null]));
+    const note = typeof body.note === 'string' && body.note.trim() ? body.note.trim().split(/\s+/).join(' ').slice(0, 200) : null;
+    T.history = [...T.history.filter((h) => h.valid_from !== body.valid_from), { valid_from: body.valid_from, valid_from_text: stDate(body.valid_from), values, note }]
+      .sort((a, b) => (a.valid_from < b.valid_from ? 1 : -1));
+    const cur = T.history.find((h) => h.valid_from <= ST_TODAY) ?? T.history[0];
+    T.current = { valid_from: cur.valid_from, valid_from_text: cur.valid_from_text, note: cur.note };
+    for (const f of T.fields) f.value = cur.values[f.key];
+    const said = T.fields.filter((f) => values[f.key] !== null).map((f) => `${f.label} ${values[f.key]}${['ml', 'mg'].includes(f.unit) ? ` ${f.unit}` : ''}`);
+    return [200, stOk(`Targets from ${stDate(body.valid_from)} saved: ${said.join(', ')}.`)];
+  }
+  if (path === '/settings/today') {
+    if (typeof body.groups !== 'object' || body.groups === null) return bad('groups must be an object.');
+    for (const [kind, list] of Object.entries(body.groups)) {
+      const g = S.today.groups.find((x) => x.kind === kind);
+      if (!g || !Array.isArray(list)) continue;
+      const sent = list.filter((x) => g.items.some((i) => i.id === x.id));
+      g.items = [...sent.map((x) => ({ ...g.items.find((i) => i.id === x.id), shown: x.shown === true })), ...g.items.filter((i) => !sent.some((x) => x.id === i.id))];
+    }
+    const all = S.today.groups.every((g) => g.items.every((i) => i.shown));
+    return [200, stOk(all ? 'Saved. The Today page shows everything.' : 'Saved. The Today page shows what you chose.')];
+  }
+  if (path === '/settings/today_reset') {
+    S.today.groups = structuredClone(S.defaults);
+    return [200, stOk('The Today page shows everything again, in the default order.')];
+  }
+  if (path === '/settings/height') {
+    if (!isDay(body.valid_from)) return [200, stRefuse('Give the date the height counts from.')];
+    const B = S.body;
+    if (typeof body.height !== 'number' || body.height < B.height_range.min || body.height > B.height_range.max) return [200, stRefuse(`Height: give a number from ${B.height_range.min} to ${B.height_range.max} cm.`)];
+    const cm = Math.round(body.height * 10) / 10;
+    B.heights = [...B.heights.filter((h) => h.valid_from !== body.valid_from), { cm, valid_from: body.valid_from, valid_from_text: stDate(body.valid_from) }].sort((a, b) => (a.valid_from < b.valid_from ? 1 : -1));
+    const cur = B.heights.find((h) => h.valid_from <= ST_TODAY);
+    B.height = cur ? { cm: cur.cm, valid_from: cur.valid_from } : null;
+    return [200, stOk(`Height ${cm} cm saved, from ${stDate(body.valid_from)}.`)];
+  }
+  if (path === '/settings/body') {
+    const B = S.body;
+    const days = body.interval ?? B.interval.days;
+    if (!Number.isInteger(days) || days < B.interval.min || days > B.interval.max) return [200, stRefuse(`Due every: give a whole number of days from ${B.interval.min} to ${B.interval.max}.`)];
+    const show = Array.isArray(body.show) ? body.show : B.measures.filter((m) => m.shown).map((m) => m.key);
+    if (!B.measures.some((m) => show.includes(m.key))) return [200, stRefuse('Keep at least one measure.')];
+    B.interval.days = days;
+    for (const m of B.measures) m.shown = show.includes(m.key);
+    return [200, stOk(`Body measurements: due every ${days} days, ${B.measures.filter((m) => !m.shown).length} hidden.`)];
+  }
+  if (path === '/settings/coach') {
+    const C = S.coach;
+    const clean = (x) => x.split('\n').map((l) => l.split(/\s+/).join(' ').trim()).join('\n').trim().slice(0, C.max);
+    for (const k of ['goals', 'style']) if (k in body && typeof body[k] !== 'string') return bad(`${k} must be text.`);
+    const parts = body.parts ?? {};
+    for (const kind of ['day', 'week']) {
+      if (Array.isArray(parts[kind]) && !C.kinds.find((k) => k.kind === kind).parts.some((p) => parts[kind].includes(p.key)))
+        return [200, stRefuse(`Keep at least one part of the ${kind === 'day' ? 'day coaching' : 'week review'}.`)];
+    }
+    for (const k of ['goals', 'style']) if (typeof body[k] === 'string') C[k] = clean(body[k]);
+    for (const kind of ['day', 'week']) if (Array.isArray(parts[kind])) for (const p of C.kinds.find((k) => k.kind === kind).parts) p.on = parts[kind].includes(p.key);
+    return [200, stOk('Saved: the coach reads your settings every time.')];
+  }
+  if (path === '/settings/device') {
+    const D = S.devices;
+    const d = D.devices.find((x) => x.id === body.id);
+    if (d?.current) return [200, stRefuse('This is the device you are using; use Sign out on More.')];
+    if (!d) return [200, S.gone.has(body.id) ? { outcome: 'unchanged', tone: 'ok', head: 'That device is already signed out.', reason: null } : stRefuse('Unknown device.')];
+    D.devices = D.devices.filter((x) => x !== d);
+    S.gone.add(d.id);
+    D.others = D.devices.filter((x) => !x.current).length;
+    return [200, stOk('Signed that device out.')];
+  }
+  if (path === '/settings/others') {
+    const D = S.devices;
+    const n = D.devices.filter((x) => !x.current).length;
+    for (const x of D.devices) if (!x.current) S.gone.add(x.id);
+    D.devices = D.devices.filter((x) => x.current);
+    D.others = 0;
+    return [200, stOk(n ? `Signed out ${n} other device${n === 1 ? '' : 's'}.` : 'No other device was signed in.', n ? 'changed' : 'unchanged')];
+  }
+  if (path === '/settings/nudges') {
+    const N = S.notify;
+    for (const k of ['on', ...N.nudges.map((x) => x.key)]) if (k in body && typeof body[k] !== 'boolean') return bad(`${k} must be true or false.`);
+    for (const x of N.nudges) if (x.hours.key in body && typeof body[x.hours.key] !== 'number') return bad(`${x.hours.key} must be a number.`);
+    if (typeof body.on === 'boolean') N.on = body.on;
+    for (const x of N.nudges) {
+      if (typeof body[x.key] === 'boolean') x.on = body[x.key];
+      const h = body[x.hours.key];
+      if (typeof h === 'number') x.hours.value = Math.min(x.hours.max, Math.max(x.hours.min, Math.round(h * 2) / 2));
+    }
+    return [200, stOk(`Saved. Nudges are ${N.on ? 'on' : 'off'}.`)];
+  }
+  if (path === '/push/off') {
+    const N = S.notify;
+    if (!Number.isInteger(body.id)) return bad('id must be a number.');
+    if (!N.subscriptions.some((s) => s.id === body.id)) return [200, stRefuse('That device is not there any more.')];
+    N.subscriptions = N.subscriptions.filter((s) => s.id !== body.id);
+    N.twice = stTwice(N);
+    return [200, stOk('Notifications are off for that device.')];
+  }
+  if (path === '/push/test') {
+    const n = S.notify.subscriptions.length;
+    S.tests++;
+    if (!n) return [200, stRefuse('No device took the test notification. Turn notifications on again on the phone, then try once more.')];
+    for (const s of S.notify.subscriptions) s.last_delivered = new Date().toISOString();
+    return [200, stOk(`Test notification sent to ${n} device${n === 1 ? '' : 's'}.`)];
+  }
+  return null;
+}
+
+/** A ZIP with the files stored as they are (no compression): local headers, the data, the central directory, its end. */
+function stZip(files) {
+  const locals = [];
+  const central = [];
+  let offset = 0;
+  for (const [name, text] of files) {
+    const data = Buffer.from(text, 'utf8');
+    const nm = Buffer.from(name, 'utf8');
+    const crc = crc32(data);
+    const head = Buffer.alloc(30);
+    head.writeUInt32LE(0x04034b50, 0); head.writeUInt16LE(20, 4); head.writeUInt16LE(0x0800, 6); head.writeUInt16LE(0, 8);
+    head.writeUInt32LE(0, 10); head.writeUInt32LE(crc, 14); head.writeUInt32LE(data.length, 18); head.writeUInt32LE(data.length, 22);
+    head.writeUInt16LE(nm.length, 26); head.writeUInt16LE(0, 28);
+    locals.push(head, nm, data);
+    const c = Buffer.alloc(46);
+    c.writeUInt32LE(0x02014b50, 0); c.writeUInt16LE(20, 4); c.writeUInt16LE(20, 6); c.writeUInt16LE(0x0800, 8); c.writeUInt16LE(0, 10);
+    c.writeUInt32LE(0, 12); c.writeUInt32LE(crc, 16); c.writeUInt32LE(data.length, 20); c.writeUInt32LE(data.length, 24);
+    c.writeUInt16LE(nm.length, 28); c.writeUInt32LE(offset, 42);
+    central.push(c, nm);
+    offset += 30 + nm.length + data.length;
+  }
+  const dir = Buffer.concat(central);
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0); end.writeUInt16LE(files.length, 8); end.writeUInt16LE(files.length, 10);
+  end.writeUInt32LE(dir.length, 12); end.writeUInt32LE(offset, 16);
+  return Buffer.concat([...locals, dir, end]);
+}
+
+/** POST /export: the ZIP (invented files), or the door's JSON error. */
+function settingsExport(res, body, signedIn) {
+  if ('private' in body && typeof body.private !== 'boolean') return send(res, 400, { error: 'bad_request', message: 'private must be true or false.' }, signedIn);
+  if (state.settings.exportFail) return send(res, 500, { error: 'server_error', message: 'The export could not be made (the database did not answer). Try again in a moment.' }, signedIn);
+  const priv = body.private === true;
+  const files = [['README.txt', 'An export of the stand-in door (invented data).\n'], ['food_entries.csv', 'day,food,amount\n2026-11-17,Oats,60\n'], ['all.json', '{"stand_in": true}\n']];
+  if (priv) files.push(['private.csv', 'day,text\n2026-11-17,invented\n']);
+  const zip = stZip(files);
+  state.settings.exports++;
+  const at = new Date();
+  const p = Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Berlin', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(at).map((x) => [x.type, x.value]));
+  state.settings.export.last = { at: at.toISOString(), private: priv, text: `Last download: ${p.day}.${p.month}.${p.year} ${p.hour}:${p.minute}${priv ? ', with private entries' : ''}.` };
+  res.writeHead(200, { 'Content-Type': 'application/zip', 'Content-Disposition': `attachment; filename="logger-export-${stDate(ST_TODAY)}.zip"`, 'Cache-Control': 'no-store', 'Content-Length': zip.length, ...signedIn });
+  return res.end(zip);
+}
+
 createServer(async (req, res) => {
   const chunks = [];
   for await (const chunk of req) chunks.push(chunk);
@@ -2699,6 +2908,17 @@ createServer(async (req, res) => {
     reset();
     mode = 'up';
     return send(res, 200, { outcome: 'reset' });
+  }
+  // deploy 111: Settings' states (see the header) and counts
+  if (req.url === '/standin/push-tests' && req.method === 'GET') return send(res, 200, { tests: state.settings.tests });
+  if (req.url === '/standin/exports' && req.method === 'GET') return send(res, 200, { exports: state.settings.exports, last: state.settings.export.last });
+  if (req.url.startsWith('/standin/settings?') && req.method === 'POST') {
+    const q = new URL(req.url, 'http://standin').searchParams;
+    if (q.has('export_fail')) state.settings.exportFail = q.get('export_fail') === '1';
+    if (q.has('noshown')) state.settings.noShown = q.get('noshown') === '1';
+    if (q.get('shown') === '0') for (const [k, id] of [['review', 'box'], ['card', 'gratitude']]) state.settings.today.groups.find((g) => g.kind === k).items.find((x) => x.id === id).shown = false;
+    if (q.get('nopush') === '1') Object.assign(state.settings.notify, { subscriptions: [], twice: false });
+    return send(res, 200, { outcome: 'settings' });
   }
   // deploy 102: the Week's states (see weekOut), and how many review starts the stand-in got
   if (req.url.startsWith('/standin/week?') && req.method === 'POST') {
@@ -2976,10 +3196,15 @@ createServer(async (req, res) => {
     if (day !== null && !/^\d{4}-\d\d-\d\d$/.test(day)) return send(res, 400, { error: 'bad_request', message: 'day must be yyyy-mm-dd.' }, signedIn);
     return send(res, 200, { gym_activity: activityOut(day), undo: undo() }, signedIn);
   }
+  if (url.pathname.startsWith('/api/v1/settings/') && req.method === 'GET') {
+    const tab = url.pathname.slice('/api/v1/settings/'.length);
+    if (!['targets', 'today', 'body', 'coach', 'devices', 'notify', 'export'].includes(tab)) return send(res, 404, { error: 'not_found', message: 'Not found.' }, signedIn);
+    return send(res, 200, { [`settings_${tab}`]: structuredClone(state.settings[tab]), undo: undo() }, signedIn);
+  }
   if (url.pathname === '/api/v1/foods' && req.method === 'GET') return send(res, 200, { foods: foods(url.searchParams.get('q')) }, signedIn);
   // A save's fresh read: the Food day or the usual meals when the body asks for it (view "food" with view_day, "usual"), else
   // Today; as the core, /usual/meal and /usual/new default to the usual meals and /usual/from_meal to the Food day.
-  const view = body.view ?? ({ '/api/v1/usual/meal': 'usual', '/api/v1/usual/new': 'usual', '/api/v1/usual/from_meal': 'food', '/api/v1/health/day': 'health', '/api/v1/body': 'body', '/api/v1/habit/day': 'habits', '/api/v1/habits/manage': 'habits' })[req.url] ?? (req.url.startsWith('/api/v1/food/catalogue/') ? 'catalogue' : req.url.startsWith('/api/v1/labs/med') ? 'labs_meds' : req.url.startsWith('/api/v1/labs/') ? 'labs' : req.url.startsWith('/api/v1/gym/') ? gymView(req.url.slice('/api/v1/gym/'.length), body) : req.url.startsWith('/api/v1/home/') ? homeView(req.url.slice('/api/v1/home/'.length)) : undefined);
+  const view = body.view ?? ({ '/api/v1/usual/meal': 'usual', '/api/v1/usual/new': 'usual', '/api/v1/usual/from_meal': 'food', '/api/v1/health/day': 'health', '/api/v1/body': 'body', '/api/v1/habit/day': 'habits', '/api/v1/habits/manage': 'habits' })[req.url] ?? (req.url.startsWith('/api/v1/food/catalogue/') ? 'catalogue' : req.url.startsWith('/api/v1/labs/med') ? 'labs_meds' : req.url.startsWith('/api/v1/labs/') ? 'labs' : req.url.startsWith('/api/v1/gym/') ? gymView(req.url.slice('/api/v1/gym/'.length), body) : req.url.startsWith('/api/v1/home/') ? homeView(req.url.slice('/api/v1/home/'.length)) : req.url.startsWith('/api/v1/push/') ? 'settings_notify' : req.url.startsWith('/api/v1/settings/') ? settingsView(req.url.slice('/api/v1/settings/'.length)) : undefined);
   const range = [7, 30, 90].includes(body.range) ? body.range : 30;
   const fresh = () =>
     view === 'food' ? { food_day: foodDay(body.view_day) }
@@ -3001,6 +3226,7 @@ createServer(async (req, res) => {
     : view === 'labs_meds' ? { labs_meds: medsOut() }
     : view === 'coach' ? { coach: coachOut(body.view_f, body.view_day ?? body.start)[1].coach }
     : view === 'habits' ? { habits: habitsOut(['tracked', 'untracked', 'retired', 'all'].includes(body.show) ? body.show : 'tracked') }
+    : typeof view === 'string' && /^settings_(targets|today|body|coach|devices|notify|export)$/.test(view) ? { [view]: structuredClone(state.settings[view.slice('settings_'.length)]) }
     : { day: dayOut(state.day) };
   if (req.url === '/api/v1/session' && req.method === 'DELETE') {
     sessions.delete(bearer);
@@ -3119,6 +3345,15 @@ createServer(async (req, res) => {
       state.undo = null; // as app., a start ends the session's Undo bar
       const { v: _v, ...answer } = out;
       return send(res, 200, { ...answer, v: 1, undo: null, week: weekOut(which) }, signedIn);
+    }
+    if (path === '/export') return settingsExport(res, body, signedIn);
+    if (path.startsWith('/settings/') || path.startsWith('/push/')) {
+      const r = settingsSave(path, body);
+      if (!r) return send(res, 404, { error: 'not_found', message: 'Not found.' }, signedIn);
+      const [status, out] = r;
+      if (status !== 200) return send(res, status, out, signedIn);
+      if (out.outcome === 'changed') state.undo = null; // as app., a change here ends the session's Undo bar
+      return send(res, 200, { ...base, ...out, v: 1, undo: null, ...fresh() }, signedIn);
     }
     if (path === '/body/skip') {
       state.day = { ...structuredClone(state.day), needs: { ...state.day.needs, body_due: null } };

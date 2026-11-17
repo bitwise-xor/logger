@@ -58,12 +58,8 @@ export const DEFAULT_TIMEOUT_MS = 15_000;
 // A path under /api/v1: lower-case words and slashes only, so no "..", query, host or scheme can slip in.
 const PATH = /^(\/[a-z0-9_-]+)+$/;
 
-export async function call<T>(
-  config: DoorConfig,
-  method: 'GET' | 'POST' | 'DELETE',
-  path: string,
-  options: CallOptions = {},
-): Promise<DoorAnswer<T>> {
+/** The one fetch of a door call: the checks, the few headers this app builds, the timeout; a network failure is `unreachable`. */
+async function send(config: DoorConfig, method: 'GET' | 'POST' | 'DELETE', path: string, options: CallOptions, accept: string): Promise<Response> {
   if (!config.token) throw new DoorError(0, 'door_off', 'The new front end is not switched on yet.');
   if (!PATH.test(path)) throw new DoorError(0, 'bad_path', `Not a door path: ${path}`);
 
@@ -73,7 +69,7 @@ export async function call<T>(
   }
 
   // Built here and nowhere else: these are the only headers the core ever gets from this app.
-  const headers: Record<string, string> = { 'X-Front-Token': config.token, Accept: 'application/json' };
+  const headers: Record<string, string> = { 'X-Front-Token': config.token, Accept: accept };
   if (options.session) headers.Authorization = `Bearer ${options.session}`;
   let body: string | FormData | undefined;
   if (options.form !== undefined) {
@@ -83,9 +79,8 @@ export async function call<T>(
     body = JSON.stringify(options.body);
   }
 
-  let response: Response;
   try {
-    response = await (config.fetch ?? fetch)(url, {
+    return await (config.fetch ?? fetch)(url, {
       method,
       headers,
       body,
@@ -96,22 +91,66 @@ export async function call<T>(
   } catch {
     throw new DoorError(0, 'unreachable', 'The logger is not answering right now.');
   }
+}
 
+/** A door error's JSON as a DoorError (the door answers its errors as JSON everywhere, the export too). */
+async function errorOf(response: Response): Promise<DoorError> {
+  let json: unknown;
+  try {
+    json = await response.json();
+  } catch {
+    return new DoorError(response.status, 'unreadable', 'The logger answered in a way this page cannot read.');
+  }
+  const err = (json ?? {}) as { error?: unknown; message?: unknown };
+  return new DoorError(
+    response.status,
+    typeof err.error === 'string' ? err.error : 'server_error',
+    typeof err.message === 'string' ? err.message : 'The logger could not do that.',
+  );
+}
+
+export async function call<T>(
+  config: DoorConfig,
+  method: 'GET' | 'POST' | 'DELETE',
+  path: string,
+  options: CallOptions = {},
+): Promise<DoorAnswer<T>> {
+  const response = await send(config, method, path, options, 'application/json');
+  if (!response.ok) throw await errorOf(response);
   let json: unknown;
   try {
     json = await response.json();
   } catch {
     throw new DoorError(response.status, 'unreadable', 'The logger answered in a way this page cannot read.');
   }
-  if (!response.ok) {
-    const err = (json ?? {}) as { error?: unknown; message?: unknown };
-    throw new DoorError(
-      response.status,
-      typeof err.error === 'string' ? err.error : 'server_error',
-      typeof err.message === 'string' ? err.message : 'The logger could not do that.',
-    );
-  }
   return { status: response.status, body: json as T, expiresAt: response.headers.get('X-Session-Expires') };
+}
+
+/** A file the door answers with (deploy 111: POST /export's ZIP): its bytes and the headers that say what it is. */
+export interface DoorFile {
+  status: number;
+  bytes: ArrayBuffer;
+  contentType: string | null;
+  disposition: string | null;
+  expiresAt: string | null;
+}
+
+/**
+ * A POST answered with a file, not JSON (only POST /export, docs/API.md): the same token, session, timeout and errors as `call`
+ * (an error is the door's JSON); a JSON answer where a file was asked for is `unreadable`.
+ */
+export async function callFile(config: DoorConfig, path: string, options: CallOptions = {}): Promise<DoorFile> {
+  const response = await send(config, 'POST', path, options, 'application/zip, application/json');
+  if (!response.ok) throw await errorOf(response);
+  const contentType = response.headers.get('Content-Type');
+  if (!contentType || /json/i.test(contentType)) throw new DoorError(response.status, 'unreadable', 'The logger answered in a way this page cannot read.');
+  let bytes: ArrayBuffer;
+  try {
+    bytes = await response.arrayBuffer();
+  } catch {
+    throw new DoorError(0, 'unreachable', 'The logger is not answering right now.');
+  }
+  return { status: response.status, bytes, contentType, disposition: response.headers.get('Content-Disposition'), expiresAt: response.headers.get('X-Session-Expires') };
 }
 
 /** The door with its settings bound: door.get('/day', session, {day}), door.post('/water', session, {...}). */
@@ -125,6 +164,9 @@ export function makeDoor(config: DoorConfig) {
     /** A multipart POST (deploy 90: the label photos, read by the AI, so it passes its own time). */
     postForm: <T>(path: string, session: string | null, form: FormData, timeoutMs?: number) =>
       call<T>(config, 'POST', path, { session, form, timeoutMs }),
+    /** A POST answered with a file (deploy 111: the export's ZIP, made in up to a minute). */
+    postFile: (path: string, session: string | null, body: Record<string, unknown>, timeoutMs = 60_000) =>
+      callFile(config, path, { session, body, timeoutMs }),
   };
 }
 

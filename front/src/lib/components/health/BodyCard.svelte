@@ -7,8 +7,8 @@
   // The Body measurements card (app.'s bodypage.card): when it was last measured and when it is due, Measure (the session form:
   // a cm field per shown tape measure with its hint, the last value as the placeholder), the table Now / Last / Start (Now opens
   // that session to change it), a chip per measure with its chart, waist ÷ height and the weekly weight rate. The settings
-  // (interval, hidden measures, height) stay at app.: the card links there where app.'s does.
-  let { body, range, appUrl }: { body: Body; range: number; appUrl: string } = $props();
+  // (interval, hidden measures, height) are Settings > Body (here since deploy 111): the card links there where app.'s does.
+  let { body, range }: { body: Body; range: number } = $props();
   const page = getHealthPage();
 
   const before = $derived(bodyDraft(body));
@@ -24,7 +24,8 @@
   const chart = $derived(body.charts.find((c) => c.key === page.measure) ?? body.charts[0] ?? null);
   const wh = $derived(waistHeight(body));
   const rate = $derived(weightRate(body));
-  const settings = $derived(`${appUrl}/web/settings?tab=body`);
+  // the height and the measures shown: Settings > Body here (deploy 111)
+  const settings = '/settings/body';
 
   function save(event: SubmitEvent) {
     event.preventDefault();

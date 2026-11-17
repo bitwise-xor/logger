@@ -150,9 +150,9 @@ describe('the door\'s links', () => {
     expect(doorLink(app, '/web/coach?f=bad')).toBe('/coach');
   });
 
-  it('open Your goals in one place: app. until Settings is here (deploy 111, GOALS_HERE)', () => {
-    expect(GOALS_HERE).toBeNull();
-    expect(doorLink(app, '/web/settings?tab=coach')).toBe('https://app.example/web/settings?tab=coach');
+  it('open Your goals in one place: Settings\' Coach tab here since deploy 111 (GOALS_HERE)', () => {
+    expect(GOALS_HERE).toBe('/settings/coach');
+    expect(doorLink(app, '/web/settings?tab=coach')).toBe('/settings/coach');
     expect(doorLink(app, '/web/settings?tab=today')).toBe('https://app.example/web/settings?tab=today');
   });
 

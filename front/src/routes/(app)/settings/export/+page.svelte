@@ -1,0 +1,45 @@
+<script lang="ts">
+  import ProblemCard from '#lib/components/ProblemCard.svelte';
+  import SettingsHeader from '#lib/components/settings/SettingsHeader.svelte';
+  import { S } from '#lib/components/settings/styles.js';
+  import { settingsAppPath } from '#lib/places.js';
+  import { EXPORT_FAILED } from '#lib/settings.js';
+  import type { PageProps } from './$types';
+
+  let { data }: PageProps = $props();
+
+  // Settings > Export (deploy 111): the door's words, the tick box for private and gratitude entries (off unless ticked), Download and
+  // the last download. Download is a plain form post to ./download, which hands the door's ZIP through (the browser saves it; the
+  // page stays). When the file could not be made it comes back here with ?failed=1 and says so.
+  const e = $derived(data.read);
+</script>
+
+<svelte:head><title>Export · Settings · Logger</title></svelte:head>
+
+<SettingsHeader on="export" />
+
+{#if !e}
+  <ProblemCard kind={data.problem ?? 'trouble'} appHref="{data.appUrl}{settingsAppPath('export')}" />
+{:else}
+  <main class={S.main}>
+    <form method="POST" action="/settings/export/download" class={S.card} data-form="export">
+      <h2 class={S.h2}>{e.title}</h2>
+      <p class={S.note} data-intro>{e.intro}</p>
+      <!-- the tick box: the whole line is the 44 px target (the box itself is drawn, the input is for the form and the screen reader) -->
+      <label class="flex min-h-11 cursor-pointer items-center gap-2 desktop:min-h-9">
+        <input type="checkbox" name="private" value="1" class="peer sr-only" data-private />
+        <span
+          aria-hidden="true"
+          class="flex size-[18px] shrink-0 items-center justify-center rounded-[4px] border border-muted text-transparent peer-checked:border-blue peer-checked:bg-blue peer-checked:text-on-blue peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-blue"
+        >
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3L13 4.5"></path></svg>
+        </span>
+        {e.private_label}
+      </label>
+      {#if data.failed}<p class={S.refusal} role="alert" data-failed>{EXPORT_FAILED}</p>{/if}
+      <div><button type="submit" class={S.primary} data-download>{e.button}</button></div>
+      {#if e.last}<p class="{S.note} num" data-last>{e.last.text}</p>{/if}
+      <p class={S.note} data-hint>{e.hint}</p>
+    </form>
+  </main>
+{/if}

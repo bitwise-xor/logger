@@ -27,7 +27,7 @@
   <main class="flex w-full flex-col gap-3 desktop:max-w-[720px]">
     <HabitList habits={h} />
     <p class="m-0 text-[13px] text-muted" data-settings-line>
-      Which habits show on Today, and their order: in <a href="{data.appUrl}/web/settings?tab=today">app.'s Settings</a> for now.
+      Which habits show on Today, and their order: in <a href="/settings/today">Settings</a>.
     </p>
   </main>
 {/if}

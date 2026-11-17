@@ -1,6 +1,6 @@
 <script lang="ts">
   import { dayOf, hm } from '#lib/format.js';
-  import { needsCount, reviewText, type Answer, type Day, type Question } from '#lib/day.js';
+  import { hiddenReviewText, needsCount, reviewShown, reviewText, type Answer, type Day, type Question } from '#lib/day.js';
   import { getToday } from '#lib/today.svelte.js';
   import { bodyDueLine } from '#lib/health.js';
 
@@ -141,8 +141,13 @@
       </div>
     {/if}
 
-    {#if needs.review.length}
-      <div class="flex flex-col gap-2">
+    {#if needs.review.length && !reviewShown(day)}
+      <!-- Settings > Today page hides the To review box (deploy 111): one line while something waits, so it is never forgotten (app.'s todaypage) -->
+      <p class="m-0 text-[13px] text-muted" data-review-hidden>
+        {hiddenReviewText(needs.review.length)} · <a href="/settings/today">show the box</a>
+      </p>
+    {:else if needs.review.length}
+      <div class="flex flex-col gap-2" data-review>
         <span class="font-medium">To review</span>
         {#each needs.review as r (r.ref)}
           <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
@@ -158,7 +163,8 @@
                   >Looks right</button
                 >
               </form>
-              <!-- Changing an entry is app.'s for now (the Food day comes in step E). -->
+              <!-- Changing an entry is app.'s: the door's review row has the entry's ref only (no food id), so a food's Library box
+                   cannot be opened from here (deploy 111), and the other kinds have no page here. -->
               <a href="{appUrl}/web/" class="{btn} {STYLE.quiet} inline-flex items-center no-underline">Change</a>
             </span>
           </div>

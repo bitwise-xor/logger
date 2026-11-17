@@ -149,3 +149,51 @@ describe('the door client', () => {
     expect(seen.headers).toEqual({ 'X-Front-Token': TOKEN, Accept: 'application/json', Authorization: `Bearer ${SESSION}` });
   });
 });
+
+// Deploy 111: the export's ZIP, the one answer that is not JSON.
+describe('a file from the door (POST /export)', () => {
+  const zip = new Uint8Array([0x50, 0x4b, 0x05, 0x06, ...new Array(18).fill(0)]);
+  function fileNet(status = 200, body: BodyInit = zip, headers: Record<string, string> = {}) {
+    const seen: Seen[] = [];
+    const fetch: Fetch = async (url, init) => {
+      seen.push({ url, init, headers: { ...(init.headers as Record<string, string>) } });
+      return new Response(body, { status, headers });
+    };
+    return { fetch, seen };
+  }
+
+  it('sends the token and the bearer as every call, the body as JSON, a minute to make it, and hands back the bytes and headers', async () => {
+    const net = fileNet(200, zip, {
+      'Content-Type': 'application/zip',
+      'Content-Disposition': 'attachment; filename="logger-export-17.11.2026.zip"',
+      'X-Session-Expires': '2026-12-17T10:00:00+00:00',
+    });
+    const f = await makeDoor({ url: URL_, token: TOKEN, fetch: net.fetch }).postFile('/export', SESSION, { private: false });
+    const [c] = net.seen;
+    expect(c!.url.href).toBe('http://logger-v2-core:8000/api/v1/export');
+    expect(c!.headers).toEqual({ 'X-Front-Token': TOKEN, Accept: 'application/zip, application/json', Authorization: `Bearer ${SESSION}`, 'Content-Type': 'application/json' });
+    expect(c!.init.method).toBe('POST');
+    expect(c!.init.body).toBe('{"private":false}');
+    expect(new Uint8Array(f.bytes)).toEqual(zip);
+    expect(f.contentType).toBe('application/zip');
+    expect(f.disposition).toBe('attachment; filename="logger-export-17.11.2026.zip"');
+    expect(f.expiresAt).toBe('2026-12-17T10:00:00+00:00');
+  });
+
+  it('turns the door\'s JSON error into a DoorError, and a JSON answer where a file was asked for into unreadable', async () => {
+    const err = fileNet(500, JSON.stringify({ error: 'server_error', message: 'The export could not be made.' }), { 'Content-Type': 'application/json' });
+    await expect(makeDoor({ url: URL_, token: TOKEN, fetch: err.fetch }).postFile('/export', SESSION, {})).rejects.toMatchObject({ status: 500, code: 'server_error' });
+    const out = fileNet(401, JSON.stringify({ error: 'signed_out', message: 'Sign in again.' }), { 'Content-Type': 'application/json' });
+    await expect(makeDoor({ url: URL_, token: TOKEN, fetch: out.fetch }).postFile('/export', SESSION, {})).rejects.toMatchObject({ code: 'signed_out' });
+    const json = fileNet(200, '{"v":1}', { 'Content-Type': 'application/json' });
+    await expect(makeDoor({ url: URL_, token: TOKEN, fetch: json.fetch }).postFile('/export', SESSION, {})).rejects.toMatchObject({ code: 'unreadable' });
+  });
+
+  it('is off without the token and unreachable when the network fails, as every call', async () => {
+    await expect(makeDoor({ url: URL_, token: '' }).postFile('/export', SESSION, {})).rejects.toMatchObject({ code: 'door_off' });
+    const down: Fetch = async () => {
+      throw new TypeError('fetch failed');
+    };
+    await expect(makeDoor({ url: URL_, token: TOKEN, fetch: down }).postFile('/export', SESSION, {})).rejects.toBeInstanceOf(DoorError);
+  });
+});

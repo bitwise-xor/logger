@@ -94,7 +94,7 @@
     </div>
   </main>
   <p class="m-0 text-[13px] text-muted" data-settings-line>
-    Hiding habits on Today, their order and the reminders stay in <a href="{data.appUrl}/web/settings?tab=today">app.'s Settings</a>.
+    Hiding habits on Today and their order are in <a href="/settings/today">Settings</a>; the reminders too (Notifications).
   </p>
 {/if}
 

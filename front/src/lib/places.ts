@@ -2,7 +2,7 @@
  * The places of the app (deploy 96, the Spaces menu): the tab or rail item a page belongs to, and the Spaces. The PC's rail shows
  * Today, Trends (a page of this app since deploy 102), Library (since deploy 105), the Spaces (Gym, Health, Habits, Home since deploy 99, and
  * Medical since deploy 106) and More; phones and tablets four tabs, with the Spaces on the More page (/more). Search, Recent and Usage (deploy
- * 108) and Coach (deploy 109) are pages under More. Plain TypeScript, so the tests need no browser.
+ * 108), Coach (deploy 109) and Settings (deploy 111) are pages under More. Plain TypeScript, so the tests need no browser.
  */
 
 export interface Space {
@@ -24,8 +24,7 @@ export const SPACES: Space[] = [
 
 /**
  * The More page's own places (deploy 108): Coach, Recent, Usage and Settings. `here` is the page of this app, null while it is still
- * at app. (then `app` is its path there, and the row says "app."). Coach moved with deploy 109; Settings moves with 111: a
- * one-line change here (put its path in `here`).
+ * at app. (then `app` is its path there, and the row says "app."). Coach moved with deploy 109, Settings with 111: every row is here.
  */
 export interface MorePlace {
   key: string;
@@ -39,7 +38,7 @@ export const MORE_PLACES: MorePlace[] = [
   { key: 'coach', name: 'Coach', sub: 'Every coaching, a day or a week', here: '/coach', app: '/web/coach' },
   { key: 'recent', name: 'Recent', sub: 'What you sent, and what it saved', here: '/recent', app: '/web/recent' },
   { key: 'usage', name: 'Usage', sub: 'AI calls and cost', here: '/usage', app: '/web/usage' },
-  { key: 'settings', name: 'Settings', sub: 'Targets, Today page, reminders, devices, export', here: null, app: '/web/settings' },
+  { key: 'settings', name: 'Settings', sub: 'Targets, Today page, reminders, devices, export', here: '/settings', app: '/web/settings' },
 ];
 
 /** Where a More row leads: its page here, or app.'s while it has none. */
@@ -54,7 +53,7 @@ export const WORDS: { key: string; name: string; app: string }[] = [
 
 /**
  * Where a path belongs: the tab (Today for Today and the Food day; Trends for /trends and its tabs since deploy 102; Library for
- * /library and its tabs since deploy 105, the usual meals included; More for /more, Search, Recent and Usage since deploy 108, Coach since deploy 109, and every
+ * /library and its tabs since deploy 105, the usual meals included; More for /more, Search, Recent and Usage since deploy 108, Coach since deploy 109, Settings since deploy 111, and every
  * Space) and the Space (on the PC's rail the Space itself is highlighted, on phones and tablets the More tab). `atMore`: More itself is
  * the place (the PC's rail lights it too).
  */
@@ -65,7 +64,7 @@ export function placeOf(path: string): { tab: Tab | null; space: string | null; 
   if (under('/library')) return { tab: 'library', space: null, atMore: false };
   const space = SPACES.find((s) => s.href && under(s.href))?.key ?? null;
   if (space) return { tab: 'more', space, atMore: false };
-  if (under('/more') || under('/search') || under('/recent') || under('/usage') || under('/coach')) return { tab: 'more', space: null, atMore: true };
+  if (under('/more') || under('/search') || under('/recent') || under('/usage') || under('/coach') || under('/settings')) return { tab: 'more', space: null, atMore: true };
   if (path === '/' || under('/food')) return { tab: 'today', space: null, atMore: false };
   return { tab: null, space: null, atMore: false };
 }
@@ -89,3 +88,20 @@ export const MEDICAL_TABS: { key: MedicalTab; label: string; href: string }[] = 
   { key: 'tests', label: 'Tests over time', href: '/medical/tests' },
   { key: 'meds', label: 'Medication', href: '/medical/meds' },
 ];
+
+/**
+ * Settings' tabs (deploy 111), each its own page under /settings, in app.'s order; `app` is app.'s ?tab= of the same tab (a failed
+ * read's "Open the full app" opens it there).
+ */
+export type SettingsTab = 'targets' | 'today' | 'body' | 'coach' | 'devices' | 'notify' | 'export';
+export const SETTINGS_TABS: { key: SettingsTab; label: string; href: string }[] = [
+  { key: 'targets', label: 'Food targets', href: '/settings/targets' },
+  { key: 'today', label: 'Today page', href: '/settings/today' },
+  { key: 'body', label: 'Body', href: '/settings/body' },
+  { key: 'coach', label: 'Coach', href: '/settings/coach' },
+  { key: 'devices', label: 'Devices', href: '/settings/devices' },
+  { key: 'notify', label: 'Notifications', href: '/settings/notifications' },
+  { key: 'export', label: 'Export', href: '/settings/export' },
+];
+/** app.'s address of a tab, for a failed read's "Open the full app". */
+export const settingsAppPath = (tab: SettingsTab) => `/web/settings?tab=${tab}`;

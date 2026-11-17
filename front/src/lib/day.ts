@@ -167,6 +167,11 @@ export interface Day {
   home?: HomeCard | null;
   /** Today's Coach card (deploy 107/109); null: the card is hidden in Settings > Today page. */
   coach?: Card | null;
+  /**
+   * Settings > Today page's two switches the door leaves to the page (deploy 110/111): the To review box and the Gratitude card. Missing
+   * (an older door): both shown.
+   */
+  shown?: { review: boolean; gratitude: boolean };
 }
 
 export interface Undo {
@@ -405,8 +410,16 @@ export function healthLines(d: Day): HealthLine[] {
  */
 export function needsCount(d: Day): number {
   const x = d.needs;
-  return x.questions.length + x.not_read.length + x.review.length + (x.checkin ? 1 : 0) + (x.body_due ? 1 : 0);
+  const review = reviewShown(d) ? x.review.length : x.review.length ? 1 : 0;
+  return x.questions.length + x.not_read.length + review + (x.checkin ? 1 : 0) + (x.body_due ? 1 : 0);
 }
+
+/** Settings' "To review" switch (deploy 111): false hides the items, and one line says how many wait (as app.'s todaypage). */
+export const reviewShown = (d: Pick<Day, 'shown'>) => d.shown?.review !== false;
+/** Settings' Gratitude card switch (deploy 111): false hides the card. */
+export const gratitudeShown = (d: Pick<Day, 'shown'>) => d.shown?.gratitude !== false;
+/** The line in place of a hidden To review box: "2 items to review are hidden here" (app.: "… is hidden here"). */
+export const hiddenReviewText = (count: number) => (count === 1 ? '1 item to review is hidden here' : `${count} items to review are hidden here`);
 
 /** An item to review in words: "Weight 182.4 kg", "Fruit bar 40 g", "A task (personal)": a thought by its type, never its words. */
 export function reviewText(r: Review): string {

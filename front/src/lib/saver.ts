@@ -81,10 +81,13 @@ export const KEYED = new Set([
  * Deploy 106: Medical's three forms (`labs_`: a value, a report, a course and its End) take no key at the door and have no Undo either:
  * never sent again by the page, not after a sign-in (a change shown and said Yes to is made once, by a tap seen to work). A new course
  * typed in the Medication page's box is Today's `log`, keyed and treated as Today's is.
+ * Deploy 111: Settings' saves (`settings_`, `push_`: targets, the Today page, body, coach, devices, nudges, a device's notifications
+ * off, the test) take no key and have no Undo: never sent again by the page, also not after a sign-in (a sign-out of another device or
+ * a test notification happens once, by a tap seen to work).
  */
 export const NEVER_RESENT = new Set(['habit_day', 'gym_tick', 'home_tick', 'home_pickdone', 'home_picknext', 'home_earlier', 'home_alldone', 'home_startpoint']);
 export const mayResend = (action: string) =>
-  KEYED.has(action) && !NEVER_RESENT.has(action) && !action.startsWith('gym_') && !action.startsWith('home_') && !action.startsWith('coach_') && !action.startsWith('catalogue_') && !action.startsWith('labs_');
+  KEYED.has(action) && !NEVER_RESENT.has(action) && !action.startsWith('gym_') && !action.startsWith('home_') && !action.startsWith('coach_') && !action.startsWith('catalogue_') && !action.startsWith('labs_') && !action.startsWith('settings_') && !action.startsWith('push_');
 /** The saves that may have gone through although no answer came (a paid start): the network error does not say "nothing was saved". */
 const UNSURE = new Set(['coach_start', 'coach_day']);
 /** The actions the AI reads (up to about 40 s; the look-up since deploy 90): their answer is never dropped for a tap made while they were read. */

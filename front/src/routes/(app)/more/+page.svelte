@@ -9,7 +9,7 @@
   let { data }: PageProps = $props();
 
   // More (deploy 96, the Spaces menu; its own places since deploy 108): the search field, the Spaces (all live), a card with Coach,
-  // Recent, Usage and Settings (Coach and Settings still open app.: src/lib/places.ts MORE_PLACES, one line each to switch), the
+  // Recent, Usage and Settings (all pages here since deploy 111: src/lib/places.ts MORE_PLACES), the
   // Words (ideas, private entries and gratitude stay in the full app until the journal app exists) and Sign out. Phones: one column
   // in that order; from 1100 px the rows, the Words and Sign out on the left, the Spaces on the right.
   const row = 'flex min-h-14 items-center gap-2.5 px-3 text-text no-underline hover:bg-panel2';

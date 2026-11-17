@@ -51,6 +51,10 @@
 // Deploy 109: More's Coach page and Today's Coach card (checkCoach and checkCoachToday say what): the list and its chips, a day and a week
 // coaching open with their parts, "Coach a day" in its four states and its date field, the press sent once and never again by itself,
 // a refusal in the answer bar, Today's card in its states and absent when the door says null, Trends' links; More's Coach row opens it.
+// Deploy 111: Settings at logger. (checkSettings and checkSettingsLinks say what): the seven tabs read and saved in place (a save and a
+// refusal on each, the Today page's switch, arrows and reset, a device signed out and all others, a device's notifications off with the
+// "twice" line, the test, the nudges, the export's ZIP and its headers), the links that left app. (More, Habits, Library, Health, Your
+// goals, the sign-in line), no footer line anywhere, and Today following the To review and Gratitude switches.
 // Every check throws on a failure, so the script ends with an error.
 // Usage: node tests/screens/shoot.mjs <base url> <out dir> <stand-in url>
 import assert from 'node:assert/strict';
@@ -74,6 +78,7 @@ const FOODTRENDS = JSON.parse(readFileSync(new URL('../samples/food_trends.json'
 const INSIGHTS = JSON.parse(readFileSync(new URL('../samples/insights.json', import.meta.url), 'utf8')).insights.insights;
 const CAT = JSON.parse(readFileSync(new URL('../samples/catalogue.json', import.meta.url), 'utf8'));
 const LABS = JSON.parse(readFileSync(new URL('../samples/labs.json', import.meta.url), 'utf8'));
+const SETTINGS = JSON.parse(readFileSync(new URL('../samples/settings.json', import.meta.url), 'utf8'));
 
 // What the page must show, worked out here from the sample on its own (not with the page's code).
 const even = (x) => {
@@ -219,7 +224,7 @@ async function checkSaves(page, name, theme) {
   if (name !== 'pc') {
     // step F: scrolled to the end, the logging box and its answer bar cover nothing (the page leaves room for both)
     await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-    const last = await page.getByText('Settings and the rest are').boundingBox();
+    const last = await page.locator('main').last().boundingBox(); // deploy 111: the page's last part (no footer line any more)
     const dock = await page.locator('[data-logbox]').boundingBox();
     assert.ok(last.y + last.height <= dock.y + 1, `the logging box covers nothing at the end (${last.y + last.height} > ${dock.y})`);
   }
@@ -1504,8 +1509,8 @@ async function checkHabits(page, name, theme) {
   await checkWidth(page, 'habits, after the list saves');
 
   // the settings line, and the links back: Today and the Health page's last line
-  assert.equal(await text(page.locator('[data-settings-line]')), "Hiding habits on Today, their order and the reminders stay in app.'s Settings.");
-  assert.match(await page.locator('[data-settings-line] a').getAttribute('href'), /\/web\/settings\?tab=today$/);
+  assert.equal(await text(page.locator('[data-settings-line]')), 'Hiding habits on Today and their order are in Settings; the reminders too (Notifications).');
+  assert.equal(await page.locator('[data-settings-line] a').getAttribute('href'), '/settings/today', 'deploy 111: Settings is here');
   await page.goto(`${base}/health`);
   await page.locator('[data-charts]').waitFor();
   await page.locator('[data-habits-link]').click();
@@ -1789,8 +1794,8 @@ async function checkGym(page, name, theme) {
     ]);
     assert.equal(await page.locator('[data-space="medical"]').getAttribute('href'), '/medical', 'deploy 106: Medical is a live Space');
     assert.equal(await page.locator('[data-space="home"]').getAttribute('href'), '/home', 'deploy 99: Home is a live Space');
-    assert.equal(await page.locator('[data-rest]').count(), 0, 'deploy 108: the dashed "Settings and the rest" box is gone (the footer line stays)');
-    assert.ok(await page.getByText('Settings and the rest are').isVisible(), 'the footer line stays until deploy 111');
+    assert.equal(await page.locator('[data-rest]').count(), 0, 'deploy 108: the dashed "Settings and the rest" box is gone');
+    assert.equal(await page.getByText('Settings and the rest are').count(), 0, 'deploy 111: no footer line sends you to app.');
     if (name === 'phone') await page.screenshot({ path: `${out}/more-${name}-${theme}.png` });
     await checkWidth(page, 'more');
     for (const sp of ['health', 'habits', 'gym']) {
@@ -3159,7 +3164,7 @@ async function checkTrends(page, name, theme) {
   assert.equal(await page.locator('[data-place="more"]').getAttribute('aria-current'), null);
   assert.equal(await page.locator('[data-place="library"]').getAttribute('aria-current'), null);
   assert.equal(await page.locator('[data-place="library"]').evaluate((e) => e.tagName), 'A');
-  assert.ok(await page.getByText('Settings and the rest are').isVisible(), 'the footer says what is still in the full app');
+  assert.equal(await page.getByText('Settings and the rest are').count(), 0, 'deploy 111: no footer line sends you to app.');
   assert.equal(await page.getByText('Trends, Library and the rest').count(), 0);
   // the tabs: all three are pages of this app since deploy 103 (no mark for the full app)
   assert.deepEqual(await page.locator('[data-tab]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-tab'), e.getAttribute('aria-current')])), [['week', 'page'], ['charts', null], ['insights', null]]);
@@ -3245,8 +3250,8 @@ async function checkTrends(page, name, theme) {
   }
   assert.equal(await text(card.locator('[data-review-meta]')), rd.meta.text);
   assert.equal(await text(card.locator('[data-review-button]')), rd.button);
-  // All coachings is the Coach page here since deploy 109; Your goals is still app.'s Settings (deploy 111)
-  assert.deepEqual(await card.locator('[data-review-link]').evaluateAll((els) => els.map((e) => [e.textContent.trim(), new URL(e.href).pathname + new URL(e.href).search])), rd.links.map((l) => [l.label, l.href === '/web/coach' ? '/coach' : l.href]));
+  // All coachings is the Coach page here since deploy 109; Your goals Settings' Coach tab here since deploy 111
+  assert.deepEqual(await card.locator('[data-review-link]').evaluateAll((els) => els.map((e) => [e.textContent.trim(), new URL(e.href).pathname + new URL(e.href).search])), rd.links.map((l) => [l.label, l.href === '/web/coach' ? '/coach' : l.href === '/web/settings?tab=coach' ? '/settings/coach' : l.href]));
   assert.equal(await text(card.locator('[data-review-caution]')), rd.caution);
   assert.equal(await card.locator('[data-review-said]').count(), 0, 'the start\'s words go once the review is there');
   await shot('week-last-done');
@@ -3610,7 +3615,7 @@ async function checkLibrary(page, name, theme) {
   assert.equal(await tab.getAttribute('aria-current'), 'page');
   assert.match(await tab.getAttribute('class'), /text-blue/);
   for (const other of ['today', 'trends', 'more']) assert.equal(await page.locator(`[data-place="${other}"]`).getAttribute('aria-current'), null, other);
-  assert.ok(await page.getByText('Settings and the rest are').isVisible(), 'the footer says what is still in the full app');
+  assert.equal(await page.getByText('Settings and the rest are').count(), 0, 'deploy 111: no footer line sends you to app.');
   assert.equal(await page.getByText('Library and the rest').count(), 0);
   assert.deepEqual(await page.locator('[data-tab]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-tab'), e.textContent.trim(), e.getAttribute('href'), e.getAttribute('aria-current')])), [
     ['foods', 'Foods', '/library', 'page'], ['usual', 'Usual meals', '/library/usual', null], ['habits', 'Habits', '/library/habits', null], ['exercises', 'Exercises', '/library/exercises', null]]);
@@ -3916,8 +3921,8 @@ async function checkLibraryTabs(page, name, theme) {
   assert.equal(await page.locator('[data-card="ticks"]').count(), 0, 'the ticks stay on the Habits page');
   assert.deepEqual(await page.locator('[data-chips] a').evaluateAll((els) => els.map((e) => e.getAttribute('href'))), ['/library/habits', '/library/habits?show=untracked', '/library/habits?show=retired', '/library/habits?show=all']);
   assert.equal(await text(page.locator('[data-help]')), hb.help.replace('in the calendar below', 'on the Habits page'));
-  assert.equal(await text(page.locator('[data-settings-line]')), "Which habits show on Today, and their order: in app.'s Settings for now.");
-  assert.match(await page.locator('[data-settings-line] a').getAttribute('href'), /\/web\/settings/);
+  assert.equal(await text(page.locator('[data-settings-line]')), 'Which habits show on Today, and their order: in Settings.');
+  assert.equal(await page.locator('[data-settings-line] a').getAttribute('href'), '/settings/today', 'deploy 111: Settings is here');
   await shot('habits');
   await checkWidth(page, 'library habits');
   await page.locator('[data-show="all"]').click();
@@ -4002,8 +4007,8 @@ async function checkMedicalPlace(page, name, theme) {
     assert.equal(await sp.evaluate((e) => e.hasAttribute('data-soon')), false);
     assert.equal(await text(sp), 'Medical Lab reports, tests over time, medication');
     assert.equal(await page.locator('[data-soon]').count(), 0, 'every Space is live');
-    assert.equal(await page.locator('[data-rest]').count(), 0, 'deploy 108: the dashed "Settings and the rest" box is gone (the footer line stays)');
-    assert.ok(await page.getByText('Settings and the rest are').isVisible(), 'the footer line stays until deploy 111');
+    assert.equal(await page.locator('[data-rest]').count(), 0, 'deploy 108: the dashed "Settings and the rest" box is gone');
+    assert.equal(await page.getByText('Settings and the rest are').count(), 0, 'deploy 111: no footer line sends you to app.');
     if (name === 'phone') await page.screenshot({ path: `${out}/medical-more-${name}-${theme}.png` });
     await checkWidth(page, 'more, Medical live');
     await sp.click();
@@ -4027,7 +4032,7 @@ async function checkMedicalPlace(page, name, theme) {
   }
   assert.equal(await page.locator('[data-place="today"]').getAttribute('aria-current'), null);
   assert.equal(await page.locator('[data-place="library"]').getAttribute('aria-current'), null);
-  assert.ok(await page.getByText('Settings and the rest are').isVisible(), 'the footer names Settings and the rest');
+  assert.equal(await page.getByText('Settings and the rest are').count(), 0, 'deploy 111: no footer line sends you to app.');
   assert.equal(await page.getByText('Medical, Settings').count(), 0, 'Medical is no longer in the full app');
   assert.deepEqual(await page.locator('[data-tab]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-tab'), e.textContent.trim(), e.getAttribute('href'), e.getAttribute('aria-current')])), [
     ['reports', 'Reports', '/medical', 'page'], ['tests', 'Tests over time', '/medical/tests', null], ['meds', 'Medication', '/medical/meds', null]]);
@@ -4623,7 +4628,7 @@ async function checkMoreHome(page, name, theme) {
   assert.equal(await page.locator('[data-search]').getAttribute('name'), 'q');
   assert.equal(await page.locator('[data-search]').getAttribute('placeholder'), 'Search foods, meals, workouts, chores, tests');
   assert.equal(await text(page.locator('label[for="more-q"]')), 'Search');
-  // the Spaces as before, then the four rows: Settings at app. with its tag, Coach, Recent and Usage here
+  // the Spaces as before, then the four rows, all pages here (Settings since deploy 111: no "app." tag any more)
   assert.deepEqual(await page.locator('[data-space]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-space'), e.getAttribute('href')])),
     [['gym', '/gym'], ['health', '/health'], ['habits', '/habits'], ['home', '/home'], ['medical', '/medical']]);
   const rows = await page.locator('[data-more-place]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-more-place'), e.getAttribute('href'), e.getAttribute('data-where'), e.textContent.replace(/\s+/g, ' ').trim(), e.querySelector('[data-app-tag]') !== null]));
@@ -4631,19 +4636,18 @@ async function checkMoreHome(page, name, theme) {
   assert.equal(rows[0][1], '/coach', 'Coach is a page here since deploy 109');
   assert.equal(rows[1][1], '/recent');
   assert.equal(rows[2][1], '/usage');
-  assert.match(rows[3][1], /^https?:\/\/[^/]+\/web\/settings$/, 'Settings opens app. until deploy 111');
-  assert.deepEqual(rows.map((r) => r[2]), ['here', 'here', 'here', 'app']);
-  assert.deepEqual(rows.map((r) => r[4]), [false, false, false, true], 'the small "app." tag on the one row that opens app.');
-  assert.deepEqual(rows.map((r) => r[3]), ['Coach Every coaching, a day or a week', 'Recent What you sent, and what it saved', 'Usage AI calls and cost', 'Settings app. Targets, Today page, reminders, devices, export']);
+  assert.equal(rows[3][1], '/settings', 'Settings is a page here since deploy 111');
+  assert.deepEqual(rows.map((r) => r[2]), ['here', 'here', 'here', 'here']);
+  assert.deepEqual(rows.map((r) => r[4]), [false, false, false, false], 'no "app." tag on any row');
+  assert.deepEqual(rows.map((r) => r[3]), ['Coach Every coaching, a day or a week', 'Recent What you sent, and what it saved', 'Usage AI calls and cost', 'Settings Targets, Today page, reminders, devices, export']);
   // the Words: one quiet card, three links to app., each marked
   assert.equal(await text(page.locator('[data-words] p')), 'Ideas, Private and Gratitude are in the full app until the journal app exists.');
   const words = await page.locator('[data-word]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-word'), e.getAttribute('href'), e.textContent.replace(/\s+/g, ' ').trim()]));
   assert.deepEqual(words.map((w) => [w[0], w[2]]), [['ideas', 'Ideas › app.'], ['private', 'Private › app.'], ['gratitude', 'Gratitude › app.']]);
   assert.deepEqual(words.map((w) => w[1].replace(/^https?:\/\/[^/]+/, '')), ['/web/ideas', '/web/private', '/web/gratitude']);
-  // the dashed "Settings and the rest" box is gone; the footer line stays until deploy 111
+  // the dashed "Settings and the rest" box is gone, and since deploy 111 the footer line too
   assert.equal(await page.locator('[data-rest]').count(), 0, 'no dashed box');
-  assert.ok(await page.getByText('Settings and the rest are').isVisible(), 'the footer line stays');
-  assert.equal(await page.getByText('Settings and the rest are').count(), 1);
+  assert.equal(await page.getByText('Settings and the rest are').count(), 0, 'no footer line');
   // Sign out: the form Today's header has
   const so = page.locator('form[action="/signout"] button');
   assert.equal(await so.count(), 1);
@@ -5087,7 +5091,7 @@ async function checkCoach(page, name, theme) {
   assert.equal(await text(page.locator('[data-month]')), L.month.text);
   assert.equal(await text(page.locator('[data-note]')), L.note);
   assert.equal(await text(page.locator('[data-goals]')), 'Your goals ›');
-  assert.match(await page.locator('[data-goals]').getAttribute('href'), /^https?:\/\/[^/]+\/web\/settings\?tab=coach$/, 'Your goals is still at app. until deploy 111');
+  assert.equal(await page.locator('[data-goals]').getAttribute('href'), '/settings/coach', 'Your goals is Settings\' Coach tab here since deploy 111');
   // the order: Coach a day, the chips, the list, the month line (phones: one column; the PC: the same on the left, the side column right)
   const [bc, bf, bl, bm] = await Promise.all(['[data-card="coach"]', '[data-filters]', '[data-list]', '[data-month]'].map(async (s) => page.locator(s).boundingBox()));
   assert.ok(bc.y < bf.y && bf.y < bl.y && bl.y < bm.y, `${name}: Coach a day, the chips, the list, the month line`);
@@ -5336,14 +5340,14 @@ async function checkCoach(page, name, theme) {
   await standinPost('/standin/up');
   await standinPost('/standin/reset');
 
-  // ---- Trends' links: All coachings is the Coach page here (with ?f=weeks if the door says so), Your goals is still app.'s ------------------
+  // ---- Trends' links: All coachings is the Coach page here (with ?f=weeks if the door says so), Your goals Settings' Coach tab (111) ----------
   await standinPost('/standin/week?last=done');
   await page.goto(`${base}/trends?p=last`);
   const links = await page.locator('[data-card="review"] [data-review-link]').evaluateAll((els) => els.map((e) => [e.textContent.trim(), e.getAttribute('href')]));
   assert.equal(links[0][0], 'All coachings');
   assert.equal(links[0][1], '/coach');
   assert.equal(links[1][0], 'Your goals');
-  assert.match(links[1][1], /^https?:\/\/[^/]+\/web\/settings\?tab=coach$/);
+  assert.equal(links[1][1], '/settings/coach');
   await page.locator('[data-card="review"] [data-review-link]').first().click();
   await page.waitForURL(/\/coach$/);
   await standinPost('/standin/reset');
@@ -5378,7 +5382,7 @@ async function checkCoachToday(page, name, theme) {
   const links = await card.locator('[data-coach-link]').evaluateAll((els) => els.map((e) => [e.textContent.trim(), e.getAttribute('href')]));
   assert.deepEqual(links.map((l) => l[0]), ['All coachings ›', 'Your goals ›']);
   assert.equal(links[0][1], '/coach');
-  assert.match(links[1][1], /^https?:\/\/[^/]+\/web\/settings\?tab=coach$/);
+  assert.equal(links[1][1], '/settings/coach');
   // the place: phones after the Home card (and before Gratitude), the PC in the right column under the other cards
   const box = async (s) => page.locator(s).first().boundingBox();
   const [bh, bc, bg, bn, bd] = await Promise.all(['[data-card="home"]', '[data-card="coach"]', '[data-card="gratitude"]', '[data-card="needs"]', '[data-card="timeline"]'].map(box));
@@ -5455,6 +5459,360 @@ async function checkCoachToday(page, name, theme) {
   assert.equal(await card.count(), 0, 'no Coach card when the door says null');
   assert.equal(await page.locator('[data-card="gratitude"]').count(), 1);
   await checkWidth(page, 'today, no coach card');
+  await standinPost('/standin/reset');
+  await page.goto(`${base}/`);
+}
+
+/**
+ * Settings (deploy 111): /settings opens Food targets; every tab reads (the header, its tab lit, More lit, the PNG, no sideways scroll,
+ * 44 px targets); one save and one refusal per tab, each in the door's words; the Today page's switch, an arrow (the order survives a
+ * reload) and "Show everything again" with Yes; Devices: one signed out, all others with Yes; Notifications: a device's off (the twice line
+ * goes), the test, the nudges saved; Export: the download is the stand-in's ZIP with the door's headers, a failure comes back to the tab,
+ * and a form post from elsewhere is refused (SvelteKit's origin check).
+ */
+async function checkSettings(page, name, theme) {
+  await standinPost('/standin/reset');
+  const pc = name === 'pc';
+  const shot = (n, full = true) => page.screenshot({ path: `${out}/settings-${n}-${name}-${theme}.png`, fullPage: full });
+  const headIs = async (want) => {
+    await page.locator('[data-bar-head]', { hasText: want }).waitFor();
+    assert.equal(await text(page.locator('[data-bar-head]')), want, 'the answer bar');
+  };
+  const read = (k) => SETTINGS[k][`settings_${k}`];
+  const tabs = [['targets', '/settings/targets', 'Food targets'], ['today', '/settings/today', 'Today page'], ['body', '/settings/body', 'Body'], ['coach', '/settings/coach', 'Coach'],
+    ['devices', '/settings/devices', 'Devices'], ['notify', '/settings/notifications', 'Notifications'], ['export', '/settings/export', 'Export']];
+  const open = async (key) => {
+    const [, href] = tabs.find((x) => x[0] === key);
+    await page.goto(`${base}${href}`);
+    await page.locator('[data-settings-header]').waitFor();
+  };
+
+  // ---- More's row, /settings, the header and the tabs, every tab reads -------------------------------------------------------------
+  await page.goto(`${base}/more`);
+  await page.locator('[data-more-place="settings"]').click();
+  await page.waitForURL(/\/settings\/targets$/);
+  for (const [key, href, label] of tabs) {
+    await open(key);
+    assert.equal(await text(page.locator('h1')), 'Settings');
+    assert.equal(await page.locator('[data-back]').getAttribute('href'), '/more');
+    assert.deepEqual(await page.locator('[data-tabs] [data-tab]').evaluateAll((els) => els.map((e) => [e.getAttribute('href'), e.textContent.trim()])), tabs.map((x) => [x[1], x[2]]));
+    assert.equal(await page.locator('[data-tabs] [aria-current="page"]').getAttribute('href'), href, `${label} is the lit tab`);
+    assert.equal(await page.locator('[data-problem]').count(), 0, `${label} reads`);
+    await assertMoreLit(page, name, `settings ${key}`);
+    assert.equal(await page.getByText('Settings and the rest are').count(), 0, 'no footer line');
+    await checkWidth(page, `settings ${key}`);
+  }
+  // the tabs scroll inside their row on phones, never the page
+  if (name === 'phone') {
+    const nav = await page.locator('[data-tabs]').evaluate((e) => [e.scrollWidth, e.clientWidth]);
+    assert.ok(nav[0] > nav[1], 'phone: the seven tabs scroll sideways inside their row');
+  }
+  const res = await page.goto(`${base}/settings`);
+  assert.ok(res.ok());
+  assert.match(page.url(), /\/settings\/targets$/, '/settings opens Food targets');
+
+  // ---- Food targets ---------------------------------------------------------------------------------------------------------------
+  const T = read('targets');
+  for (const f of T.fields) assert.equal(await page.locator(`[data-field="${f.key}"]`).inputValue(), f.value === null ? '' : String(f.value), `${f.key} as the door has it`);
+  assert.equal(await page.locator('[data-field="valid_from"]').inputValue(), T.valid_from);
+  assert.equal(await text(page.locator('[data-line]')), 'A new date starts new targets; earlier days keep theirs.');
+  assert.deepEqual(await page.locator('[data-history-row]').evaluateAll((els) => els.map((e) => e.getAttribute('data-history-row'))), T.history.map((h) => h.valid_from));
+  if (pc) {
+    const [f, h] = [await page.locator('[data-form="targets"]').boundingBox(), await page.locator('[data-history]').boundingBox()];
+    assert.ok(h.x > f.x + 100 && Math.abs(h.y - f.y) < 2, 'pc: the form left, the history right');
+  }
+  await shot('targets');
+  // a refusal in the door's words next to the form (what was typed stays), and the page's own check of a field that is no number
+  await page.locator('[data-field="kcal"]').fill('-5');
+  await page.locator('[data-form="targets"] button[type=submit]').click();
+  await page.locator('[data-form="targets"] [data-refusal]').waitFor();
+  assert.equal(await text(page.locator('[data-form="targets"] [data-refusal]')), SETTINGS.saves.targets_refused.reason);
+  assert.equal(await page.locator('[data-field="kcal"]').inputValue(), '-5', 'what was typed stays');
+  await page.locator('[data-field="sodium_mg"]').fill('lots');
+  await page.locator('[data-form="targets"] button[type=submit]').click();
+  assert.equal(await text(page.locator('[data-form="targets"] [data-refusal]')), 'Sodium: give a number from 0 to 100000, or leave it empty.');
+  // a save: the bar says what was saved, the history has the new row
+  await page.locator('[data-field="kcal"]').fill('2000');
+  await page.locator('[data-field="sodium_mg"]').fill('');
+  await page.locator('[data-field="note"]').fill('new plan');
+  await page.locator('[data-form="targets"] button[type=submit]').click();
+  await page.locator('[data-bar-head]', { hasText: 'Targets from 17.11.2026 saved: Calories 2000,' }).waitFor();
+  assert.equal(await page.locator('[data-form="targets"] [data-refusal]').count(), 0, 'the refusal goes');
+  await page.locator('[data-history-row="2026-11-17"]').waitFor();
+  const cells = (loc) => loc.evaluate((e) => [...e.cells].map((c) => c.textContent.trim()));
+  const row = await cells(page.locator('[data-history-row="2026-11-17"]'));
+  assert.deepEqual([row[0], row[1], row.at(-1)], ['17.11.2026', '2,000', 'new plan']);
+  assert.equal(await page.locator('[data-field="sodium_mg"]').inputValue(), '', 'the form is the fresh read');
+  if (name === 'phone') await shot('targets-saved', false);
+  await checkWidth(page, 'settings targets, saved');
+
+  // ---- Today page: a switch, an arrow, reset with Yes --------------------------------------------------------------------------------
+  await open('today');
+  // the stand-in starts the two switches GET /day carries as the day sample has them (its Gratitude card shown)
+  const D = structuredClone(read('today'));
+  D.groups.find((g) => g.kind === 'review').items[0].shown = day.shown.review;
+  D.groups.find((g) => g.kind === 'card').items.find((x) => x.id === 'gratitude').shown = day.shown.gratitude;
+  const order = (kind) => page.locator(`[data-group="${kind}"] [data-item]`).evaluateAll((els) => els.map((e) => e.getAttribute('data-item').split(':')[1]));
+  const shownOf = (kind) => page.locator(`[data-group="${kind}"] [data-item]`).evaluateAll((els) => els.map((e) => e.getAttribute('data-shown') === '1'));
+  assert.deepEqual(await page.locator('[data-group]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-group'), e.querySelector('h2').textContent.trim()])), D.groups.map((g) => [g.kind, g.heading]));
+  for (const g of D.groups) {
+    assert.deepEqual(await order(g.kind), g.items.map((x) => x.id), `${g.kind}: the door's order`);
+    assert.deepEqual(await shownOf(g.kind), g.items.map((x) => x.shown), `${g.kind}: shown or hidden`);
+    const rows = page.locator(`[data-group="${g.kind}"] [data-item]`);
+    assert.equal(await rows.locator('[data-up]').count(), g.items.length > 1 ? g.items.length : 0, `${g.kind}: arrows only with more than one row`);
+    if (g.items.length > 1) {
+      assert.ok(await rows.first().locator('[data-up]').isDisabled(), 'the first row cannot go up');
+      assert.ok(await rows.last().locator('[data-down]').isDisabled(), 'the last row cannot go down');
+      assert.ok(!(await rows.first().locator('[data-down]').isDisabled()));
+    }
+  }
+  if (pc) {
+    const [a, b] = [await page.locator('[data-group="habit"]').boundingBox(), await page.locator('[data-group="usual"]').boundingBox()];
+    assert.ok(b.x > a.x + 100 && Math.abs(a.y - b.y) < 2, 'pc: the groups in two columns');
+  }
+  await shot('today');
+  // the switch: Blood sugar shown
+  const sugar = page.locator('[data-item="health:sugar"]');
+  assert.equal(await sugar.locator('[data-switch]').getAttribute('aria-checked'), 'false');
+  await sugar.locator('[data-switch]').click();
+  // the door's words: "… shows what you chose." while something is hidden, "… shows everything." when nothing is
+  const allShown = D.groups.every((g) => g.items.every((x) => x.shown || x.id === 'sugar'));
+  await headIs(allShown ? 'Saved. The Today page shows everything.' : SETTINGS.saves.today.head);
+  await page.locator('[data-item="health:sugar"][data-shown="1"]').waitFor();
+  assert.equal(await sugar.locator('[data-switch]').getAttribute('aria-checked'), 'true');
+  // an arrow: Weight one up; the order is the door's and survives a reload
+  await page.locator('[data-item="health:weight"] [data-up]').click();
+  await page.waitForFunction(() => [...document.querySelectorAll('[data-group="health"] [data-item]')].map((e) => e.getAttribute('data-item'))[1] === 'health:weight');
+  const moved = ['bed', 'weight', 'wake', 'sugar', 'bp_morning', 'bp_evening'];
+  assert.deepEqual(await order('health'), moved);
+  await page.reload();
+  assert.deepEqual(await order('health'), moved, 'the new order after a reload');
+  assert.deepEqual(await shownOf('health'), [true, true, true, true, true, true]);
+  // reset: asked first in the bar, Yes resets
+  await page.locator('[data-reset]').click();
+  await page.locator('[data-bar-yes]').waitFor();
+  assert.equal(await text(page.locator('[data-bar-yes]')), 'Yes, reset');
+  if (name === 'phone') await shot('today-reset-asked', false);
+  await page.locator('[data-bar-yes]').click();
+  await headIs(SETTINGS.saves.today_reset.head);
+  await page.waitForFunction(() => [...document.querySelectorAll('[data-item]')].every((e) => e.getAttribute('data-shown') === '1'));
+  assert.deepEqual(await order('card'), ['gratitude', 'home', 'coach'], 'the default order');
+  await checkWidth(page, 'settings today page, after the taps');
+
+  // ---- Body ---------------------------------------------------------------------------------------------------------------------------
+  await open('body');
+  const B = read('body');
+  assert.equal(await page.locator('[data-field="height"]').inputValue(), String(B.height.cm));
+  assert.deepEqual(await page.locator('[data-measure]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-measure'), e.getAttribute('aria-checked')])), B.measures.map((m) => [m.key, String(m.shown)]));
+  assert.equal(await page.locator('[data-field="interval"]').inputValue(), String(B.interval.days));
+  await shot('body');
+  await page.locator('[data-field="height"]').fill('300');
+  await page.locator('[data-form="height"] button[type=submit]').click();
+  await page.locator('[data-form="height"] [data-refusal]').waitFor();
+  assert.equal(await text(page.locator('[data-form="height"] [data-refusal]')), SETTINGS.saves.height_refused.reason);
+  await page.locator('[data-field="height"]').fill('178');
+  await page.locator('[data-form="height"] button[type=submit]').click();
+  await headIs('Height 178 cm saved, from 17.11.2026.');
+  assert.deepEqual(await page.locator('[data-heights] tr').first().evaluate((e) => [...e.cells].map((c) => c.textContent.trim())), ['17.11.2026', '178 cm']);
+  for (const m of B.measures) if (m.shown) await page.locator(`[data-measure="${m.key}"]`).click();
+  await page.locator('[data-form="body"] button[type=submit]').click();
+  await page.locator('[data-form="body"] [data-refusal]').waitFor();
+  assert.equal(await text(page.locator('[data-form="body"] [data-refusal]')), 'Keep at least one measure.');
+  await page.locator('[data-measure="waist"]').click();
+  await page.locator('[data-measure="hips"]').click();
+  await page.locator('[data-field="interval"]').fill('28');
+  await page.locator('[data-form="body"] button[type=submit]').click();
+  await headIs(SETTINGS.saves.body.head);
+  assert.equal(await page.locator('[data-form="body"] [data-refusal]').count(), 0);
+  await checkWidth(page, 'settings body, saved');
+
+  // ---- Coach -------------------------------------------------------------------------------------------------------------------------
+  await open('coach');
+  const C = read('coach');
+  assert.equal(await page.locator('[data-field="goals"]').inputValue(), C.goals);
+  assert.equal(await page.locator('[data-field="style"]').inputValue(), C.style);
+  assert.equal(await page.locator('[data-field="goals"]').getAttribute('maxlength'), String(C.max));
+  assert.deepEqual(await page.locator('[data-facts] li').allTextContents(), C.facts);
+  assert.deepEqual(await page.locator('[data-part]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-part'), e.getAttribute('aria-checked')])),
+    C.kinds.flatMap((k) => k.parts.map((x) => [`${k.kind}:${x.key}`, String(x.on)])));
+  await shot('coach');
+  for (const x of C.kinds[0].parts) if (x.on) await page.locator(`[data-part="day:${x.key}"]`).click();
+  await page.locator('[data-form="coach"] button[type=submit]').click();
+  await page.locator('[data-form="coach"] [data-refusal]').waitFor();
+  assert.equal(await text(page.locator('[data-form="coach"] [data-refusal]')), SETTINGS.saves.coach_refused.reason);
+  await page.locator('[data-part="day:went_well"]').click();
+  await page.locator('[data-field="goals"]').fill('Walk every day.');
+  await page.locator('[data-form="coach"] button[type=submit]').click();
+  await headIs(SETTINGS.saves.coach.head);
+  await page.reload();
+  assert.equal(await page.locator('[data-field="goals"]').inputValue(), 'Walk every day.');
+  assert.equal(await page.locator('[data-part="day:improve"]').getAttribute('aria-checked'), 'false');
+  await checkWidth(page, 'settings coach, saved');
+
+  // ---- Devices -----------------------------------------------------------------------------------------------------------------------
+  await open('devices');
+  const V = read('devices');
+  const devs = () => page.locator('[data-device]').evaluateAll((els) => els.map((e) => e.getAttribute('data-device')));
+  assert.deepEqual(await devs(), V.devices.map((d) => d.id));
+  for (const d of V.devices) {
+    const el = page.locator(`[data-device="${d.id}"]`);
+    assert.equal(await text(el.locator('[data-address]')), d.address === 'logger' ? 'logger.' : 'app.');
+    assert.equal(await el.locator('[data-this]').count(), d.current ? 1 : 0);
+    assert.equal(await el.locator('[data-signout]').count(), d.current ? 0 : 1, 'this device has no button');
+    assert.match(await text(el.locator('[data-line]')), /^signed in \d\d\.\d\d\.\d{4} · last used \d\d\.\d\d\.\d{4} \d\d:\d\d · stays signed in until \d\d\.\d\d\.\d{4}$/);
+  }
+  assert.equal(await page.locator('[data-watch-link]').getAttribute('href'), '/gym/activity');
+  await shot('devices');
+  const appDev = V.devices.find((d) => d.address === 'app').id;
+  await page.locator(`[data-device="${appDev}"] [data-signout]`).click();
+  await headIs(SETTINGS.saves.device.head);
+  await page.locator(`[data-device="${appDev}"]`).waitFor({ state: 'detached' });
+  await page.locator('[data-others]').click();
+  assert.equal(await text(page.locator('[data-bar-yes]')), 'Yes, sign out');
+  await page.locator('[data-bar-no]').click();
+  assert.equal((await devs()).length, 2, 'No signs nobody out');
+  await page.locator('[data-others]').click();
+  await page.locator('[data-bar-yes]').click();
+  await headIs(SETTINGS.saves.others.head);
+  await page.locator('[data-others]').waitFor({ state: 'detached' });
+  assert.equal((await devs()).length, 1, 'only this device');
+  await checkWidth(page, 'settings devices, signed out');
+
+  // ---- Notifications ------------------------------------------------------------------------------------------------------------------
+  await open('notify');
+  const N = read('notify');
+  assert.deepEqual(await page.locator('[data-subscription]').evaluateAll((els) => els.map((e) => Number(e.getAttribute('data-subscription')))), N.subscriptions.map((s) => s.id));
+  assert.equal(await text(page.locator('[data-twice]')), 'This phone is on at app. too: nudges arrive twice until you turn that one off.');
+  for (const s of N.subscriptions) {
+    const el = page.locator(`[data-subscription="${s.id}"]`);
+    assert.equal(await el.locator('[data-this]').count(), s.this ? 1 : 0);
+    assert.match(await text(el.locator('[data-line]')), /^on since \d\d\.\d\d\.\d{4}, last delivered \d\d\.\d\d\.\d{4} \d\d:\d\d$/);
+  }
+  assert.deepEqual(await page.locator('[data-nudge]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-nudge'), e.querySelector('[data-switch]').getAttribute('aria-checked'), e.querySelector('input').value])),
+    N.nudges.map((x) => [x.key, String(x.on), String(x.hours.value)]));
+  for (const x of N.nudges) {
+    const input = page.locator(`[data-hours="${x.hours.key}"]`);
+    assert.deepEqual([await input.getAttribute('min'), await input.getAttribute('max'), await input.getAttribute('step')], [String(x.hours.min), String(x.hours.max), String(x.hours.step)]);
+  }
+  assert.equal(await text(page.locator('[data-nudge="gratitude"] [data-note]')), N.nudges.find((x) => x.key === 'gratitude').note);
+  assert.equal(await page.locator('[data-nudges-on]').getAttribute('aria-checked'), String(N.on));
+  await shot('notifications');
+  const appSub = N.subscriptions.find((s) => s.address === 'app').id;
+  await page.locator(`[data-subscription="${appSub}"] [data-push-off]`).click();
+  await headIs(SETTINGS.saves.push_off.head);
+  await page.locator('[data-twice]').waitFor({ state: 'detached' });
+  const tests = async () => (await (await fetch(`${standin}/standin/push-tests`)).json()).tests;
+  const t0 = await tests();
+  await page.locator('[data-test]').click();
+  await headIs('Test notification sent to 2 devices.');
+  assert.equal(await tests(), t0 + 1, 'one test sent');
+  await page.locator('[data-nudge="idle"] [data-switch]').click();
+  await page.locator('[data-hours="gratitude_after"]').fill('13');
+  await page.locator('[data-form="nudges"] button[type=submit]').click();
+  await headIs(SETTINGS.saves.nudges.head);
+  await page.reload();
+  assert.equal(await page.locator('[data-nudge="idle"] [data-switch]').getAttribute('aria-checked'), 'false');
+  assert.equal(await page.locator('[data-hours="gratitude_after"]').inputValue(), '13');
+  await standinPost('/standin/settings?nopush=1');
+  await page.reload();
+  assert.equal(await page.locator('[data-test]').count(), 0, 'no test without a device');
+  assert.equal(await text(page.locator('[data-none]')), 'No device gets nudges.');
+  await checkWidth(page, 'settings notifications, none');
+
+  // ---- Export --------------------------------------------------------------------------------------------------------------------------
+  await open('export');
+  const E = read('export');
+  assert.equal(await text(page.locator('[data-form="export"] h2')), E.title);
+  assert.equal(await text(page.locator('[data-intro]')), E.intro);
+  assert.equal(await page.locator('[data-private]').isChecked(), false, 'private entries off by default');
+  await page.getByText(E.private_label).click(); // the whole line ticks it
+  assert.equal(await page.locator('[data-private]').isChecked(), true);
+  assert.equal(await text(page.locator('[data-download]')), E.button);
+  assert.equal(await text(page.locator('[data-last]')), E.last.text);
+  assert.equal(await page.locator('[data-form="export"]').getAttribute('method'), 'POST');
+  assert.equal(await page.locator('[data-form="export"]').getAttribute('action'), '/settings/export/download');
+  await shot('export');
+  const got = await page.evaluate(async () => {
+    const f = new FormData();
+    f.append('private', '1');
+    const r = await fetch('/settings/export/download', { method: 'POST', body: f });
+    const b = new Uint8Array(await r.arrayBuffer());
+    return { status: r.status, type: r.headers.get('content-type'), cd: r.headers.get('content-disposition'), cache: r.headers.get('cache-control'), magic: [b[0], b[1], b[2], b[3]], size: b.length };
+  });
+  assert.deepEqual({ ...got, size: got.size > 100 }, { status: 200, type: 'application/zip', cd: 'attachment; filename="logger-export-17.11.2026.zip"', cache: 'no-store', magic: [0x50, 0x4b, 0x03, 0x04], size: true });
+  const ex = await (await fetch(`${standin}/standin/exports`)).json();
+  assert.equal(ex.last.private, true, 'the tick box went to the door');
+  // the button: a download, the page stays
+  const [dl] = await Promise.all([page.waitForEvent('download'), page.locator('[data-download]').click()]);
+  assert.equal(dl.suggestedFilename(), 'logger-export-17.11.2026.zip');
+  assert.match(page.url(), /\/settings\/export$/);
+  // a failed export comes back to the tab with a line, never a broken file
+  await standinPost('/standin/settings?export_fail=1');
+  await page.locator('[data-download]').click();
+  await page.waitForURL(/\/settings\/export\?failed=1$/);
+  assert.equal(await text(page.locator('[data-failed]')), 'The export could not be made. Nothing was downloaded; try again in a moment.');
+  await standinPost('/standin/settings?export_fail=0');
+  // a form post from another site is refused (SvelteKit's origin check stays on)
+  const cross = await fetch(`${base}/settings/export/download`, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded', origin: 'https://elsewhere.example' }, body: 'private=1' });
+  assert.equal(cross.status, 403, 'a cross-site form post is refused');
+  await checkWidth(page, 'settings export');
+
+  // ---- a failed read: ProblemCard with app.'s own tab --------------------------------------------------------------------------------
+  await standinPost('/standin/door-off');
+  for (const [key, href] of [['targets', '/settings/targets'], ['notify', '/settings/notifications']]) {
+    await page.goto(`${base}${href}`);
+    assert.match(await page.locator('[data-problem="door_off"]').getByRole('link', { name: 'Open the full app' }).getAttribute('href'), new RegExp(`/web/settings\\?tab=${key}$`));
+  }
+  await standinPost('/standin/up');
+  await standinPost('/standin/reset');
+}
+
+/**
+ * The links that left app. with deploy 111 and Today following the two switches: More's Settings row, the Habits and Library lines, the
+ * Health page's height link, Your goals on Today, the sign-in page's line; no footer line; the Needs card's Change stays app.'s; with
+ * `shown` false the To review items are one line and the Gratitude card is gone, with `shown` missing (an older door) both show.
+ */
+async function checkSettingsLinks(page, name, theme) {
+  await standinPost('/standin/reset');
+  await page.goto(`${base}/more`);
+  assert.equal(await page.locator('[data-more-place="settings"]').getAttribute('href'), '/settings');
+  assert.equal(await page.locator('[data-more-place="settings"] [data-app-tag]').count(), 0);
+  await page.goto(`${base}/habits`);
+  assert.equal(await page.locator('[data-settings-line] a').getAttribute('href'), '/settings/today');
+  await page.goto(`${base}/library/habits`);
+  assert.equal(await page.locator('[data-settings-line] a').getAttribute('href'), '/settings/today');
+  await page.goto(`${base}/health`);
+  await page.locator('[data-charts]').waitFor();
+  for (const href of await page.locator('[data-waist-height] a').evaluateAll((els) => els.map((e) => e.getAttribute('href')))) assert.equal(href, '/settings/body');
+  const login = await (await fetch(`${base}/login`)).text();
+  assert.ok(login.includes('Ideas, Private and Gratitude are in the'), 'the sign-in page names what stays at app.');
+  assert.ok(!login.includes('A trial of the new look'), 'the old sign-in line is gone');
+
+  await page.goto(`${base}/`);
+  assert.equal(await page.getByText('Settings and the rest are').count(), 0, 'no footer line on Today');
+  const goals = page.locator('[data-card="coach"] [data-coach-link]').last();
+  assert.equal(await goals.getAttribute('href'), '/settings/coach', 'Your goals on Today');
+  // Change on a To review row stays app.'s (the door's row has no food id)
+  for (const href of await page.locator('[data-review] a', { hasText: 'Change' }).evaluateAll((els) => els.map((e) => e.getAttribute('href')))) assert.match(href, /^https?:\/\/[^/]+\/web\/$/);
+  assert.equal(await page.locator('[data-review-hidden]').count(), 0);
+  assert.equal(await page.locator('[data-card="gratitude"]').count(), 1);
+
+  // the switches off: the items to review are one line, the Gratitude card goes
+  await standinPost('/standin/settings?shown=0');
+  await page.reload();
+  const n = day.needs.review.length;
+  assert.equal(await text(page.locator('[data-review-hidden]')), `${n} items to review are hidden here · show the box`);
+  assert.equal(await page.locator('[data-review-hidden] a').getAttribute('href'), '/settings/today');
+  assert.equal(await page.locator('[data-review]').count(), 0, 'no items to review');
+  assert.equal(await page.locator('[data-card="gratitude"]').count(), 0, 'no Gratitude card');
+  if (name === 'phone') await page.screenshot({ path: `${out}/settings-today-hidden-${name}-${theme}.png`, fullPage: true });
+  await checkWidth(page, 'today, two parts hidden');
+  // an older door without `shown`: both as before
+  await standinPost('/standin/settings?noshown=1');
+  await page.reload();
+  assert.equal(await page.locator('[data-review-hidden]').count(), 0);
+  assert.equal(await page.locator('[data-card="gratitude"]').count(), 1);
+  assert.ok((await page.locator('[data-review]').count()) === 1);
   await standinPost('/standin/reset');
   await page.goto(`${base}/`);
 }
@@ -5605,11 +5963,18 @@ for (const theme of ['dark', 'light']) {
       await checkCoachToday(page, name, theme);
       console.log(`today's coach card ${name} ${theme}: checks passed`);
     }
+    if (only('settings')) {
+      await checkSettings(page, name, theme);
+      console.log(`settings, its seven tabs ${name} ${theme}: checks passed`);
+      await checkSettingsLinks(page, name, theme);
+      console.log(`settings links, today's two switches ${name} ${theme}: checks passed`);
+    }
     if (only('problems')) {
       await checkProblems(page, name, theme);
       console.log(`core down, door off, next ${name} ${theme}: checks passed`);
     }
     if (name === 'phone' && theme === 'dark') {
+      await page.goto(`${base}/`); // Today's Sign out (an area run alone may end on a page without one, e.g. SHOOT_ONLY=health)
       await page.getByRole('button', { name: 'Sign out' }).click();
       await page.getByRole('button', { name: 'Sign in' }).waitFor();
       console.log('sign-out: back on the sign-in page');

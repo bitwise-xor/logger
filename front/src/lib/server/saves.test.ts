@@ -2,7 +2,8 @@
 // day asked for, and a gone session told apart from other problems.
 import { describe, expect, it } from 'vitest';
 import { makeDoor, type Fetch } from './door.js';
-import { bodyFor, CATALOGUE_SAVES, MEDICAL_MEDS_SAVES, MEDICAL_REPORTS_SAVES, EXERCISES_SAVES, LIBRARY_HABITS_SAVES, FOOD_SAVES, GYM_SAVES, HABITS_SAVES, HEALTH_SAVES, EDIT_SAVES, HISTORY_SAVES, HOME_SAVES, PICK_SAVES, PLAN_SAVES, runSave, SAVE_NAMES, SAVES, TODAY_SAVES, TRENDS_SAVES, COACH_SAVES, USUAL_SAVES, ZONES_SAVES } from './saves.js';
+import { bodyFor, CATALOGUE_SAVES, MEDICAL_MEDS_SAVES, MEDICAL_REPORTS_SAVES, EXERCISES_SAVES, LIBRARY_HABITS_SAVES, FOOD_SAVES, GYM_SAVES, HABITS_SAVES, HEALTH_SAVES, EDIT_SAVES, HISTORY_SAVES, HOME_SAVES, PICK_SAVES, PLAN_SAVES, runSave, SAVE_NAMES, SAVES, TODAY_SAVES, TRENDS_SAVES, COACH_SAVES, USUAL_SAVES, ZONES_SAVES, SETTINGS_ONLY, SETTINGS_TARGETS_SAVES, SETTINGS_TODAY_SAVES, SETTINGS_BODY_SAVES, SETTINGS_COACH_SAVES, SETTINGS_DEVICES_SAVES, SETTINGS_NOTIFY_SAVES } from './saves.js';
+import { mayResend } from '../saver.js';
 
 const TOKEN = 'f'.repeat(40);
 const SESSION = 's'.repeat(43);
@@ -191,7 +192,7 @@ describe('the Food day saves (step E)', () => {
     expect(TODAY_SAVES).not.toContain('usual_meal');
     expect(TODAY_SAVES).toContain('usual');
     expect(TODAY_SAVES).toContain('undo');
-    expect(new Set([...TODAY_SAVES, ...FOOD_SAVES, ...USUAL_SAVES, ...HEALTH_SAVES, ...HABITS_SAVES, ...GYM_SAVES, ...PLAN_SAVES, ...EXERCISES_SAVES, ...HOME_SAVES, ...PICK_SAVES, ...ZONES_SAVES, ...HISTORY_SAVES, ...EDIT_SAVES, ...TRENDS_SAVES, ...COACH_SAVES, ...CATALOGUE_SAVES, ...LIBRARY_HABITS_SAVES, ...MEDICAL_REPORTS_SAVES, ...MEDICAL_MEDS_SAVES])).toEqual(new Set(SAVE_NAMES));
+    expect(new Set([...TODAY_SAVES, ...FOOD_SAVES, ...USUAL_SAVES, ...HEALTH_SAVES, ...HABITS_SAVES, ...GYM_SAVES, ...PLAN_SAVES, ...EXERCISES_SAVES, ...HOME_SAVES, ...PICK_SAVES, ...ZONES_SAVES, ...HISTORY_SAVES, ...EDIT_SAVES, ...TRENDS_SAVES, ...COACH_SAVES, ...CATALOGUE_SAVES, ...LIBRARY_HABITS_SAVES, ...MEDICAL_REPORTS_SAVES, ...MEDICAL_MEDS_SAVES, ...SETTINGS_ONLY])).toEqual(new Set(SAVE_NAMES));
   });
 });
 
@@ -978,5 +979,67 @@ describe('Medical (the Medical Space)', () => {
     const { door, seen } = net(200, { v: 1, outcome: 'needs_confirmation', head: 'Nothing saved yet: please confirm.', labs_meds: {} });
     await runSave(door, SESSION, 'log', form({ text: 'started vitamin D 1000 IU daily', key: KEY }), undefined, 'labs_meds');
     expect(seen).toEqual([{ path: '/api/v1/log', body: { text: 'started vitamin D 1000 IU daily', key: KEY, view: 'labs_meds' }, timeout: true }]);
+  });
+});
+
+// Deploy 111: Settings' tabs (POST /settings/<tab>, /push/off, /push/test): numbers as numbers, the Today page's group in its order,
+// the coach's parts only when the form had them, the nudges' switches as true or false; never a key, never in Today's actions, never
+// sent again by the page; each tab's fresh read asked for.
+describe('Settings', () => {
+  const NAMES = ['settings_targets', 'settings_today', 'settings_today_reset', 'settings_height', 'settings_body', 'settings_coach', 'settings_device', 'settings_others', 'settings_nudges', 'push_off', 'push_test'] as const;
+
+  it('are on their tabs\' form actions only, take no key and are never sent again by the page', () => {
+    expect([...SETTINGS_TARGETS_SAVES, ...SETTINGS_TODAY_SAVES, ...SETTINGS_BODY_SAVES, ...SETTINGS_COACH_SAVES, ...SETTINGS_DEVICES_SAVES, ...SETTINGS_NOTIFY_SAVES].sort()).toEqual([...NAMES].sort());
+    for (const n of NAMES) {
+      expect(TODAY_SAVES).not.toContain(n);
+      expect(FOOD_SAVES).not.toContain(n);
+      expect(SAVES[n].keyed).toBe(false);
+      expect(mayResend(n)).toBe(false);
+      expect(bodyFor(n, form({ key: KEY }), undefined, () => KEY, 'settings_targets')).not.toHaveProperty('key');
+    }
+    expect(SETTINGS_ONLY).not.toContain('undo');
+    expect(TODAY_SAVES).toContain('undo');
+  });
+
+  it('go to the door\'s routes', () => {
+    expect(NAMES.map((n) => SAVES[n].path)).toEqual(['/settings/targets', '/settings/today', '/settings/today_reset', '/settings/height', '/settings/body', '/settings/coach', '/settings/device', '/settings/others', '/settings/nudges', '/push/off', '/push/test']);
+  });
+
+  it('food targets: the date, the nine as numbers (a comma too), an empty one as null (no target), the note left out when empty', () => {
+    const body = bodyFor('settings_targets', form({ valid_from: '2026-11-17', kcal: '2000', protein: '150,5', fat: '', sat_fat: '-5', note: ' new plan ' }), undefined, undefined, 'settings_targets');
+    expect(body).toEqual({
+      valid_from: '2026-11-17', kcal: 2000, protein: 150.5, fat: null, sat_fat: -5, carbs: null, fibre: null, sugar_added: null, sodium_mg: null, water_ml: null,
+      note: 'new plan', view: 'settings_targets',
+    });
+    expect(bodyFor('settings_targets', form({ valid_from: '17.11.2026', kcal: 'lots' }), undefined, undefined, 'settings_targets')).toMatchObject({ kcal: 'lots' });
+    expect(bodyFor('settings_targets', form({ valid_from: '17.11.2026' }), undefined, undefined, 'settings_targets')).not.toHaveProperty('valid_from');
+  });
+
+  it('the Today page: one group, its ids in the order sent, each shown or not; an unknown group sends none', () => {
+    const body = bodyFor('settings_today', form({ group: 'health', id: ['wake', 'bed', 'weight'], shown: ['1', '0', '1'] }), undefined, undefined, 'settings_today');
+    expect(body).toEqual({ groups: { health: [{ id: 'wake', shown: true }, { id: 'bed', shown: false }, { id: 'weight', shown: true }] }, view: 'settings_today' });
+    expect(bodyFor('settings_today', form({ group: 'drinks', id: 'x', shown: '1' }), undefined, undefined, 'settings_today')).toEqual({ groups: {}, view: 'settings_today' });
+    expect(bodyFor('settings_today_reset', form({ confirmed: '1' }), undefined, undefined, 'settings_today')).toEqual({ view: 'settings_today' });
+  });
+
+  it('body: the height as a number, the measures shown always sent (none: the door\'s "Keep at least one measure.")', () => {
+    expect(bodyFor('settings_height', form({ valid_from: '2026-11-17', height: '177,5' }), undefined, undefined, 'settings_body')).toEqual({ valid_from: '2026-11-17', height: 177.5, view: 'settings_body' });
+    expect(bodyFor('settings_body', form({ interval: '28', show: ['waist', 'hips'] }), undefined, undefined, 'settings_body')).toEqual({ interval: 28, show: ['waist', 'hips'], view: 'settings_body' });
+    expect(bodyFor('settings_body', form({ interval: '28' }), undefined, undefined, 'settings_body')).toEqual({ interval: 28, show: [], view: 'settings_body' });
+  });
+
+  it('coach: the texts as typed (up to 2000), the parts switched on only when the form had the switches', () => {
+    const body = bodyFor('settings_coach', form({ goals: 'Walk every day.', style: '', parts: '1', day: ['went_well', 'gaps'] }), undefined, undefined, 'settings_coach');
+    expect(body).toEqual({ goals: 'Walk every day.', style: '', parts: { day: ['went_well', 'gaps'], week: [] }, view: 'settings_coach' });
+    expect(bodyFor('settings_coach', form({ goals: 'x'.repeat(2500) }), undefined, undefined, 'settings_coach')).toEqual({ goals: 'x'.repeat(2000), view: 'settings_coach' });
+  });
+
+  it('devices and notifications: the id, the nudges\' switches as true or false and their hours as numbers (not a number: left out)', () => {
+    expect(bodyFor('settings_device', form({ id: '0920104a-d56c-44ca-9187-f6b801c9e336' }), undefined, undefined, 'settings_devices')).toEqual({ id: '0920104a-d56c-44ca-9187-f6b801c9e336', view: 'settings_devices' });
+    expect(bodyFor('settings_others', form({ confirmed: '1' }), undefined, undefined, 'settings_devices')).toEqual({ view: 'settings_devices' });
+    expect(bodyFor('push_off', form({ id: '54' }), undefined, undefined, 'settings_notify')).toEqual({ id: 54, view: 'settings_notify' });
+    expect(bodyFor('push_test', form({}), undefined, undefined, 'settings_notify')).toEqual({ view: 'settings_notify' });
+    const body = bodyFor('settings_nudges', form({ on: '1', weight: '1', habits: '0', idle: '0', weight_after: '2,5', idle_hours: 'soon', gratitude_after: '13' }), undefined, undefined, 'settings_notify');
+    expect(body).toEqual({ on: true, weight: true, habits: false, idle: false, weight_after: 2.5, gratitude_after: 13, view: 'settings_notify' });
   });
 });
