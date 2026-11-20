@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 import pytest
 from starlette.testclient import TestClient
 
-from app import auth, mcp_app, todaypage, uiprefs
+from app import auth, mcp_app, reads, todaypage, uiprefs
 from app.mcp_app import build_app
 from app.rules import BERLIN
 from conftest import owner_sql
@@ -173,21 +173,28 @@ TABLES = ("raw_inbox", "measurements", "events", "foods", "food_entries", "thoug
 
 def test_the_hub_token_cannot_call_the_other_tools_and_nothing_happens(monkeypatch, fake, caplog):
     monkeypatch.setattr(auth, "HUB_TOKEN", TOKEN)
-    qid = question()
-    calls = (("log", dict(text="weight 90", idempotency_key="hub-x1")), ("answer", dict(question_id=qid, reply="yes")),
-             ("add_food", FOOD), ("food_words", dict(food_id=1, words=["crispbread"])), ("food_lookup", dict(name="crispbread")),
+    question()
+    calls = (("add_food", FOOD), ("food_words", dict(food_id=1, words=["crispbread"])), ("food_lookup", dict(name="crispbread")),
              ("lab_report", dict(text="Hemoglobin 13,8 g/dl")), ("record_weight", dict(kg=82.4)), ("recent_weights", {}), ("undo", dict(receipt_id="m1")))
     with client() as c, caplog.at_level("WARNING", logger="logger.tools"):
         for tool, args in calls:
             res = result(c, tool, TOKEN, **args)
             said = res["content"][0]["text"]
             assert res["isError"] is True and f"{tool} is not available to the hub" in said and "today_summary" in said, tool
-            assert "weight 90" not in said and "crispbread" not in said
+            assert "log, set_checkin" in said and "crispbread" not in said and "13,8" not in said
     assert fake.calls == []
     for table in TABLES:  # one of ten fixed names
         assert n(f"SELECT count(*) AS n FROM {table}") == 0, table
     assert owner_sql("SELECT resolved_at FROM pending") == [{"resolved_at": None}]
-    assert [r.getMessage() for r in caplog.records][:2] == ["tool log refused: called with the hub's token", "tool answer refused: called with the hub's token"]
+    assert [r.getMessage() for r in caplog.records][:2] == ["tool add_food refused: called with the hub's token", "tool food_words refused: called with the hub's token"]
+
+
+def test_the_hub_token_may_log_and_answer_for_the_hubs_chat_bar(hub, fake):
+    saved = hub("log", text="weight 90", idempotency_key="hub-x3")
+    assert saved["outcome"] == "saved" and n("SELECT count(*) AS n FROM measurements") == 1
+    again = hub("answer", question_id=question(), reply="yes")
+    assert again["outcome"] in ("saved", "needs_confirmation") and owner_sql("SELECT resolved_at FROM pending WHERE id = 'phub2'")[0]["resolved_at"]
+    assert {r["client"] for r in owner_sql("SELECT client FROM audit_log")} == {"mcp"}  # as the chat's log
 
 
 def test_a_sign_in_token_still_calls_every_tool_the_hub_tools_too(monkeypatch, bearer, fake, habits):
@@ -349,6 +356,48 @@ def test_no_private_gratitude_thought_or_typed_text_leaves(hub, habits):
     assert s["review"]["count"] == 1 and s["review"]["items"][0]["kind"] == "thought"
     assert s["review"]["items"][0]["what"] == "Thought (idea)" and s["review"]["items"][0]["reason"] == "nothing extracted"
 
+
+
+def test_logs_and_answers_to_the_hub_never_carry_private_or_gratitude_words(monkeypatch, fake, bearer):
+    """The hub's chat bar may log and look up (20.11.2026), but a reply that is about private or gratitude entries reaches it
+    without their words and without its questions (so it cannot confirm a change of one either); other look-ups answer as usual."""
+    from test_log import ANSWERS, COMMANDS, C, P
+    monkeypatch.setattr(auth, "HUB_TOKEN", TOKEN)
+    yesterday = f"{datetime.now(BERLIN) - timedelta(days=1):%d.%m.%Y}"
+    asks = {"show my private notes": C(("find", {"private": True})),
+            "my gratitudes since yesterday": C(("find", {"private": True, "since": yesterday, "query": "gratitude"})),
+            "find the umbrella note": C(("find", {"private": True, "query": "umbrella"})),
+            "what did I eat yesterday": C(("find", {"food": "yesterday"})),
+            "show the private note": C(unclear="Which note do you mean?"),
+            "show the private note\n(Asked:": C(("find", {"private": True, "query": "lantern"}))}
+    for text, cmd in asks.items():
+        monkeypatch.setitem(ANSWERS, text, P(intent="command", command_text=text))
+        monkeypatch.setitem(COMMANDS, text, lambda u, cmd=cmd: cmd)
+    words = ("violet", "umbrella", "copper", "lantern")
+    with client() as c:
+        def call(tool, **args):
+            r = rpc(c, "tools/call", {"name": tool, "arguments": args})
+            assert r.status_code == 200 and not any(w in r.text.lower() for w in words), (tool, args, r.text)
+            return body(r.json()["result"])
+
+        for i, line in enumerate(("private: the violet umbrella", "gratitude: the copper lantern")):
+            assert call("log", text=line, idempotency_key=f"hub-p{i}") == {"outcome": "saved", "message": "Saved privately.", "questions": []}
+        pid = owner_sql("SELECT id FROM private.entries WHERE label = 'private'")[0]["id"]
+        monkeypatch.setitem(ANSWERS, "delete my private note", P(intent="command", command_text="delete my private note"))
+        monkeypatch.setitem(COMMANDS, "delete my private note", lambda u: C(("change", {"id": f"P{pid}", "delete": True})))
+        for text in ("show my private notes", "my gratitudes since yesterday", "find the umbrella note", "delete my private note"):
+            out = call("log", text=text)
+            assert out["message"] == reads.HIDDEN and out["questions"] == [], text
+        assert n("SELECT count(*) AS n FROM private.entries") == 2  # the delete waits for a yes the hub was never asked for
+        food = call("log", text="what did I eat yesterday")
+        assert food["outcome"] == "answered" and "Look-up result" in food["message"]  # no private entries: answered as usual
+        asked = call("log", text="show the private note")
+        assert asked["outcome"] == "needs_choice" and asked["questions"][0]["question"] == "Which note do you mean?"
+        out = call("answer", question_id=asked["questions"][0]["question_id"], reply="the lantern one")
+        assert out["message"] == reads.HIDDEN and out["questions"] == []
+        owner = body(result(c, "log", bearer["Authorization"][len("Bearer "):], text="show my private notes"))
+        assert "violet umbrella" in owner["message"] and "copper lantern" in owner["message"]  # the owner's own sign-in: as before
+    assert len(fake.calls) == 15  # seven messages read twice (message, then request), the answer once: only the reply to the hub was cut
 
 def test_chores_are_the_home_page_now_list(hub):
     names = [f"Hub chore {c}" for c in "ABCDEFG"]

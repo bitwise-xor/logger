@@ -1,5 +1,6 @@
 """MCP adapter: thin. It exposes the core's operations as tools and holds no rules."""
 import functools
+import json
 import logging
 from typing import Any, Optional
 
@@ -14,15 +15,17 @@ from starlette.responses import JSONResponse
 from . import logbook, service
 from mcp.server.auth.settings import AuthSettings, ClientRegistrationOptions
 
-from . import api, auth, hubtools, watch, web
+from . import api, auth, hubtools, reads, watch, web
 from .config import EXTRA_ALLOWED_HOSTS, MCP_PATH, PILOT_TOOLS, PUBLIC_URL
 from .db import connect
 
 _LOG = logging.getLogger("logger.tools")  # not `log`: that is the name of the log tool below
 provider = auth.OwnerProvider(PUBLIC_URL)
 # The only tools the hub's service token may call (auth.hub_access). Every other tool refuses it, so a leaked hub token cannot
-# reach `log` (its look-ups can return private lines), the catalogue or the pilot tools. A new tool is closed to it until named here.
-HUB_TOOLS = {"today_summary", "tick_habit", "untick_habit", "add_water", "set_checkin"}
+# reach the catalogue, lab reports or the pilot tools. A new tool is closed to it until named here. `log` and `answer` (20.11.2026,
+# the hub's chat bar: what the owner types there, look-ups included, and Logger's follow-up questions): their look-ups can find
+# private and gratitude entries, so their replies to this token go through _for_hub.
+HUB_TOOLS = {"today_summary", "tick_habit", "untick_habit", "add_water", "set_checkin", "log", "answer"}
 
 
 def _not_for_hub(name: str) -> None:
@@ -34,13 +37,25 @@ def _not_for_hub(name: str) -> None:
         raise ToolError(f"{name} is not available to the hub: its token may call only {', '.join(sorted(HUB_TOOLS))}.")
 
 
+def _for_hub(name: str, out):
+    """log's and answer's reply to the hub's token: one that names private or gratitude entries (a look-up such as "show my
+    private notes", a change of P12, a private line saved) keeps its outcome only: no words and no question, so the hub cannot
+    confirm a change of one either (reads.names_private, the web door's rule, fail closed). Any other reply passes as it is."""
+    token = get_access_token()
+    if name not in ("log", "answer") or token is None or token.client_id != auth.HUB_CLIENT \
+            or not reads.names_private(json.dumps(out, default=str)):
+        return out
+    made = out.get("outcome") == "saved" and (out.get("private_id") or out.get("private_ids"))
+    return {"outcome": out.get("outcome"), "message": "Saved privately." if made else reads.HIDDEN, "questions": []}
+
+
 def _logged(fn):
     """A tool that fails leaves one line on the container's log: the tool and the kind of error, never what the user said."""
     @functools.wraps(fn)
     def inner(*args, **kwargs):
         _not_for_hub(fn.__name__)
         try:
-            return fn(*args, **kwargs)
+            return _for_hub(fn.__name__, fn(*args, **kwargs))
         except Exception as e:  # noqa: BLE001 - logged, then raised as before
             _LOG.error("tool %s failed: %s", fn.__name__, type(e).__name__)
             raise
