@@ -76,7 +76,7 @@
 <!-- The answer bar: above the tab bar on phones, at the bottom right on the PC (as on the Food day). -->
 <div
   bind:clientHeight={barHeight}
-  class="pointer-events-none fixed inset-x-0 bottom-[calc(52px+env(safe-area-inset-bottom))] z-20 px-3.5 pb-2 desktop:static desktop:p-0"
+  class="pointer-events-none fixed inset-x-0 bottom-[var(--places-bar)] z-20 px-3.5 pb-2 desktop:static desktop:p-0"
 >
   <AnswerBar answers={page} />
 </div>

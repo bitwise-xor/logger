@@ -998,3 +998,12 @@ svg.times .up{stroke:var(--ink);stroke-width:2}
 .grat.big .gform textarea{font-size:1.05rem}
 @media (max-width:1080px){main.noentry{padding-bottom:6rem}}
 @media (max-width:520px){.grat.big{padding:1rem}.grat .gform .primary{padding:0 .9rem}}
+/* The compact view (20.11.2026, the hub's frame; theme.js sets html.compact): no top bar and no tab bar, the page itself only.
+   On phone widths the entry box and the pinned bars move down to where the tab bar was. */
+html.compact header,html.compact .tabs{display:none}
+@media (max-width:1080px){
+  html.compact main{padding-bottom:8rem}
+  html.compact main.noentry{padding-bottom:2rem}
+  html.compact .entry{bottom:calc(.6rem + env(safe-area-inset-bottom))}
+  html.compact .undobar.pinned,html.compact .reply.pinned{bottom:calc(5rem + env(safe-area-inset-bottom))}
+}

@@ -26,6 +26,7 @@
     aria-label="Places"
     class="fixed inset-x-0 bottom-0 z-10 grid grid-cols-4 border-t border-line bg-bg px-2 pb-[env(safe-area-inset-bottom)] desktop:static desktop:flex desktop:w-[220px] desktop:shrink-0 desktop:flex-col desktop:gap-0.5 desktop:border-t-0 desktop:px-3 desktop:py-[18px]"
     data-places
+    data-chrome
   >
     <span class="hidden px-2.5 pb-3 text-[15px] font-semibold tracking-tight desktop:block">Logger</span>
     <a href="/" aria-current={here.tab === 'today' ? (page.url.pathname === '/' ? 'page' : 'true') : undefined} class="{tab} {here.tab === 'today' ? on : off}" data-place="today">Today</a>
@@ -51,7 +52,7 @@
     >
   </nav>
 
-  <div class="mx-auto flex w-full max-w-[960px] min-w-0 flex-1 flex-col desktop:mx-0 desktop:max-w-[1440px] gap-3 px-3.5 pt-3.5 pb-[calc(84px+var(--dock,0px))] desktop:px-6 desktop:pb-8">
+  <div class="mx-auto flex w-full max-w-[960px] min-w-0 flex-1 flex-col desktop:mx-0 desktop:max-w-[1440px] gap-3 px-3.5 pt-3.5 pb-[calc(var(--places-room)+var(--dock,0px))] desktop:px-6 desktop:pb-8">
     {@render children()}
   </div>
 </div>

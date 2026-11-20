@@ -59,10 +59,13 @@
     <h1 class="m-0 text-[26px] leading-[1.1] font-semibold tracking-tight desktop:text-[30px]">Today</h1>
     <span class="text-[13px] text-muted" data-header>{day ? headerLine(day) : dayLine(new Date())}</span>
   </div>
-  <ThemeButton />
-  <form method="POST" action="/signout" class="m-0">
-    <Button type="submit" variant="outline">Sign out</Button>
-  </form>
+  <!-- hidden in the compact view (the hub's frame, static/theme.js): signing out there would leave the frame on a sign-in it may not show -->
+  <div class="contents" data-chrome>
+    <ThemeButton />
+    <form method="POST" action="/signout" class="m-0">
+      <Button type="submit" variant="outline">Sign out</Button>
+    </form>
+  </div>
 </header>
 
 <!-- Without the day (the door off, the core down) there is nothing to log into: the box waits for the page to load again. -->

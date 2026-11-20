@@ -366,6 +366,15 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
 - Widths: below 1100 px (phones and tablets) the tab bar is at the bottom and the page is one column; from 1100 px (`desktop:`)
   the rail on the left and Today in two columns, up to 1440 px. Tap targets are 44 px on phones and tablets; the logging box
   and the answer bar leave room at the bottom (`--dock`), so they cover nothing.
+- The hub's frame (20.11.2026): the hub (`HUB_ORIGIN`, `https://hub.19hospitalroad.fyi` without it) may show the
+  signed-in pages in a frame: their CSP says `frame-ancestors 'self'` and the hub, and they have no X-Frame-Options
+  (`src/lib/server/frame.ts`, called by `hooks.server.ts`). The sign-in, sign-out, Settings (it signs out devices) and every other
+  answer keep `frame-ancestors 'none'` and `X-Frame-Options: DENY`. `?compact=1` is the compact view for it: `static/theme.js` sets
+  `html.compact` before the first paint, and `src/app.css` hides the places (tab bar, rail) and every `[data-chrome]` part (Today's
+  theme button and Sign out); the logging box and the answer bars move down to where the tab bar was (`--places-bar`). It is kept
+  for the tab in sessionStorage and used again only inside a frame, so links and reloads in the frame stay compact; `?compact=0`
+  ends it. Same data, same actions. The hub frames `https://logger.19hospitalroad.fyi/?compact=1`. The cookies are unchanged: the
+  hub and `logger.` are one site, so the strict session cookie goes with the frame's requests. `SHOOT_ONLY=compact` runs its checks.
 - `src/lib/tokens/`: the hub's tokens, copied (`SOURCE.md` says from where and when).
 - `src/env.ts`: the settings (`DOOR_URL`, `FRONT_TOKEN`, `APP_URL`); `ORIGIN` and the memory cap are in `compose.yaml`.
 
@@ -378,7 +387,8 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
      -v "$PWD/front":/work:ro -w /work <the Node image of tools/front-pnpm> node tests/standin/door.mjs 8099`
      (password `test`, code `123456`);
   2. `tools/front-pnpm build`, then `FRONT_PORTS=1 FRONT_ENV="DOOR_URL=http://host.docker.internal:8099 FRONT_TOKEN=<the same>
-     ORIGIN=http://localhost:3000" tools/front-pnpm preview`;
+     ORIGIN=http://localhost:3000 HUB_ORIGIN=http://localhost:3999" tools/front-pnpm preview` (the
+     last for the hub's frame: the checks make a stand-in hub there);
   3. `tools/front-screens http://localhost:3000 tests/screens/out http://localhost:8099` (the last: the stand-in, which the
      checks reset before each run and sign out once, to see a tap sent again after the sign-in). Restart the preview after each
      build. The checks also play the core down and the door off (below), look for sideways scroll and tap targets under 44 px

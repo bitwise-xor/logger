@@ -16,4 +16,8 @@ export const variables = defineEnvVars({
     description: 'The full web app, linked for everything the trial does not have.',
     schema: orDefault('https://app.19hospitalroad.fyi'),
   },
+  HUB_ORIGIN: {
+    description: "The hub (the owner's home dashboard), the only other page that may show this app's signed-in pages in a frame.",
+    schema: orDefault('https://hub.19hospitalroad.fyi'),
+  },
 });

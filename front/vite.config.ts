@@ -30,6 +30,7 @@ export default defineConfig({
           'worker-src': ['self'],
           'manifest-src': ['self'],
           'form-action': ['self'],
+          // every page; the signed-in pages swap it for the hub's frame in hooks.server.ts (src/lib/server/frame.ts, 20.11.2026)
           'frame-ancestors': ['none'],
           'base-uri': ['none'],
           'object-src': ['none'],

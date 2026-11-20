@@ -22,6 +22,9 @@ PUBLIC_URL = os.environ.get("PUBLIC_URL", "https://logger-mcp.19hospitalroad.fyi
 ALLOWED_REDIRECTS = [u.strip() for u in os.environ.get(
     "ALLOWED_REDIRECTS", "https://claude.ai/api/mcp/auth_callback,https://claude.com/api/mcp/auth_callback").split(",") if u.strip()]
 APP_HOST = os.environ.get("APP_HOST", "app.19hospitalroad.fyi").lower()
+# The hub (the owner's home dashboard) may show the web app's signed-in pages in a frame (20.11.2026; web.py _FRAMED_HEADERS):
+# its address, the only other page a frame of this app is allowed in. The sign-in and Settings are never framed.
+HUB_ORIGIN = os.environ.get("HUB_ORIGIN", "https://hub.19hospitalroad.fyi").strip().rstrip("/")
 
 # The pilot's typed tools (record_weight ...) are hidden unless PILOT_TOOLS=1; v2 chats use log and answer.
 PILOT_TOOLS = os.environ.get("PILOT_TOOLS", "0") == "1"

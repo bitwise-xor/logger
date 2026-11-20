@@ -220,7 +220,7 @@
      the answer bar sits at the bottom right. -->
 <div
   bind:clientHeight={height}
-  class="pointer-events-none fixed inset-x-0 bottom-[calc(52px+env(safe-area-inset-bottom))] z-20 flex flex-col desktop:pointer-events-auto desktop:static desktop:z-auto"
+  class="pointer-events-none fixed inset-x-0 bottom-[var(--places-bar)] z-20 flex flex-col desktop:pointer-events-auto desktop:static desktop:z-auto"
   data-logbox
 >
   {#if !wide}{@render list()}{/if}

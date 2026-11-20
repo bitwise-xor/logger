@@ -20,7 +20,7 @@ from . import (activitypage, auth, export, foodpage, gratitude, gratitudepage, g
                trendspage, usagepage, webactions, weekpage, webentry, webfood, webheld, webideas, weblabs, webprivate, webhabits, websettings,
                webquestions, webpush, webundo)
 from .ai.provider import ProviderError
-from .config import APP_HOST
+from .config import APP_HOST, HUB_ORIGIN
 from .db import connect
 
 log = logging.getLogger("logger.web")
@@ -34,6 +34,11 @@ _HEADERS = {"Cache-Control": "no-store", "X-Frame-Options": "DENY", "Referrer-Po
             "X-Content-Type-Options": "nosniff",
             "Content-Security-Policy": "default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self'; font-src 'self'; connect-src 'self'; "
                                        "form-action 'self'; frame-ancestors 'none'; base-uri 'none'; manifest-src 'self'"}
+# The signed-in pages (shell) may be shown in a frame by this app itself and by the hub (20.11.2026: the hub shows Today with
+# ?compact=1, theme.js). X-Frame-Options cannot name an allowed page, so these answers leave it out. The sign-in, Settings (it signs
+# out devices), the signed-out pages and the OAuth sign-in (auth.py) keep _HEADERS: never in a frame.
+_FRAMED_HEADERS = {**{k: v for k, v in _HEADERS.items() if k != "X-Frame-Options"},
+                   "Content-Security-Policy": _HEADERS["Content-Security-Policy"].replace("frame-ancestors 'none'", f"frame-ancestors 'self' {HUB_ORIGIN}")}
 # Where a form on the entry box or the reply may send the browser back to: any signed-in page of the app, with its query.
 BACK_ANY = re.compile(r"/web(/(questions|food(/catalogue|/usual|/trends)?|ideas(/todoist)?|health|habits|gym(/exercises|/plan|/progress|/activity|/history)?|home(/zones|/history|/edit|/pick|/chore)?|coach|week|search|private|gratitude|usage|labs(/tests|/meds)?|settings|recent|insights))?/?"
                       r"(\?[A-Za-z0-9=&._%+-]*)?")
@@ -103,8 +108,10 @@ def _pop_flash(session):
     return row["flash"] if row else None
 
 
-def page(title: str, body: str, status: int = 200, cls: str = "", app: str = "Logger", manifest: str = "manifest.webmanifest") -> HTMLResponse:
-    """app, manifest: the name and the manifest "Add to Home Screen" uses (the Gratitude page has its own, 14.11.2026)."""
+def page(title: str, body: str, status: int = 200, cls: str = "", app: str = "Logger", manifest: str = "manifest.webmanifest",
+         framed: bool = False) -> HTMLResponse:
+    """app, manifest: the name and the manifest "Add to Home Screen" uses (the Gratitude page has its own, 14.11.2026).
+    framed: the hub may show the page in a frame (_FRAMED_HEADERS); without it, no page may."""
     doc = ('<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">'
            '<meta name="theme-color" content="#f1f1ee" media="(prefers-color-scheme: light)">'
            '<meta name="theme-color" content="#0c0d0f" media="(prefers-color-scheme: dark)">'  # the page's own background (15.11.2026)
@@ -115,7 +122,7 @@ def page(title: str, body: str, status: int = 200, cls: str = "", app: str = "Lo
            f'<title>{html.escape(title)}</title><script src="/web/static/theme.js?v={_STATIC_V}"></script>'  # light or dark before the first paint
            f'<link rel="stylesheet" href="/web/static/app.css?v={_STATIC_V}">'
            f'<script src="/web/static/app.js?v={_STATIC_V}" defer></script></head><body class="{cls}">{body}</body></html>')
-    return HTMLResponse(doc, status_code=status, headers=_HEADERS)
+    return HTMLResponse(doc, status_code=status, headers=_FRAMED_HEADERS if framed else _HEADERS)
 
 
 def safe_next(value) -> str:
@@ -141,10 +148,11 @@ def _login_page(msg: str = "", status: int = 200, nxt: str = "") -> HTMLResponse
 
 
 def shell(session, body: str, status: int = 200, active: str = "", entry: bool = True, title: str = "", app: str = "Logger",
-          manifest: str = "manifest.webmanifest") -> HTMLResponse:
+          manifest: str = "manifest.webmanifest", framed: bool = True) -> HTMLResponse:
     """A signed-in page: the top bar (the number of open questions on the Today link), the entry box, the last reply, then the body.
     Since 04.11.2026 (web item 55) there is no Questions page: every open question is on Today.
-    entry=False: no general entry box (the Gratitude page has one text box only); title, app, manifest: see page()."""
+    entry=False: no general entry box (the Gratitude page has one text box only); title, app, manifest, framed: see page() (Settings
+    passes framed=False: never in a frame)."""
     open_q = webquestions.count()
     links = [("today", "/web/", "Today"), ("food", "/web/food", "Food"), ("ideas", "/web/ideas", "Ideas"), ("health", "/web/health", "Health"),
              ("habits", "/web/habits", "Habits"), ("gym", "/web/gym", "Gym"), ("home", "/web/home", "Home"), ("week", "/web/week", "Week"),
@@ -184,7 +192,7 @@ def shell(session, body: str, status: int = 200, active: str = "", entry: bool =
     resp = page(f"{title} · Logger" if title else "Logger",
                 f'<a class="skip" href="#main">Skip to content</a>{bar}<main id="main"{"" if entry else " class=noentry"}>'
                 f'{box}{reply}{undo}{body}</main>'
-                f'<nav class="tabs" aria-label="Main menu">{tabs}</nav>', status, app=app, manifest=manifest)
+                f'<nav class="tabs" aria-label="Main menu">{tabs}</nav>', status, app=app, manifest=manifest, framed=framed)
     _renew(session, resp)
     return resp
 
@@ -980,7 +988,8 @@ def add_routes(mcp) -> None:
         session = current_session(request)
         if not session:
             return to_login(request)
-        return shell(session, settingspage.render(session, request.query_params), active="settings")
+        # never in a frame: it signs out devices (the hub frames the other signed-in pages, 20.11.2026)
+        return shell(session, settingspage.render(session, request.query_params), active="settings", framed=False)
 
     def settings_form(fn):
         """One form of the Settings page (websettings.ACTIONS), back to the page it came from."""

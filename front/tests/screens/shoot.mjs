@@ -63,10 +63,13 @@
 // the Food day's editor (a change, a read-back confirmed, a delete with Undo), an Again chip's amount and a usual meal's "…" open their
 // boxes (logged with another amount and time, or only some foods), the logging box's food suggestions after two letters (arrows, Enter,
 // a click, Escape; none when they cannot be read), and the order of the cards on phones and the PC.
+// 20.11.2026: the hub's frame (checkCompact says what): Today framed by a stand-in hub with ?compact=1, without the places, a tap, a link
+// and a reload staying compact, and Settings and the sign-in refused in a frame; the preview needs HUB_ORIGIN=http://localhost:3999.
 // Every check throws on a failure, so the script ends with an error.
 // Usage: node tests/screens/shoot.mjs <base url> <out dir> <stand-in url>
 import assert from 'node:assert/strict';
 import { mkdirSync, readFileSync } from 'node:fs';
+import { createServer } from 'node:http';
 import { chromium } from 'playwright-core';
 
 const [base = 'http://localhost:3000', out = 'tests/screens/out', standin = 'http://localhost:8099'] = process.argv.slice(2);
@@ -6306,6 +6309,98 @@ async function checkThisDevice(page, name, theme) {
   await standinPost('/standin/reset');
 }
 
+/**
+ * The hub's frame (20.11.2026): the signed-in pages may be shown in a frame of the hub, and with ?compact=1 without the places.
+ * The hub here is a page served by the test at SHOOT_HUB (http://localhost:3999 unless set; the preview must be started with
+ * HUB_ORIGIN set to the same, and it must be the same site as the front end, or the strict cookie stays home, as it would
+ * between hub. and logger. on two different sites). Checks: the headers (Today allows the hub and has no X-Frame-Options; the
+ * sign-in and Settings deny), Today in the frame without the places, Sign out and the theme button, the logging box at the
+ * frame's bottom, a tap saved in the frame, a link and a reload in the frame staying compact, the same tab outside a frame
+ * showing everything, and Settings and a signed-out frame (the sign-in) refused by the browser.
+ */
+async function checkCompact(page, name, theme) {
+  const HUB = process.env.SHOOT_HUB || 'http://localhost:3999';
+  const today = await page.request.get(`${base}/`);
+  assert.equal(today.status(), 200);
+  assert.ok(!today.headers()['x-frame-options'], 'Today: no X-Frame-Options');
+  const csp = today.headers()['content-security-policy'];
+  assert.match(csp, new RegExp(`frame-ancestors 'self' ${HUB.replace(/[.]/g, '\\.')}(;|$)`),
+    `Today: the hub may frame it (start the preview with HUB_ORIGIN=${HUB} in FRONT_ENV)`);
+  for (const path of ['/settings/devices', '/settings']) {
+    const r = await page.request.get(`${base}${path}`);
+    assert.equal(r.headers()['x-frame-options'], 'DENY', `${path}: X-Frame-Options`);
+    assert.match(r.headers()['content-security-policy'], /frame-ancestors 'none'/, `${path}: frame-ancestors`);
+  }
+  const signin = await fetch(`${base}/login`); // no cookie
+  assert.equal(signin.headers.get('x-frame-options'), 'DENY', 'sign-in: X-Frame-Options');
+  assert.match(signin.headers.get('content-security-policy'), /frame-ancestors 'none'/, 'sign-in: frame-ancestors');
+
+  // the stand-in hub: a real server on this machine (a page made by the browser's routing counts as a public address, and Chrome then
+  // refuses a frame of localhost: Local Network Access; the real hub and logger. are both on the home network)
+  const width = Math.min(page.viewportSize().width, 420);
+  let src = `${base}/?compact=1`;
+  const server = createServer((_req, res) => {
+    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
+    res.end(`<!doctype html><html><head><title>hub</title></head><body style="margin:0;background:#888">` +
+      `<iframe id="f" src="${src}" style="display:block;width:${width}px;height:640px;border:0"></iframe></body></html>`);
+  });
+  await new Promise((done) => server.listen(Number(new URL(HUB).port), '127.0.0.1', done));
+  const hub = await page.context().newPage();
+  await hub.goto(`${HUB}/`);
+  const f = hub.frameLocator('#f');
+  await f.getByRole('heading', { name: 'Today', exact: true }).waitFor();
+  assert.equal(await f.locator('html.compact').count(), 1, 'the frame is compact');
+  assert.ok(!(await f.locator('[data-places]').isVisible()), 'compact: no places');
+  assert.equal(await f.locator('form[action="/signout"] button').count(), 1, 'compact: Sign out is in the page');
+  assert.ok(!(await f.locator('form[action="/signout"] button').isVisible()), 'compact: Sign out hidden');
+  assert.ok(await f.locator('[data-water]').isVisible(), 'compact: the day is there');
+  if (width < 1100) {
+    // the logging box sits at the frame's bottom edge, where the tab bar was (its outer part may reach past the edge by the bar's room)
+    const box = await f.locator('textarea').first().boundingBox();
+    assert.ok(box && box.y + box.height <= 640 && box.y + box.height > 640 - 80, `compact: the logging box at the bottom (${JSON.stringify(box)})`);
+  }
+  await hub.screenshot({ path: `${out}/compact-${name}-${theme}.png` });
+  // a tap saves in the frame (the form posts to this app's own origin)
+  await f.getByRole('button', { name: `+ ${day.water.glass_ml} ml` }).click();
+  await f.locator('[data-water]').getByText(`${grouped(day.water.ml + day.water.glass_ml)} / ${grouped(day.water.target_ml)} ml`).waitFor();
+  // a link in the frame (no ?compact on it) stays compact
+  await f.locator('a[href="/food"]').first().click();
+  await hub.frames().find((x) => x.parentFrame()).waitForURL(`${base}/food`);
+  await f.locator('h1').first().waitFor();
+  assert.ok(!(await f.locator('[data-places]').isVisible()), 'compact after a link: no places');
+  // a reload of another page in the frame (a new document, no ?compact) stays compact
+  src = `${base}/health`;
+  await hub.reload();
+  await f.locator('h1').first().waitFor();
+  assert.equal(await f.locator('html.compact').count(), 1, 'compact after a reload in the frame');
+  assert.ok(!(await f.locator('[data-places]').isVisible()), 'compact after a reload: no places');
+  // the same tab outside a frame: everything shows
+  await hub.goto(`${base}/`);
+  await hub.getByRole('heading', { name: 'Today', exact: true }).waitFor();
+  assert.equal(await hub.locator('html.compact').count(), 0, 'not compact outside a frame');
+  assert.ok(await hub.locator('[data-places]').isVisible(), 'the places outside a frame');
+  // Settings is refused in a frame, by the browser
+  src = `${base}/settings/devices`;
+  await hub.goto(`${HUB}/`);
+  await hub.waitForTimeout(1500);
+  const blocked = hub.frames().find((x) => x.parentFrame());
+  assert.ok(!blocked.url().startsWith(base), `Settings refused in the frame (${blocked.url()})`);
+  assert.equal(await f.locator('h1').count(), 0, 'Settings: nothing of it in the frame');
+  await hub.close();
+  // signed out, the frame is sent to the sign-in, which is refused too
+  const ctx = await browser.newContext({ viewport: page.viewportSize() });
+  const out2 = await ctx.newPage();
+  src = `${base}/?compact=1`;
+  await out2.goto(`${HUB}/`);
+  await out2.waitForTimeout(1500);
+  const gone = out2.frames().find((x) => x.parentFrame());
+  assert.ok(!gone.url().startsWith(base), `the sign-in refused in the frame (${gone.url()})`);
+  assert.equal(await out2.frameLocator('#f').locator('#password').count(), 0, 'no sign-in form in the frame');
+  await ctx.close();
+  await new Promise((done) => server.close(done));
+  await standinPost('/standin/reset');
+}
+
 async function checkWidth(page, what) {
   const sideways = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   assert.ok(sideways <= 0, `${what}: no sideways scroll (${sideways} px too wide)`);
@@ -6466,6 +6561,10 @@ for (const theme of ['dark', 'light']) {
       console.log(`settings links, today's two switches ${name} ${theme}: checks passed`);
       await checkThisDevice(page, name, theme);
       console.log(`home-screen app, notifications on this device ${name} ${theme}: checks passed`);
+    }
+    if (only('compact')) {
+      await checkCompact(page, name, theme);
+      console.log(`the hub's frame, the compact view ${name} ${theme}: checks passed`);
     }
     if (only('problems')) {
       await checkProblems(page, name, theme);
