@@ -3,7 +3,7 @@
  * with meal labels, the Health card's values, what needs you. Plain TypeScript, so the unit tests need no browser.
  */
 import { dayOf, hm, hours, n, plain } from './format.js';
-import type { FoodDay } from './food.js';
+import { shiftDay, type FoodDay } from './food.js';
 import { MEASURES, type Body, type BodyDue, type Health } from './health.js';
 import type { Habits } from './habits.js';
 import type { GymCard, Workout } from './gym.js';
@@ -448,8 +448,31 @@ export function healthLines(d: Day): HealthLine[] {
  */
 export function needsCount(d: Day): number {
   const x = d.needs;
-  const review = reviewShown(d) ? x.review.length : x.review.length ? 1 : 0;
+  const review = d.past ? 0 : reviewShown(d) ? x.review.length : x.review.length ? 1 : 0;
   return x.questions.length + x.not_read.length + review + (x.checkin ? 1 : 0) + (x.body_due ? 1 : 0);
+}
+
+// ---- an earlier day (Web 69, 21.11.2026) ---------------------------------------------------------------------------------------
+//
+// Today takes ?day=yyyy-mm-dd (the door's GET /day?day=: an earlier day as asked, a later one is today; `past` says which). An
+// earlier day is shown as app.'s Today shows one ("earlier days read-only", todaypage.py): its foods, water, habits, health values
+// and the Coach card, without what only makes sense today: the logging box, the chips, the glass of water, ticks, the health
+// fields, the To review items and the Gratitude card (app. leaves them out); the questions, the messages not read yet, the Gym and
+// Home cards the door itself sends only for today. A food row leads to that day's Food day, where it can be changed.
+
+/** Today's address for a day: / for today (when today is known), /?day=yyyy-mm-dd for another. */
+export const todayHref = (day: string, today?: string) => (day === today ? '/' : `/?day=${encodeURIComponent(day)}`);
+
+/** Where Today's ‹ and › lead: the day before always; the day after only from an earlier day (the day after the last earlier one is /). */
+export function todayDayLinks(d: Pick<Day, 'day' | 'today' | 'past'>): { before: string; after: string | null } {
+  const next = shiftDay(d.day, 1);
+  return { before: `/?day=${shiftDay(d.day, -1)}`, after: !d.past ? null : next >= d.today ? '/' : `/?day=${next}` };
+}
+
+/** An earlier day's kicker, as app.'s: "Yesterday", "3 days ago". */
+export function daysAgo(d: Pick<Day, 'day' | 'today'>): string {
+  const back = Math.round((Date.parse(`${d.today}T12:00:00Z`) - Date.parse(`${d.day}T12:00:00Z`)) / 86_400_000);
+  return back <= 0 ? 'Today' : back === 1 ? 'Yesterday' : `${back} days ago`;
 }
 
 /** Settings' "To review" switch (deploy 111): false hides the items, and one line says how many wait (as app.'s todaypage). */

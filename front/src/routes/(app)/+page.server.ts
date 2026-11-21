@@ -5,15 +5,17 @@ import { TODAY_SAVES } from '#lib/server/saves.js';
 import { endSession, renewSession } from '#lib/server/session.js';
 import { loginHref } from '#lib/next.js';
 import { problemOf } from '#lib/problems.js';
+import { askedDay } from '#lib/food.js';
 import type { Day, Undo } from '#lib/day.js';
 import type { Actions, PageServerLoad } from './$types';
 
-// Today from GET /api/v1/day (step B), with the session's Undo so the Undo bar stays after a reload (step C).
+// Today from GET /api/v1/day (step B), with the session's Undo so the Undo bar stays after a reload (step C). Web 69: ?day=yyyy-mm-dd
+// asks for an earlier day (the door's ?day=; a later day is today, a day that is not a date is left out).
 export const load: PageServerLoad = async ({ locals, cookies, url }) => {
   const session = locals.session;
   if (!session) redirect(303, loginHref(url.pathname + url.search));
   try {
-    const { body, expiresAt } = await door.get<{ day: Day; undo: Undo | null }>('/day', session);
+    const { body, expiresAt } = await door.get<{ day: Day; undo: Undo | null }>('/day', session, { day: askedDay(url.searchParams.get('day')) });
     renewSession(cookies, session, expiresAt);
     return { day: body.day, undo: body.undo ?? null, problem: null };
   } catch (error) {

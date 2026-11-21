@@ -1,6 +1,6 @@
 <script lang="ts">
   import FoodEditor from '#lib/components/food/FoodEditor.svelte';
-  import { timeline, type Day } from '#lib/day.js';
+  import { timeline, type Cols, type Day, type Line } from '#lib/day.js';
   import { getToday } from '#lib/today.svelte.js';
 
   let { day }: { day: Day } = $props();
@@ -15,6 +15,19 @@
   const cols = 'grid shrink-0 grid-cols-[var(--cn)_var(--cn)_var(--cn)_var(--ck)] gap-x-[var(--cg)] text-right *:justify-self-end *:whitespace-nowrap';
   const line = 'grid w-full grid-cols-[var(--ct)_minmax(0,1fr)_auto] items-baseline content-center gap-x-1.5 desktop:gap-x-3';
 </script>
+
+{#snippet cells(r: Line & { cols: Cols }, open: boolean)}
+<span class="num text-[11px] text-muted desktop:text-xs">{r.time}</span>
+<span class="min-w-0 break-words {open ? 'font-medium' : ''}"
+  >{r.name} <span class="num text-xs font-normal whitespace-nowrap text-muted" data-row-amount>{r.amount}</span></span
+>
+<span class="num {cols} text-xs text-muted desktop:text-[13px]" data-row-cols
+  ><span>{r.cols.protein}<span class="sr-only"> g protein,</span></span><span>{r.cols.fat}<span class="sr-only"> g fat,</span></span
+  ><span>{r.cols.carbs}<span class="sr-only"> g carbs,</span></span><span class="text-[13px] desktop:text-sm {r.review ? 'text-amber' : 'text-text'}" data-kcal
+    >{r.cols.kcal}<span class="sr-only"> kcal</span></span
+  ></span
+>
+{/snippet}
 
 <section
   aria-labelledby="day-h"
@@ -45,24 +58,27 @@
           data-row={r.ref}
           data-fresh={fresh ? '' : undefined}
         >
-          <button
-            type="button"
-            class="{line} min-h-11 cursor-pointer border-0 bg-transparent px-2 py-2 text-left desktop:px-3 text-text hover:bg-panel2 {open ? 'bg-panel2' : ''}"
-            aria-expanded={open}
-            onclick={() => today.toggle(r.ref)}
-            data-row-line
-          >
-            <span class="num text-[11px] text-muted desktop:text-xs">{r.time}</span>
-            <span class="min-w-0 break-words {open ? 'font-medium' : ''}"
-              >{r.name} <span class="num text-xs font-normal whitespace-nowrap text-muted" data-row-amount>{r.amount}</span></span
+          {#if day.past}
+            <!-- Web 69: an earlier day's food is changed on that day's Food day (as app.'s Today for an earlier day) -->
+            <a
+              href="/food?day={encodeURIComponent(day.day)}&open={encodeURIComponent(r.ref)}"
+              class="{line} min-h-11 px-2 py-2 text-left no-underline desktop:px-3 text-text hover:bg-panel2"
+              data-row-line
+              data-row-link
             >
-            <span class="num {cols} text-xs text-muted desktop:text-[13px]" data-row-cols
-              ><span>{r.cols.protein}<span class="sr-only"> g protein,</span></span><span>{r.cols.fat}<span class="sr-only"> g fat,</span></span
-              ><span>{r.cols.carbs}<span class="sr-only"> g carbs,</span></span><span class="text-[13px] desktop:text-sm {r.review ? 'text-amber' : 'text-text'}" data-kcal
-                >{r.cols.kcal}<span class="sr-only"> kcal</span></span
-              ></span
+              {@render cells({ ...r, cols: r.cols }, open)}
+            </a>
+          {:else}
+            <button
+              type="button"
+              class="{line} min-h-11 cursor-pointer border-0 bg-transparent px-2 py-2 text-left desktop:px-3 text-text hover:bg-panel2 {open ? 'bg-panel2' : ''}"
+              aria-expanded={open}
+              onclick={() => today.toggle(r.ref)}
+              data-row-line
             >
-          </button>
+              {@render cells({ ...r, cols: r.cols }, open)}
+            </button>
+          {/if}
           {#if open}
             <FoodEditor row={r.row} host={today} />
           {/if}

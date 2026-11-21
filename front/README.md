@@ -403,6 +403,15 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   day's Day tab (a meal's note to `#meal-N`, a food's note with `?open=`); empty: how to add one. The stand-in answers GET
   `/food/nutrients`, `/food/notes` and POST `/food/mealnote` from `tests/samples/food_space.json` (POST `/standin/notes-empty`), the Food
   day's meals with their notes; `SHOOT_ONLY=foodspace` runs these checks.
+- Today for an earlier day (Web 69, 21.11.2026): `/?day=yyyy-mm-dd` (the door's `GET /day?day=`; a later day or one that is not a date
+  is today). Under the heading the Food space's day switch (`DaySwitch.svelte`: ‹, the day, ›, the calendar); on an earlier day
+  the heading says "Yesterday" or "n days ago", with "Back to today" and a line that habits and health values are only shown and a
+  food opens on that day's Food day (`/food?day=&open=f<id>`, which links back: "On Today"). As app.'s Today for an earlier day
+  (`todaypage.py`) and the door's flags (`past`; questions, messages not read, the body line, the Gym and Home cards come only for
+  today): no logging box, chips, glass of water, ticks, health fields, To review items or Gratitude card; the Coach card works for
+  any day. A save there (Undo, the Coach card) brings that day back (`view_day`, `Today.extra`); a tap kept for after a sign-in is
+  sent again only from today. `todayHref`, `todayDayLinks`, `daysAgo` in `src/lib/day.ts`. The stand-in's `GET /day?day=` an
+  earlier day is today's rows with the door's past-day rules; `SHOOT_ONLY=earlier` runs these checks.
 - A sign that a page is loading (Web 68, 21.11.2026): a thin bar at the top of the `(app)` layout while a navigation takes longer
   than 150 ms (SvelteKit's `navigating`; `.loading-bar` in `app.css`, standing still with reduced motion), and
   `data-sveltekit-preload-data="tap"` on the body (`app.html`): a page's read starts when the finger goes down. One global

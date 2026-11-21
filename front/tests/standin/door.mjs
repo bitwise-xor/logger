@@ -47,6 +47,7 @@
 // stopped), POST /standin/door-off answers 404 not_found to every door call (FRONT_TOKEN unset at the core), and POST
 // /standin/up (or /standin/reset) brings it back. Sessions survive both, as at the core. Web 65: POST /standin/lose-answer saves the
 // next keyed save and drops its connection before the answer (a save that went through on a weak network); the same key again replays.
+// Web 69: GET /day?day= an earlier day is today's rows under that day with the door's past-day rules (past, no questions, no cards).
 // Web 68: POST /standin/slow-reads?ms=n makes every GET read but the session's wait n ms (0 or /standin/reset: none).
 // Deploy 94: the Habits page's routes, from tests/samples/habits.json (real answers of the door for invented habits): GET /habits?show=
 // (today's ticks, 30 days per tracked habit, Your habits with the filter and its counts), POST /habit/day (a day under its times a
@@ -3254,7 +3255,17 @@ createServer(async (req, res) => {
   if (req.url === '/api/v1/session' && req.method === 'GET') {
     return send(res, 200, { signed_in: true, sid: '00000000-0000-0000-0000-000000000000', expires_at: ends() }, signedIn);
   }
-  if (req.url.startsWith('/api/v1/day') && req.method === 'GET') return send(res, 200, { day: { ...dayOut(state.day), home: homeCard() }, undo: undo() }, signedIn);
+  if (req.url.startsWith('/api/v1/day') && req.method === 'GET') {
+    // Web 69: ?day= an earlier day: today's rows under that day, with the door's rules for a past day (past true; no questions, no
+    // messages not read, no body line, no Gym or Home card: test_api_reads.py, reads.py); a later day or none is today.
+    const asked = new URL(req.url, 'http://x').searchParams.get('day');
+    if (asked && /^\d{4}-\d\d-\d\d$/.test(asked) && asked < state.day.day) {
+      const d = dayOut(state.day);
+      const past = { ...d, day: asked, today: state.day.day, past: true, needs: { ...d.needs, questions: [], not_read: [], body_due: null }, gym: null, home: null };
+      return send(res, 200, { day: past, undo: undo() }, signedIn);
+    }
+    return send(res, 200, { day: { ...dayOut(state.day), home: homeCard() }, undo: undo() }, signedIn);
+  }
   const url = new URL(req.url, 'http://standin');
   // deploy 103: POST /standin/trends?fail=food,health,body,gym,insights makes those reads answer 500 (a section's problem on Trends' Charts
   // tab, the others drawn); POST /standin/body-none: no body session at all (Body's empty words)

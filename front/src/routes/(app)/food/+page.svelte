@@ -6,6 +6,7 @@
   import FoodTiles from '#lib/components/food/FoodTiles.svelte';
   import AnswerBar from '#lib/components/today/AnswerBar.svelte';
   import { dayLinks, foodDayHref } from '#lib/food.js';
+  import { todayHref } from '#lib/day.js';
   import { dayOf } from '#lib/format.js';
   import { FoodPage, setFoodPage } from '#lib/foodday.svelte.js';
   import { onMount, tick, untrack } from 'svelte';
@@ -52,6 +53,10 @@
     <div class="min-w-0 flex-1 desktop:flex-none">
       <DaySwitch day={fd.day} today={fd.today} past={fd.past} before={links.before} after={links.after} hrefFor={(d) => foodDayHref(d, fd.today)} />
     </div>
+    {#if fd.past}
+      <!-- Web 69: the same day on Today (its habits, health values and Coach card) -->
+      <a href={todayHref(fd.day, fd.today)} class="inline-flex min-h-11 shrink-0 items-center font-medium no-underline desktop:min-h-9" data-day-today>On Today</a>
+    {/if}
     <a href="/#log-text" class="ml-auto hidden min-h-9 items-center rounded-lg bg-text px-4 font-medium text-bg no-underline desktop:inline-flex">+ Add food</a>
   </div>
 {/if}

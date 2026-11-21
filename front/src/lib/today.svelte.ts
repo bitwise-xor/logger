@@ -59,6 +59,11 @@ export class Today extends Answers implements FoodHost {
     this.loadUndo(undo);
   }
 
+  /** Web 69: on an earlier day, a save's answer (Undo, the Coach card) brings that day again, not today. */
+  protected extra(_action: string): FieldValues {
+    return this.day?.past ? { view_day: this.day.day } : {};
+  }
+
   /** A food row tapped: it opens (another one closes), or closes when it was open. */
   toggle(ref: string) {
     this.open = this.open === ref ? null : ref;

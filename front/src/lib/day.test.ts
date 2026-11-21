@@ -20,6 +20,9 @@ import {
   rowCols,
   mealCols,
   amountOf,
+  daysAgo,
+  todayDayLinks,
+  todayHref,
   type Day,
   type FoodRow,
   type Review,
@@ -341,5 +344,31 @@ describe('where Change on a To review row leads (deploy 113)', () => {
     expect(changeLink(row({ day: undefined as unknown as string }), APP)).toEqual(OLD);
     expect(changeLink(row({ kind: 'measurement', ref: 'm5', type: 'waist', day: 'x&open=1' }), APP)).toEqual(OLD);
     expect(changeLink(row({ kind: 'gratitude' as Review['kind'], ref: 'g1' }), APP)).toEqual(OLD);
+  });
+});
+
+describe('Today for an earlier day (Web 69)', () => {
+  it('leads to / for today and /?day= for another day', () => {
+    expect(todayHref('2026-11-21', '2026-11-21')).toBe('/');
+    expect(todayHref('2026-11-19', '2026-11-21')).toBe('/?day=2026-11-19');
+    expect(todayHref('2026-11-19')).toBe('/?day=2026-11-19');
+  });
+  it("has ‹ always and › only from an earlier day; the day after yesterday is /", () => {
+    expect(todayDayLinks({ day: '2026-11-21', today: '2026-11-21', past: false })).toEqual({ before: '/?day=2026-11-20', after: null });
+    expect(todayDayLinks({ day: '2026-11-20', today: '2026-11-21', past: true })).toEqual({ before: '/?day=2026-11-19', after: '/' });
+    expect(todayDayLinks({ day: '2026-10-31', today: '2026-11-21', past: true })).toEqual({ before: '/?day=2026-10-30', after: '/?day=2026-11-01' });
+  });
+  it("says how long ago, as app.'s kicker", () => {
+    expect(daysAgo({ day: '2026-11-21', today: '2026-11-21' })).toBe('Today');
+    expect(daysAgo({ day: '2026-11-20', today: '2026-11-21' })).toBe('Yesterday');
+    expect(daysAgo({ day: '2026-11-14', today: '2026-11-21' })).toBe('7 days ago');
+    expect(daysAgo({ day: '2026-03-28', today: '2026-03-30' })).toBe('2 days ago'); // over the clock change
+  });
+  it('leaves the items to review out of Needs you on an earlier day (app. shows none there)', () => {
+    const d = copy();
+    d.needs = { questions: [], not_read: [], review: SAMPLE.needs.review, checkin: null };
+    expect(needsCount(d)).toBe(SAMPLE.needs.review.length);
+    d.past = true;
+    expect(needsCount(d)).toBe(0);
   });
 });

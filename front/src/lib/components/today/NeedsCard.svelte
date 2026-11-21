@@ -142,7 +142,10 @@
       </div>
     {/if}
 
-    {#if needs.review.length && !reviewShown(day)}
+    <!-- the To review items are today's (app. leaves them out on an earlier day, Web 69) -->
+    {#if day.past}
+      <!-- nothing to review here -->
+    {:else if needs.review.length && !reviewShown(day)}
       <!-- Settings > Today page hides the To review box (deploy 111): one line while something waits, so it is never forgotten (app.'s todaypage) -->
       <p class="m-0 text-[13px] text-muted" data-review-hidden>
         {hiddenReviewText(needs.review.length)} · <a href="/settings/today">show the box</a>

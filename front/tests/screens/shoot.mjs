@@ -1082,6 +1082,48 @@ async function checkComeback(page, name, theme) {
   console.log(`comeback ${name} ${theme}: read again after a minute away, held while a row is open`);
 }
 
+/** Web 69: Today for an earlier day: the day switch, read-only cards, Back to today, and the link to and from the Food day. */
+async function checkEarlierDay(page, name, theme) {
+  await page.goto(`${base}/`);
+  await page.locator('[data-kcal-left]').waitFor();
+  assert.match(await text(page.locator('[data-day-switch] [data-day]')), /today$/, 'today: the switch says today');
+  assert.equal(await page.locator('[data-back-today]').count(), 0, 'today: no Back to today');
+  await page.locator('[data-day-before]').click();
+  await page.waitForURL(/\/\?day=\d{4}-\d\d-\d\d$/);
+  await page.locator('[data-earlier]').waitFor();
+  const asked = new URL(page.url()).searchParams.get('day');
+  assert.equal(await text(page.locator('[data-today-title]')), 'Yesterday', 'the day before: "Yesterday"');
+  assert.equal(await page.locator('#log-text').count(), 0, 'an earlier day: no logging box');
+  assert.equal(await page.getByRole('button', { name: `+ ${day.water.glass_ml} ml` }).count(), 0, 'an earlier day: no glass of water');
+  assert.equal(await page.locator('[data-chips], [data-chip]').count(), 0, 'an earlier day: no chips');
+  assert.equal(await page.locator('[data-review]').count(), 0, 'an earlier day: no items to review');
+  assert.equal(await page.locator('[data-habit]:not([disabled])').count(), 0, 'an earlier day: habits are shown, not ticked');
+  const row = page.locator('[data-row-link]').first();
+  assert.match((await row.getAttribute('href')) ?? '', new RegExp(`^/food\\?day=${asked}&open=f\\d+$`), 'a food row leads to its Food day');
+  await checkWidth(page, 'today, an earlier day');
+  await page.screenshot({ path: `${out}/today-earlier-${name}-${theme}.png`, fullPage: true });
+  // the Food day of that day links back to it
+  await row.click();
+  await page.waitForURL(new RegExp(`/food\\?day=${asked}&open=`));
+  assert.equal(await page.locator('[data-day-today]').getAttribute('href'), `/?day=${asked}`, 'the Food day leads back to Today of that day');
+  await page.locator('[data-day-today]').click();
+  await page.locator('[data-earlier]').waitFor();
+  // › from yesterday is today; Back to today too
+  await page.locator('[data-day-after]').click();
+  await page.waitForURL(/\/$/);
+  await page.locator('#log-text').waitFor();
+  await page.goto(`${base}/?day=${asked}`);
+  await page.locator('[data-back-today]').click();
+  await page.waitForURL(/\/$/);
+  await page.locator('#log-text').waitFor();
+  // a day after today is today; a day that is not a date is today
+  await page.goto(`${base}/?day=2999-01-01`);
+  assert.equal(await page.locator('[data-earlier]').count(), 0, 'a later day is today');
+  await page.goto(`${base}/?day=nonsense`);
+  assert.equal(await page.locator('[data-earlier]').count(), 0, 'not a date: today');
+  await page.locator('#log-text').waitFor();
+}
+
 /** Web 68: a slow page shows the loading bar until it comes; a read starts on the tap; reduced motion stops the animations. */
 async function checkLoading(page, name, theme) {
   await page.goto(`${base}/`);
@@ -6796,6 +6838,10 @@ for (const theme of ['dark', 'light']) {
     if (only('compact')) {
       await checkCompact(page, name, theme);
       console.log(`the hub's frame, the compact view ${name} ${theme}: checks passed`);
+    }
+    if (only('earlier')) {
+      await checkEarlierDay(page, name, theme);
+      console.log(`today for an earlier day ${name} ${theme}: checks passed`);
     }
     if (only('loading')) {
       await checkLoading(page, name, theme);
