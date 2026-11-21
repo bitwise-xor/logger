@@ -325,6 +325,10 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   `/settings/export/download` (`+server.ts`: the door's POST /export through `door.postFile`, the ZIP handed through with the door's Content-Type and
   Content-Disposition and no-store; a failure goes back to the tab with `?failed=1`). The "This device" card came with deploy 112 (below). Also with 111: no footer line any more; Habits, Library > Habits, Health's height and every
   "Your goals" (`GOALS_HERE`) open Settings here; Today hides the To review items (one line instead) and the Gratitude card when `day.shown` says so.
+  Web 70 (21.11.2026): the Nudges form and its save take the nudges from the door's list, never from a list written here, so a nudge the
+  core adds later shows and saves: `settings_nudges` reads GET `/settings/notify` first (`before` in `saves.ts`; its failure says nothing
+  was saved) and sends only the listed nudges' switches and hours, hours outside the door's min and max refused in plain words
+  (`nudgesBody` in `settings.ts`). POST `/standin/settings?newnudge=1` adds such a nudge to the stand-in.
   The stand-in answers the seven reads and the saves from `tests/samples/settings.json`, POST `/export` with a small ZIP made there (POST
   `/standin/settings?export_fail=1&shown=0&noshown=1&nopush=1`; GET `/standin/push-tests`, `/standin/exports`); `SHOOT_ONLY=settings` runs these checks
   (the variable must reach the container: `docker run -e SHOOT_ONLY=settings`).

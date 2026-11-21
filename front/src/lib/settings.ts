@@ -214,9 +214,36 @@ export function nudgesFields(d: NudgesDraft): FieldValues {
   return f;
 }
 
-/** The nudges' switches, and their hours fields (the door's names: weight_after, idle_hours, …). */
-export const NUDGE_KEYS = ['weight', 'habits', 'idle', 'checkin', 'bp_evening', 'gratitude'] as const;
-export const NUDGE_HOURS = ['weight_after', 'habits_after', 'idle_hours', 'checkin_after', 'bp_evening_after', 'gratitude_after'] as const;
+/**
+ * The body of POST /settings/nudges from the form, with the nudges the door listed (Web 70, 21.11.2026: GET /settings/notify read
+ * just before, src/lib/server/saves.ts; before, the keys were written here, so a nudge the core adds later would show and not save):
+ * the master switch, each listed nudge's switch (true or false) and its hours (a number). A field of a nudge the door did not list
+ * is left out; a field left out stays as it is at the door. -> the body, or why it cannot be saved: hours outside the door's range.
+ */
+export function nudgesBody(get: (name: string) => string | undefined, listed: Pick<Nudge, 'key' | 'label' | 'hours'>[]): { body: Record<string, boolean | number>; problem: string | null } {
+  const body: Record<string, boolean | number> = {};
+  const flag = (name: string) => {
+    const v = get(name);
+    if (v !== undefined) body[name] = v === '1';
+  };
+  flag('on');
+  for (const n of listed) {
+    if (!SETTING_KEY.test(n.key) || !SETTING_KEY.test(n.hours.key)) continue;
+    flag(n.key);
+    const typed = get(n.hours.key);
+    const hours = hoursOf(typed);
+    if (hours === undefined) continue; // not a number: stays as it is (the door's rule)
+    if (hours < n.hours.min || hours > n.hours.max) {
+      return { body, problem: `${n.label.replace(/[\s,;:.]+$/, '')}: give a number of hours from ${plainHours(n.hours.min)} to ${plainHours(n.hours.max)}.` };
+    }
+    body[n.hours.key] = hours;
+  }
+  return { body, problem: null };
+}
+
+/** A key the door may name a nudge or its hours by: lower-case words. */
+const SETTING_KEY = /^[a-z][a-z0-9_]{0,39}$/;
+const plainHours = (x: number) => String(x).replace(/\.0+$/, '');
 
 /** An hours field as the door takes it: a number (a comma too); anything else is left out, so it stays as it is (the door clamps). */
 export function hoursOf(t: string | undefined): number | undefined {

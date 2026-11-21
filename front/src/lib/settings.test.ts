@@ -16,6 +16,7 @@ import {
   moved,
   nudgesDraft,
   nudgesFields,
+  nudgesBody,
   pushLine,
   switched,
   targetsProblem,
@@ -103,6 +104,28 @@ describe('the Nudges form', () => {
       on: '0', weight: '1', weight_after: '2.5', habits: '1', habits_after: '14', idle: '1', idle_hours: '6.5',
       checkin: '1', checkin_after: '12', bp_evening: '0', bp_evening_after: '13', gratitude: '1', gratitude_after: '14',
     });
+  });
+
+  it('Web 70: a nudge the door adds later is drawn and saved, with the door\'s keys and ranges only', () => {
+    const water = { key: 'water', label: 'Water not in yet,', after: 'after', on: true, hours: { key: 'water_after', value: 15, min: 9, max: 20, step: 0.5, default: 15 }, note: null };
+    const read = { ...NOTIFY, nudges: [...NOTIFY.nudges, water] };
+    const d = nudgesDraft(read);
+    expect(d.rows.at(-1)).toEqual({ key: 'water', on: true, hoursKey: 'water_after', hours: '15' });
+    const fields = nudgesFields(d) as Record<string, string>;
+    expect([fields.water, fields.water_after]).toEqual(['1', '15']);
+    const get = (f: Record<string, string>) => (k: string) => f[k];
+    const { body, problem } = nudgesBody(get({ ...fields, sneaky: '1', sneaky_after: '3' }), read.nudges);
+    expect(problem).toBeNull();
+    expect(body).toMatchObject({ on: true, water: true, water_after: 15, weight_after: 2.5 });
+    expect(body).not.toHaveProperty('sneaky');
+    expect(body).not.toHaveProperty('sneaky_after');
+    // the door's range, in its words; a field that is not a number stays as it is
+    expect(nudgesBody(get({ water_after: '8.5' }), read.nudges).problem).toBe('Water not in yet: give a number of hours from 9 to 20.');
+    expect(nudgesBody(get({ water_after: '20.5' }), read.nudges).problem).toMatch(/from 9 to 20/);
+    expect(nudgesBody(get({ water_after: 'soon' }), read.nudges)).toEqual({ body: {}, problem: null });
+    // a key that is not a plain name is never sent
+    const odd = { ...water, key: 'Water; drop', hours: { ...water.hours, key: 'x y' } };
+    expect(nudgesBody(get({ 'Water; drop': '1', 'x y': '10' }), [odd]).body).toEqual({});
   });
 
   it('takes an hours field as a number (a comma too); anything else is left out, so it stays as it is', () => {

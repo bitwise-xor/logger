@@ -22,7 +22,7 @@ import { linesOf, wordsOfText } from '../homeparts.js';
 import { CATALOGUE_FILTERS, CATALOGUE_SORTS } from '../catalogue.js';
 import { askedOpen, askedTest } from '../medical.js';
 import { FILTERS } from '../coach.js';
-import { hoursOf, NUDGE_HOURS, NUDGE_KEYS } from '../settings.js';
+import { nudgesBody, type Nudge } from '../settings.js';
 import { subscriptionProblem } from '../pushdevice.js';
 
 /** The form's fields: what `FormData` offers (and a plain test double). */
@@ -36,6 +36,8 @@ type Body = Record<string, unknown>;
 /** What the form action knows besides the form (deploy 112): the browser's User-Agent header, for /push/subscribe's device name. */
 export interface Asked {
   userAgent?: string | null;
+  /** The nudges the door lists (Web 70: GET /settings/notify, read by runSave just before POST /settings/nudges). */
+  nudges?: Nudge[];
 }
 
 interface Save {
@@ -44,7 +46,9 @@ interface Save {
   keyed: boolean;
   body: (f: Fields, asked: Asked) => Body;
   /** Why the form cannot go to the door (checked first; the door is not asked): "Not saved." with these words. */
-  check?: (f: Fields) => string | null;
+  check?: (f: Fields, asked: Asked) => string | null;
+  /** A read of the door the save needs first (Web 70: the nudges the door lists), added to what the action knows. */
+  before?: (door: Door, session: string) => Promise<Partial<Asked>>;
   /** /log and /held/retry read the words with the AI: up to about 40 s. */
   timeoutMs?: number;
 }
@@ -409,7 +413,14 @@ export const SAVES = {
   settings_coach: { path: '/settings/coach', keyed: false, body: (f) => coachBody(f) },
   settings_device: { path: '/settings/device', keyed: false, body: (f) => ({ id: str(f, 'id', 64) }) },
   settings_others: { path: '/settings/others', keyed: false, body: () => ({}) },
-  settings_nudges: { path: '/settings/nudges', keyed: false, body: (f) => nudgesBody(f) },
+  // Web 70: the keys and the hours' ranges are those of the door's list (GET /settings/notify, read first), never written here.
+  settings_nudges: {
+    path: '/settings/nudges',
+    keyed: false,
+    before: async (door, session) => ({ nudges: (await door.get<{ settings_notify: { nudges: Nudge[] } }>('/settings/notify', session)).body.settings_notify.nudges ?? [] }),
+    check: (f, asked) => nudgesBody(fieldOf(f), asked.nudges ?? []).problem,
+    body: (f, asked) => nudgesBody(fieldOf(f), asked.nudges ?? []).body,
+  },
   // the notifications of a device (here or at app.) off; a test to every device
   push_off: { path: '/push/off', keyed: false, body: (f) => ({ id: int(f, 'id') }) },
   push_test: { path: '/push/test', keyed: false, body: () => ({}) },
@@ -466,20 +477,11 @@ function coachBody(f: Fields): Body {
 }
 
 /** The Nudges form: every switch true or false ("1"), every hours field a number (a field not a number is left out: as now). */
-function nudgesBody(f: Fields): Body {
-  const body: Body = {};
-  const flag = (name: string) => {
-    const v = f.get(name);
-    return typeof v === 'string' ? v === '1' : undefined;
-  };
-  body.on = flag('on');
-  for (const k of NUDGE_KEYS) body[k] = flag(k);
-  for (const k of NUDGE_HOURS) {
-    const v = f.get(k);
-    body[k] = hoursOf(typeof v === 'string' ? v : undefined);
-  }
-  return body;
-}
+/** A form field as text, or undefined (a file or none). */
+const fieldOf = (f: Fields) => (name: string) => {
+  const v = f.get(name);
+  return typeof v === 'string' ? v : undefined;
+};
 
 /** The ten values of a food (docs/API.md, the Catalogue's values form), as the door names them. */
 export const CATALOGUE_VALUES = ['kcal', 'protein', 'fat', 'sat_fat', 'carbs', 'fibre', 'sugar_total', 'sugar_added', 'sodium_mg', 'caffeine_mg'] as const;
@@ -797,7 +799,17 @@ export async function runSave<A>(
   asked: Asked = {},
 ): Promise<SaveResult<A>> {
   const save: Save = SAVES[name];
-  const wrong = save.check?.(f);
+  if (save.before) {
+    // A read first (Web 70). Its failure comes before the save was sent: nothing was saved, whatever the kind.
+    try {
+      asked = { ...asked, ...(await save.before(door, session)) };
+    } catch (error) {
+      const kind = problemOf(error);
+      if (kind === 'signed_out') return { ok: false, status: 401, signedOut: true, message: error instanceof DoorError ? error.message : 'Sign in again.' };
+      return { ok: false, status: 503, signedOut: false, message: problemText(kind, 'save'), problem: kind };
+    }
+  }
+  const wrong = save.check?.(f, asked);
   if (wrong) return { ok: false, status: 400, signedOut: false, message: wrong };
   try {
     const { body, expiresAt } = await door.post<A>(save.path, session, bodyFor(name, f, viewDay, undefined, view, asked), save.timeoutMs);

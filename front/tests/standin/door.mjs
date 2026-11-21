@@ -118,6 +118,7 @@
 // `shown` out (an older door), ?nopush=1 no device gets nudges.
 // Deploy 112: POST /push/subscribe as the core (api.push_subscribe): keys must be an object (400), app.'s checks (an https address of a
 // known push service, a 65-byte key and a 16-byte secret) else "Not a known push service.", kept by its endpoint with address logger.,
+// Web 70: POST /standin/settings?newnudge=1 adds a nudge "water" (water_after 9 to 20 hours) to the door's list.
 // `this` and the device's name from user_agent (settingspage.device_name), `twice` again; POST /standin/settings?nothis=1 (no row is this
 // device), ?nokey=1 (public_key null); GET /standin/push-subscribed: how many were kept and the last user_agent.
 import { createServer } from 'node:http';
@@ -3086,6 +3087,10 @@ createServer(async (req, res) => {
     if (q.get('nopush') === '1') Object.assign(state.settings.notify, { subscriptions: [], twice: false });
     if (q.get('nothis') === '1') for (const s of state.settings.notify.subscriptions) s.this = false;
     if (q.get('nokey') === '1') state.settings.notify.public_key = null;
+    // Web 70: a nudge the core adds later (not in the sample), to see that the page draws and saves it from the door's list
+    if (q.get('newnudge') === '1' && !state.settings.notify.nudges.some((x) => x.key === 'water')) {
+      state.settings.notify.nudges.push({ key: 'water', label: 'Water not in yet,', after: 'after', on: false, hours: { key: 'water_after', value: 15, min: 9, max: 20, step: 0.5, default: 15 }, note: null });
+    }
     return send(res, 200, { outcome: 'settings' });
   }
   // deploy 102: the Week's states (see weekOut), and how many review starts the stand-in got

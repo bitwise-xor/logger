@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 // Today's saves through the door client, against a faked network: which route each form action calls, the key rule, the fresh
 // day asked for, and a gone session told apart from other problems.
 import { describe, expect, it } from 'vitest';
@@ -17,10 +18,17 @@ function form(fields: Record<string, string | string[]>) {
   return f;
 }
 
-function net(status = 200, body: unknown = { v: 1, outcome: 'saved', head: 'Saved.', day: {} }) {
+/** The door's nudges (tests/samples/settings.json, a real answer of GET /settings/notify), which settings_nudges reads first (Web 70). */
+const NUDGES = JSON.parse(readFileSync(new URL('../../../tests/samples/settings.json', import.meta.url), 'utf8')).notify.settings_notify.nudges;
+
+function net(status = 200, body: unknown = { v: 1, outcome: 'saved', head: 'Saved.', day: {} }, nudges: unknown = NUDGES) {
   const seen: { path: string; body: Record<string, unknown>; timeout: boolean }[] = [];
   const fetch: Fetch = async (url, init) => {
-    seen.push({ path: url.pathname, body: JSON.parse(init.body as string), timeout: !!init.signal });
+    seen.push({ path: url.pathname, body: init.body ? JSON.parse(init.body as string) : {}, timeout: !!init.signal });
+    // the read before the nudges' save (Web 70)
+    if (init.method === 'GET' && url.pathname === '/api/v1/settings/notify') {
+      return new Response(JSON.stringify({ v: 1, settings_notify: { nudges } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
     return new Response(JSON.stringify(body), {
       status,
       headers: { 'Content-Type': 'application/json', 'X-Session-Expires': '2099-01-01T00:00:00+00:00' },
@@ -141,7 +149,9 @@ describe('a save through the door', () => {
     for (const name of SAVE_NAMES) {
       const n = net();
       await runSave(n.door, SESSION, name, form(name === 'push_subscribe' ? { ...SUB, key: KEY } : { key: KEY }));
-      expect(n.seen.map((s) => s.path)).toEqual([`/api/v1${SAVES[name].path}`]);
+      // the nudges' save reads the door's list first (Web 70)
+      const read = name === 'settings_nudges' ? ['/api/v1/settings/notify'] : [];
+      expect(n.seen.map((s) => s.path)).toEqual([...read, `/api/v1${SAVES[name].path}`]);
     }
   });
 
@@ -1149,8 +1159,32 @@ describe('Settings', () => {
     expect(bodyFor('settings_others', form({ confirmed: '1' }), undefined, undefined, 'settings_devices')).toEqual({ view: 'settings_devices' });
     expect(bodyFor('push_off', form({ id: '54' }), undefined, undefined, 'settings_notify')).toEqual({ id: 54, view: 'settings_notify' });
     expect(bodyFor('push_test', form({}), undefined, undefined, 'settings_notify')).toEqual({ view: 'settings_notify' });
-    const body = bodyFor('settings_nudges', form({ on: '1', weight: '1', habits: '0', idle: '0', weight_after: '2,5', idle_hours: 'soon', gratitude_after: '13' }), undefined, undefined, 'settings_notify');
+    const body = bodyFor('settings_nudges', form({ on: '1', weight: '1', habits: '0', idle: '0', weight_after: '2,5', idle_hours: 'soon', gratitude_after: '13' }), undefined, undefined, 'settings_notify', { nudges: NUDGES });
     expect(body).toEqual({ on: true, weight: true, habits: false, idle: false, weight_after: 2.5, gratitude_after: 13, view: 'settings_notify' });
+  });
+
+  it('Web 70: the nudges\' keys and hours\' ranges are the door\'s list, read just before the save', async () => {
+    const water = { key: 'water', label: 'Water', after: 'after', on: false, hours: { key: 'water_after', value: 15, min: 9, max: 20, step: 0.5, default: 15 }, note: null };
+    // a nudge the core adds later saves: its switch and its hours go to the door; a field the door did not list is left out
+    const n = net(200, { v: 1, outcome: 'changed', head: 'Saved. Nudges are on.' }, [...NUDGES, water]);
+    const r = await runSave(n.door, SESSION, 'settings_nudges', form({ on: '1', water: '1', water_after: '18', sneaky: '1', sneaky_after: '3' }), undefined, 'settings_notify');
+    expect(r.ok).toBe(true);
+    expect(n.seen.map((s) => s.path)).toEqual(['/api/v1/settings/notify', '/api/v1/settings/nudges']);
+    expect(n.seen[1]!.body).toEqual({ on: true, water: true, water_after: 18, view: 'settings_notify' });
+    // hours outside the door's range: refused in plain words, nothing sent
+    const out = net(200, { v: 1 }, [...NUDGES, water]);
+    const refused = await runSave(out.door, SESSION, 'settings_nudges', form({ on: '1', water_after: '22' }), undefined, 'settings_notify');
+    expect(refused).toEqual({ ok: false, status: 400, signedOut: false, message: 'Water: give a number of hours from 9 to 20.' });
+    expect(out.seen.map((s) => s.path)).toEqual(['/api/v1/settings/notify']);
+    const low = await runSave(net().door, SESSION, 'settings_nudges', form({ weight_after: '0.2' }), undefined, 'settings_notify');
+    expect(low.ok === false && low.message).toBe('No weight yet: give a number of hours from 0.5 to 12.');
+    // the read fails: nothing was sent, and it says so
+    const down = makeDoor({ url: 'http://logger-v2-core:8000', token: TOKEN, fetch: async () => { throw new TypeError('fetch failed', { cause: { code: 'ECONNREFUSED' } }); } });
+    const d = await runSave(down, SESSION, 'settings_nudges', form({ on: '1' }), undefined, 'settings_notify');
+    expect(d).toMatchObject({ ok: false, status: 503, problem: 'core_down' });
+    const slow: Fetch = (_u, init) => new Promise((_r, reject) => init.signal?.addEventListener('abort', () => reject(init.signal?.reason)));
+    const s = await runSave(makeDoor({ url: 'http://logger-v2-core:8000', token: TOKEN, fetch: slow, timeoutMs: 10 }), SESSION, 'settings_nudges', form({ on: '1' }), undefined, 'settings_notify');
+    expect(s.ok === false && s.message).toMatch(/Nothing was saved/);
   });
 
   // deploy 112: "This device" turned on

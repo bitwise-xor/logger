@@ -6214,6 +6214,28 @@ async function checkSettings(page, name, theme) {
   await page.reload();
   assert.equal(await page.locator('[data-nudge="idle"] [data-switch]').getAttribute('aria-checked'), 'false');
   assert.equal(await page.locator('[data-hours="gratitude_after"]').inputValue(), '13');
+  // Web 70: a nudge the core adds later is drawn and saved from the door's list; hours outside its range are refused
+  await standinPost('/standin/settings?newnudge=1');
+  await page.reload();
+  await page.locator('[data-nudge="water"] [data-switch]').click();
+  const range = page.locator('[data-hours="water_after"]');
+  assert.deepEqual([await range.getAttribute('min'), await range.getAttribute('max')], ['9', '20'], 'a new nudge: the field has the door\'s range');
+  // the server checks the range too (a form sent without the page's own checks): refused in plain words, nothing saved
+  const refusedBody = await page.evaluate(async () => {
+    const f = new FormData();
+    f.append('on', '1');
+    f.append('water', '1');
+    f.append('water_after', '21');
+    const r = await fetch('/settings/notifications?/settings_nudges', { method: 'POST', body: f, headers: { accept: 'application/json', 'x-sveltekit-action': 'true' } });
+    return r.text();
+  });
+  assert.match(refusedBody, /Water not in yet: give a number of hours from 9 to 20\./, 'hours outside the door\'s range: refused');
+  await range.fill('18');
+  await page.locator('[data-form="nudges"] button[type=submit]').click();
+  await headIs(SETTINGS.saves.nudges.head);
+  await page.reload();
+  assert.equal(await page.locator('[data-nudge="water"] [data-switch]').getAttribute('aria-checked'), 'true', 'a new nudge: its switch saved');
+  assert.equal(await page.locator('[data-hours="water_after"]').inputValue(), '18', 'a new nudge: its hours saved');
   await standinPost('/standin/settings?nopush=1');
   await page.reload();
   assert.equal(await page.locator('[data-test]').count(), 0, 'no test without a device');
