@@ -323,7 +323,10 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   checked first, in app.'s words: `settings.ts`); the Today page tab saves every tap at once (a switch or an arrow posts the whole group; the list is the
   door's fresh read); "Show everything again" and "Sign out all others" are asked first in the answer bar. Export's Download is a plain form POST to
   `/settings/export/download` (`+server.ts`: the door's POST /export through `door.postFile`, the ZIP handed through with the door's Content-Type and
-  Content-Disposition and no-store; a failure goes back to the tab with `?failed=1`). The "This device" card came with deploy 112 (below). Also with 111: no footer line any more; Habits, Library > Habits, Health's height and every
+  Content-Disposition and no-store; a failure goes back to the tab with `?failed=1`). Core 37 (21.11.2026): ticking "Include private and
+  gratitude entries" shows a field for the authenticator code, sent with the download (`exportCode` in `settings.ts`); the door's refusal
+  of the code (a wrong or missing one, too many tries) comes back to the tab in the door's words, carried in a cookie read once
+  (`__Host-logger-export-refused`, `?refused=1`; never the words in the address), the box still ticked. The stand-in takes `123456`. The "This device" card came with deploy 112 (below). Also with 111: no footer line any more; Habits, Library > Habits, Health's height and every
   "Your goals" (`GOALS_HERE`) open Settings here; Today hides the To review items (one line instead) and the Gratitude card when `day.shown` says so.
   Web 70 (21.11.2026): the Nudges form and its save take the nudges from the door's list, never from a list written here, so a nudge the
   core adds later shows and saves: `settings_nudges` reads GET `/settings/notify` first (`before` in `saves.ts`; its failure says nothing

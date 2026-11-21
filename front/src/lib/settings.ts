@@ -256,6 +256,24 @@ export function hoursOf(t: string | undefined): number | undefined {
 export const EXPORT_FAILED = 'The export could not be made. Nothing was downloaded; try again in a moment.';
 
 /**
+ * Core 37 (21.11.2026): the export with private and gratitude entries asks for the authenticator code (the door checks it as at a
+ * sign-in: each code once, a wrong one a failed try of this device, the sign-in's limit). The door's refusals whose words the tab
+ * shows: a wrong or missing code (403 `wrong_code`) and too many tries (429 `too_many_tries`).
+ */
+export const EXPORT_CODE_REFUSALS = new Set(['wrong_code', 'too_many_tries']);
+/** The cookie that carries the door's words back to the tab for one read (download/+server.ts; never a query, which anyone could write). */
+export const EXPORT_REFUSED_COOKIE = '__Host-logger-export-refused';
+
+/** The code as typed, for the door: spaces taken out, at most 20 characters (the door checks it). */
+export const exportCode = (v: unknown): string => (typeof v === 'string' ? v.replace(/\s+/g, '').slice(0, 20) : '');
+
+/** The door's words as the tab shows them: one line, at most 300 characters; none when empty. */
+export function refusedText(v: string | undefined | null): string | null {
+  const t = (v ?? '').replace(/\s+/g, ' ').trim().slice(0, 300);
+  return t || null;
+}
+
+/**
  * The download's headers, from the door's answer: its Content-Type (a ZIP only) and Content-Disposition (an attachment with a plain
  * file name only), and no-store. null: not a file this app hands on (the endpoint then goes back to the tab with EXPORT_FAILED).
  */

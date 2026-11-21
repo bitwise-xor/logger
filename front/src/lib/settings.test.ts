@@ -17,6 +17,9 @@ import {
   nudgesDraft,
   nudgesFields,
   nudgesBody,
+  exportCode,
+  refusedText,
+  EXPORT_CODE_REFUSALS,
   pushLine,
   switched,
   targetsProblem,
@@ -160,5 +163,17 @@ describe('the export\'s download', () => {
     expect(downloadHeaders('application/json', 'attachment; filename="x.zip"')).toBeNull();
     expect(downloadHeaders('text/html', null)).toBeNull();
     expect(downloadHeaders(null, null)).toBeNull();
+  });
+});
+
+describe('the export with private entries (Core 37)', () => {
+  it('sends the code as typed without spaces, at most 20 characters', () => {
+    expect([exportCode('123 456'), exportCode(' 123456 '), exportCode('1'.repeat(30)).length, exportCode(null), exportCode(undefined)]).toEqual(['123456', '123456', 20, '', '']);
+  });
+  it("shows the door's refusal of the code in one line, and only those refusals", () => {
+    expect(refusedText('Wrong authenticator code (or one used already).\n Nothing was exported.')).toBe('Wrong authenticator code (or one used already). Nothing was exported.');
+    expect(refusedText('x'.repeat(400))!.length).toBe(300);
+    expect([refusedText(''), refusedText('  '), refusedText(undefined), refusedText(null)]).toEqual([null, null, null, null]);
+    expect([...EXPORT_CODE_REFUSALS].sort()).toEqual(['too_many_tries', 'wrong_code']);
   });
 });

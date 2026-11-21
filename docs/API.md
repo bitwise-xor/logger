@@ -37,7 +37,7 @@ The front end reads these as plain messages (since deploy 85, `front/src/lib/pro
   (once a day the end moves to 30 days from now); the front end can renew its own cookie from this header.
 - Errors: `{"v": 1, "error": "<code>", "message": "<plain text>"}`. Codes: `not_found` 404, `signed_out` 401,
   `wrong_credentials` 401, `too_many_tries` 429, `bad_request` 400, `too_large` 413 (body over 64 KB), `no_entry` 404,
-  `server_error` 500. Only `POST /food/label` takes a larger body (up to three photos, see below).
+  `wrong_code` 403 (21.11.2026: the export with private entries without the right authenticator code), `server_error` 500. Only `POST /food/label` takes a larger body (up to three photos, see below).
 - Request bodies are a JSON object. Values: numbers, ISO 8601 times in Europe/Berlin with the offset (`2026-01-31T08:05:00+01:00`),
   dates as `yyyy-mm-dd`, durations in minutes. Display strings are the front end's job.
 
@@ -1067,7 +1067,14 @@ on at both addresses gets each nudge twice (`settings_notify.twice`). app.'s Set
 
 ### The export: `POST /api/v1/export` → the ZIP
 
-Body `{private: true | false}` (left out: false; not a boolean: 400). The answer is **the file itself**, not JSON: `application/zip`,
+Body `{private: true | false, code}` (private left out: false; not a boolean: 400). Since 21.11.2026 (Core 37) `private: true` needs
+`code`, the authenticator code, checked as at a sign-in (`web.sign_in`; `api._private_code`): each code works once (it moves
+`owner_credentials.last_totp_step`, the row locked while it is checked), a wrong or missing code is 403 `wrong_code` ("Wrong
+authenticator code (or one used already). Nothing was exported." / "The export with private entries needs the authenticator code.
+Nothing was exported.") and a failed try of this session's device (`login_failures`, the sign-in's pool of a known device), and after
+`auth.MAX_FAILURES` failed tries within `auth.FAILURE_WINDOW_MIN` minutes (sign-ins and codes together) it is 429 `too_many_tries`, even
+with the right code; the right code clears the device's failed tries. Nothing is exported on a refusal. Without `private` nothing
+changed: no code is asked for. The answer is **the file itself**, not JSON: `application/zip`,
 `Content-Disposition: attachment; filename="logger-export-dd.mm.yyyy.zip"`, `Cache-Control: no-store`, `X-Session-Expires`; made by
 `export.download` exactly as app.'s Download (the same files; `private.csv` only with `private: true`; the audit row with counts only).
 Its errors are JSON as everywhere (the door's checks first; 500 `server_error` "The export could not be made (the database did not

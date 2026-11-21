@@ -6248,8 +6248,10 @@ async function checkSettings(page, name, theme) {
   assert.equal(await text(page.locator('[data-form="export"] h2')), E.title);
   assert.equal(await text(page.locator('[data-intro]')), E.intro);
   assert.equal(await page.locator('[data-private]').isChecked(), false, 'private entries off by default');
+  assert.equal(await page.locator('[data-code]').count(), 0, 'no code field without private entries');
   await page.getByText(E.private_label).click(); // the whole line ticks it
   assert.equal(await page.locator('[data-private]').isChecked(), true);
+  await page.locator('[data-code]').waitFor(); // Core 37: private entries ask for the authenticator code
   assert.equal(await text(page.locator('[data-download]')), E.button);
   assert.equal(await text(page.locator('[data-last]')), E.last.text);
   assert.equal(await page.locator('[data-form="export"]').getAttribute('method'), 'POST');
@@ -6258,6 +6260,7 @@ async function checkSettings(page, name, theme) {
   const got = await page.evaluate(async () => {
     const f = new FormData();
     f.append('private', '1');
+    f.append('code', '123 456');
     const r = await fetch('/settings/export/download', { method: 'POST', body: f });
     const b = new Uint8Array(await r.arrayBuffer());
     return { status: r.status, type: r.headers.get('content-type'), cd: r.headers.get('content-disposition'), cache: r.headers.get('cache-control'), magic: [b[0], b[1], b[2], b[3]], size: b.length };
@@ -6265,6 +6268,21 @@ async function checkSettings(page, name, theme) {
   assert.deepEqual({ ...got, size: got.size > 100 }, { status: 200, type: 'application/zip', cd: 'attachment; filename="logger-export-17.11.2026.zip"', cache: 'no-store', magic: [0x50, 0x4b, 0x03, 0x04], size: true });
   const ex = await (await fetch(`${standin}/standin/exports`)).json();
   assert.equal(ex.last.private, true, 'the tick box went to the door');
+  // Core 37: a wrong code comes back to the tab in the door's words, the box still ticked; nothing was exported
+  const before = (await (await fetch(`${standin}/standin/exports`)).json()).exports;
+  await page.fill('[data-code]', '000000');
+  await page.locator('[data-download]').click();
+  await page.waitForURL(/\/settings\/export\?refused=1$/);
+  assert.equal(await text(page.locator('[data-code-refused]')), 'Wrong authenticator code (or one used already). Nothing was exported.');
+  assert.equal(await page.locator('[data-private]').isChecked(), true, 'refused: the box stays ticked');
+  assert.equal((await (await fetch(`${standin}/standin/exports`)).json()).exports, before, 'refused: nothing exported');
+  await checkWidth(page, 'settings export, a wrong code');
+  await shot('export-code-refused');
+  await page.reload(); // the words were read once
+  assert.equal(await page.locator('[data-code-refused]').count(), 0, 'the refusal is shown once');
+  await page.goto(`${base}/settings/export`);
+  await page.getByText(E.private_label).click();
+  await page.fill('[data-code]', '123456');
   // the button: a download, the page stays
   const [dl] = await Promise.all([page.waitForEvent('download'), page.locator('[data-download]').click()]);
   assert.equal(dl.suggestedFilename(), 'logger-export-17.11.2026.zip');

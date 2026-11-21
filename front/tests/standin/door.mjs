@@ -3042,6 +3042,18 @@ function settingsExport(res, body, signedIn) {
   if ('private' in body && typeof body.private !== 'boolean') return send(res, 400, { error: 'bad_request', message: 'private must be true or false.' }, signedIn);
   if (state.settings.exportFail) return send(res, 500, { error: 'server_error', message: 'The export could not be made (the database did not answer). Try again in a moment.' }, signedIn);
   const priv = body.private === true;
+  // Core 37: private entries leave only with the authenticator code (the stand-in's is 123456, as at its sign-in), a wrong or missing
+  // one counted, five within the window refused as the core does (api.py, _private_code; the words are the core's)
+  if (priv) {
+    const fails = state.settings.codeFails ?? 0;
+    if (fails >= 5) return send(res, 429, { error: 'too_many_tries', message: 'Too many failed attempts. Try again in 15 minutes. Nothing was exported.' }, signedIn);
+    if (body.code !== '123456') {
+      state.settings.codeFails = fails + 1;
+      const message = body.code ? 'Wrong authenticator code (or one used already). Nothing was exported.' : 'The export with private entries needs the authenticator code. Nothing was exported.';
+      return send(res, 403, { error: 'wrong_code', message }, signedIn);
+    }
+    state.settings.codeFails = 0;
+  }
   const files = [['README.txt', 'An export of the stand-in door (invented data).\n'], ['food_entries.csv', 'day,food,amount\n2026-11-17,Oats,60\n'], ['all.json', '{"stand_in": true}\n']];
   if (priv) files.push(['private.csv', 'day,text\n2026-11-17,invented\n']);
   const zip = stZip(files);

@@ -9,9 +9,9 @@ from datetime import date
 
 import pytest
 
-from app import api, export, reads, uiprefs
+from app import api, auth, export, reads, uiprefs
 from conftest import owner_sql
-from test_api_door import door, door_on, signed_in  # noqa: F401 - door_on is autouse
+from test_api_door import door, door_on, fresh_code, signed_in  # noqa: F401 - door_on is autouse
 from test_api_saves import KEYS, Door, n
 from test_export import GRATITUDE_WORDS, PRIVATE_WORDS, _seed, _zip
 from test_web import ORIGIN, act, web  # noqa: F401 - web: a signed-in app. session (fixture)
@@ -307,7 +307,7 @@ def test_export_tab_and_the_zip_as_bytes(sv):
     assert len(audit) == 1 and audit[0]["client"] == "web" and audit[0]["detail"]["private"] is False and audit[0]["detail"]["bytes"] == len(r.content)
     last = get(sv, "/settings/export")["settings_export"]["last"]
     assert last["private"] is False and last["text"].startswith("Last download: ") and not last["text"].endswith("with private entries.")
-    files = _zip(sv.raw("/export", private=True))
+    files = _zip(sv.raw("/export", private=True, code=fresh_code()))  # Core 37: private entries need the authenticator code
     assert "private.csv" in files and PRIVATE_WORDS.encode() in files["private.csv"]
     last = get(sv, "/settings/export")["settings_export"]["last"]
     assert last["private"] is True and last["text"].endswith(", with private entries.")
@@ -325,6 +325,62 @@ def test_export_refusals_are_json(sv, monkeypatch):
     assert r.status_code == 500 and r.json() == {"v": 1, "error": "server_error", "message": export.FAILED}
     assert door().post("/api/v1/export", json={}).status_code == 401  # signed out: JSON, no file
     assert door(token="wrong").post("/api/v1/export", headers=sv.h, json={}).json() == {"v": 1, "error": "not_found", "message": "Not found."}
+
+
+# ---- Core 37: the export with private entries asks for the authenticator code -------------------------------------------------------
+
+def _exports():
+    return n("SELECT count(*) AS n FROM audit_log WHERE tool = 'export'")
+
+
+def _fails(sv):
+    return n("SELECT count(*) AS n FROM login_failures WHERE device_hash = (SELECT device_hash FROM web_sessions WHERE token_hash = %s)",
+             api.web._h(sv.j["token"]))
+
+
+def test_the_private_export_takes_the_right_code_once(sv):
+    _seed()
+    code = fresh_code()
+    r = sv.raw("/export", private=True, code=code)
+    assert r.status_code == 200 and r.headers["content-type"] == "application/zip" and "private.csv" in _zip(r)
+    assert owner_sql("SELECT last_totp_step FROM owner_credentials")[0]["last_totp_step"] > 0  # the code is used up
+    again = sv.raw("/export", private=True, code=code)  # the same code twice: refused, as at a sign-in
+    assert again.status_code == 403 and again.json() == {"v": 1, "error": "wrong_code", "message": api.CODE_WRONG}
+    assert again.headers["content-type"].startswith("application/json") and PRIVATE_WORDS.encode() not in again.content
+    assert _exports() == 1 and _fails(sv) == 1
+
+
+def test_a_wrong_or_missing_code_exports_nothing_and_counts_as_a_failed_try(sv):
+    _seed()
+    for body, message in (({}, api.CODE_NEEDED), ({"code": ""}, api.CODE_NEEDED), ({"code": "000000"}, api.CODE_WRONG), ({"code": "abc"}, api.CODE_WRONG)):
+        r = sv.raw("/export", private=True, **body)
+        assert r.status_code == 403 and r.json() == {"v": 1, "error": "wrong_code", "message": message}, body
+        assert PRIVATE_WORDS.encode() not in r.content and GRATITUDE_WORDS.encode() not in r.content
+    assert _exports() == 0 and _fails(sv) == 4
+    assert "Nothing was exported" in api.CODE_NEEDED and "Nothing was exported" in api.CODE_WRONG
+    # without private entries nothing changes: no code asked for, no failed try counted
+    assert sv.raw("/export").status_code == 200 and sv.raw("/export", private=False).status_code == 200 and _fails(sv) == 4
+    # the right code clears this device's failed tries, as a sign-in does
+    assert sv.raw("/export", private=True, code=fresh_code()).status_code == 200 and _fails(sv) == 0
+
+
+def test_the_sign_ins_limit_holds_for_the_code_and_shares_the_devices_tries(sv):
+    _seed()
+    for _ in range(auth.MAX_FAILURES):
+        assert sv.raw("/export", private=True, code="000000").status_code == 403
+    r = sv.raw("/export", private=True, code=fresh_code())  # even the right code now waits
+    assert r.status_code == 429 and r.json()["error"] == "too_many_tries" and "Nothing was exported" in r.json()["message"]
+    assert _exports() == 0 and _fails(sv) == auth.MAX_FAILURES  # a try over the limit is not counted again
+    assert owner_sql("SELECT last_totp_step FROM owner_credentials")[0]["last_totp_step"] == 0  # and the code is not used up
+    # the device's failed tries are the sign-in's: its next sign-in from this device is refused too
+    out = sv.c.post("/api/v1/session", json={"password": "anything", "code": fresh_code(), "device": sv.j["device"]})
+    assert out.status_code == 429
+    # another device is not locked out by this one's tries
+    other = Door()
+    assert other.raw("/export", private=True, code=fresh_code()).status_code == 200
+    # the window passes: the code works again
+    owner_sql("UPDATE login_failures SET at = at - make_interval(mins => %s)", auth.FAILURE_WINDOW_MIN + 1)
+    assert sv.raw("/export", private=True, code=fresh_code()).status_code == 200
 
 
 def test_only_a_download_route_may_answer_a_file(monkeypatch):

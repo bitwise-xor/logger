@@ -22,7 +22,7 @@ from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
-from . import body as tape, coach, coachpage, export, foodpage, gym, gympage, habitspage, healthpage, home as homelib, hubtools, labelread, labspage, logbook, mealnotes, nudges, privateline, reads, settingspage, trendspage, uiprefs, usagepage, web, webactions, webentry, webfood, webhabits, webheld, weblabs, webpush, websettings, webundo, weekpage
+from . import auth, body as tape, coach, coachpage, export, foodpage, gym, gympage, habitspage, healthpage, home as homelib, hubtools, labelread, labspage, logbook, mealnotes, nudges, privateline, reads, settingspage, trendspage, uiprefs, usagepage, web, webactions, webentry, webfood, webhabits, webheld, weblabs, webpush, websettings, webundo, weekpage
 from .ai.provider import ProviderError
 from .config import FRONT_TOKEN
 from .db import connect
@@ -2041,11 +2041,43 @@ def push_test(_request, body, session):
     return _setting(session, body, websettings.nudge_test, {}, "settings_notify")
 
 
+CODE_NEEDED = "The export with private entries needs the authenticator code. Nothing was exported."
+CODE_WRONG = "Wrong authenticator code (or one used already). Nothing was exported."
+
+
+def _private_code(code: str, session) -> None:
+    """Core 37 (21.11.2026): private and gratitude entries leave only with the authenticator code, checked as at a sign-in
+    (web.sign_in): each code once (owner_credentials.last_totp_step, the row locked while it is checked), a wrong or missing code
+    counted as a failed try of this session's device (login_failures, the sign-in's pool of a known device), and the sign-in's
+    limit (auth.MAX_FAILURES in auth.FAILURE_WINDOW_MIN minutes) for both. Raises Refused; returns when the code is right."""
+    pool = session.get("device_hash")
+    refused = None  # raised after the transaction, so the failed try is kept (an error inside it would roll it back)
+    with connect() as c:
+        c.execute("DELETE FROM login_failures WHERE at < now() - interval '1 day'")
+        fails = c.execute("""SELECT count(*) AS n FROM login_failures WHERE device_hash IS NOT DISTINCT FROM %s
+                             AND at > now() - make_interval(mins => %s)""", (pool, auth.FAILURE_WINDOW_MIN)).fetchone()["n"]
+        owner = c.execute("SELECT totp_secret, last_totp_step FROM owner_credentials WHERE id = 1 FOR UPDATE").fetchone()
+        step = auth.check_totp(owner["totp_secret"], code, owner["last_totp_step"]) if owner and code else None
+        if fails >= auth.MAX_FAILURES:
+            refused = Refused(429, "too_many_tries", f"Too many failed attempts. Try again in {auth.FAILURE_WINDOW_MIN} minutes. Nothing was exported.")
+        elif not step:
+            c.execute("INSERT INTO login_failures (device_hash) VALUES (%s)", (pool,))
+            refused = Refused(403, "wrong_code", CODE_WRONG if code else CODE_NEEDED)
+        else:
+            c.execute("UPDATE owner_credentials SET last_totp_step = %s WHERE id = 1", (step,))
+            c.execute("DELETE FROM login_failures WHERE device_hash IS NOT DISTINCT FROM %s", (pool,))
+    if refused:
+        raise refused
+
+
 @route("/export", "POST", download=True)
 def export_download(_request, body, session):
     """The ZIP of everything logged (export.download, as app.'s /web/settings/export: the same file, file name and audit row);
-    private: true adds private.csv. The answer is the file itself (application/zip), not JSON; a failure is JSON (500)."""
+    private: true adds private.csv, and needs code, the authenticator code (Core 37: _private_code). The answer is the file itself
+    (application/zip), not JSON; a failure is JSON (500; a wrong or missing code 403 wrong_code, too many tries 429)."""
     private = _bool(body, "private")
+    if private:
+        _private_code(text(body, "code", 20), session)
     try:
         data, name = export.download(Form({"private": "1"} if private else {}), session)
     except Exception as e:  # noqa: BLE001 - the kind only
