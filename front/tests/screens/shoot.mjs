@@ -5805,6 +5805,9 @@ async function checkCoach(page, name, theme) {
   await slow.clock.install();
   await slow.goto(`${base}/coach?day=2026-11-13`);
   await slow.locator('[data-card="coach"] [data-coach-wait]').waitFor();
+  // the card is drawn on the server: wait for the page's first status poll (it is live and its 5 minutes have started) before the
+  // clock jumps, or the poll may start after the jump and never reach its 5 minutes
+  await slow.waitForRequest((r) => r.url().includes('/coach/status'));
   await slow.clock.fastForward('05:01');
   await slow.locator('[data-coach-slow]').waitFor();
   assert.equal(await text(slow.locator('[data-coach-slow]')), 'Taking longer than usual: look again in a few minutes. Look again');
@@ -5945,6 +5948,9 @@ async function checkCoachToday(page, name, theme) {
   await slow.clock.install();
   await slow.goto(`${base}/`);
   await slow.locator('[data-card="coach"] [data-coach-wait]').waitFor();
+  // the card is drawn on the server: wait for the page's first status poll (it is live and its 5 minutes have started) before the
+  // clock jumps, or the poll may start after the jump and never reach its 5 minutes
+  await slow.waitForRequest((r) => r.url().includes('/coach/status'));
   await slow.clock.fastForward('05:01');
   await slow.locator('[data-coach-slow]').waitFor();
   await checkWidth(slow, 'today, coach taking longer');
