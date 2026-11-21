@@ -1,0 +1,53 @@
+# Update alerts (core item 12, 21.11.2026): once a month, one grouped pull request per ecosystem, at most 3 open per ecosystem.
+# Nothing is merged or deployed by itself: a pull request is read, tested (GitHub runs the tests) and deployed by hand.
+# - pip: core/requirements.txt (the core's pinned packages)
+# - npm: front/ (pnpm: Dependabot's npm ecosystem reads front/pnpm-lock.yaml; pnpm 7 to 12 are supported)
+# - docker: the base images in core/Dockerfile and front/Dockerfile
+# - docker-compose: compose.yaml (the Postgres image)
+# - github-actions: the actions in .github/workflows
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/core"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 3
+    groups:
+      core-packages:
+        patterns: ["*"]
+
+  - package-ecosystem: "npm"
+    directory: "/front"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 3
+    groups:
+      front-packages:
+        patterns: ["*"]
+
+  - package-ecosystem: "docker"
+    directories: ["/core", "/front"]
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 3
+    groups:
+      base-images:
+        patterns: ["*"]
+
+  - package-ecosystem: "docker-compose"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 3
+    groups:
+      compose-images:
+        patterns: ["*"]
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 3
+    groups:
+      actions:
+        patterns: ["*"]
