@@ -1,9 +1,11 @@
 <script lang="ts">
+  import { foodDayHref } from '#lib/food.js';
   import { DAYS_SHOWN, kcalText, kgText, shown, type Week } from '#lib/week.js';
   import type { WeekPage } from '#lib/weekpage.svelte.js';
 
   // "The days": the period's days with food, newest first (the door's order and labels), a "partly" mark where the door marks a day
-  // under half the calorie target (left out of the averages); seven rows until "Show all N" (the 30 days).
+  // under half the calorie target (left out of the averages); seven rows until "Show all N" (the 30 days). Since 21.11.2026 a day
+  // leads to its Food day (idea 63).
   let { week, page }: { week: Week; page: WeekPage } = $props();
   const rows = $derived(shown(week.days, DAYS_SHOWN, page.daysAll));
   const th = 'px-1 py-1.5 text-xs font-medium text-muted';
@@ -30,8 +32,9 @@
       <tbody>
         {#each rows as d (d.day)}
           <tr class={d.partly ? 'text-muted' : ''} data-day={d.day} data-partly={d.partly}>
-            <td class="border-t border-line px-1 py-2 text-left whitespace-nowrap"
-              >{d.label}{#if d.partly}{' '}<span class="rounded-full bg-chip px-2 py-0.5 text-xs text-chip-text" data-partly-mark>partly</span>{/if}</td
+            <td class="border-t border-line px-1 py-0 text-left whitespace-nowrap desktop:py-1"
+              ><a href={foodDayHref(d.day)} class="inline-flex min-h-11 items-center font-medium no-underline desktop:min-h-8" data-day-link>{d.label}</a
+              >{#if d.partly}{' '}<span class="rounded-full bg-chip px-2 py-0.5 text-xs text-chip-text" data-partly-mark>partly</span>{/if}</td
             >
             <td class={td}>{kcalText(d.kcal)}</td>
             <td class={td}>{kcalText(d.protein)}</td>

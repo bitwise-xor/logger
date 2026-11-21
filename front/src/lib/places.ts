@@ -1,7 +1,7 @@
 /**
  * The places of the app (deploy 96, the Spaces menu): the tab or rail item a page belongs to, and the Spaces. The PC's rail shows
  * Today, Trends (a page of this app since deploy 102), Library (since deploy 105), the Spaces (Gym, Health, Habits, Home since deploy 99, and
- * Medical since deploy 106) and More; phones and tablets four tabs, with the Spaces on the More page (/more). Search, Recent and Usage (deploy
+ * Medical since deploy 106; Food first since 21.11.2026) and More; phones and tablets four tabs, with the Spaces on the More page (/more). Search, Recent and Usage (deploy
  * 108), Coach (deploy 109) and Settings (deploy 111) are pages under More. Plain TypeScript, so the tests need no browser.
  */
 
@@ -15,6 +15,7 @@ export interface Space {
 }
 
 export const SPACES: Space[] = [
+  { key: 'food', name: 'Food', href: '/food', sub: 'The day’s food, every nutrient, notes' },
   { key: 'gym', name: 'Gym', href: '/gym', sub: 'Today’s workout, the split, the last 4 weeks' },
   { key: 'health', name: 'Health', href: '/health', sub: 'Weight, blood pressure, sugar, sleep, body' },
   { key: 'habits', name: 'Habits', href: '/habits', sub: 'Today’s ticks and the last 30 days' },
@@ -52,9 +53,9 @@ export const WORDS: { key: string; name: string; app: string }[] = [
 ];
 
 /**
- * Where a path belongs: the tab (Today for Today and the Food day; Trends for /trends and its tabs since deploy 102; Library for
+ * Where a path belongs: the tab (Today for Today; Trends for /trends and its tabs since deploy 102; Library for
  * /library and its tabs since deploy 105, the usual meals included; More for /more, Search, Recent and Usage since deploy 108, Coach since deploy 109, Settings since deploy 111, and every
- * Space) and the Space (on the PC's rail the Space itself is highlighted, on phones and tablets the More tab). `atMore`: More itself is
+ * Space: Food, with the Food day and what is under /food, since 21.11.2026) and the Space (on the PC's rail the Space itself is highlighted, on phones and tablets the More tab). `atMore`: More itself is
  * the place (the PC's rail lights it too).
  */
 export type Tab = 'today' | 'trends' | 'library' | 'more';
@@ -65,7 +66,7 @@ export function placeOf(path: string): { tab: Tab | null; space: string | null; 
   const space = SPACES.find((s) => s.href && under(s.href))?.key ?? null;
   if (space) return { tab: 'more', space, atMore: false };
   if (under('/more') || under('/search') || under('/recent') || under('/usage') || under('/coach') || under('/settings')) return { tab: 'more', space: null, atMore: true };
-  if (path === '/' || under('/food')) return { tab: 'today', space: null, atMore: false };
+  if (path === '/') return { tab: 'today', space: null, atMore: false };
   return { tab: null, space: null, atMore: false };
 }
 
@@ -80,6 +81,22 @@ export const LIBRARY_TABS: { key: LibraryTab; label: string; href: string }[] = 
   { key: 'habits', label: 'Habits', href: '/library/habits' },
   { key: 'exercises', label: 'Exercises', href: '/library/exercises' },
 ];
+
+/**
+ * Food's tabs (21.11.2026): the Day (the Food day, with ?day=), Nutrients (every tracked value of a day, 7 or 30 days) and Notes (every
+ * meal and food note), each its own page under /food. A ?day= on one tab is carried to the others (`foodTabHref`).
+ */
+export type FoodTab = 'day' | 'nutrients' | 'notes';
+export const FOOD_TABS: { key: FoodTab; label: string; href: string }[] = [
+  { key: 'day', label: 'Day', href: '/food' },
+  { key: 'nutrients', label: 'Nutrients', href: '/food/nutrients' },
+  { key: 'notes', label: 'Notes', href: '/food/notes' },
+];
+/** A Food tab's address for the day shown (none: today); the Notes tab lists every day and takes none. */
+export const foodTabHref = (tab: FoodTab, day: string | null | undefined): string => {
+  const t = FOOD_TABS.find((x) => x.key === tab)!;
+  return day && tab !== 'notes' ? `${t.href}?day=${encodeURIComponent(day)}` : t.href;
+};
 
 /** Medical's tabs (deploy 106): Reports, Tests over time and Medication, each its own page under /medical. */
 export type MedicalTab = 'reports' | 'tests' | 'meds';

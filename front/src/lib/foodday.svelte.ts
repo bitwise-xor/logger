@@ -20,6 +20,10 @@ export class FoodPage extends Answers implements FoodHost {
   naming = $state<number | null>(null);
   usualName = $state('');
   usualErr = $state<string | null>(null);
+  /** A meal's note (21.11.2026): the meal whose note field is open (its number; 0: the day's note), the words typed, a refusal. */
+  noting = $state<number | null>(null);
+  noteText = $state('');
+  noteErr = $state<string | null>(null);
 
   #loaded: FoodDay | null = null;
   #entries = new EntryCache();
@@ -38,18 +42,30 @@ export class FoodPage extends Answers implements FoodHost {
     this.#entries.clear();
     this.open = open && day?.rows.some((r) => r.ref === open) ? open : null;
     [this.naming, this.usualName, this.usualErr] = [null, '', null];
+    [this.noting, this.noteText, this.noteErr] = [null, '', null];
     this.loadUndo(undo);
   }
 
   /** "Save as usual meal" on a meal label: its name field opens (another closes), or closes when it was open. */
   nameMeal(meal: number) {
     this.naming = this.naming === meal ? null : meal;
+    this.noting = null;
     this.usualName = '';
     this.usualErr = null;
   }
 
+  /** A meal's note control: its field opens with the note shown (another closes, and so does "Save as usual meal"), or closes. */
+  noteMeal(meal: number, current: string | null) {
+    if (this.noting === meal) {
+      [this.noting, this.noteText, this.noteErr] = [null, '', null];
+      return;
+    }
+    [this.noting, this.noteText, this.noteErr] = [meal, current ?? '', null];
+    this.naming = null;
+  }
+
   protected inlineRefusal(action: string) {
-    return action === 'usual_from_meal';
+    return action === 'usual_from_meal' || action === 'food_mealnote';
   }
 
   /** A row tapped: it opens (another one closes), or closes when it was open. */
@@ -75,6 +91,10 @@ export class FoodPage extends Answers implements FoodHost {
     if (action === 'usual_from_meal') {
       if (a.outcome === 'rejected') this.usualErr = a.reason ?? a.head;
       else if (a.outcome === 'changed') [this.naming, this.usualName, this.usualErr] = [null, '', null];
+    }
+    if (action === 'food_mealnote') {
+      if (a.outcome === 'rejected') this.noteErr = a.reason ?? a.head;
+      else [this.noting, this.noteText, this.noteErr] = [null, '', null];
     }
     const fd = a.food_day;
     if (!fd) return;

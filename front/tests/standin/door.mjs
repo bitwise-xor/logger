@@ -13,6 +13,10 @@
 // POST /food/entry (save: amount, unit, time, another food named like one of the day's; delete) and /food/note, each answering
 // with the food day when the body asks for view "food". An amount over 2000 g (or ml) is read back first: a stand-in rule only,
 // to try the confirm (the real door reads back only an odd value).
+// 21.11.2026, the Food space: GET /food/nutrients (tests/samples/food_space.json's day, 7 and 30 days, moved to the day asked; days
+// other than 1, 7 or 30 is 400), GET /food/notes (the sample's list, its dates moved so its newest day is the stand-in's today, today's
+// meal notes as kept here; POST /standin/notes-empty: none) and POST /food/mealnote (the door's checks and words; the note kept per
+// meal of today, on the Food day's meals[].note; an earlier day answers "That meal is not there any more.").
 // Deploy 87: GET /usual (tests/samples/usual.json's list, and three more meals made here from the catalogue), GET /foods?q= (a
 // catalogue made of the samples' foods, each with per_100 worked out from its values), and POST /usual/meal (save: name and the
 // whole list; delete), /usual/new and /usual/from_meal, checked as webfood checks them (a name of 2 to 60 characters no other
@@ -127,6 +131,7 @@ const read = (name) => JSON.parse(readFileSync(new URL(`../samples/${name}`, imp
 const SAVE = read('save.json');
 const LOG = read('log.json');
 const FOOD = read('food.json');
+const FOODSPACE = read('food_space.json');
 const USUAL = read('usual.json');
 const SCAN = read('scan.json');
 const HEALTH = read('health.json');
@@ -149,7 +154,8 @@ let suggestOff = false; // deploy 117: GET /foods/suggest answers 500 (POST /sta
 function reset() {
   state = { day: read('day.json').day, usual: usualStart(), undo: null, before: null, keys: new Map(), lines: new Map(), aiDown: false,
     scanned: new Map([[SCAN.barcode.code, SCAN.barcode.food]]), labelFail: false,
-    hv: healthStart(), sessions: sessionsStart(), hab: habitsStart(), dayKeys: new Set(), slow: 0, locked: new Set(), gym: gymStart(), watchNone: false, gymEmpty: false, home: homeStart(), week: weekStart(), coach: coachState(), fail: new Set(), cat: catStart(), labs: labsStart(), recentNone: false, usageEmpty: false, settings: settingsStart() };
+    hv: healthStart(), sessions: sessionsStart(), hab: habitsStart(), dayKeys: new Set(), slow: 0, locked: new Set(), gym: gymStart(), watchNone: false, gymEmpty: false, home: homeStart(), week: weekStart(), coach: coachState(), fail: new Set(), cat: catStart(), labs: labsStart(), recentNone: false, usageEmpty: false, settings: settingsStart(),
+    mealNotes: new Map(FOOD.food_day.food_day.meals.filter((m) => m.note).map((m) => [m.meal, m.note])), notesEmpty: false };
   state.day.needs.body_due = structuredClone(HEALTH.day_body_due);
   // the notes of the food sample's rows (the same invented day), kept on the rows so an Undo puts them back too
   const notes = new Map(FOOD.food_day.food_day.rows.map((r) => [r.ref, r.note]));
@@ -173,7 +179,63 @@ function foodDay(asked) {
     .filter((r) => r.kind === 'food')
     .map((r) => ({ ref: r.ref, kind: 'food', meal: r.meal, at: r.at, time_known: r.time_known, food: r.food, amount: r.amount,
       unit: r.unit, portion_text: r.portion_text, nutrients: r.nutrients, food_id: r.food_id, note: r.note ?? null }));
-  return { day: d.day, today: d.day, past: false, rows, meals: d.energy.meals, totals: d.energy.totals, targets: d.energy.targets };
+  const meals = d.energy.meals.map((m) => ({ ...m, note: m.meal ? (state.mealNotes.get(m.meal) ?? null) : null }));
+  return { day: d.day, today: d.day, past: false, rows, meals, totals: d.energy.totals, targets: d.energy.targets, day_note: null };
+}
+
+// ---- the Food space (21.11.2026) -------------------------------------------------------------------------------------------------
+
+const isoShift = (iso, n) => new Date(Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10) + n)).toISOString().slice(0, 10);
+const daysBetween = (a, b) => Math.round((Date.UTC(+b.slice(0, 4), +b.slice(5, 7) - 1, +b.slice(8, 10)) - Date.UTC(+a.slice(0, 4), +a.slice(5, 7) - 1, +a.slice(8, 10))) / 86400_000);
+
+/** GET /food/nutrients: the sample of that period, moved to the day asked (a later day is today). */
+function nutrientsOut(asked, days) {
+  const today = state.day.day;
+  const day = asked && /^\d{4}-\d\d-\d\d$/.test(asked) && asked < today ? asked : today;
+  const n = structuredClone(FOODSPACE[{ 1: 'day', 7: 'week', 30: 'month' }[days]].food_nutrients);
+  return { ...n, day, today, past: day < today, start: isoShift(day, 1 - days), end: day };
+}
+
+/** GET /food/notes: the sample's notes moved so its newest day is today, today's meal notes as kept here. */
+function notesOut() {
+  const S = FOODSPACE.notes.food_notes;
+  const today = state.day.day;
+  const k = daysBetween(S.today, today);
+  const moved = (iso) => (iso ? isoShift(iso.slice(0, 10), k) + iso.slice(10) : iso);
+  if (state.notesEmpty) return { ...S, today, start: isoShift(today, 1 - S.days), notes: [] };
+  const old = S.notes.filter((x) => !(x.kind === 'meal' && x.day === S.today)).map((x) => ({ ...x, day: moved(x.day), at: moved(x.at) }));
+  const fd = foodDay(null);
+  const mine = [...state.mealNotes].map(([meal, note]) => {
+    const first = fd.rows.filter((r) => r.meal === meal).sort((a, b) => (a.at ?? '').localeCompare(b.at ?? ''))[0];
+    return { kind: 'meal', day: today, meal, label: `Meal ${meal}`, at: first?.at ?? null, note };
+  });
+  const all = [...mine, ...old].sort((a, b) => b.day.localeCompare(a.day) || (b.at ?? '').localeCompare(a.at ?? ''));
+  return { ...S, today, start: isoShift(today, 1 - S.days), notes: all };
+}
+
+/** POST /food/mealnote, with the door's checks (400s) and mealnotes.save's words. -> [status, answer] */
+function mealNote(b) {
+  if (typeof b.day !== 'string' || !b.day) return [400, { error: 'bad_request', message: 'day is missing.' }];
+  if (!/^\d{4}-\d\d-\d\d$/.test(b.day)) return [400, { error: 'bad_request', message: 'day must be yyyy-mm-dd.' }];
+  const meal = typeof b.meal === 'string' && /^\d+$/.test(b.meal) ? Number(b.meal) : b.meal;
+  if (!Number.isInteger(meal) || meal < 0 || meal > 20) return [400, { error: 'bad_request', message: "meal must be a meal's number (1, 2, …; 0 for the day's note)." }];
+  if (b.note !== undefined && b.note !== null && typeof b.note !== 'string') return [400, { error: 'bad_request', message: 'note must be text.' }];
+  const note = String(b.note ?? '').split(/\s+/).filter(Boolean).join(' ');
+  if (note.length > 300) return [400, { error: 'bad_request', message: 'note must be at most 300 characters.' }];
+  const rejected = (reason) => [200, { outcome: 'rejected', head: 'Nothing saved.', reason }];
+  if (b.day > state.day.day) return rejected('That day has not started yet.');
+  const meals = b.day === state.day.day ? state.day.energy.meals.filter((m) => m.meal) : [];
+  if (meal === 0) return rejected(meals.length ? 'This day has meals: a note goes on one of them.' : 'There was no note to remove.');
+  if (!meals.some((m) => m.meal === meal)) return rejected('That meal is not there any more.');
+  const had = state.mealNotes.get(meal) ?? null;
+  if (!note) {
+    if (!had) return [200, { outcome: 'unchanged', head: 'There was no note to remove.' }];
+    state.mealNotes.delete(meal);
+    return [200, { outcome: 'changed', head: 'Meal note removed.' }];
+  }
+  if (had === note) return [200, { outcome: 'unchanged', head: 'Nothing changed.' }];
+  state.mealNotes.set(meal, note);
+  return [200, { outcome: 'changed', head: 'Meal note saved.' }];
 }
 
 /** GET /food/entry: the row with its food's units (the sample entry's units for its food, else only the food's own). */
@@ -3000,6 +3062,10 @@ createServer(async (req, res) => {
     suggestOff = false;
     return send(res, 200, { outcome: 'reset' });
   }
+  if (req.url === '/standin/notes-empty' && req.method === 'POST') {
+    state.notesEmpty = true;
+    return send(res, 200, { outcome: 'notes-empty' });
+  }
   if (req.url === '/standin/suggest-off' && req.method === 'POST') {
     suggestOff = true;
     return send(res, 200, { outcome: 'suggest-off' });
@@ -3189,6 +3255,14 @@ createServer(async (req, res) => {
   if (url.pathname === '/api/v1/food/day' && req.method === 'GET') {
     return send(res, 200, { food_day: foodDay(url.searchParams.get('day')), undo: undo() }, signedIn);
   }
+  if (url.pathname === '/api/v1/food/nutrients' && req.method === 'GET') {
+    const days = url.searchParams.get('days') ?? '1';
+    if (!['1', '7', '30'].includes(days)) return send(res, 400, { error: 'bad_request', message: 'days must be 1, 7 or 30.' }, signedIn);
+    const day = url.searchParams.get('day');
+    if (day && !/^\d{4}-\d\d-\d\d$/.test(day)) return send(res, 400, { error: 'bad_request', message: 'day must be yyyy-mm-dd.' }, signedIn);
+    return send(res, 200, { food_nutrients: nutrientsOut(day, Number(days)) }, signedIn);
+  }
+  if (url.pathname === '/api/v1/food/notes' && req.method === 'GET') return send(res, 200, { food_notes: notesOut() }, signedIn);
   if (url.pathname === '/api/v1/food/entry' && req.method === 'GET') {
     const entry = foodEntry(url.searchParams.get('ref'));
     return entry ? send(res, 200, { entry }, signedIn) : send(res, 404, { error: 'no_entry', message: 'No such entry.' }, signedIn);
@@ -3366,6 +3440,14 @@ createServer(async (req, res) => {
       const answer = { ...r.answer, v: 1, replayed: false, undo: r.undo ? state.undo : null };
       if (body.key && !['rejected', 'needs_confirmation', 'held'].includes(answer.outcome)) state.keys.set(body.key, answer);
       return send(res, 200, { ...answer, ...fresh() }, signedIn);
+    }
+    if (path === '/food/mealnote') {
+      if ('key' in body) return send(res, 400, { error: 'bad_request', message: 'The stand-in: a meal note takes no key.' }, signedIn);
+      const [status, out] = mealNote(body);
+      if (status !== 200) return send(res, status, out, signedIn);
+      state.undo = null; // as the core: a save without Undo ends the last one's
+      const view_day = body.view_day ?? body.day;
+      return send(res, 200, { ...base, ...out, undo: null, v: 1, tone: out.outcome === 'rejected' ? 'warning' : 'ok', food_day: foodDay(view_day) }, signedIn);
     }
     if (path === '/health/day' || path === '/body') {
       const [status, out] = path === '/body' ? bodySave(body) : healthDay(body);

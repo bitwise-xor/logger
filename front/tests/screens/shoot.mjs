@@ -78,6 +78,7 @@ const day = JSON.parse(readFileSync(new URL('../samples/day.json', import.meta.u
 const FOOD = JSON.parse(readFileSync(new URL('../samples/food.json', import.meta.url), 'utf8'));
 const foodDay = FOOD.food_day.food_day;
 const foodBefore = FOOD.before.food_day;
+const FOODSPACE = JSON.parse(readFileSync(new URL('../samples/food_space.json', import.meta.url), 'utf8'));
 const USUAL = JSON.parse(readFileSync(new URL('../samples/usual.json', import.meta.url), 'utf8')).usual.usual;
 const SCAN = JSON.parse(readFileSync(new URL('../samples/scan.json', import.meta.url), 'utf8'));
 const HEALTH = JSON.parse(readFileSync(new URL('../samples/health.json', import.meta.url), 'utf8'));
@@ -722,7 +723,7 @@ async function checkFood(page, name, theme) {
   if (name !== 'pc') {
     // step F: scrolled to the end, the bar covers nothing (the page leaves room for it)
     await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-    const last = await page.getByRole('link', { name: 'Usual meals', exact: true }).boundingBox();
+    const last = await page.getByRole('link', { name: '+ Add food' }).boundingBox();
     const shown = await bar.boundingBox();
     assert.ok(last.y + last.height <= shown.y + 1, `the answer bar covers nothing at the end (${last.y + last.height} > ${shown.y})`);
   }
@@ -749,6 +750,92 @@ async function checkFood(page, name, theme) {
   await page.getByRole('link', { name: '+ Add food' }).click();
   await page.getByRole('heading', { name: 'Today', exact: true }).waitFor();
   await page.waitForFunction(() => document.activeElement?.id === 'log-text');
+}
+
+/** 21.11.2026, the Food space: the tabs keep the day, the date field, a meal's note, the Nutrients tab, the Notes tab, Trends' days. */
+async function checkFoodSpace(page, name, theme) {
+  await standinPost('/standin/reset');
+  await page.goto(`${base}/food`);
+  const bar = page.locator('[data-bar]');
+  const head = bar.locator('[data-bar-head]');
+  // the Space: Food first in the rail (PC) or the More tab lit (phones and tablets), the Day tab current
+  await page.locator('[data-tab="day"][aria-current="page"]').waitFor();
+  if (name === 'pc') {
+    assert.equal(await page.locator('[data-rail-space]').first().getAttribute('data-rail-space'), 'food', 'Food is the first Space on the rail');
+    assert.equal(await page.locator('[data-rail-space="food"]').getAttribute('aria-current'), 'page', 'the rail lights Food');
+  } else {
+    assert.equal(await page.locator('[data-place="more"]').getAttribute('aria-current'), 'true', 'the More tab is lit on the Food space');
+  }
+  assert.equal(await page.locator('[data-library-foods]').getAttribute('href'), '/library', 'a link to Library > Foods');
+
+  // a meal's note: the sample's on meal 2, under its line; meal 1 has "Add note"
+  const note2 = foodDay.meals.find((m) => m.note);
+  assert.equal(await text(page.locator(`[data-meal-note="${note2.meal}"]`)), note2.note, "meal 2's note under its line");
+  await page.locator('[data-note-open="1"]').click();
+  await page.locator('[data-note-form="1"] input[name=note]').fill('  Porridge   at home ');
+  await page.screenshot({ path: `${out}/food-mealnote-${name}-${theme}.png` });
+  await page.locator('[data-note-form="1"]').getByRole('button', { name: 'Save', exact: true }).click();
+  await page.locator('[data-meal-note="1"]').getByText('Porridge at home').waitFor();
+  assert.equal(await text(head), 'Meal note saved.', 'meal note: the head');
+  assert.equal(await page.locator('[data-note-form="1"]').count(), 0, 'the field closed');
+  await page.locator(`[data-meal-note="${note2.meal}"]`).click();
+  assert.equal(await page.locator(`[data-note-form="${note2.meal}"] input[name=note]`).inputValue(), note2.note, 'the field starts with the note');
+  await page.locator(`[data-note-form="${note2.meal}"]`).getByRole('button', { name: 'Remove' }).click();
+  await page.locator(`[data-note-open="${note2.meal}"]`).waitFor();
+  assert.equal(await text(head), 'Meal note removed.', 'meal note removed: the head');
+  await checkWidth(page, 'food, meal notes');
+
+  // the date field: a day picked leads to that Food day, and the tabs carry it
+  const picked = new Date(Date.parse(`${foodDay.day}T12:00:00Z`) - 5 * 86400_000).toISOString().slice(0, 10); // any earlier day
+  await page.locator('[data-day-pick] input').fill(picked);
+  await page.waitForURL(new RegExp(`/food\\?day=${picked}$`));
+  await page.locator('[data-day]').filter({ hasNotText: 'today' }).waitFor();
+  assert.equal(await page.locator('[data-tab="nutrients"]').getAttribute('href'), `/food/nutrients?day=${picked}`, 'the Nutrients tab keeps the day');
+  assert.equal(await page.locator('[data-tab="notes"]').getAttribute('href'), '/food/notes', 'Notes takes no day');
+
+  // Nutrients: the ten lines, the unknown mark, a tap sorts the foods by their share, a food opens in place
+  await page.goto(`${base}/food/nutrients`);
+  const N = FOODSPACE.day.food_nutrients;
+  await page.locator('[data-tab="nutrients"][aria-current="page"]').waitFor();
+  assert.equal(await page.locator('[data-line]').count(), 10, 'ten lines');
+  assert.equal(await text(page.locator('[data-line="sugar_added"] [data-unknown]')), '2 foods without a value', 'the unknown mark');
+  assert.match(await text(page.locator('[data-line="sugar_added"] [data-line-value]')), /^at least /, 'a total with unknown values says "at least"');
+  assert.equal(await page.locator('[data-food]').count(), N.foods.length, 'every food eaten');
+  await page.screenshot({ path: `${out}/food-nutrients-${name}-${theme}.png`, fullPage: true });
+  await checkWidth(page, 'food nutrients');
+  await page.locator('[data-line="sugar_total"]').click();
+  await page.locator('[data-foods-title]').getByText('Sugar: largest share first').waitFor();
+  assert.match(await text(page.locator('[data-food] [data-share]').first()), /^Sugar [\d.,]+ g · \d+%$/, 'a food with its share');
+  await page.locator('[data-food] button[aria-expanded]').first().click();
+  const details = page.locator('[data-food-details]');
+  await details.waitFor();
+  assert.equal(await details.locator('[data-detail]').count(), 11, 'every value, sodium under salt');
+  assert.match(await details.locator('[data-library-link]').getAttribute('href'), /^\/library\?food=N\d+$/, 'to the food in Library');
+  await page.screenshot({ path: `${out}/food-nutrients-open-${name}-${theme}.png`, fullPage: true });
+  await checkWidth(page, 'food nutrients, a food open');
+  await page.locator('[data-period="7"]').click();
+  await page.waitForURL(/\/food\/nutrients\?days=7$/);
+  await page.locator('[data-period-note]').waitFor();
+  assert.match(await text(page.locator('[data-day]')), /^\d\d\.\d\d\. – \d\d\.\d\d\.$/, 'the span of the 7 days');
+  if (name === 'phone') await page.screenshot({ path: `${out}/food-nutrients-week-${name}-${theme}.png`, fullPage: true });
+
+  // Notes: by day, today's meal note (saved above) first, each leading to its day; empty: how to add one
+  await page.goto(`${base}/food/notes`);
+  await page.locator('[data-notes-day]').first().waitFor();
+  assert.match(await text(page.locator('[data-notes-day]').first().locator('[data-note-text]').first()), /Porridge at home|toasted/, "today's notes first");
+  const hrefs = await page.locator('[data-note-row]').evaluateAll((els) => els.map((e) => e.getAttribute('href')));
+  assert.ok(hrefs.every((h) => h.startsWith('/food')), `every note leads to a Food day (${hrefs.join(' ')})`);
+  await page.screenshot({ path: `${out}/food-notes-${name}-${theme}.png`, fullPage: true });
+  await checkWidth(page, 'food notes');
+  await standinPost('/standin/notes-empty');
+  await page.reload();
+  await page.locator('[data-notes-empty]').waitFor();
+  if (name === 'phone') await page.screenshot({ path: `${out}/food-notes-empty-${name}-${theme}.png` });
+
+  // Trends > Week > "The days": each day leads to its Food day
+  await page.goto(`${base}/trends`);
+  const days = await page.locator('[data-day-link]').evaluateAll((els) => els.map((e) => e.getAttribute('href')));
+  assert.ok(days.length > 0 && days.every((h) => /^\/food\?day=\d{4}-\d\d-\d\d$/.test(h)), `The days lead to the Food day (${days.join(' ')})`);
 }
 
 /** Deploy 87: the Usual meals page, "Save as usual meal" on the Food day, and Today's "Edit" link. */
@@ -990,8 +1077,8 @@ async function checkProblems(page, name, theme) {
   await page.getByRole('heading', { name: 'Food', exact: true }).waitFor();
   assert.ok(page.url().endsWith(`/food?day=${foodBefore.day}`), `back on the page you were on (${page.url()})`);
   for (const r of foodBefore.rows) await page.locator(`[data-row="${r.ref}"]`).waitFor();
-  // and a "next" to another site is not followed
-  await page.getByRole('link', { name: '‹ Today' }).click();
+  // and a "next" to another site is not followed (the Food day is the Food space since 21.11.2026: no "‹ Today" link)
+  await page.goto(`${base}/`);
   await page.getByRole('button', { name: 'Sign out' }).click();
   await page.goto(`${base}/login?next=${encodeURIComponent('//example.com/')}`);
   await signIn(page);
@@ -1837,11 +1924,11 @@ async function checkGym(page, name, theme) {
   // the places: on the PC the rail's Spaces group with Gym highlighted; on phones and tablets the More tab
   if (pc) {
     assert.ok(await page.locator('[data-rail-group]').isVisible(), 'the rail has the Spaces group');
-    assert.deepEqual(await page.locator('[data-rail-space]').allTextContents().then((x) => x.map((t) => t.trim())), ['Gym', 'Health', 'Habits', 'Home', 'Medical']);
+    assert.deepEqual(await page.locator('[data-rail-space]').allTextContents().then((x) => x.map((t) => t.trim())), ['Food', 'Gym', 'Health', 'Habits', 'Home', 'Medical']);
     assert.equal(await page.locator('[data-rail-space="gym"]').getAttribute('aria-current'), 'page');
     assert.equal(await page.locator('[data-place="today"]').getAttribute('aria-current'), null);
     const order = await page.locator('[data-places] > a, [data-places] > span').evaluateAll((els) => els.filter((e) => e.offsetParent && e.textContent.trim()).map((e) => e.textContent.trim()));
-    assert.deepEqual(order, ['Logger', 'Today', 'Trends', 'Library', 'Spaces', 'Gym', 'Health', 'Habits', 'Home', 'Medical', 'More'], 'the rail');
+    assert.deepEqual(order, ['Logger', 'Today', 'Trends', 'Library', 'Spaces', 'Food', 'Gym', 'Health', 'Habits', 'Home', 'Medical', 'More'], 'the rail');
   } else {
     assert.equal(await page.locator('[data-rail-group]').isVisible(), false);
     assert.equal(await page.locator('[data-place="more"]').getAttribute('aria-current'), 'true', 'the More tab is highlighted on /gym');
@@ -2022,7 +2109,7 @@ async function checkGym(page, name, theme) {
     await page.waitForURL(/\/more$/);
     assert.equal(await page.locator('[data-place="more"]').getAttribute('aria-current'), 'page');
     assert.deepEqual(await page.locator('[data-space]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-space'), e.tagName, e.hasAttribute('data-soon')])), [
-      ['gym', 'A', false], ['health', 'A', false], ['habits', 'A', false], ['home', 'A', false], ['medical', 'A', false],
+      ['food', 'A', false], ['gym', 'A', false], ['health', 'A', false], ['habits', 'A', false], ['home', 'A', false], ['medical', 'A', false],
     ]);
     assert.equal(await page.locator('[data-space="medical"]').getAttribute('href'), '/medical', 'deploy 106: Medical is a live Space');
     assert.equal(await page.locator('[data-space="home"]').getAttribute('href'), '/home', 'deploy 99: Home is a live Space');
@@ -2051,7 +2138,7 @@ async function checkGym(page, name, theme) {
     await page.locator('[data-place="more"]').click();
     await page.waitForURL(/\/more$/);
     assert.equal(await page.locator('[data-place="more"]').getAttribute('aria-current'), 'page');
-    assert.equal(await page.locator('[data-space]').count(), 5);
+    assert.equal(await page.locator('[data-space]').count(), 6);
   }
   await page.goto(`${base}/`);
   assert.equal(await page.locator('[data-place="today"]').getAttribute('aria-current'), 'page');
@@ -4248,7 +4335,7 @@ async function checkMedicalPlace(page, name, theme) {
     const rail = page.locator('[data-rail-space="medical"]');
     assert.equal(await rail.getAttribute('href'), '/medical', 'Medical in the rail');
     assert.equal(await text(rail), 'Medical');
-    assert.deepEqual(await page.locator('[data-rail-space]').evaluateAll((els) => els.map((e) => e.getAttribute('data-rail-space'))), ['gym', 'health', 'habits', 'home', 'medical']);
+    assert.deepEqual(await page.locator('[data-rail-space]').evaluateAll((els) => els.map((e) => e.getAttribute('data-rail-space'))), ['food', 'gym', 'health', 'habits', 'home', 'medical']);
     await rail.click();
   }
   await page.waitForURL(/\/medical$/);
@@ -4862,7 +4949,7 @@ async function checkMoreHome(page, name, theme) {
   assert.equal(await text(page.locator('label[for="more-q"]')), 'Search');
   // the Spaces as before, then the four rows, all pages here (Settings since deploy 111: no "app." tag any more)
   assert.deepEqual(await page.locator('[data-space]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-space'), e.getAttribute('href')])),
-    [['gym', '/gym'], ['health', '/health'], ['habits', '/habits'], ['home', '/home'], ['medical', '/medical']]);
+    [['food', '/food'], ['gym', '/gym'], ['health', '/health'], ['habits', '/habits'], ['home', '/home'], ['medical', '/medical']]);
   const rows = await page.locator('[data-more-place]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-more-place'), e.getAttribute('href'), e.getAttribute('data-where'), e.textContent.replace(/\s+/g, ' ').trim(), e.querySelector('[data-app-tag]') !== null]));
   assert.deepEqual(rows.map((r) => r[0]), ['coach', 'recent', 'usage', 'settings']);
   assert.equal(rows[0][1], '/coach', 'Coach is a page here since deploy 109');
@@ -6364,7 +6451,7 @@ async function checkCompact(page, name, theme) {
   await f.getByRole('button', { name: `+ ${day.water.glass_ml} ml` }).click();
   await f.locator('[data-water]').getByText(`${grouped(day.water.ml + day.water.glass_ml)} / ${grouped(day.water.target_ml)} ml`).waitFor();
   // a link in the frame (no ?compact on it) stays compact
-  await f.locator('a[href="/food"]').first().click();
+  await f.getByRole('link', { name: 'Food day' }).click(); // the rail's Food link (hidden here) also leads to /food
   await hub.frames().find((x) => x.parentFrame()).waitForURL(`${base}/food`);
   await f.locator('h1').first().waitFor();
   assert.ok(!(await f.locator('[data-places]').isVisible()), 'compact after a link: no places');
@@ -6483,6 +6570,10 @@ for (const theme of ['dark', 'light']) {
     if (only('food')) {
       await checkFood(page, name, theme);
       console.log(`food day ${name} ${theme}: checks passed`);
+    }
+    if (only('foodspace')) {
+      await checkFoodSpace(page, name, theme);
+      console.log(`food space: tabs, date field, meal notes, nutrients, notes ${name} ${theme}: checks passed`);
     }
     if (only('usual')) {
       await checkUsual(page, name, theme);

@@ -192,8 +192,9 @@ describe('the cards', () => {
 });
 
 describe('the Spaces menu', () => {
-  it('lists Gym, Health, Habits, Home (deploy 99) and Medical (deploy 106), every Space live', () => {
+  it('lists Food (21.11.2026), Gym, Health, Habits, Home (deploy 99) and Medical (deploy 106), every Space live', () => {
     expect(SPACES.map((s) => [s.name, s.href])).toEqual([
+      ['Food', '/food'],
       ['Gym', '/gym'],
       ['Health', '/health'],
       ['Habits', '/habits'],
@@ -205,9 +206,9 @@ describe('the Spaces menu', () => {
     expect(SPACES.every((s) => s.href)).toBe(true);
   });
 
-  it('knows the place of a page: Today for Today and the Food day, More for /more and every Space', () => {
+  it('knows the place of a page: Today for Today, More for /more and every Space (the Food day is the Food space since 21.11.2026)', () => {
     expect(placeOf('/')).toEqual({ tab: 'today', space: null, atMore: false });
-    expect(placeOf('/food')).toEqual({ tab: 'today', space: null, atMore: false });
+    expect(placeOf('/food')).toEqual({ tab: 'more', space: 'food', atMore: false });
     // deploy 105: the usual meals are Library's tab; /food/usual only redirects there
     expect(placeOf('/library/usual')).toEqual({ tab: 'library', space: null, atMore: false });
     expect(placeOf('/more')).toEqual({ tab: 'more', space: null, atMore: true });

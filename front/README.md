@@ -375,6 +375,26 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   for the tab in sessionStorage and used again only inside a frame, so links and reloads in the frame stay compact; `?compact=0`
   ends it. Same data, same actions. The hub frames `https://logger.19hospitalroad.fyi/?compact=1`. The cookies are unchanged: the
   hub and `logger.` are one site, so the strict session cookie goes with the frame's requests. `SHOOT_ONLY=compact` runs its checks.
+- **The Food space** (21.11.2026): Food is the first Space (`SPACES`, the rail and More; `placeOf` files `/food` and everything under it
+  there, so the More tab is lit on phones), with the tabs Day · Nutrients · Notes (`FOOD_TABS`, `components/food/FoodHeader.svelte`
+  with short links to Library > Foods and Usual meals; a `?day=` is carried from Day to Nutrients and back by `foodTabHref`). **Day**
+  (`/food`): the Food day as before, its day switch now `components/food/DaySwitch.svelte` (‹, the day, › and a calendar button: the
+  browser's date field laid over it, `showPicker`, never after today; idea 63), and a one-line note per meal: "Add note" (pencil) on the
+  meal's line, the note under the line in the muted style of a food's note, a tap opens one field with Save, Remove, Cancel (the form
+  action `food_mealnote`, the door's `POST /food/mealnote`, no key, no Undo; a refusal is said in the field); a meal note whose meals
+  are all gone shows as "Note on this day" (`day_note`, saved as meal 0). Trends > Week > "The days" link to their Food day (idea 63).
+  **Nutrients** (`/food/nutrients?day=&days=1|7|30`, idea 64; `src/lib/nutrients.ts` the door's shapes and plain rules with tests): the
+  switch (‹ and › move a whole period) and the 1 / 7 / 30 days chips; the ten lines in the door's order, each a button: value and
+  target, a bar where there is a target (protein, fat, carbs and their "of which" in the macro colours, the rest in the ink), the gap in
+  words ("93 g to go", "30 g left", "6 g over", "reached": over is said in words, not a colour, as the tiles), a total made with foods
+  without a value reads "at least 7.2 g" with "2 foods without a value" in amber, salt with its sodium in mg; a tap sorts the foods (and
+  "… by meal" on one day) by their share of that nutrient ("Sugar 16 g · 32%", unknown last). The foods: a two-line row each (name and
+  amount; kcal · P · F · C, or the share with a thin bar); a tap opens every value as eaten and per 100 g or ml (sodium under salt,
+  "unknown" where none), the source, "Open in Library › Foods" and, on one day, "Open on the Day tab". One column on phones, two from
+  1100 px. **Notes** (`/food/notes`, `src/lib/foodnotes.ts`): every meal and food note of the last 90 days by day, each row leading to that
+  day's Day tab (a meal's note to `#meal-N`, a food's note with `?open=`); empty: how to add one. The stand-in answers GET
+  `/food/nutrients`, `/food/notes` and POST `/food/mealnote` from `tests/samples/food_space.json` (POST `/standin/notes-empty`), the Food
+  day's meals with their notes; `SHOOT_ONLY=foodspace` runs these checks.
 - `src/lib/tokens/`: the hub's tokens, copied (`SOURCE.md` says from where and when).
 - `src/env.ts`: the settings (`DOOR_URL`, `FRONT_TOKEN`, `APP_URL`); `ORIGIN` and the memory cap are in `compose.yaml`.
 

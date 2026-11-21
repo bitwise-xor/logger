@@ -8,7 +8,9 @@ import {
   becomesText,
   dayLinks,
   foodBlocks,
+  foodDayHref,
   inUnit,
+  mealNoteText,
   parseAmount,
   shiftDay,
   stepped,
@@ -139,5 +141,29 @@ describe('changing a row', () => {
     expect(inUnit(80, 1, 40)).toBe(2);
     expect(inUnit(2, 40, 1)).toBe(80);
     expect(inUnit(50, 1, 35)).toBe(1.4);
+  });
+});
+
+describe('a meal’s note (21.11.2026)', () => {
+  it('comes with its meal’s block, and the drinks never have one', () => {
+    const b = foodBlocks(TODAY);
+    expect(b.find((x) => x.meal === 2)!.note).toBe('Lunch at the desk, soup a bit thin');
+    expect(b.find((x) => x.meal === 1)!.note).toBeNull();
+    expect(b.find((x) => x.meal === 0)!.note).toBeNull();
+    expect(TODAY.day_note).toBeNull();
+  });
+
+  it('is typed as the door saves it: whitespace collapsed, at most 300 characters', () => {
+    expect(mealNoteText('  ate   out\n with friends ')).toBe('ate out with friends');
+    expect(mealNoteText('x'.repeat(320))).toHaveLength(300);
+    expect(mealNoteText('   ')).toBe('');
+  });
+});
+
+describe('a link to a Food day (21.11.2026)', () => {
+  it('is /food for today and /food?day= for another day', () => {
+    expect(foodDayHref('2026-11-16', '2026-11-16')).toBe('/food');
+    expect(foodDayHref('2026-11-10', '2026-11-16')).toBe('/food?day=2026-11-10');
+    expect(foodDayHref('2026-11-10')).toBe('/food?day=2026-11-10');
   });
 });

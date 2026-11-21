@@ -1,6 +1,6 @@
 // The places (deploy 108): which tab a path lights, and where More's rows lead.
 import { describe, expect, it } from 'vitest';
-import { MORE_PLACES, morePlaceHref, placeOf, SETTINGS_TABS, settingsAppPath, SPACES, WORDS } from './places.js';
+import { FOOD_TABS, foodTabHref, MORE_PLACES, morePlaceHref, placeOf, SETTINGS_TABS, settingsAppPath, SPACES, WORDS } from './places.js';
 
 describe('placeOf', () => {
   it('lights More on its page and on Search, Recent, Usage, Coach and Settings, the rail too', () => {
@@ -9,7 +9,6 @@ describe('placeOf', () => {
 
   it('keeps the tabs and the Spaces as they were', () => {
     expect(placeOf('/')).toMatchObject({ tab: 'today' });
-    expect(placeOf('/food')).toMatchObject({ tab: 'today' });
     expect(placeOf('/trends/charts')).toMatchObject({ tab: 'trends' });
     expect(placeOf('/library/usual')).toMatchObject({ tab: 'library' });
     expect(placeOf('/medical/tests')).toEqual({ tab: 'more', space: 'medical', atMore: false });
@@ -17,6 +16,28 @@ describe('placeOf', () => {
     expect(placeOf('/searching')).toEqual({ tab: null, space: null, atMore: false });
     expect(placeOf('/settingsx')).toEqual({ tab: null, space: null, atMore: false });
     expect(SPACES.every((s) => s.href)).toBe(true);
+  });
+});
+
+describe('the Food space (21.11.2026)', () => {
+  it('is the first Space, with the Food day and every page under /food', () => {
+    expect(SPACES[0]).toEqual({ key: 'food', name: 'Food', href: '/food', sub: 'The day’s food, every nutrient, notes' });
+    for (const p of ['/food', '/food/nutrients', '/food/notes', '/food/entry', '/food/usual']) expect(placeOf(p)).toEqual({ tab: 'more', space: 'food', atMore: false });
+    expect(placeOf('/foods/suggest')).toEqual({ tab: null, space: null, atMore: false });
+    expect(placeOf('/')).toEqual({ tab: 'today', space: null, atMore: false });
+  });
+
+  it('has the tabs Day, Nutrients and Notes, and carries the day from one to another', () => {
+    expect(FOOD_TABS.map((t) => [t.label, t.href])).toEqual([
+      ['Day', '/food'],
+      ['Nutrients', '/food/nutrients'],
+      ['Notes', '/food/notes'],
+    ]);
+    expect(foodTabHref('day', '2026-11-15')).toBe('/food?day=2026-11-15');
+    expect(foodTabHref('nutrients', '2026-11-15')).toBe('/food/nutrients?day=2026-11-15');
+    expect(foodTabHref('notes', '2026-11-15')).toBe('/food/notes');
+    expect(foodTabHref('day', null)).toBe('/food');
+    expect(foodTabHref('nutrients', undefined)).toBe('/food/nutrients');
   });
 });
 

@@ -30,9 +30,12 @@ export interface FoodDay {
   today: string;
   past: boolean;
   rows: FoodDayRow[];
-  meals: { meal: number; label: string; nutrients: Nutrients }[];
+  /** `note` (21.11.2026): the meal's one-line note, or null (the drinks never have one). */
+  meals: { meal: number; label: string; nutrients: Nutrients; note: string | null }[];
   totals: Nutrients;
   targets: Targets;
+  /** A meal note whose meals are all gone: shown as a note on the day; else null. */
+  day_note: string | null;
 }
 
 /** One entry with the units its amount can be given in: the food's own first (in_basis 1), then its others ("slice", 35). */
@@ -115,6 +118,8 @@ export interface FoodBlock {
   meal: number;
   label: string;
   total: string;
+  /** The meal's note (21.11.2026), or null; the drinks have none. */
+  note: string | null;
   lines: FoodLine[];
 }
 
@@ -153,6 +158,7 @@ export function foodBlocks(fd: FoodDay): FoodBlock[] {
       meal: b.meal!,
       label: mealLabel(b.meal!, meal?.label),
       total: meal ? `${n(meal.nutrients.kcal)} kcal` : '',
+      note: meal?.note ?? null,
       lines: b.rows.map(foodLine),
     };
   });
@@ -167,14 +173,20 @@ export function shiftDay(iso: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+/** The Food day of a day (the Day tab): /food?day=yyyy-mm-dd, or /food plain for today (when today is known). */
+export const foodDayHref = (day: string, today?: string) => (day === today ? '/food' : `/food?day=${encodeURIComponent(day)}`);
+
 /** Where ‹ and › lead: the day before always; the day after only from a past day (a later day is today: /food plain). */
-export function dayLinks(fd: FoodDay): { before: string; after: string | null } {
+export function dayLinks(fd: Pick<FoodDay, 'day' | 'today' | 'past'>): { before: string; after: string | null } {
   const next = shiftDay(fd.day, 1);
   return {
     before: `/food?day=${shiftDay(fd.day, -1)}`,
     after: !fd.past ? null : next >= fd.today ? '/food' : `/food?day=${next}`,
   };
 }
+
+/** A meal's note as typed: whitespace collapsed (as the door saves it), at most 300 characters. */
+export const mealNoteText = (text: string) => text.split(/\s+/).filter(Boolean).join(' ').slice(0, 300);
 
 /** A day the page may ask the door for: yyyy-mm-dd and a real date, else none (= today). */
 export function askedDay(v: string | null): string | undefined {

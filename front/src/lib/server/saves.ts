@@ -171,6 +171,8 @@ export const SAVES = {
   },
   // A row's note; empty removes it (300 characters, as app.).
   food_note: { path: '/food/note', keyed: false, body: (f) => ({ ref: str(f, 'ref', 12), note: str(f, 'note', 300) ?? '' }) },
+  // A meal's one-line note (21.11.2026): day, meal (0: the day's note when no meal is left), note (empty = removed). No key, no Undo.
+  food_mealnote: { path: '/food/mealnote', keyed: false, body: (f) => ({ day: str(f, 'day', 10), meal: int(f, 'meal'), note: str(f, 'note', 300) ?? '' }) },
   // The Usual meals page (deploy 87): one Save changes a meal (its name and the whole list of foods, in order) or deletes it;
   // made at once with Undo, so the front end always sends confirmed (the door would read it back first otherwise).
   usual_meal: {
@@ -612,8 +614,8 @@ function yes(f: Fields): Body {
 
 export type SaveName = keyof typeof SAVES;
 export const SAVE_NAMES = Object.keys(SAVES) as SaveName[];
-/** The Food day's form actions (src/routes/(app)/food), the Usual meals page's (src/routes/(app)/library/usual since deploy 105); Today has all the others, and food_entry and food_note (deploy 117: a food row opened on Today). */
-export const FOOD_SAVES: SaveName[] = ['food_entry', 'food_note', 'usual_from_meal', 'undo'];
+/** The Food day's form actions (src/routes/(app)/food; a meal's note since 21.11.2026), the Usual meals page's (src/routes/(app)/library/usual since deploy 105); Today has all the others, and food_entry and food_note (deploy 117: a food row opened on Today). */
+export const FOOD_SAVES: SaveName[] = ['food_entry', 'food_note', 'food_mealnote', 'usual_from_meal', 'undo'];
 export const USUAL_SAVES: SaveName[] = ['usual_meal', 'usual_new', 'undo'];
 /** The Health page's (deploy 92, src/routes/(app)/health): a day's row, a body session, Undo. */
 export const HEALTH_SAVES: SaveName[] = ['health_day', 'body', 'undo'];

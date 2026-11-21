@@ -180,6 +180,18 @@ describe('the Food day saves (step E)', () => {
     expect(bodyFor('food_note', form({ ref: 'f7', note: 'with butter' }), undefined, undefined, 'food').note).toBe('with butter');
   });
 
+  it('sends a meal’s note with its day and meal number, empty to remove it (21.11.2026)', () => {
+    expect(bodyFor('food_mealnote', form({ day: '2026-11-15', meal: '2', note: 'ate out' }), '2026-11-15', undefined, 'food')).toEqual({
+      day: '2026-11-15',
+      meal: 2,
+      note: 'ate out',
+      view: 'food',
+      view_day: '2026-11-15',
+    });
+    expect(bodyFor('food_mealnote', form({ day: '2026-11-15', meal: '0', note: '' }), undefined, undefined, 'food')).toEqual({ day: '2026-11-15', meal: 0, note: '', view: 'food' });
+    expect(SAVES.food_mealnote.keyed).toBe(false);
+  });
+
   it('goes to the door with view "food"', async () => {
     const { door, seen } = net(200, { v: 1, outcome: 'changed', head: 'Note saved.', food_day: {} });
     const r = await runSave(door, SESSION, 'food_note', form({ ref: 'f7', note: 'x' }), '2026-11-15', 'food');
@@ -188,7 +200,7 @@ describe('the Food day saves (step E)', () => {
   });
 
   it('offers the Food day and the Usual meals page their saves and Undo, and Today all the others', () => {
-    expect(FOOD_SAVES).toEqual(['food_entry', 'food_note', 'usual_from_meal', 'undo']);
+    expect(FOOD_SAVES).toEqual(['food_entry', 'food_note', 'food_mealnote', 'usual_from_meal', 'undo']);
     expect(USUAL_SAVES).toEqual(['usual_meal', 'usual_new', 'undo']);
     // deploy 117: a food row opens on Today too, so Today has the Food day's two row saves (not "Save as usual meal")
     expect(TODAY_SAVES).toContain('food_entry');
