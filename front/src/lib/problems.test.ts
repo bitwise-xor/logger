@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { linksToApp, problemOf, problemText } from './problems.js';
+import { linksToApp, problemOf, problemText, replays, unsureText } from './problems.js';
 import { loginHref, safeNext } from './next.js';
 
 describe('problemOf', () => {
@@ -9,6 +9,7 @@ describe('problemOf', () => {
     expect(problemOf({ code: 'door_off', status: 0 })).toBe('door_off');
     expect(problemOf({ code: 'unreadable', status: 404 })).toBe('door_off');
     expect(problemOf({ code: 'unreachable', status: 0 })).toBe('core_down');
+    expect(problemOf({ code: 'no_answer', status: 0 })).toBe('core_down');
     expect(problemOf({ code: 'server_error', status: 500 })).toBe('trouble');
     expect(problemOf({ code: 'unreadable', status: 502 })).toBe('trouble');
     expect(problemOf({ code: 'no_entry', status: 404 })).toBe('trouble');
@@ -23,6 +24,19 @@ describe('problemOf', () => {
     expect(linksToApp('door_off')).toBe(true);
     expect(linksToApp('trouble')).toBe(true);
     expect(linksToApp('core_down')).toBe(false);
+  });
+
+  it('never says "nothing was saved" for a save that got no answer (Web 65)', () => {
+    expect(unsureText(true)).toMatch(/may have been saved.*will not be saved twice/);
+    expect(unsureText(false)).toMatch(/may have been saved.*look before you try again/);
+    for (const k of [true, false]) expect(unsureText(k)).not.toMatch(/Nothing was saved/i);
+    // a second send is harmless only for a key the core replays (checked against the core, 21.11.2026)
+    expect(replays(true, 'water')).toBe(true);
+    expect(replays(true, 'habit')).toBe(true);
+    expect(replays(true, 'habit', true)).toBe(false);
+    expect(replays(true, 'habit_day')).toBe(false);
+    expect(replays(true, 'habits_manage')).toBe(false);
+    expect(replays(false, 'food_note')).toBe(false);
   });
 });
 

@@ -99,17 +99,53 @@ describe('the door client', () => {
     const down: Fetch = async () => {
       throw new TypeError('fetch failed');
     };
-    await expect(call({ url: URL_, token: TOKEN, fetch: down }, 'GET', '/day')).rejects.toMatchObject({
-      status: 0,
-      code: 'unreachable',
+    // No reason given: it is not known whether the call went out (Web 65).
+    await expect(call({ url: URL_, token: TOKEN, fetch: down }, 'GET', '/day')).rejects.toMatchObject({ status: 0, code: 'no_answer' });
+  });
+
+  it('tells a connection that was never made (nothing sent) from one that got no answer (Web 65)', async () => {
+    const failing = (cause: unknown): Fetch => async () => {
+      throw new TypeError('fetch failed', { cause });
+    };
+    for (const code of ['ECONNREFUSED', 'ENOTFOUND', 'EAI_AGAIN', 'EHOSTUNREACH', 'UND_ERR_CONNECT_TIMEOUT']) {
+      await expect(call({ url: URL_, token: TOKEN, fetch: failing({ code }) }, 'POST', '/water')).rejects.toMatchObject({ code: 'unreachable' });
+    }
+    // Several addresses tried, every one refused (Node puts them in an AggregateError's errors).
+    await expect(
+      call({ url: URL_, token: TOKEN, fetch: failing({ errors: [{ code: 'ECONNREFUSED' }, { code: 'ECONNREFUSED' }] }) }, 'POST', '/water'),
+    ).rejects.toMatchObject({ code: 'unreachable' });
+    // Dropped after the call went out: the core may have saved it.
+    for (const cause of [{ code: 'ECONNRESET' }, { code: 'UND_ERR_SOCKET' }, { errors: [{ code: 'ECONNREFUSED' }, { code: 'ECONNRESET' }] }, null]) {
+      await expect(call({ url: URL_, token: TOKEN, fetch: failing(cause) }, 'POST', '/water')).rejects.toMatchObject({ code: 'no_answer' });
+    }
+  });
+
+  it('with the real fetch: a closed port is unreachable, a server that never answers is no_answer', async () => {
+    const { createServer } = await import('node:net');
+    const closed = await new Promise<number>((resolve) => {
+      const srv = createServer();
+      srv.listen(0, '127.0.0.1', () => {
+        const port = (srv.address() as { port: number }).port;
+        srv.close(() => resolve(port));
+      });
     });
+    await expect(call({ url: `http://127.0.0.1:${closed}`, token: TOKEN }, 'POST', '/water', { body: {} })).rejects.toMatchObject({ code: 'unreachable' });
+    const silent = createServer(() => undefined); // takes the connection and never answers
+    const port = await new Promise<number>((resolve) => silent.listen(0, '127.0.0.1', () => resolve((silent.address() as { port: number }).port)));
+    try {
+      await expect(call({ url: `http://127.0.0.1:${port}`, token: TOKEN, timeoutMs: 100 }, 'POST', '/water', { body: {} })).rejects.toMatchObject({
+        code: 'no_answer',
+      });
+    } finally {
+      silent.close();
+    }
   });
 
   it('gives up after its time', async () => {
     const hang: Fetch = (_url, init) =>
       new Promise((_resolve, reject) => init.signal?.addEventListener('abort', () => reject(init.signal?.reason)));
     await expect(call({ url: URL_, token: TOKEN, fetch: hang, timeoutMs: 20 }, 'GET', '/day')).rejects.toMatchObject({
-      code: 'unreachable',
+      code: 'no_answer',
     });
   });
 

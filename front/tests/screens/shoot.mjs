@@ -1009,13 +1009,32 @@ async function checkProblems(page, name, theme) {
   await page.goto(`${base}/`);
   await page.locator('[data-kcal-left]').waitFor();
 
-  // a tap while the core is down: "Not saved." and why, no link to app. (the same core)
+  // a tap while the core is down: "Not saved." and why, no link to app. (the same core). The stand-in drops the connection after the
+  // call went out, so it is not known whether it was saved (Web 65): the bar says so and that trying again will not save it twice.
   await standinPost('/standin/core-down');
   await water.click();
   await bar.getByText('Not saved.').waitFor();
-  assert.match(await text(bar), /not answering right now.*Nothing was saved/, 'core down: the tap says why');
+  assert.match(await text(bar), /No answer from Logger in time.*may have been saved: try again, it will not be saved twice/, 'core down: the tap says why');
+  assert.doesNotMatch(await text(bar), /Nothing was saved/, 'core down: not "nothing was saved" when it is not known');
   assert.equal(await bar.locator('[data-bar-link]').count(), 0, 'core down: no link to app.');
   await shot('problem-save-core-down');
+  // Web 65: a tap saved whose answer was lost; the same tap again goes with the same key and is not saved twice
+  await standinPost('/standin/up');
+  await page.reload(); // a clean answer bar
+  await page.locator('[data-kcal-left]').waitFor();
+  const mlShown = async () => Number((await text(page.locator('[data-water]'))).replace(/,/g, '').split(' ')[0]);
+  const before = await mlShown();
+  await standinPost('/standin/lose-answer');
+  await water.click();
+  await bar.getByText('may have been saved', { exact: false }).waitFor();
+  assert.match(await text(bar), /try again, it will not be saved twice/, 'lost answer: the bar says a second tap is safe');
+  await shot('problem-save-no-answer');
+  await water.click();
+  await bar.getByText('Already saved earlier (same message).').waitFor();
+  assert.equal(await mlShown(), before + day.water.glass_ml, 'lost answer: the second tap brings the first answer, one glass');
+  await page.reload();
+  await page.locator('[data-kcal-left]').waitFor();
+  assert.equal(await mlShown(), before + day.water.glass_ml, 'lost answer: saved once at the door');
   // the door off: the same, with a link to app.
   await standinPost('/standin/door-off');
   await water.click();

@@ -8,9 +8,19 @@
  *   than that of a tap made meanwhile (SLOW).
  * - Signed out mid-save: the tap and its key are kept in the tab's sessionStorage; after the sign-in Today sends it again
  *   (only a tap the door can tell apart by its key, and only within 10 minutes).
+ * - No answer (Web 65, 21.11.2026): a send that went out and heard nothing back (the browser's wait of WAIT_MS ran out, the network
+ *   dropped, or the server says the door did not answer in time) may have been saved. Its key is remembered for 10 minutes with the
+ *   action and a fingerprint of its fields (never the words: sessionStorage); the same tap sent again in that time goes with the
+ *   same key, so the door answers with the first answer instead of saving twice (or refuses without a change: held lines, a day's
+ *   health values). Not for a Habits page's day tap, its list forms or an untick, which the core does not replay (problems.ts,
+ *   `replays`): their words say to look first. Any answer of the door ends that. The words say
+ *   "may have been saved", and "Nothing was saved" only where that is certain (the phone was offline before the send, or the door
+ *   answered with an error).
  *
  * Plain TypeScript: the network, SvelteKit's `deserialize` and the storage are handed in, so the tests can fake them.
  */
+
+import { replays, unsureText } from './problems.js';
 
 /** What SvelteKit's `deserialize` gives back for a form action (an ActionResult). */
 export type ActionResult =
@@ -37,6 +47,8 @@ export interface SaverDeps {
   now?: () => number;
   /** The page whose actions are called: "/" (Today). */
   page?: string;
+  /** Whether the browser says it is online (navigator.onLine); offline before a send means nothing went out. */
+  online?: () => boolean;
 }
 
 /** The actions whose door route takes a key (src/lib/server/saves.ts, `keyed`): only these are re-sent after a sign-in. */
@@ -88,8 +100,20 @@ export const KEYED = new Set([
 export const NEVER_RESENT = new Set(['habit_day', 'gym_tick', 'home_tick', 'home_pickdone', 'home_picknext', 'home_earlier', 'home_alldone', 'home_startpoint']);
 export const mayResend = (action: string) =>
   KEYED.has(action) && !NEVER_RESENT.has(action) && !action.startsWith('gym_') && !action.startsWith('home_') && !action.startsWith('coach_') && !action.startsWith('catalogue_') && !action.startsWith('labs_') && !action.startsWith('settings_') && !action.startsWith('push_');
-/** The saves that may have gone through although no answer came (a paid start): the network error does not say "nothing was saved". */
+/** A paid start that may have gone through although no answer came: its own words (reload to see before pressing again). */
 const UNSURE = new Set(['coach_start', 'coach_day']);
+/**
+ * How long the browser waits for a save's answer (Web 65): a little longer than the server waits for the door (15 s, and 60 s for
+ * the saves the AI reads or that start the coaching: `timeoutMs` in src/lib/server/saves.ts), so the server's own "no answer in
+ * time" comes first. saves.test.ts checks the two against each other.
+ */
+export const WAIT_MS = 20_000;
+export const LONG_WAIT_MS = 65_000;
+const LONG_WAIT = new Set(['log', 'held_retry', 'lookup', 'coach_start', 'coach_day']);
+export const waitMs = (action: string) => (LONG_WAIT.has(action) ? LONG_WAIT_MS : WAIT_MS);
+/** The keys of keyed taps that got no answer (Web 65): sessionStorage, 10 minutes. */
+export const UNANSWERED_ITEM = 'logger-unanswered';
+export const UNANSWERED_MS = 10 * 60_000;
 /** The actions the AI reads (up to about 40 s; the look-up since deploy 90): their answer is never dropped for a tap made while they were read. */
 export const SLOW = new Set(['log', 'held_retry', 'lookup']);
 export const RESEND_ITEM = 'logger-resend';
@@ -99,6 +123,42 @@ export function makeKey(): string {
   if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
   const b = crypto.getRandomValues(new Uint8Array(18));
   return Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
+}
+
+/** A keyed tap that got no answer: its action, a fingerprint of its page and fields (not the fields), its key and when. */
+interface Unanswered {
+  action: string;
+  print: string;
+  key: string;
+  at: number;
+}
+
+/**
+ * A short fingerprint of a tap: the page, the action and its fields without the key, in a fixed order (cyrb53, a plain 53-bit
+ * hash: enough to tell taps apart, and the words of a typed line are not kept).
+ */
+export function fingerprint(page: string, action: string, fields: FieldValues): string {
+  const plain = Object.keys(fields)
+    .filter((k) => k !== 'key')
+    .sort()
+    .map((k) => [k, fields[k]]);
+  const text = JSON.stringify([page, action, plain]);
+  let h1 = 0xdeadbeef;
+  let h2 = 0x41c6ce57;
+  for (let i = 0; i < text.length; i++) {
+    const c = text.charCodeAt(i);
+    h1 = Math.imul(h1 ^ c, 2654435761);
+    h2 = Math.imul(h2 ^ c, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
+}
+
+/** The words when it is not known whether a save arrived (the server says the same for its own wait: problems.ts, unsureText). */
+export function noAnswerText(action: string, fields: FieldValues = {}): string {
+  if (UNSURE.has(action)) return 'No answer from Logger (offline?). The coaching may have started anyway: reload the page to see before you press again.';
+  return unsureText(replays(KEYED.has(action), action, fields.action === 'untick'));
 }
 
 export interface Kept {
@@ -112,10 +172,13 @@ export interface Kept {
 export class Saver {
   #started = 0;
   #shown = 0;
+  /** The unanswered taps when there is no storage (the Week page's saver). */
+  #unanswered: Unanswered[] = [];
   readonly #d: Required<SaverDeps>;
 
   constructor(deps: SaverDeps) {
-    this.#d = { newKey: makeKey, now: Date.now, page: '/', ...deps };
+    const online = () => typeof navigator === 'undefined' || navigator.onLine !== false;
+    this.#d = { newKey: makeKey, now: Date.now, page: '/', online, ...deps };
   }
 
   /**
@@ -125,10 +188,16 @@ export class Saver {
   async send<A>(action: string, fields: FieldValues): Promise<Sent<A>> {
     const seq = ++this.#started;
     const all: FieldValues = { ...fields };
-    if (KEYED.has(action) && typeof all.key !== 'string') all.key = this.#d.newKey();
+    const keyed = KEYED.has(action);
+    const print = keyed ? fingerprint(this.#d.page, action, all) : '';
+    // The same tap again within 10 minutes of one that got no answer goes with that tap's key (Web 65).
+    if (keyed && typeof all.key !== 'string') all.key = this.#unansweredKey(action, print) ?? this.#d.newKey();
     const form = new FormData();
     for (const [k, v] of Object.entries(all)) for (const x of Array.isArray(v) ? v : [v]) form.append(k, x);
 
+    const offline = !this.#d.online();
+    const abort = new AbortController();
+    const timer = setTimeout(() => abort.abort(), waitMs(action));
     let result: ActionResult;
     try {
       const res = await this.#d.fetch(`${this.#d.page}?/${action}`, {
@@ -136,14 +205,28 @@ export class Saver {
         body: form,
         headers: { accept: 'application/json', 'x-sveltekit-action': 'true' },
         cache: 'no-store',
+        signal: abort.signal,
       });
       result = this.#d.deserialize(await res.text());
     } catch {
-      const message = UNSURE.has(action)
-        ? 'No answer from Logger (offline?). The coaching may have started anyway: reload the page to see before you press again.'
-        : 'No connection to Logger (offline?). Nothing was saved; try again.';
+      // Offline before the send: nothing went out. Otherwise it may have arrived (Web 65).
+      if (offline && !UNSURE.has(action)) {
+        return this.#take(seq, action, { kind: 'problem', message: 'No connection to Logger (offline?). Nothing was saved; try again.' });
+      }
+      if (keyed) this.#rememberUnanswered(action, print, all.key as string);
+      return this.#take(seq, action, { kind: 'problem', message: noAnswerText(action, all) });
+    } finally {
+      clearTimeout(timer);
+    }
+
+    // The server's door did not answer in time (Web 65): the same, with the server's words.
+    if (result.type === 'failure' && result.data?.unsure) {
+      if (keyed) this.#rememberUnanswered(action, print, all.key as string);
+      const message = !UNSURE.has(action) && typeof result.data.message === 'string' ? result.data.message : noAnswerText(action, all);
       return this.#take(seq, action, { kind: 'problem', message });
     }
+    // An answer of the door (a save, a refusal, a sign-out): the tap is no longer open.
+    if (keyed && result.type !== 'error') this.#forgetUnanswered(print);
 
     if (result.type === 'success') return this.#take(seq, action, { kind: 'answer', answer: result.data?.answer as A });
     if (result.type === 'failure' && result.data?.signedOut) {
@@ -188,6 +271,50 @@ export class Saver {
     if (seq < this.#shown && !SLOW.has(action)) return { kind: 'stale' };
     this.#shown = Math.max(this.#shown, seq);
     return sent;
+  }
+
+  /** The key of the same tap that got no answer within 10 minutes, or none. */
+  #unansweredKey(action: string, print: string): string | undefined {
+    return this.#openTaps().find((u) => u.action === action && u.print === print)?.key;
+  }
+
+  #rememberUnanswered(action: string, print: string, key: string) {
+    const list = [...this.#openTaps().filter((u) => u.print !== print), { action, print, key, at: this.#d.now() }].slice(-20);
+    this.#storeOpen(list);
+  }
+
+  #forgetUnanswered(print: string) {
+    const list = this.#openTaps();
+    if (list.some((u) => u.print === print)) this.#storeOpen(list.filter((u) => u.print !== print));
+  }
+
+  /** The unanswered taps of the last 10 minutes (older ones are dropped). */
+  #openTaps(): Unanswered[] {
+    let list: Unanswered[] = this.#unanswered;
+    if (this.#d.storage) {
+      try {
+        const raw = this.#d.storage.getItem(UNANSWERED_ITEM);
+        const parsed: unknown = raw ? JSON.parse(raw) : [];
+        list = Array.isArray(parsed) ? (parsed as Unanswered[]) : [];
+      } catch {
+        list = this.#unanswered;
+      }
+    }
+    const now = this.#d.now();
+    return list.filter(
+      (u) => u && typeof u.action === 'string' && typeof u.print === 'string' && typeof u.key === 'string' && typeof u.at === 'number' && now - u.at <= UNANSWERED_MS,
+    );
+  }
+
+  #storeOpen(list: Unanswered[]) {
+    this.#unanswered = list;
+    if (!this.#d.storage) return;
+    try {
+      if (list.length) this.#d.storage.setItem(UNANSWERED_ITEM, JSON.stringify(list));
+      else this.#d.storage.removeItem(UNANSWERED_ITEM);
+    } catch {
+      /* storage blocked: kept in this page's memory only */
+    }
   }
 
   #keep(k: Kept) {

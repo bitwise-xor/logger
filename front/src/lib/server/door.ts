@@ -41,7 +41,7 @@ export interface DoorAnswer<T> {
   expiresAt: string | null;
 }
 
-/** The door's error codes (docs/API.md), plus three of this client: door_off, unreachable, unreadable. */
+/** The door's error codes (docs/API.md), plus four of this client: door_off, unreachable (nothing sent), no_answer (sent, no answer), unreadable. */
 export class DoorError extends Error {
   constructor(
     readonly status: number,
@@ -58,7 +58,7 @@ export const DEFAULT_TIMEOUT_MS = 15_000;
 // A path under /api/v1: lower-case words and slashes only, so no "..", query, host or scheme can slip in.
 const PATH = /^(\/[a-z0-9_-]+)+$/;
 
-/** The one fetch of a door call: the checks, the few headers this app builds, the timeout; a network failure is `unreachable`. */
+/** The one fetch of a door call: the checks, the few headers this app builds, the timeout; a network failure is `unreachable` or `no_answer`. */
 async function send(config: DoorConfig, method: 'GET' | 'POST' | 'DELETE', path: string, options: CallOptions, accept: string): Promise<Response> {
   if (!config.token) throw new DoorError(0, 'door_off', 'The new front end is not switched on yet.');
   if (!PATH.test(path)) throw new DoorError(0, 'bad_path', `Not a door path: ${path}`);
@@ -88,9 +88,28 @@ async function send(config: DoorConfig, method: 'GET' | 'POST' | 'DELETE', path:
       cache: 'no-store',
       signal: AbortSignal.timeout(options.timeoutMs ?? config.timeoutMs ?? DEFAULT_TIMEOUT_MS),
     });
-  } catch {
-    throw new DoorError(0, 'unreachable', 'The logger is not answering right now.');
+  } catch (error) {
+    // Web 65 (21.11.2026): the connection refused or the core's name not found means nothing reached the core, so nothing was saved
+    // (`unreachable`). A timeout or a connection dropped after the call went out leaves it open whether the core got it (`no_answer`).
+    if (notSent(error)) throw new DoorError(0, 'unreachable', 'The logger is not answering right now.');
+    throw new DoorError(0, 'no_answer', 'The logger did not answer in time.');
   }
+}
+
+/** Network errors that come before anything is sent: no connection was made (Node's fetch puts the reason in `cause.code`). */
+const NOT_SENT = new Set(['ECONNREFUSED', 'ENOTFOUND', 'EAI_AGAIN', 'EHOSTUNREACH', 'ENETUNREACH', 'UND_ERR_CONNECT_TIMEOUT']);
+
+/** Whether a failed fetch certainly sent nothing: its cause (or every cause of several tried addresses) is one of NOT_SENT. */
+export function notSent(error: unknown): boolean {
+  const codes = (e: unknown): string[] => {
+    if (!e || typeof e !== 'object') return [];
+    const x = e as { code?: unknown; errors?: unknown; cause?: unknown };
+    if (typeof x.code === 'string') return [x.code];
+    if (Array.isArray(x.errors)) return x.errors.flatMap(codes);
+    return [];
+  };
+  const found = codes((error as { cause?: unknown } | null)?.cause);
+  return found.length > 0 && found.every((c) => NOT_SENT.has(c));
 }
 
 /** A door error's JSON as a DoorError (the door answers its errors as JSON everywhere, the export too). */

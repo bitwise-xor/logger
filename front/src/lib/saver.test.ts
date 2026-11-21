@@ -1,6 +1,6 @@
 // Saving in place in the browser, against a faked network: the key rule, newest answer wins, and the re-send after a sign-in.
-import { describe, expect, it } from 'vitest';
-import { KEYED, mayResend, RESEND_ITEM, RESEND_MS, Saver, type ActionResult } from './saver.js';
+import { describe, expect, it, vi } from 'vitest';
+import { fingerprint, KEYED, LONG_WAIT_MS, mayResend, RESEND_ITEM, RESEND_MS, Saver, UNANSWERED_ITEM, WAIT_MS, waitMs, type ActionResult } from './saver.js';
 
 interface Call {
   url: string;
@@ -103,8 +103,140 @@ describe('the saver', () => {
     await tick();
     n.calls[2]!.answer({ type: 'failure', status: 503, data: { signedOut: false, message: 'Off.', link: 'javascript:alert(1)' } });
     expect(await r).toEqual({ kind: 'problem', message: 'Off.', link: null });
-    const down = new Saver({ fetch: () => Promise.reject(new Error('offline')), deserialize: n.deserialize, storage: null });
+    // offline before the send: nothing went out (Web 65)
+    const down = new Saver({ fetch: () => Promise.reject(new Error('offline')), deserialize: n.deserialize, storage: null, online: () => false });
     expect(await down.send('water', {})).toMatchObject({ kind: 'problem', message: expect.stringContaining('Nothing was saved') });
+  });
+
+  describe('a tap that got no answer (Web 65)', () => {
+    /** A network that fails every send after it went out (a dropped connection), noting the keys it saw. */
+    function dropping() {
+      const keys: (string | undefined)[] = [];
+      const fetch = (_url: string, init: RequestInit) => {
+        keys.push((init.body as FormData).get('key')?.toString());
+        return Promise.reject(new TypeError('Load failed'));
+      };
+      return { keys, fetch, deserialize: (t: string) => JSON.parse(t) as ActionResult };
+    }
+
+    it('says it may have been saved, never "nothing was saved"', async () => {
+      const d = dropping();
+      const s = new Saver({ ...d, storage: memory(), online: () => true });
+      const keyed = await s.send('water', { ml: '250' });
+      expect(keyed).toEqual({ kind: 'problem', message: expect.stringMatching(/may have been saved: try again, it will not be saved twice/) });
+      const plain = await s.send('food_note', { ref: 'f7', note: 'x' });
+      expect(plain).toEqual({ kind: 'problem', message: expect.stringMatching(/may have been saved: reload the page to look before you try again/) });
+      for (const p of [keyed, plain]) expect(p.kind === 'problem' && p.message).not.toMatch(/Nothing was saved/);
+      // the keyed saves the core does not replay (problems.ts, replays): a day tap toggles, the list's forms and an untick take no key
+      for (const [action, fields] of [['habit_day', { name: 'walk', day: '2026-11-20' }], ['habits_manage', { action: 'retire', name: 'walk' }], ['habit', { name: 'walk', action: 'untick' }]] as const) {
+        expect(await s.send(action, fields), action).toEqual({ kind: 'problem', message: expect.stringMatching(/reload the page to look before you try again/) });
+      }
+      expect(await s.send('habit', { name: 'walk', action: 'tick' })).toEqual({ kind: 'problem', message: expect.stringMatching(/will not be saved twice/) });
+      // the coaching keeps its own words
+      expect(await s.send('coach_day', { start: '2026-11-20' })).toMatchObject({ message: expect.stringMatching(/may have started/) });
+    });
+
+    it('sends the same tap again with the same key within 10 minutes, so the door answers with the first answer', async () => {
+      const d = dropping();
+      const store = memory();
+      let now = 1_000_000;
+      let i = 0;
+      const s = new Saver({ ...d, storage: store, online: () => true, now: () => now, newKey: () => `k${++i}` });
+      await s.send('water', { ml: '250' });
+      expect(store.m.get(UNANSWERED_ITEM)).not.toContain('250'); // a fingerprint, not the fields
+      now += 9 * 60_000;
+      await s.send('water', { ml: '250' });
+      await s.send('water', { ml: '500' }); // another tap: a new key
+      await s.send('again', { ml: '250' }); // another action: a new key
+      expect(d.keys).toEqual(['k1', 'k1', 'k2', 'k3']);
+      // another Saver of the same tab (another page's) finds it too, but only for its own page
+      const other = new Saver({ ...d, storage: store, online: () => true, now: () => now, newKey: () => 'other' });
+      await other.send('water', { ml: '250' });
+      const food = new Saver({ ...d, storage: store, online: () => true, now: () => now, newKey: () => 'food', page: '/food' });
+      await food.send('water', { ml: '250' });
+      expect(d.keys.slice(4)).toEqual(['k1', 'food']);
+    });
+
+    it('forgets it after 10 minutes, and after any answer of the door', async () => {
+      const n = fakeNet();
+      const store = memory();
+      let now = 0;
+      let i = 0;
+      let net: 'drop' | 'up' = 'drop';
+      const keys: string[] = [];
+      const fetch = (url: string, init: RequestInit) => {
+        keys.push(String((init.body as FormData).get('key')));
+        return net === 'drop' ? Promise.reject(new TypeError('Load failed')) : n.fetch(url, init);
+      };
+      const s = new Saver({ fetch, deserialize: n.deserialize, storage: store, online: () => true, now: () => now, newKey: () => `k${++i}` });
+      await s.send('water', { ml: '250' });
+      now += 10 * 60_000 + 1;
+      await s.send('water', { ml: '250' });
+      expect(keys).toEqual(['k1', 'k2']); // over 10 minutes: a new key
+      net = 'up';
+      const p = s.send('water', { ml: '250' });
+      await tick();
+      n.calls[0]!.answer(ok('Already saved earlier (same message).'));
+      await p;
+      expect(keys[2]).toBe('k2'); // the replay
+      expect(store.m.has(UNANSWERED_ITEM)).toBe(false);
+      const q = s.send('water', { ml: '250' });
+      await tick();
+      n.calls[1]!.answer(ok('Water 250 ml saved.'));
+      await q;
+      expect(keys[3]).toBe('k3'); // a new glass of water: a new key
+    });
+
+    it('takes the server\'s "no answer in time" the same way, with its words', async () => {
+      const n = fakeNet();
+      let i = 0;
+      const s = new Saver({ ...n, storage: memory(), online: () => true, newKey: () => `k${++i}` });
+      const p = s.send('water', { ml: '250' });
+      await tick();
+      const words = 'No answer from Logger in time (weak connection?). It may have been saved: try again, it will not be saved twice.';
+      n.calls[0]!.answer({ type: 'failure', status: 504, data: { signedOut: false, message: words, unsure: true } });
+      expect(await p).toEqual({ kind: 'problem', message: words });
+      void s.send('water', { ml: '250' });
+      await tick();
+      expect(n.calls[1]!.fields.key).toEqual(['k1']);
+      // a refusal or the core down before anything was sent is an answer: the next tap gets a new key
+      n.calls[1]!.answer({ type: 'failure', status: 503, data: { signedOut: false, message: 'Logger is not answering right now. Nothing was saved; try again in a minute.' } });
+      await tick();
+      void s.send('water', { ml: '250' });
+      await tick();
+      expect(n.calls[2]!.fields.key).toEqual(['k2']);
+    });
+
+    it('gives up waiting a little after the server does, and sends no key with an unkeyed tap', async () => {
+      expect(waitMs('water')).toBe(WAIT_MS);
+      expect(waitMs('log')).toBe(LONG_WAIT_MS);
+      let signal: AbortSignal | undefined;
+      const hang = (_u: string, init: RequestInit) =>
+        new Promise<Response>((_r, reject) => {
+          signal = init.signal ?? undefined;
+          signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+        });
+      vi.useFakeTimers();
+      try {
+        const s = new Saver({ fetch: hang, deserialize: (t) => JSON.parse(t) as ActionResult, storage: null, online: () => true });
+        const p = s.send('water', {});
+        await vi.advanceTimersByTimeAsync(WAIT_MS - 1);
+        expect(signal?.aborted).toBe(false);
+        await vi.advanceTimersByTimeAsync(1);
+        expect(signal?.aborted).toBe(true);
+        expect(await p).toMatchObject({ kind: 'problem', message: expect.stringMatching(/may have been saved/) });
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('tells taps apart by page, action and fields, whatever the order of the fields', () => {
+      expect(fingerprint('/', 'water', { ml: '250', key: 'a' })).toBe(fingerprint('/', 'water', { key: 'b', ml: '250' }));
+      expect(fingerprint('/', 'again', { food_id: '3', time: '12:00' })).toBe(fingerprint('/', 'again', { time: '12:00', food_id: '3' }));
+      expect(fingerprint('/', 'water', { ml: '250' })).not.toBe(fingerprint('/', 'water', { ml: '500' }));
+      expect(fingerprint('/', 'water', { ml: '250' })).not.toBe(fingerprint('/food', 'water', { ml: '250' }));
+      expect(fingerprint('/', 'usual', { items: ['1', '2'] })).not.toBe(fingerprint('/', 'usual', { items: ['2', '1'] }));
+    });
   });
 
   it('keeps a tap that met a gone session, and sends it again after the sign-in with the same key', async () => {

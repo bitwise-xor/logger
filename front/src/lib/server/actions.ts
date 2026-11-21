@@ -23,7 +23,8 @@ export function formAction(name: SaveName, view: View, views: View[] = []) {
     }
     if (r.signedOut) endSession(cookies);
     // The door off (step F): the bar links to app., which still works.
-    return fail(r.status, { signedOut: r.signedOut, message: r.message, link: r.problem === 'door_off' ? `${appUrl}/web/` : null });
+    // unsure (Web 65): the door got the save and did not answer in time; the browser keeps the key for the same tap.
+    return fail(r.status, { signedOut: r.signedOut, message: r.message, link: r.problem === 'door_off' ? `${appUrl}/web/` : null, unsure: !!r.unsure });
   };
 }
 

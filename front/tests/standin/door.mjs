@@ -45,7 +45,8 @@
 // /standin/ai-up make /log hold its lines or read them again.
 // Step F: POST /standin/core-down makes every door call fail with no answer (the connection is dropped, as when the core is
 // stopped), POST /standin/door-off answers 404 not_found to every door call (FRONT_TOKEN unset at the core), and POST
-// /standin/up (or /standin/reset) brings it back. Sessions survive both, as at the core.
+// /standin/up (or /standin/reset) brings it back. Sessions survive both, as at the core. Web 65: POST /standin/lose-answer saves the
+// next keyed save and drops its connection before the answer (a save that went through on a weak network); the same key again replays.
 // Deploy 94: the Habits page's routes, from tests/samples/habits.json (real answers of the door for invented habits): GET /habits?show=
 // (today's ticks, 30 days per tracked habit, Your habits with the filter and its counts), POST /habit/day (a day under its times a
 // day gets a tick, a done day has its ticks taken off; a re-sent key is refused while the day still needs a tick, as the core), POST
@@ -434,6 +435,7 @@ function foods(q) {
 }
 
 function send(res, status, body, headers = {}) {
+  if (res.loseAnswer) return void res.socket?.destroy(); // Web 65: saved, and the answer lost on the way (POST /standin/lose-answer)
   res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...headers });
   res.end(JSON.stringify({ v: 1, ...body }));
 }
@@ -3211,6 +3213,10 @@ createServer(async (req, res) => {
     state.aiDown = req.url.endsWith('down');
     return send(res, 200, { outcome: req.url.slice(9) });
   }
+  if (req.url === '/standin/lose-answer' && req.method === 'POST') {
+    state.loseAnswer = true; // Web 65: the next keyed save is saved, then its connection is dropped (no answer reaches the page)
+    return send(res, 200, { outcome: 'lose-answer' });
+  }
   if (['/standin/core-down', '/standin/door-off', '/standin/up'].includes(req.url) && req.method === 'POST') {
     mode = req.url.slice('/standin/'.length);
     return send(res, 200, { outcome: mode });
@@ -3409,6 +3415,7 @@ createServer(async (req, res) => {
   }
   if (req.method === 'POST' && req.url.startsWith('/api/v1/')) {
     const path = req.url.slice('/api/v1'.length);
+    if (state.loseAnswer && KEYED.includes(path)) [state.loseAnswer, res.loseAnswer] = [false, true];
     const base = { ...SAVE.saved, head: 'Saved.', receipt: [], undo: undo() };
     if (path === '/undo') {
       if (!undo() || body.token !== state.undo.token) {

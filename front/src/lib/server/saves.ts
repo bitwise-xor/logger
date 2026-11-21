@@ -13,7 +13,7 @@
  */
 import type { Door } from './door.js';
 import { DoorError } from './door.js';
-import { problemOf, problemText, type ProblemKind } from '../problems.js';
+import { problemOf, problemText, replays, unsureText, type ProblemKind } from '../problems.js';
 import { labeladdBody } from '../scan.js';
 import { bodyValues, healthValues } from '../health.js';
 import { SHOWS } from '../habits.js';
@@ -780,11 +780,12 @@ export function bodyFor(
 
 export type SaveResult<A> =
   | { ok: true; answer: A; expiresAt: string | null }
-  | { ok: false; status: number; signedOut: boolean; message: string; problem?: ProblemKind };
+  | { ok: false; status: number; signedOut: boolean; message: string; problem?: ProblemKind; unsure?: boolean };
 
 /**
  * One save through the door. Signed out: signedOut, so the page can keep the tap and sign in. The door off or the core down
- * (step F): "Not saved." with the plain words of src/lib/problems.ts (the session stays). Another error: the door's own message.
+ * (step F): "Not saved." with the plain words of src/lib/problems.ts (the session stays). No answer in time (Web 65): unsure, it
+ * may have been saved. Another error: the door's own message.
  */
 export async function runSave<A>(
   door: Door,
@@ -805,6 +806,10 @@ export async function runSave<A>(
     const kind = problemOf(error);
     if (kind === 'signed_out') {
       return { ok: false, status: 401, signedOut: true, message: error instanceof DoorError ? error.message : 'Sign in again.' };
+    }
+    // Web 65: the call went out and the door did not answer in time: it may have been saved (unsure; the browser keeps the key).
+    if (error instanceof DoorError && error.code === 'no_answer') {
+      return { ok: false, status: 504, signedOut: false, message: unsureText(replays(save.keyed, name, f.get('action') === 'untick')), problem: 'core_down', unsure: true };
     }
     if (kind === 'door_off' || kind === 'core_down') {
       return { ok: false, status: 503, signedOut: false, message: problemText(kind, 'save'), problem: kind };

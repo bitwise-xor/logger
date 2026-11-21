@@ -6,8 +6,9 @@
  * - signed out: the session is gone (the door's 401 `signed_out`): back to the sign-in page, nothing to say here;
  * - door off: the door answers 404 `not_found` to everything (FRONT_TOKEN unset at the core), or this app has no token itself
  *   (`door_off`). app. still works, so the message links there. The session cookie is kept: when the door is on again, so is the page;
- * - core down: the core does not answer at all (`unreachable`: stopped, restarting, or a timeout). app. is the same core, so it is
- *   most likely down too: the message says to try again in a minute;
+ * - core down: the core does not answer at all (`unreachable`: stopped or restarting, nothing reached it; `no_answer`: a timeout or
+ *   a connection dropped after the call went out). app. is the same core, so it is most likely down too: the message says to try
+ *   again in a minute. A save that got no answer may have been saved all the same: it says so (`unsureText`, Web 65);
  * - trouble: anything else (the door's `server_error`, an answer this app cannot read).
  */
 
@@ -21,7 +22,7 @@ export function problemOf(error: unknown): ProblemKind | 'signed_out' {
   if (code === 'signed_out') return 'signed_out';
   // The door's own 404 is always `not_found` (a missing entry is `no_entry`); a bare 404 without the door's body is the same gate.
   if (code === 'not_found' || code === 'door_off' || (e.status === 404 && code !== 'no_entry')) return 'door_off';
-  if (code === 'unreachable') return 'core_down';
+  if (code === 'unreachable' || code === 'no_answer') return 'core_down';
   return 'trouble';
 }
 
@@ -49,3 +50,24 @@ export function problemText(kind: ProblemKind, where: Where): string {
 
 /** Whether a link to app. helps: not when the core is down, since app. is the same core. */
 export const linksToApp = (kind: ProblemKind) => kind !== 'core_down';
+
+/**
+ * The keyed saves whose key does not make a second send harmless (checked against the core on 21.11.2026, Web 65): a Habits page's
+ * day tap toggles (sent again after it went through, it takes the tick back), the Habits list's forms take no key at the core, and
+ * a habit's untick takes none either. Every other keyed save sent again with its key gets the first answer back (`replayed`) or a
+ * refusal that changes nothing ("Nothing changed.", "no longer waiting").
+ */
+const NO_REPLAY = new Set(['habit_day', 'habits_manage']);
+export const replays = (keyed: boolean, action: string, untick = false) => keyed && !NO_REPLAY.has(action) && !(action === 'habit' && untick);
+
+/**
+ * A save that went out and got no answer (Web 65, 21.11.2026: the door did not answer in time, or the browser heard nothing back):
+ * the core may have saved it. safe: the save goes with a key the core replays (`replays`), and the same tap sent again within 10
+ * minutes keeps that key, so the door answers with the first answer instead of saving twice (src/lib/saver.ts); otherwise the page
+ * has to be looked at first.
+ */
+export function unsureText(safe: boolean): string {
+  return safe
+    ? 'No answer from Logger in time (weak connection?). It may have been saved: try again, it will not be saved twice.'
+    : 'No answer from Logger in time (weak connection?). It may have been saved: reload the page to look before you try again.';
+}

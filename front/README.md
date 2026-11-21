@@ -28,7 +28,15 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
 - Saving in place (step C): every tap is a form posting to a form action of Today (`src/routes/(app)/+page.server.ts`);
   `src/lib/server/saves.ts` says which door route each calls with which body. In the browser `src/lib/saver.ts` posts the
   form with fetch: a new `key` per tap, only the newest answer counts when saves overlap, and a tap that meets a gone session
-  is kept (sessionStorage, 10 minutes) and sent again with its key after the sign-in. `src/lib/today.svelte.ts` puts the
+  is kept (sessionStorage, 10 minutes) and sent again with its key after the sign-in. A tap that went out and got no answer (Web 65:
+  the browser's wait, 20 s or 65 s for the saves the AI reads, a little longer than the server's for the door, ran out, the network
+  dropped, or the server says the door did not answer in time: `no_answer` in `door.ts`, `unsure` in the answer) may have been saved:
+  its key is kept for 10 minutes with a fingerprint of the tap (`logger-unanswered`, sessionStorage, never the words), the same tap
+  again goes with that key and the door answers with the first answer, and the bar says "It may have been saved: try again, it will
+  not be saved twice" (a save without a key, or one the core does not replay: a Habits page's day tap, its list forms, an untick:
+  "reload the page to look before you try again"; `replays` in `problems.ts`). "Nothing was saved" only where that is
+  certain: the phone offline before the send, the core's connection refused or its name not found, or an error of the door.
+  `saves.test.ts` checks `KEYED` against the server's `keyed` and the browser's waits against the server's. `src/lib/today.svelte.ts` puts the
   answer's fresh day on screen (a new row gets a blue edge) and its head, tone, read-back (Yes = the same tap with
   `confirmed`) and Undo in the answer bar (`components/today/AnswerBar.svelte`; after a reload from GET /day's `undo`).
 - The logging box (step D): `src/lib/components/today/LogBox.svelte`, above the tab bar on phones and at the top on the PC,
@@ -426,7 +434,7 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   checks and words), with Undo. Deploy 90: the scan routes from `tests/samples/scan.json` (`door.mjs` says which code and how many
   photos give which answer; POST `/standin/label-unreadable` fails the next read; a typed line with "mystery" asks a food
   question, to try "Look it up"). Step F: POST `/standin/core-down` (every
-  door call gets no answer), `/standin/door-off` (every door call answers 404 `not_found`) and `/standin/up` (or `/standin/reset`). Deploy 92: GET
+  door call gets no answer), `/standin/lose-answer` (Web 65: the next keyed save is saved and its answer dropped), `/standin/door-off` (every door call answers 404 `not_found`) and `/standin/up` (or `/standin/reset`). Deploy 92: GET
   `/health` and `/body` from `tests/samples/health.json` (range 7 and 90 cut or widen the sample's charts), POST `/health/day`
   and `/body` change the data as the core would (a clear asked first, an odd weight or sugar and a body jump of 4 cm read back,
   keyed, Undo), `/body/skip` takes Today's due line away (`door.mjs` says which values do what). `tests/test_front_samples.py` checks on every Python run that the samples still have the

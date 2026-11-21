@@ -1,9 +1,9 @@
 // Today's saves through the door client, against a faked network: which route each form action calls, the key rule, the fresh
 // day asked for, and a gone session told apart from other problems.
 import { describe, expect, it } from 'vitest';
-import { makeDoor, type Fetch } from './door.js';
+import { DEFAULT_TIMEOUT_MS, makeDoor, type Fetch } from './door.js';
 import { bodyFor, CATALOGUE_SAVES, MEDICAL_MEDS_SAVES, MEDICAL_REPORTS_SAVES, EXERCISES_SAVES, LIBRARY_HABITS_SAVES, FOOD_SAVES, GYM_SAVES, HABITS_SAVES, HEALTH_SAVES, EDIT_SAVES, HISTORY_SAVES, HOME_SAVES, PICK_SAVES, PLAN_SAVES, runSave, SAVE_NAMES, SAVES, TODAY_SAVES, TRENDS_SAVES, COACH_SAVES, USUAL_SAVES, ZONES_SAVES, SETTINGS_ONLY, SETTINGS_TARGETS_SAVES, SETTINGS_TODAY_SAVES, SETTINGS_BODY_SAVES, SETTINGS_COACH_SAVES, SETTINGS_DEVICES_SAVES, SETTINGS_NOTIFY_SAVES } from './saves.js';
-import { mayResend } from '../saver.js';
+import { KEYED, mayResend, waitMs } from '../saver.js';
 
 const TOKEN = 'f'.repeat(40);
 /** A browser's push subscription as the page sends it (invented: an address of the right shape, keys of the right lengths). */
@@ -28,6 +28,21 @@ function net(status = 200, body: unknown = { v: 1, outcome: 'saved', head: 'Save
   };
   return { door: makeDoor({ url: 'http://logger-v2-core:8000', token: TOKEN, fetch }), seen };
 }
+
+describe("the browser's copies of the server's lists (Web 65)", () => {
+  it("KEYED in saver.ts is exactly the saves whose door route takes a key", () => {
+    const keyed = SAVE_NAMES.filter((n) => SAVES[n].keyed).sort();
+    expect([...KEYED].sort()).toEqual(keyed);
+  });
+
+  it('the browser waits a little longer for every save than the server waits for the door', () => {
+    for (const n of SAVE_NAMES) {
+      const server = (SAVES[n] as { timeoutMs?: number }).timeoutMs ?? DEFAULT_TIMEOUT_MS;
+      expect(waitMs(n), n).toBeGreaterThan(server);
+      expect(waitMs(n) - server, n).toBeLessThanOrEqual(10_000);
+    }
+  });
+});
 
 describe('the save bodies', () => {
   it('passes the browser key on, unchanged, so a re-sent tap saves once', () => {
@@ -139,10 +154,26 @@ describe('a save through the door', () => {
     const off = await runSave(net(404, { v: 1, error: 'not_found', message: 'Not found.' }).door, SESSION, 'water', form({}));
     expect(off).toMatchObject({ ok: false, status: 503, signedOut: false, problem: 'door_off' });
     expect(off.ok === false && off.message).toContain('switched off');
-    const down = makeDoor({ url: 'http://logger-v2-core:8000', token: TOKEN, fetch: async () => { throw new TypeError('fetch failed'); } });
+    const refused = async () => {
+      throw new TypeError('fetch failed', { cause: { code: 'ECONNREFUSED' } });
+    };
+    const down = makeDoor({ url: 'http://logger-v2-core:8000', token: TOKEN, fetch: refused });
     const out = await runSave(down, SESSION, 'water', form({}));
     expect(out).toMatchObject({ ok: false, status: 503, signedOut: false, problem: 'core_down' });
     expect(out.ok === false && out.message).toContain('Nothing was saved');
+    expect(out.ok === false && out.unsure).toBeFalsy();
+  });
+
+  it('says it may have been saved when the door got the save and did not answer in time (Web 65)', async () => {
+    const hang: Fetch = (_url, init) => new Promise((_r, reject) => init.signal?.addEventListener('abort', () => reject(init.signal?.reason)));
+    const slow = makeDoor({ url: 'http://logger-v2-core:8000', token: TOKEN, fetch: hang, timeoutMs: 20 });
+    const keyed = await runSave(slow, SESSION, 'water', form({ key: KEY }));
+    expect(keyed).toMatchObject({ ok: false, status: 504, signedOut: false, problem: 'core_down', unsure: true });
+    expect(keyed.ok === false && keyed.message).toMatch(/may have been saved: try again, it will not be saved twice/);
+    expect(keyed.ok === false && keyed.message).not.toMatch(/Nothing was saved/);
+    const plain = await runSave(slow, SESSION, 'food_note', form({ ref: 'f7', note: 'x' }));
+    expect(plain).toMatchObject({ ok: false, status: 504, unsure: true });
+    expect(plain.ok === false && plain.message).toMatch(/may have been saved: reload the page to look before you try again/);
   });
 
   it('passes other problems on as they are, not as a sign-out', async () => {
