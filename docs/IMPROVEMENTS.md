@@ -7,7 +7,53 @@ Before building one, plan it in the doc first (with a clickable mockup for a new
 
 Size: S = about an hour, M = about half a day, L = a day or more. Rough guesses.
 
-## Priorities (reviewed 05.11.2026, after deploy 62)
+## Priorities (reviewed 21.11.2026, after deploy 117 and the move to logger.)
+
+From a review of the whole app on 21.11.2026: the core, the new front end (`front/`), the tests, the deploy scripts and the
+running of it, plus the two idea lists and the open tasks and ideas about the Logger saved in the app itself. Core items are in
+`docs/CORE-IMPROVEMENTS.md` (new ones: 32 to 40, section 10). New web items are 65 to 72 (section 9 below). Nothing is decided.
+Size: S about an hour, M about half a day, L a day or more.
+
+**Round 1: nothing saved twice (about a day).** Each can put a wrong or double entry into the data.
+
+1. **Core 32 AI errors are caught as such** (S): a timeout of the AI during a food look-up or a label photo undoes the whole save.
+2. **Core 34 A waiting message is saved once** (S): a slow read can be taken a second time after 10 minutes.
+3. **Core 33 A Todoist task is made once** (M): the rest of core 2; a retry can add the same task again.
+4. **Web 65 A tap that got no answer is sent again with the same key** (S-M): on a weak phone network a retry can log twice.
+
+**Round 2: the doors and the deploy (about half a day).**
+
+5. **Core 35 The hub's token** (S), **core 36 the connector's sign-in** (S), **core 37 the private export** (S): see the core list.
+6. **Core 38 Deploy guard** (S): stop when the dump fails, a dump name per deploy, refuse a deploy that is not pushed.
+7. **Core 12 Update alerts** (S): nothing tells the owner about new versions.
+
+**Round 3: the phone app at logger. (about half a day).**
+
+8. **Web 66 An error page in the app's layout** (S): item 26 again, for logger.
+9. **Web 67 Today reads the day again when the app comes back to the screen** (S).
+10. **Web 68 A sign that a page is loading** (S).
+11. **Web 63 Jump to a day in the food history** (S), with **web 69 Today for an earlier day** (S).
+12. **Web 70 A new kind of nudge saves from logger.** (S): needed before any of item 49.
+
+**Then features, in order:** 64 every food detail (M); 50 Insights with sleep (M, core only now: logger. draws any card the door
+sends); 57 a notification when the Home timer ends (S-M, push works at logger. now); 45 digest as a weekly notification (M);
+core 24 words review, in Library > Foods (S-M); 49 the rest of the nudges (S-M); 58 + 56 T2 edit the body measures (now M-L:
+core, door and front); 38 minutes for practices (M); 43 medication reminders (M, only if wanted).
+
+**Then tidying, in order:** core 13 remove the pilot tools (S-M); core 16 one handler per question kind (S-M); core 39 the AI
+cost look (S, with core 3); web 71 the door's types checked against the samples (M); web 72 one place for how each save behaves
+(M); core 40 docs and leftovers (S).
+
+**Owner decisions that block the largest clean-up:** where Ideas and Todoist, Private and the Gratitude list live (logger. or
+the journal app; `front/src/lib/places.ts` says they wait for the journal app). Until then app. stays, and with it about 5,000
+to 6,000 lines of the old web app and about 276 of its tests. Also still open: ending the v1 fallback, GitHub's run as the
+check before a deploy (core 38 covers it), whether the repo stays public.
+
+**Changed since 05.11.:** core 9 (connection pool) is done; core 28 step 2 (parallel tests) is dropped (a full run takes about
+3 minutes); 18 (link thoughts) moves to the journal app; core 25 (Telegram) is parked (notifications work at logger.); 15, 7, 9
+and 22 are done; core 31 (watch sleep) is complete in the code and waits for the phone's setting.
+
+## Earlier priorities (reviewed 05.11.2026, after deploy 62)
 
 Re-ranked against the app after deploys 59 to 62: the day follows the wake-up (sleep cycle, naps, Sleep times chart), and the export,
 the water target and gym and home in Search are live. Ranked by value for the effort. Nothing is decided: plan each one in the doc's
@@ -173,6 +219,23 @@ Collected from the user's list of 30.10.2026 and the answers on 31.10.2026. Noth
 | 62 | **Done 05.11.2026, deploy 59.** Sleep cycle 4: see the drift. Health page "Sleep times": one row per date with the clock across (up to 30 days), sleep bars split at midnight, naps lighter, a tick for a wake-up without a bed time, so a moving cycle shows as a diagonal band. Today: "Your watch says you got up hh:mm · Use it" when the watch's sleep ended in the last 12 hours and nothing was typed for it (`cycle.watch_wake`), and the Woke up row shows "awake 9 h 20 min" and the day's naps | Bed and wake times were only listed. No watch sleep data had arrived by 05.11.2026, so the watch line is tested with sample data only | S-M |
 | 63 | Jump to a day in the food history at logger.: a date field in the Food day's day switch (next to ‹ and ›), and the rows of Trends > Week > "The days" open that Food day (asked 17.11.2026) | Today an earlier day is reached only by tapping ‹ once per day (`/food?day=yyyy-mm-dd` already works as an address); "The days" shows each day's totals but its rows lead nowhere. Front end only: the door's `GET /food/day?day=` takes any day. | S |
 | 64 | A page with every tracked detail of the food at logger., not only kcal, protein, fat and carbs: sugar, added sugar, saturated fat, fibre, salt (asked 17.11.2026) | The data is there: every food and every entry carries `sat_fat`, `sugar_total`, `sugar_added`, `fibre` and `sodium_mg` (migration 006), with targets for them and a count of entries where a value is not known; the pages and the door show the four main values only. To decide when it is planned: per day (the Food day's foods with all columns, day totals against the targets), per period (Trends), or both; how to show foods whose value is unknown, so a total is not read as complete. Needs the door's food reads widened and a new page or tab; a mockup first. | M |
+
+## 9. New after the review of 21.11.2026 (the front end at logger.)
+
+| # | Idea | What is there now | Size |
+|---|---|---|---|
+| 65 | A tap that got no answer is sent again with the same key, and the message says "it may have been saved" | The browser makes a new key for every send (`saver.ts` `send`) and says "Nothing was saved; try again" after a network error; the server says the same after 15 s without an answer from the door (`door.ts`, `problems.ts`). The save may have gone through, so the next tap can log water or a chip twice | S-M |
+| 66 | An error page in the app's layout (`+error.svelte`), with the tab bar | None exists: an unknown address or a failed read shows SvelteKit's bare page, and the home-screen app has no back button | S |
+| 67 | Today reads the day again when the app comes back to the screen (`visibilitychange`) | Only Home > Pick listens for it; a home-screen app left open overnight shows yesterday, and there is no pull to refresh | S |
+| 68 | A sign that a page is loading (a thin bar from `navigating`), and preload on touch | A tab tap waits for the door with nothing on screen | S |
+| 69 | Today for an earlier day: a date in Today's heading | The door takes `GET /day?day=`; the front never sends it (app. had the date picker) | S |
+| 70 | The nudges' keys and hours come from the door's list | The page draws the door's list, but the server sends only the keys written into `settings.ts` and `saves.ts`: a new nudge would show and not save | S |
+| 71 | The door's types checked against the samples (`satisfies` in the tests, so the type check fails on a renamed field) | The types are hand-written copies of `docs/API.md`; reads are cast without a check; the Python sample test compares keys only | M |
+| 72 | One place for how each save behaves (keyed, may be sent again, unsure, slow), and one read helper | `KEYED` in `saver.ts` is a hand copy of the server's list; `TODAY_SAVES` takes every save not named elsewhere; three read helpers and six hand-written copies of the same try/catch | M |
+
+Smaller, to take along: reduced motion is not honoured; field borders are fainter than 3:1 (`--line`, `--input`); a chart's
+values cannot be reached by keyboard; no offline page, and text typed in the logging box is lost when the app is closed;
+GitHub runs the unit tests and the type check but no build and no browser checks.
 
 ### 52. Coaching (02.11.2026; done 04.11.2026, deploy 51, with the owner's answers: cards + Coach page, no thoughts, on demand only, My goals in Settings > Coach)
 

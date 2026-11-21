@@ -8,7 +8,14 @@ The v1 files (`v1_*.py`) are copied unchanged on purpose and are left as they ar
 
 Size: S = about an hour, M = about half a day, L = a day or more. Rough guesses.
 
-## Priorities (reviewed 05.11.2026, after deploy 62)
+## Priorities (reviewed 21.11.2026)
+
+The combined order with the web list is at the top of `docs/IMPROVEMENTS.md`. For the core: 32, 34, 33 first (a save can be
+undone or made twice), then 35 to 38 and 12 (the doors and the deploy), then 24, 13, 16, 39, 40. Done since 05.11.: 9
+(connection pool). Dropped: 28 step 2 (a full run takes about 3 minutes). Parked: 25 Telegram. 31 is complete in the code.
+The new items are in section 10.
+
+## Earlier priorities (reviewed 05.11.2026, after deploy 62)
 
 The combined top 10 with the web list is at the top of `docs/IMPROVEMENTS.md`. For the core, in order (S about an hour, M about half a
 day, L a day or more):
@@ -132,6 +139,20 @@ token counts for food look-ups and lab reports (web list 21, 20, 29).
 |---|---|---|---|
 | 30 | Safe parallel sessions: `tests/test-db.sh` and `conftest.py` take the port and container name from the environment (one test database per worktree, e.g. derived from the folder name), and `tools/deploy.sh` refuses to run when the checkout has uncommitted changes or another deploy holds a lock file | Deploy builds from the checkout, so a session's unfinished code would ship with another's deploy; tests in two sessions empty each other's tables (seen 05.11.2026 until the water session moved to its own test database) | S-M |
 | 31 | Check the watch's sleep import: no `sleep_analysis` rows in `watch_metrics` yet. Check that the Health Auto Export automation sends Sleep Analysis, then confirm a night arrives and Today offers the watch's wake-up | Today's "Your watch says you got up" (deploy 59) and the Activity page's sleep card stay empty without it; mostly a setting on the owner's phone | S |
+
+## 10. New after the review of 21.11.2026
+
+| # | Idea | Why | Size |
+|---|---|---|---|
+| 32 | The provider turns the AI client's own errors (timeout, overloaded, 5xx) into `ProviderError` | `ai/provider.py` raises `ProviderError` only for a refusal, a cut-off answer or no text. `lookup.py` ("a failed lookup never stops the message") and `labelread.py` catch only `ProviderError`, so a timeout in the look-up undoes the whole save and one in a label photo is a 500; `logbook.py` works around it by looking at the error's module name | S |
+| 33 | A Todoist task is made once: the call leaves the save transaction, or the task made is noted in its own commit before the rest | The rest of item 2. `todos.py` adds the task inside the save; when a later step fails, the rows roll back and the task stays, and the 5-minute retry adds it again for up to 2 hours. `todoist.py` also sends a POST again after a timeout | M |
+| 34 | A waiting message is saved once: the save checks that it still holds the message (`reading_since`, `FOR UPDATE`) | The lease is 10 minutes (`held.py`); one read can take longer (several AI calls of up to 3 tries of 60 s), cron then takes the message again, and both saves go through (`held.done` is a plain delete) | S |
+| 35 | The hub's token is taken only from inside the server, or its `log` refuses change commands | Since 20.11.2026 it may call `log` and `answer`, which reach every look-up and change command; it has no end and is taken at the public address too. The note in `mcp_app.py` says a leaked hub token cannot reach lab reports | S |
+| 36 | The connector's sign-in counts failed tries per device, as the web sign-in does, and old registered clients are removed | One shared count locks everyone out, and registering a client is open with a limit of 50 that nothing clears | S |
+| 37 | The export with private entries asks for the authenticator code again | It is the one way private and gratitude words leave through the JSON door, on a session alone | S |
+| 38 | Deploy guard: stop when the dump fails or is empty, a dump name per deploy, refuse when `main` is not pushed (and, if the owner agrees, when GitHub's run is not green), remove old dumps | `tools/deploy.sh` goes on after a failed dump, two deploys of one name on one day overwrite the dump, and on 21.11.2026 the live core ran two commits that were not pushed. 51 dumps since October are kept. A migration that fails leaves the core restarting with no roll back | S |
+| 39 | The AI cost look: the second read's data (item 3, due mid-November), the 1-hour cache on the small prompts (a cache write costs twice a normal read), and the price table in `provider.py` | Every question still starts the second read; whether the cache pays for the to-do and look-up prompts can be read from the audit log | S |
+| 40 | Docs and leftovers: the README's status (29.10.), `DESIGN.md` ("nothing is built"), `watch.py`'s "public log host", two unused functions (`coachpage.week_card`, `todaypage.day_title`), `private-dumps/` in `.gitignore`, the cron jobs' failures (held, nudges) seen by Uptime Kuma, the names of skipped watch metrics in the log (item 31) | Small things that mislead the next session or hide a failure | S |
 
 ## Suggested order
 
