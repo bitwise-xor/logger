@@ -149,7 +149,8 @@
       "protein": 18,
       "fat": 9,
       "carbs": 66
-     }
+     },
+     "note": null
     },
     {
      "meal": 2,
@@ -159,7 +160,8 @@
       "protein": 36.7,
       "fat": 28.7,
       "carbs": 136.4
-     }
+     },
+     "note": "Lunch at the desk, soup a bit thin"
     },
     {
      "meal": 0,
@@ -169,7 +171,8 @@
       "protein": 2.5,
       "fat": 2.5,
       "carbs": 3.8
-     }
+     },
+     "note": null
     }
    ],
    "totals": {
@@ -183,7 +186,8 @@
     "protein": 150,
     "fat": 70,
     "carbs": 250
-   }
+   },
+   "day_note": null
   },
   "undo": null
  },
@@ -242,7 +246,8 @@
       "protein": 20,
       "fat": 4,
       "carbs": 10
-     }
+     },
+     "note": null
     }
    ],
    "totals": {
@@ -256,7 +261,8 @@
     "protein": 150,
     "fat": 70,
     "carbs": 250
-   }
+   },
+   "day_note": null
   },
   "undo": null
  },

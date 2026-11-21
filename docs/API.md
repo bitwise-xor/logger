@@ -135,10 +135,66 @@ Undo         = null | {token, head, expires_at}         // the session's Undo, t
 ### `GET /api/v1/food/day?day=` → `{"food_day": FoodDay, "undo": Undo}`
 
 ```
-FoodDay = {day, today, past, rows: [Row (food) + note], meals: [{meal, label, nutrients}], totals, targets}
+FoodDay = {day, today, past, rows: [Row (food) + note], meals: [{meal, label, nutrients, note}], totals, targets, day_note}
 ```
 
-Built on `foodpage._day_rows`.
+Built on `foodpage._day_rows`. `meals[].note` (21.11.2026): the meal's one-line note (below, `POST /food/mealnote`), null when it has
+none; the drinks (meal 0) never have one. `day_note`: a meal note whose meals are all gone (the day has no food left but drinks, or
+none), shown as a note on the day; else null.
+
+**Meal notes** (21.11.2026, migration 033, `core/app/mealnotes.py`, the one place that works this out). Meal numbers change (SQL
+`assign_meals` renumbers a day's meals by time whenever its entries change), so a note is not kept against a meal number: it is
+kept with a time, `at` (the time of the meal's first entry when it was saved), and belongs to the meal of the day's food entry nearest
+to `at` (drinks left out; a tie goes to the earlier entry). So a meal renumbered by an earlier entry added later keeps its note; when
+two meals merge, the newest note is shown (and the next save on that meal deletes the other); when a meal's entries are deleted, its
+note moves to the meal nearest in time (where that meal's own newer note wins); with no food entry left it is the day's note.
+
+### `GET /api/v1/food/nutrients?day=&days=1|7|30` → `{"food_nutrients": Nutrients}` (21.11.2026)
+
+The Food space's Nutrients tab: every tracked value of what was eaten in the `days` ending at `day` (today without it; a later day is
+today; `days` 1 without it, anything but 1, 7 or 30 is 400 `days must be 1, 7 or 30.`). An unknown value (NULL on the entry) is never
+counted as zero without saying so: a total made with unknown entries carries their count.
+
+```
+Nutrients = {day, today, past, days, start, end,          // start .. end (= day) is the period, both included
+  eaten_days,                                             // days in the period with entries
+  per_day,                                                // days > 1: value is the average per day that has entries
+  nutrients: [Line],                                      // always these ten, in this order (below)
+  foods: [FoodRow],                                       // one row per food eaten, most kcal first
+  meals: [MealRow]}                                       // one day only (else []): by meal, the drinks (0) last
+Line = {key, label, unit, sub,                            // sub: an "of which" line (saturated under fat, sugar under carbs)
+  aim,                                                    // with a target: "reach" (protein, fibre) or "under" (the rest); null: none
+  sum,                                                    // the period's sum of the known values (the food rows' shares are of it)
+  value,                                                  // = sum for one day; over 7 or 30 days sum / eaten_days
+  unknown, unknown_foods,                                 // entries / foods (any of its entries) without a value for this line
+  target}                                                 // food_targets' row in force on `day` (salt from its sodium_mg), or null
+  // + on salt: sodium_mg (the same as value, in mg of sodium), target_sodium_mg
+FoodRow = {food_id, ref: "N12", name, unit: "g" | "ml", drink, amount, entries,   // amount and entries added up over the period
+  refs: ["f123"] | null,                                  // its entries (one day only; null over 7 or 30 days)
+  values: {kcal, protein, fat, sat_fat, carbs, sugar_total, sugar_added, fibre, salt, caffeine_mg, sodium_mg},
+                                                          // added up; null where one of its entries has no value
+  per_100: {… the same keys},                             // the catalogue's values per 100 g or ml (unknown null)
+  source}                                                 // "label · Brand · note" (the Catalogue's source line's parts)
+MealRow = {meal, label: "Meal 1" | "Drinks", values: {…as FoodRow, the known values added up}, unknown: {key: entries}, foods: ["f123"]}
+```
+
+Keys and labels: `kcal` Calories (kcal), `protein` Protein, `fat` Fat, `sat_fat` of which saturated, `carbs` Carbs, `sugar_total` of
+which sugar, `sugar_added` Added sugar, `fibre` Fibre (g), `salt` Salt (g: sodium mg × 2.5 / 1000), `caffeine_mg` Caffeine (mg).
+Values to 1 decimal (salt 2, mg whole over 7 or 30 days).
+
+### `GET /api/v1/food/notes?days=` → `{"food_notes": Notes}` (21.11.2026)
+
+The Food space's Notes tab: every meal note and food note of the last `days` days, today included (1 to 366, 90 without it; anything
+else 400 `days must be a whole number from 1 to 366.`). Newest first: by day, then by time (a note on the day first, a meal's note
+before its foods' at the same time).
+
+```
+Notes = {days, start, today, notes: [Note]}
+Note = {kind: "meal" | "food" | "day", day, meal, label,   // meal and label ("Meal 2", "Drinks") as the meal is numbered now; a day's
+        at,                                                // note: meal and label null. at: the meal's first entry or the food's time
+        note}                                              // (null when not known)
+  // + on a food's note: ref: "f123" (?open= on that day's Food day), food, amount, unit, portion_text
+```
 
 ### `GET /api/v1/food/entry?ref=f<id>` → `{"entry": {...}}`
 
@@ -1059,6 +1115,7 @@ function takes one, so a re-sent request saves once (`replayed: true`).
 | `/api/v1/review` | `action: "ok"` + `ref`, or `action: "all"` + `refs: [...]` (the refs shown) | `webactions.review` |
 | `/api/v1/food/entry` | `ref`, `action`: `save` (`amount`, `unit`, `time`, `food_name`) or `delete`, `confirmed` | `webfood.entry` |
 | `/api/v1/food/note` | `ref`, `note` (empty = removed) | `webfood.note` |
+| `/api/v1/food/mealnote` (21.11.2026) | `day` (yyyy-mm-dd), `meal` (1, 2, …; 0 = the day's note when no meal is left), `note` (up to 300 characters after whitespace is collapsed; empty or left out = removed); answers with the fresh `food_day` of `day` | `mealnotes.save`: "Meal note saved.", "Meal note removed." ("Note saved.", "Note removed." for the day's note); `unchanged` "Nothing changed." or "There was no note to remove."; rejected "That meal is not there any more.", "This day has meals: a note goes on one of them.", "That day has not started yet."; 400 for a missing or bad `day` or `meal`, a `note` that is not text or over 300. The note replaces every note that shows on that meal now (one per meal); no Undo, no key (saving twice is the same). |
 | `/api/v1/undo` | `token` (from the last answer's `undo`) | `webundo.apply` |
 | `/api/v1/held/retry` (77) | `id` (a number: `day.needs.not_read[].id`), `key` | `webheld.retry` (app.'s "Try again": reads it now, like `/log`) |
 | `/api/v1/held/delete` (77) | `id` | `webheld.delete` (app.'s "Delete", with Undo: the message comes back) |

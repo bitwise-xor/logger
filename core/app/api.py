@@ -22,7 +22,7 @@ from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
-from . import body as tape, coach, coachpage, export, foodpage, gym, gympage, habitspage, healthpage, home as homelib, hubtools, labelread, labspage, logbook, nudges, privateline, reads, settingspage, trendspage, uiprefs, usagepage, web, webactions, webentry, webfood, webhabits, webheld, weblabs, webpush, websettings, webundo, weekpage
+from . import body as tape, coach, coachpage, export, foodpage, gym, gympage, habitspage, healthpage, home as homelib, hubtools, labelread, labspage, logbook, mealnotes, nudges, privateline, reads, settingspage, trendspage, uiprefs, usagepage, web, webactions, webentry, webfood, webhabits, webheld, weblabs, webpush, websettings, webundo, weekpage
 from .ai.provider import ProviderError
 from .config import FRONT_TOKEN
 from .db import connect
@@ -315,6 +315,25 @@ def foods_suggest(_request, _body, _session):
     return {"foods": reads.food_suggestions()}
 
 
+@route("/food/nutrients", "GET")
+def food_nutrients(request, _body, _session):
+    """The Food space's Nutrients tab (21.11.2026): every tracked value of what was eaten in ?days=1|7|30 (1 when not given)
+    ending at ?day= (today when not given; a later day is today)."""
+    raw = request.query_params.get("days", "")
+    if raw and raw not in {str(d) for d in reads.NUTRIENT_DAYS}:
+        raise Refused(400, "bad_request", "days must be 1, 7 or 30.")
+    return {"food_nutrients": reads.food_nutrients(day_param(request), int(raw or 1))}
+
+
+@route("/food/notes", "GET")
+def food_notes(request, _body, _session):
+    """The Food space's Notes tab (21.11.2026): every meal note and food note of the last ?days= days (1 to 366; 90 when not given)."""
+    raw = request.query_params.get("days", "")
+    if raw and not (raw.isdigit() and 1 <= int(raw) <= 366):
+        raise Refused(400, "bad_request", "days must be a whole number from 1 to 366.")
+    return {"food_notes": reads.food_notes(int(raw) if raw else reads.NOTES_DAYS)}
+
+
 @route("/food/entry", "GET")
 def food_entry(request, _body, _session):
     e = reads.food_entry(request.query_params.get("ref", "")[:12])
@@ -591,6 +610,30 @@ def food_note(_request, body, session):
     """A food entry's note (empty = removed)."""
     f = _form(id=text(body, "ref", 12), note=text(body, "note", 300))
     return saved(session, _work(lambda: webfood.note(f, _key(body))), body, view="food")
+
+
+@route("/food/mealnote", "POST")
+def food_meal_note(_request, body, session):
+    """A meal's one-line note (21.11.2026, mealnotes.py): day (yyyy-mm-dd), meal (1, 2, …; 0 = the note on a day with no meal
+    left), note (up to 300 characters, whitespace collapsed; empty = removed). No Undo. Answers with the fresh food day of day."""
+    try:
+        the_day = date.fromisoformat(text(body, "day", 10, required=True))
+    except ValueError:
+        raise Refused(400, "bad_request", "day must be yyyy-mm-dd.") from None
+    meal = body.get("meal")
+    if isinstance(meal, str) and meal.isdigit():
+        meal = int(meal)
+    if not isinstance(meal, int) or isinstance(meal, bool) or not 0 <= meal <= 20:
+        raise Refused(400, "bad_request", "meal must be a meal's number (1, 2, …; 0 for the day's note).")
+    note = body.get("note")
+    if note is not None and not isinstance(note, str):
+        raise Refused(400, "bad_request", "note must be text.")
+    if note and len(" ".join(note.split())) > mealnotes.MAX_NOTE:
+        raise Refused(400, "bad_request", f"note must be at most {mealnotes.MAX_NOTE} characters.")
+    with connect() as c:
+        today = c.execute("SELECT log_day(now()) AS d").fetchone()["d"]
+    out = _work(lambda: mealnotes.save(the_day, meal, note or "", today))
+    return saved(session, out, {**body, "view_day": body.get("view_day") or the_day.isoformat()}, view="food")
 
 
 @route("/undo", "POST")

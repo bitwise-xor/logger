@@ -10,7 +10,8 @@ meals (usual.json, deploy 86: GET /usual, GET /foods, a change with Undo and a r
 Gym (gym.json, deploy 95), Home (home.json, deploy 98; day.json has Today's Home card since then), Trends (week.json, food_trends.json,
 insights.json, deploy 101), Library and Medical (catalogue.json, labs.json, deploy 104), Search, Recent, Usage and Coach (search.json, recent.json, usage.json,
 coach.json, deploy 107; day.json has Today's Coach card since then), Settings and notifications (settings.json, deploy 110; day.json has
-"shown" since then: added by hand, its dates are pinned by the front's tests), and
+"shown" since then: added by hand, its dates are pinned by the front's tests), the Food space (food_space.json, 21.11.2026; food.json's
+meals[].note and day_note were added by hand for the same reason), and
 - with WRITE_FRONT_SAMPLES=1: writes the answer to the sample file (then look at the diff and commit it);
 - otherwise: checks that the committed sample still has the door's shape (the same keys at every level), so a change of the door
   that the stand-in does not know about fails here.
@@ -897,3 +898,35 @@ def test_the_settings_sample_has_the_doors_shape(monkeypatch):
         owner_sql("DELETE FROM push_subscriptions")
         owner_sql("DELETE FROM food_targets")
         owner_sql("TRUNCATE usual_meals CASCADE")
+
+
+def test_the_food_space_sample_has_the_doors_shape(four_pm, fake):
+    """The Food space (21.11.2026): GET /food/nutrients of the full day (most entries with every value, some without: sugar, added sugar,
+    caffeine), of 7 and 30 days (two more days with food), GET /food/notes (a meal note and a food note today, a meal note on an earlier
+    day) and the meal note's saves without their food_day: saved, removed, and a meal that is not there."""
+    full_day()
+    owner_sql("""UPDATE food_entries e SET sat_fat = round(e.fat * 0.3, 1), fibre = round(e.carbs * 0.1, 1), sugar_total = round(e.carbs * 0.25, 1),
+                                        sugar_added = CASE WHEN f.name IN ('Fruit bar', 'Rye bread') THEN NULL ELSE round(e.carbs * 0.05, 1) END,
+                                        sodium_mg = round(e.amount * 1.2), caffeine_mg = CASE WHEN f.name = 'Coffee with milk' THEN 95 END
+                 FROM foods f WHERE f.id = e.food_id""")
+    owner_sql("UPDATE foods SET sat_fat = 1, fibre = 2, sugar_total = 5, sugar_added = 0, sodium_mg = 120, brand = 'Test brand' WHERE name = 'Lentil soup'")
+    owner_sql("UPDATE food_entries SET note = 'toasted' FROM foods f WHERE f.id = food_entries.food_id AND f.name = 'Rye bread'")
+    c, bearer, _ = signed_in()
+    get = lambda path: c.get("/api/v1" + path, headers=bearer).json()  # noqa: E731
+    post = lambda path, **body: c.post("/api/v1" + path, headers=bearer, json=body).json()  # noqa: E731
+    before = day() - timedelta(days=2)
+    post("/food/mealnote", day=before.isoformat(), meal=1, note="Skyr and banana after the gym")
+    saves = {"saved": post("/food/mealnote", day=day().isoformat(), meal=2, note="Soup at the desk, a bit thin"),
+             "removed": post("/food/mealnote", day=day().isoformat(), meal=1, note=""),
+             "gone": post("/food/mealnote", day=day().isoformat(), meal=9, note="x")}
+    answers = {"day": get("/food/nutrients"), "week": get("/food/nutrients?days=7"), "month": get("/food/nutrients?days=30"),
+               "notes": get("/food/notes")}
+    assert saves["saved"]["outcome"] == "changed" and saves["removed"]["outcome"] == "unchanged" and saves["gone"]["outcome"] == "rejected"
+    assert [m["note"] for m in saves["saved"]["food_day"]["meals"] if m["meal"] == 2] == ["Soup at the desk, a bit thin"]
+    for a in saves.values():
+        a.pop("food_day")
+    answers["saves"] = saves
+    n = answers["day"]["food_nutrients"]
+    assert n["meals"] and n["foods"] and any(x["unknown"] for x in n["nutrients"]) and answers["week"]["food_nutrients"]["eaten_days"] == 3
+    assert [x["kind"] for x in answers["notes"]["food_notes"]["notes"]] == ["food", "meal", "meal"]  # the bread at 13:05, its meal from 10:30
+    _write_or_check("food_space.json", answers)

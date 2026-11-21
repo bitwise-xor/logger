@@ -25,6 +25,10 @@ FILES: list[tuple[str, str, str]] = [
                 e.amount, f.basis AS unit, e.portion_text, e.kcal, e.protein, e.fat, e.sat_fat, e.carbs, e.fibre, e.sugar_total,
                 e.sugar_added, e.sodium_mg, e.caffeine_mg, e.estimated, e.source, e.note, e.needs_review, e.raw_id, e.logged_at
          FROM food_entries e JOIN foods f ON f.id = e.food_id ORDER BY e.day, e.eaten_at, e.id"""),
+    # 21.11.2026 (migration 033): a meal's note is kept by its time, not by a meal number (those change); mealnotes.py says which meal
+    ("food_meal_notes", "Notes on a meal: each belongs to the meal of that day's food entry nearest to its time (not drinks); "
+                        "with no entry left, to the day.",
+     "SELECT id, day, at AS time, note, created_at, updated_at FROM food_meal_notes ORDER BY day, at, id"),
     ("foods", "The food catalogue: nutrients per 100 g (or 100 ml for drinks), other names, units in grams.",
      """SELECT f.id, f.name, f.aliases, f.basis, f.kcal, f.protein, f.fat, f.sat_fat, f.carbs, f.fibre, f.sugar_total, f.sugar_added,
                f.sodium_mg, f.caffeine_mg, f.carbs_include_fibre, f.is_drink, f.brand, f.barcode, f.category, f.state, f.variant_of,

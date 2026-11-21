@@ -8,7 +8,7 @@ import re
 from datetime import date, datetime, timedelta
 from typing import Optional
 
-from . import activitypage, body as tape, bodypage, coach, coachpage, export, foodpage, gratitude, gym as gymlib, gympage, habitspage, healthpage, held, home as homelib, homepage, insightspage, labspage, nudges, privateline, recentpage, searchpage, settingspage, todaypage, trendspage, uiprefs, usagepage, v1_commands, webpush, webquestions, weekpage
+from . import activitypage, body as tape, bodypage, coach, coachpage, export, foodpage, gratitude, gym as gymlib, gympage, habitspage, healthpage, held, home as homelib, homepage, insightspage, labspage, mealnotes, nudges, privateline, recentpage, searchpage, settingspage, todaypage, trendspage, uiprefs, usagepage, v1_commands, webpush, webquestions, weekpage
 from .db import connect
 from .rules import BERLIN
 from .webentry import readable
@@ -345,10 +345,15 @@ def food_day(asked: Optional[date] = None) -> dict:
         eaten = _eaten(cur, the_day)
         total = next((r for r in sums if r["meal"] is None), None)
         tgt = targets(cur, the_day, total)
+        notes, day_note = mealnotes.shown(cur, the_day)
     return {"day": iso(the_day), "today": iso(today), "past": the_day < today,
             "rows": [_food_row(i, eaten, note=True) for i in items],
-            "meals": [{"meal": r["meal"], "label": r["meal_label"], "nutrients": _macros(r)} for r in sums if r["meal"] is not None],
-            "totals": _macros(total), "targets": tgt}
+            # a meal's note (21.11.2026, mealnotes.py): the one shown on it, else null; the drinks (meal 0) never have one
+            "meals": [{"meal": r["meal"], "label": r["meal_label"], "nutrients": _macros(r), "note": notes.get(r["meal"]) if r["meal"] else None}
+                      for r in sums if r["meal"] is not None],
+            "totals": _macros(total), "targets": tgt,
+            # a meal note whose meals are all gone: shown as a note on the day (null when there is none, or the day has meals)
+            "day_note": day_note}
 
 
 def food_entry(ref: str) -> Optional[dict]:
@@ -365,6 +370,136 @@ def food_entry(ref: str) -> Optional[dict]:
     return {"ref": ref, "day": iso(e["day"]), "food_id": e["food_id"], "food": e["name"], "amount": num(e["amount"]), "unit": e["basis"],
             "at": iso(e["eaten_at"]) if e["time_known"] else None, "time_known": bool(e["time_known"]), "note": e["note"],
             "units": [{"unit": e["basis"], "in_basis": 1}] + [{"unit": u["unit"], "in_basis": num(u["grams"])} for u in units]}
+
+
+# ---- the Food space's Nutrients and Notes tabs (21.11.2026) ------------------------------------------------------------------
+
+# Every tracked value of what was eaten, in the Nutrients tab's order: (key, label, unit, aim with a target). "reach": protein and
+# fibre (a target to get to); "under": a budget or a limit to stay under (kcal, fat and carbs as the Food day's tiles: "left").
+# Salt is worked out from sodium (salt g = sodium mg x 2.5 / 1000), and its line keeps sodium in mg beside it.
+NUTRIENTS = (("kcal", "Calories", "kcal", "under"), ("protein", "Protein", "g", "reach"), ("fat", "Fat", "g", "under"),
+             ("sat_fat", "of which saturated", "g", "under"), ("carbs", "Carbs", "g", "under"), ("sugar_total", "of which sugar", "g", None),
+             ("sugar_added", "Added sugar", "g", "under"), ("fibre", "Fibre", "g", "reach"), ("salt", "Salt", "g", "under"),
+             ("caffeine_mg", "Caffeine", "mg", None))
+SUB = {"sat_fat", "sugar_total"}  # "of which": drawn under fat and carbs
+COLUMN = {k: ("sodium_mg" if k == "salt" else k) for k, *_x in NUTRIENTS}  # the entry column behind each line
+TARGET = {"kcal": "kcal", "protein": "protein", "fat": "fat", "sat_fat": "sat_fat", "carbs": "carbs", "sugar_added": "sugar_added",
+          "fibre": "fibre", "salt": "sodium_mg"}  # food_targets' column of each line that can have one
+NUTRIENT_DAYS = (1, 7, 30)
+
+
+def salt(sodium_mg):
+    """Salt in g from sodium in mg (x 2.5 / 1000), to 2 decimals; None stays None."""
+    return None if sodium_mg is None else round(float(sodium_mg) * 2.5 / 1000, 2)
+
+
+def _val(k: str, v):
+    """A value of line k from its column: salt from sodium, the rest as they are (1 decimal; mg whole)."""
+    if v is None:
+        return None
+    if k == "salt":
+        return num(salt(v))
+    return num(round(float(v), 0 if k == "caffeine_mg" else 1))
+
+
+def _sums(rows: list, all_known: bool) -> dict:
+    """Each line's value over entries: the sum of the known ones; all_known: None as soon as one entry has none (a food's row).
+    Also sodium_mg beside salt."""
+    out = {}
+    for k, *_x in NUTRIENTS:
+        vals = [r[COLUMN[k]] for r in rows]
+        known = [float(v) for v in vals if v is not None]
+        out[k] = None if (all_known and len(known) < len(vals)) else _val(k, sum(known))
+    sod = [r["sodium_mg"] for r in rows]
+    out["sodium_mg"] = None if any(v is None for v in sod) and all_known else num(round(sum(float(v) for v in sod if v is not None)))
+    return out
+
+
+def _unknown(rows: list) -> dict:
+    """Each line: how many entries have no value for it."""
+    return {k: sum(1 for r in rows if r[COLUMN[k]] is None) for k, *_x in NUTRIENTS}
+
+
+def food_nutrients(asked: Optional[date] = None, days: int = 1) -> dict:
+    """The Nutrients tab: every tracked value of what was eaten in the `days` (1, 7 or 30) ending at the day asked (a later day is
+    today). Per line its total (over 7 or 30 days the average per day that has entries), the target in force on the last day and
+    how many entries have no value: an unknown value is never counted as zero without saying so. The foods eaten, one row per food
+    (amounts, entries and values added up, a value null when one of its entries has none), with their values per 100 and source;
+    for one day the same per meal."""
+    with connect() as conn, conn.cursor() as cur:
+        today = foodpage._today(cur)
+        end = min(asked, today) if asked else today
+        start = end - timedelta(days=days - 1)
+        cur.execute("""SELECT e.id, e.day, e.meal, e.food_id, e.amount, e.eaten_at, e.kcal, e.protein, e.fat, e.sat_fat, e.carbs,
+                              e.fibre, e.sugar_total, e.sugar_added, e.sodium_mg, e.caffeine_mg
+                       FROM food_entries e WHERE e.day BETWEEN %s AND %s ORDER BY e.day, e.eaten_at, e.id""", (start, end))
+        rows = cur.fetchall()
+        cur.execute("""SELECT id, name, basis, is_drink, source, brand, source_note, kcal, protein, fat, sat_fat, carbs, fibre, sugar_total,
+                              sugar_added, sodium_mg, caffeine_mg FROM foods WHERE id = ANY(%s)""", (list({r["food_id"] for r in rows}),))
+        foods = {f["id"]: f for f in cur.fetchall()}
+        cur.execute("SELECT * FROM food_targets WHERE valid_from <= %s ORDER BY valid_from DESC LIMIT 1", (end,))
+        tgt = cur.fetchone() or {}
+    eaten_days = len({r["day"] for r in rows})
+    total, unknown = _sums(rows, all_known=False), _unknown(rows)
+    by_food: dict = {}
+    for r in rows:
+        by_food.setdefault(r["food_id"], []).append(r)
+    unknown_foods = {k: sum(1 for es in by_food.values() if any(e[COLUMN[k]] is None for e in es)) for k, *_x in NUTRIENTS}
+    per_day = days > 1
+
+    def avg(v, k):
+        """Over 7 or 30 days: the average per day that has entries (salt to 2 decimals, mg whole, the rest to 1)."""
+        if v is None or not per_day:
+            return v
+        return num(round(float(v) / eaten_days, 2 if k == "salt" else 0 if k.endswith("_mg") else 1)) if eaten_days else 0
+
+    lines = []
+    for k, lab, unit, aim in NUTRIENTS:
+        t = tgt.get(TARGET[k]) if k in TARGET else None
+        line = {"key": k, "label": lab, "unit": unit, "sub": k in SUB, "aim": aim, "sum": total[k], "value": avg(total[k], k),
+                "unknown": unknown[k], "unknown_foods": unknown_foods[k], "target": _val(k, t) if t else None}
+        if k == "salt":
+            line["sodium_mg"] = avg(total["sodium_mg"], "sodium_mg")
+            line["target_sodium_mg"] = num(tgt.get("sodium_mg")) if tgt.get("sodium_mg") else None
+        lines.append(line)
+    food_rows = []
+    for fid, es in by_food.items():
+        f = foods[fid]
+        food_rows.append({"food_id": fid, "ref": f"N{fid}", "name": f["name"], "unit": f["basis"], "drink": bool(f["is_drink"]),
+                          "amount": num(round(sum(float(e["amount"]) for e in es), 1)), "entries": len(es),
+                          "refs": [f"f{e['id']}" for e in es] if not per_day else None,
+                          "values": _sums(es, all_known=True),
+                          "per_100": {**{k: _val(k, f[COLUMN[k]]) for k, *_x in NUTRIENTS}, "sodium_mg": num(f["sodium_mg"])},
+                          "source": " · ".join(x for x in (f["source"], f["brand"], f["source_note"]) if x)})
+    food_rows.sort(key=lambda x: (-(x["values"]["kcal"] or 0), x["name"].lower()))
+    meals = []
+    if not per_day:
+        by_meal: dict = {}
+        for r in rows:
+            by_meal.setdefault(r["meal"], []).append(r)
+        meals = [{"meal": m, "label": mealnotes.label(m), "values": _sums(es, all_known=False), "unknown": _unknown(es),
+                  "foods": [f"f{e['id']}" for e in es]} for m, es in sorted(by_meal.items(), key=lambda x: (x[0] == 0, x[0]))]
+    return {"day": iso(end), "today": iso(today), "past": end < today, "days": days, "start": iso(start), "end": iso(end),
+            "eaten_days": eaten_days, "per_day": per_day, "nutrients": lines, "foods": food_rows, "meals": meals}
+
+
+NOTES_DAYS = 90
+
+
+def food_notes(days: int = NOTES_DAYS) -> dict:
+    """The Notes tab: every meal note and food note of the last `days` days (today included), newest first, each with its day, the
+    meal's label or the food's name and amount, and its time; a food note with its ref (to open it on that day's Food day)."""
+    with connect() as conn, conn.cursor() as cur:
+        today = foodpage._today(cur)
+        start = today - timedelta(days=days - 1)
+        notes = mealnotes.listed(cur, start, today)
+    out = []
+    for x in notes:
+        n = {"kind": x["kind"], "day": iso(x["day"]), "meal": x["meal"], "label": x["label"], "at": iso(x["at"]), "note": x["note"]}
+        if x["kind"] == "food":
+            n.update(ref=x["ref"], food=x["food"], amount=num(x["amount"]), unit=x["unit"], portion_text=x["portion_text"])
+        out.append(n)
+    return {"days": days, "start": iso(start), "today": iso(today), "notes": out}
 
 
 # ---- usual meals and the food search (deploy 86, the usual-meal editor at logger.) ----------------------------------------

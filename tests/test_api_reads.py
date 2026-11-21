@@ -298,7 +298,7 @@ def test_the_food_day_has_entries_meals_totals_and_targets(api):
     owner_sql("UPDATE food_entries SET note = 'with a pinch of salt' WHERE id = %s", eid)
     skyr = eat_on(day(), "13:00", food("Test skyr", 63, 11, 0.2, 4), 150, 95)
     f = today_json(api, "/food/day")["food_day"]
-    assert set(f) == {"day", "today", "past", "rows", "meals", "totals", "targets"}
+    assert set(f) == {"day", "today", "past", "rows", "meals", "totals", "targets", "day_note"} and f["day_note"] is None  # day_note: 21.11.2026
     assert f["day"] == f["today"] == day().isoformat() and f["past"] is False
     r = f["rows"][0]
     assert r["ref"] == f"f{eid}" and r["food"] == "Test oats" and r["food_id"] == oats and r["amount"] == 60 and r["unit"] == "g"
@@ -306,7 +306,7 @@ def test_the_food_day_has_entries_meals_totals_and_targets(api):
     assert r["at"].startswith(day().isoformat() + "T08:10:00") and r["time_known"] is True
     assert [x["ref"] for x in f["rows"]] == [f"f{eid}", f"f{skyr}"] and f["rows"][1]["note"] is None
     assert f["totals"] == {"kcal": 335, "protein": 20, "fat": 4, "carbs": 10}
-    assert [m["meal"] for m in f["meals"]] == [1, 2] and f["meals"][0]["nutrients"]["kcal"] == 240
+    assert [m["meal"] for m in f["meals"]] == [1, 2] and f["meals"][0]["nutrients"]["kcal"] == 240 and f["meals"][0]["note"] is None
     assert f["targets"] == {"kcal": 2000, "protein": 100, "fat": 70, "carbs": 200}
 
 
