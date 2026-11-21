@@ -203,21 +203,36 @@ def read_held(hid: int, background: bool = False) -> dict[str, Any]:
         LIVE.reset(token)
 
 
+def _not_claimed(hid: int, why: str) -> dict[str, Any]:
+    """The answer when this reader does not have the message: "gone" (saved or deleted) or "busy" (another reader has it)."""
+    if why == "busy":
+        return _public({"outcome": "held", "held_id": hid, "reason": "It is being read right now."})
+    return _public({"outcome": "rejected", "reason": "That message is no longer waiting: it was saved or deleted."})
+
+
 def _read_held(hid: int, background: bool) -> dict[str, Any]:
     started = time.monotonic()
     row = held.claim(hid)
-    if row is None:
-        return _public({"outcome": "rejected", "reason": "That message is no longer waiting: it was saved or deleted."})
-    if row == "busy":
-        return _public({"outcome": "held", "held_id": hid, "reason": "It is being read right now."})
+    if row is None or row == "busy":
+        return _not_claimed(hid, row or "gone")
+    return _read_claimed(row, background, started)
+
+
+def _read_claimed(row: dict, background: bool, started: float) -> dict[str, Any]:
+    """Read and save a message this reader claimed. Each transaction that would save it first checks that it is still this
+    reader's (held.owner, core item 34): a read that outlasted its lease and lost the message saves nothing."""
+    hid, tries = row["id"], row["tries"]
     text, channel, key = row["content"], row["channel"], row["idempotency_key"]
     now = row["received_at"].astimezone(BERLIN)
     try:
         if privateline.label(text):  # kept before 14.11.2026, or by any other way: saved without the AI all the same
             with connect() as conn, conn.cursor() as cur:
-                out = _private(cur, text, now, channel, row["tries"])
+                lost = held.owner(cur, hid, tries)
+                if lost:
+                    return _not_claimed(hid, lost)
+                out = _private(cur, text, now, channel, tries)
                 if background and out["outcome"] == "rejected":
-                    held.needs_you(cur, hid, out["reason"])
+                    held.needs_you(cur, hid, out["reason"], tries)
                     return _public({**out, "held_id": hid})
                 resp = _public(out)
                 if key and out["outcome"] == "saved":
@@ -229,14 +244,17 @@ def _read_held(hid: int, background: bool) -> dict[str, Any]:
             prev, meals = _context(cur, now)
         preds, usages = _read(text, now, prev, meals)
         with connect() as conn, conn.cursor() as cur:
+            lost = held.owner(cur, hid, tries)  # the AI read took long: another reader may have it now (core item 34)
+            if lost:
+                return _not_claimed(hid, lost)
             if key:
                 cur.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))", (key,))
             sent = todos.retry(cur, provider(), now)  # to-dos that waited because Todoist was down
             r = record.best(cur, preds, now)
-            out = _save(cur, text, now, r, usages + sent["usages"], len(preds) > 1, channel, prev, sent, row["tries"], started)
+            out = _save(cur, text, now, r, usages + sent["usages"], len(preds) > 1, channel, prev, sent, tries, started)
             if background and out["outcome"] in ("rejected", "not_logged"):  # nothing was saved: keep the words for the owner
                 why = out.get("reason") or ("it reads as a question or a request, not an entry" if out["outcome"] == "not_logged" else "")
-                held.needs_you(cur, hid, why)
+                held.needs_you(cur, hid, why, tries)
                 return _public({**out, "held_id": hid})
             resp = _public(out)
             if key:
@@ -253,8 +271,8 @@ def _read_held(hid: int, background: bool) -> dict[str, Any]:
         _LOG.warning("message %s not read yet: %s", hid, kind)  # the kind only, never the words
         try:
             with connect() as conn, conn.cursor() as cur:
-                held.failed(cur, hid, kind)
-                _audit(cur, "log", "held", {"held_id": hid, "error": kind, "tries": row["tries"]}, channel)
+                held.failed(cur, hid, kind, tries)
+                _audit(cur, "log", "held", {"held_id": hid, "error": kind, "tries": tries}, channel)
         except Exception:  # noqa: BLE001 - the database is down too: the 10-minute lease frees the message by itself
             pass
         reason = "The AI service did not answer." if isinstance(e, ProviderError) else "Something went wrong while saving it."
