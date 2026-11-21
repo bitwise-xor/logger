@@ -1,6 +1,7 @@
 """Todoist behind one small interface, so tests (and a later replacement) can swap it. TodoistAPI talks to Todoist's
 current API (api/v1; the old REST v2 answers 410 since 2026). FakeTodoist keeps tasks in memory for tests and replays."""
 import contextlib
+import http.client
 import json
 import threading
 import time
@@ -27,7 +28,12 @@ def quick():
 
 
 class TodoistError(Exception):
-    pass
+    """Todoist did not do it. unsure: a create that got no answer (a timeout, a dropped connection, a 5xx): Todoist may
+    have made the task all the same (core item 33)."""
+
+    def __init__(self, message: str, unsure: bool = False):
+        super().__init__(message)
+        self.unsure = unsure
 
 
 class Todoist(Protocol):
@@ -48,7 +54,10 @@ class TodoistAPI:
     def __init__(self, token: str, timeout: float = 15):
         self.token, self.timeout = token, timeout
 
-    def _call(self, method: str, path: str, params: Optional[dict] = None, body: Optional[dict] = None):
+    def _call(self, method: str, path: str, params: Optional[dict] = None, body: Optional[dict] = None, resend: bool = True):
+        """resend=False: a create, which Todoist's REST API cannot make idempotent (api/v1 documents no request id for
+        POST /tasks; only the /sync commands' uuid is): it is not sent a second time when its first try may have arrived
+        (no answer, a dropped connection, a 5xx); that raises an "unsure" TodoistError instead (core item 33)."""
         url = BASE + path + ("?" + urllib.parse.urlencode(params) if params else "")
         data = json.dumps(body).encode() if body is not None else None
         req = urllib.request.Request(url, data=data, method=method, headers={
@@ -60,15 +69,16 @@ class TodoistAPI:
                     raw = r.read()
                     return json.loads(raw) if raw else None
             except urllib.error.HTTPError as e:
-                if e.code in (429, 500, 502, 503, 504) and attempt == 1 and not fast:
+                maybe = e.code >= 500  # a 429 or another 4xx was not done; a 5xx may have been
+                if e.code in (429, 500, 502, 503, 504) and attempt == 1 and not fast and (resend or not maybe):
                     time.sleep(1.5)
                     continue
-                raise TodoistError(f"Todoist answered {e.code} for {method} {path}") from e
-            except (urllib.error.URLError, TimeoutError) as e:
-                if attempt == 1 and not fast:
+                raise TodoistError(f"Todoist answered {e.code} for {method} {path}", unsure=maybe and not resend) from e
+            except (urllib.error.URLError, TimeoutError, ConnectionError, http.client.HTTPException) as e:
+                if attempt == 1 and not fast and resend:
                     time.sleep(1.5)
                     continue
-                raise TodoistError(f"Todoist is not reachable ({type(e).__name__})") from e
+                raise TodoistError(f"Todoist is not reachable ({type(e).__name__})", unsure=not resend) from e
 
     def _pages(self, path: str, params: dict, key: str = "results") -> list[dict]:
         out, cursor = [], None
@@ -97,7 +107,7 @@ class TodoistAPI:
     def add(self, content: str, project_id: str, section_id: Optional[str] = None, labels=()) -> dict:
         body = {"content": content, "project_id": project_id, **({"section_id": section_id} if section_id else {}),
                 **({"labels": list(labels)} if labels else {})}
-        return self._call("POST", "/tasks", body=body)
+        return self._call("POST", "/tasks", body=body, resend=False)  # never twice: todos._create handles a lost answer
 
     def close(self, task_id: str) -> None:
         self._call("POST", f"/tasks/{task_id}/close")
@@ -126,6 +136,7 @@ class FakeTodoist:
         self.secs = sections or {}
         self.tasks = {t["id"]: {"section_id": None, "labels": [], "checked": False, "due": None, **t} for t in tasks}
         self.log, self.down = [], False
+        self.lost = 0  # the next `lost` adds make the task but lose Todoist's answer (a timeout after it arrived)
         self._n = 1000
 
     def _up(self):
@@ -152,9 +163,13 @@ class FakeTodoist:
         self._up()
         self._n += 1
         t = {"id": f"t{self._n}", "content": content, "project_id": project_id, "section_id": section_id,
-             "labels": list(labels), "checked": False, "due": None}
+             "labels": list(labels), "checked": False, "due": None,
+             "added_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")}
         self.tasks[t["id"]] = t
         self.log.append(("add", t["id"], content))
+        if self.lost:
+            self.lost -= 1
+            raise TodoistError("Todoist is not reachable (fake: the answer was lost)", unsure=True)
         return dict(t)
 
     def close(self, task_id):

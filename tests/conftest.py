@@ -56,6 +56,7 @@ def _cheap_password_hash():
 
 CLEANED = ("food_entries, food_units, food_defaults, foods, thoughts, thought_updates, thought_links, private.entries, private.incoming, measurements, events, raw_inbox, pending, idempotency_keys, audit_log, owner_credentials, oauth_clients, oauth_requests, oauth_codes, oauth_tokens, login_failures, web_sessions, trusted_devices, ui_settings, workout_sets, workouts, workout_day_items, workout_days, exercises, watch_metrics, watch_workouts, body_height, home_done, home_skips, home_timers, home_chores, home_zones, coachings")
 
+CLEANED += ", todo_sent"  # core item 33: the Todoist task made per request (todos.py)
 
 @pytest.fixture(scope="session")
 def _dirty_query(_schema):
