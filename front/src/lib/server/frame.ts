@@ -9,6 +9,7 @@
 /** May the page of this route (SvelteKit's route id, e.g. "/(app)/food") be shown in the hub's frame? */
 export function framable(routeId: string | null | undefined): boolean {
   if (!routeId?.startsWith('/(app)')) return false; // the sign-in, an unknown address (no route), anything outside the signed-in pages
+  if (routeId === '/(app)/[...rest]') return false; // an unknown address shown in the app's layout (Web 66): still no page to frame
   const path = routeId.slice('/(app)'.length) || '/';
   return !/^\/(settings|signout)(\/|$)/.test(path);
 }

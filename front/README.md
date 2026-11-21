@@ -403,6 +403,13 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   day's Day tab (a meal's note to `#meal-N`, a food's note with `?open=`); empty: how to add one. The stand-in answers GET
   `/food/nutrients`, `/food/notes` and POST `/food/mealnote` from `tests/samples/food_space.json` (POST `/standin/notes-empty`), the Food
   day's meals with their notes; `SHOOT_ONLY=foodspace` runs these checks.
+- Error pages (Web 66, 21.11.2026): `src/routes/(app)/+error.svelte` inside the app's layout (the rail or the tab bar stay: the
+  home-screen app has no back button) and `src/routes/+error.svelte` for an error outside it (the sign-in page, the layout's own
+  check), both the card `components/ErrorCard.svelte`: plain words by status (`src/lib/errorpage.ts`: "Not found", "Something went
+  wrong"), "Back to Today" and "Try again" (the same address, read again). An address no page has goes through
+  `src/routes/(app)/[...rest]` (the session is checked first, then the 404 in the layout; never framed by the hub). `handleError` in
+  `hooks.server.ts` logs the kind of error and the route id only (`src/lib/server/errors.ts`), never words, values or addresses.
+  `SHOOT_ONLY=errors` runs these checks.
 - `src/lib/tokens/`: the hub's tokens, copied (`SOURCE.md` says from where and when).
 - `src/env.ts`: the settings (`DOOR_URL`, `FRONT_TOKEN`, `APP_URL`); `ORIGIN` and the memory cap are in `compose.yaml`.
 

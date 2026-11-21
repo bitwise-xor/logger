@@ -22,7 +22,7 @@ describe('framable', () => {
   });
   it('keeps the sign-in, sign-out, Settings and everything else out of every frame', () => {
     for (const id of ['/login', '/(app)/signout', '/(app)/settings', '/(app)/settings/devices', '/(app)/settings/notifications',
-      '/(app)/settings/export', '/', '/health', null, undefined, '']) {
+      '/(app)/settings/export', '/(app)/[...rest]', '/', '/health', null, undefined, '']) {
       expect(framable(id), String(id)).toBe(false);
     }
   });

@@ -1000,6 +1000,27 @@ async function checkUsual(page, name, theme) {
   await page.waitForURL(/\/library\/usual$/);
 }
 
+/** Web 66: an unknown address inside the app's layout (the places stay), plain words, Back to Today and Try again. */
+async function checkErrors(page, name, theme) {
+  const shot = (what) => page.screenshot({ path: `${out}/${what}-${name}-${theme}.png` });
+  const res = await page.goto(`${base}/no-such-page?x=1`);
+  assert.equal(res?.status(), 404, 'an unknown address answers 404');
+  const card = page.locator('[data-error="404"]');
+  await card.waitFor();
+  assert.equal(await text(card.locator('h1')), 'Not found', 'unknown address: plain words');
+  assert.equal(await page.locator('[data-places]').count(), 1, 'unknown address: the rail or the tab bar stay');
+  assert.equal(await card.getByRole('link', { name: 'Back to Today' }).getAttribute('href'), '/', 'Back to Today');
+  assert.equal(await card.getByRole('link', { name: 'Try again' }).getAttribute('href'), '/no-such-page?x=1', 'Try again: the same address');
+  await checkWidth(page, 'an unknown address');
+  await shot('error-not-found');
+  await card.getByRole('link', { name: 'Back to Today' }).click();
+  await page.locator('[data-kcal-left]').waitFor();
+  // a deeper unknown address too (no route of the app matches it)
+  await page.goto(`${base}/gym/no-such-part`);
+  await page.locator('[data-error="404"]').waitFor();
+  assert.equal(await page.locator('[data-places]').count(), 1, 'a deeper unknown address: in the layout too');
+}
+
 /** Step F: the core down, the door off, and the way back; the sign-in page in both; `next` after a sign-in. */
 async function checkProblems(page, name, theme) {
   const bar = page.locator('[data-bar]');
@@ -6675,6 +6696,10 @@ for (const theme of ['dark', 'light']) {
     if (only('compact')) {
       await checkCompact(page, name, theme);
       console.log(`the hub's frame, the compact view ${name} ${theme}: checks passed`);
+    }
+    if (only('errors')) {
+      await checkErrors(page, name, theme);
+      console.log(`error pages ${name} ${theme}: checks passed`);
     }
     if (only('problems')) {
       await checkProblems(page, name, theme);
