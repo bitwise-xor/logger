@@ -3,12 +3,13 @@
 - questions (pending) that were answered or expired more than 30 days ago
 - unread messages deleted on the web app more than a day ago (held.py; until then Undo brings one back)
 - the Todoist tasks made per request (todo_sent, todos.py) after 7 days (a retry of the same request comes within days)
+- the connector's registered clients that nobody ever signed in with, a day after they registered (auth.remove_unused_clients)
 Everything else (entries, the audit log, the change log) is history and stays."""
 import logging
 import threading
 import time
 
-from . import held, todos
+from . import auth, held, todos
 from .db import connect
 
 log = logging.getLogger("logger.maintenance")
@@ -26,7 +27,8 @@ def cleanup() -> dict:
                             AND (resolved_at IS NOT NULL OR expires_at < now())""", (PENDING_DAYS,)).rowcount
         unread = held.purge(c.cursor())
         sent = c.execute("DELETE FROM todo_sent WHERE at < now() - make_interval(days => %s)", (todos.SENT_DAYS,)).rowcount
-    return {"idempotency_keys": keys, "pending": pend, "deleted_unread": unread, "todo_sent": sent}
+        clients = auth.remove_unused_clients(c)
+    return {"idempotency_keys": keys, "pending": pend, "deleted_unread": unread, "todo_sent": sent, "oauth_clients": clients}
 
 
 def _loop() -> None:

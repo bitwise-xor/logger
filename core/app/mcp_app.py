@@ -21,10 +21,12 @@ from .db import connect
 
 _LOG = logging.getLogger("logger.tools")  # not `log`: that is the name of the log tool below
 provider = auth.OwnerProvider(PUBLIC_URL)
-# The only tools the hub's service token may call (auth.hub_access). Every other tool refuses it, so a leaked hub token cannot
-# reach the catalogue, lab reports or the pilot tools. A new tool is closed to it until named here. `log` and `answer` (20.11.2026,
-# the hub's chat bar: what the owner types there, look-ups included, and Logger's follow-up questions): their look-ups can find
-# private and gratitude entries, so their replies to this token go through _for_hub.
+# The only tools the hub's service token may call (auth.hub_access). Every other tool refuses it; a new tool is closed to it until
+# named here. `log` and `answer` (20.11.2026, the hub's chat bar: what the owner types there, look-ups included, and Logger's
+# follow-up questions) reach every look-up and change command, lab values, food and notes included: a leaked hub token can read
+# and change almost everything through them; only replies that name private or gratitude entries are cut (_for_hub). What keeps
+# a leaked token out is where it may come from: since 21.11.2026 it is taken only on a call from inside the server, never
+# through the tunnel (auth.from_inside).
 HUB_TOOLS = {"today_summary", "tick_habit", "untick_habit", "add_water", "set_checkin", "log", "answer"}
 
 
@@ -278,5 +280,6 @@ def build_app():
         streamable_http_path=MCP_PATH, stateless_http=True, json_response=True,
         transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=True, allowed_hosts=hosts, allowed_origins=[]),
     )
+    app.add_middleware(auth.InsideMiddleware)  # outermost: marks a call from inside before the token check (auth.hub_access)
     app.add_exception_handler(Exception, web.server_error)  # a page of the web app that fails: the error page in the app's layout
     return app

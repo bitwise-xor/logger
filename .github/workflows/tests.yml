@@ -34,10 +34,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.14"
+      # pytest pinned to the version of the main checkout's .venv (21.11.2026), so GitHub runs the tests as the server does
       - name: Install the pinned packages
         run: |
           python -m venv .venv
-          .venv/bin/pip install --disable-pip-version-check -r core/requirements.txt pytest
+          .venv/bin/pip install --disable-pip-version-check -r core/requirements.txt pytest==9.1.1
       - name: Start the test database
         run: tests/test-db.sh up
       - name: Run the tests

@@ -3,9 +3,11 @@ import base64
 import hashlib
 import hmac
 import html
+import logging
 import secrets
 import struct
 import time
+from contextvars import ContextVar
 from datetime import datetime, timedelta, timezone
 
 from mcp.server.auth.provider import (AccessToken, AuthorizationCode, AuthorizationParams, AuthorizeError, RefreshToken,
@@ -14,7 +16,7 @@ from mcp.shared.auth import OAuthClientInformationFull, OAuthToken
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, RedirectResponse, Response
 
-from .config import ALLOWED_REDIRECTS, HUB_TOKEN
+from .config import ALLOWED_REDIRECTS, HUB_TOKEN, INTERNAL_HOST
 from .db import connect
 
 SCOPE = "log"
@@ -27,7 +29,13 @@ MAX_FAILURES = 5
 FAILURE_WINDOW_MIN = 15
 SCRYPT_N = 2 ** 15  # the cost of a new password hash; the tests lower it (conftest.py), a stored hash keeps its own
 HUB_CLIENT = "hub"
+# The connector's sign-in (core 36, 21.11.2026): a device that signed in once gets this cookie on the MCP host; its failed tries
+# are counted on their own (as the web app's DEVICE_COOKIE). Every other try goes into the connector's shared pool.
+CONNECTOR_DEVICE_COOKIE = "__Host-logger_connector_device"
+CONNECTOR_DEVICE_DAYS = 400
+CONNECTOR_POOL = "connector"
 HUB_TOKEN_MIN = 32
+_LOG = logging.getLogger("logger.auth")
 
 
 def _now() -> datetime:
@@ -79,16 +87,112 @@ def check_totp(secret: str, code: str, last_step: int, now: float | None = None)
     return found
 
 
+# Headers a proxy or the Cloudflare tunnel adds to what it passes on. cloudflared adds Cf-Ray, Cf-Connecting-Ip, Cf-Ipcountry,
+# Cf-Visitor, Cf-Warp-Tag-Id, Cdn-Loop, X-Forwarded-For and X-Forwarded-Proto; Caddy adds X-Forwarded-For, -Proto and -Host.
+PROXY_HEADERS = ("x-forwarded-for", "x-forwarded-host", "x-forwarded-proto", "x-real-ip", "forwarded", "via", "cdn-loop", "true-client-ip")
+
+
+def from_inside(host: str, header_names) -> bool:
+    """True when a request came from another container on the server (the hub calls http://logger-v2-core:8000), not through
+    the tunnel or Caddy. Both conditions are needed, because each one alone can be lost:
+    - the Host is the container's own name (INTERNAL_HOST, any port): the tunnel passes the public name (logger-mcp.) on as the
+      Host, but one setting in Cloudflare's dashboard (the route's "HTTP Host Header") would make it pass the container's name;
+    - none of the headers a proxy or the tunnel adds is there (Cf-*, X-Forwarded-*, ...): cloudflared always adds them, but a
+      future proxy in between, or a rule that removes headers, could leave a request from the internet without them.
+    header_names: the request's header names in lower case."""
+    if (host or "").strip().lower().partition(":")[0] != INTERNAL_HOST:
+        return False
+    return not any(h.startswith("cf-") or h in PROXY_HEADERS for h in header_names)
+
+
+# Whether the request being handled came from inside (from_inside), for hub_access: the SDK's token check gets the token only,
+# so InsideMiddleware (mcp_app.build_app) sets this for each request before the check runs. False outside a request.
+request_inside: ContextVar[bool] = ContextVar("request_inside", default=False)
+
+
+class InsideMiddleware:
+    """Pure ASGI: sets request_inside for each HTTP request from its Host and header names, and resets it afterwards."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            return await self.app(scope, receive, send)
+        names = [k.decode("latin-1").lower() for k, _ in scope.get("headers", [])]
+        host = next((v.decode("latin-1") for k, v in scope.get("headers", []) if k.lower() == b"host"), "")
+        mark = request_inside.set(from_inside(host, names))
+        try:
+            return await self.app(scope, receive, send)
+        finally:
+            request_inside.reset(mark)
+
+
 def hub_access(token: str):
     """The hub's service token (config.HUB_TOKEN, 13.11.2026): the connector's scope, but as the client "hub", which may call
     only the hub's tools (mcp_app._not_for_hub). No row in oauth_tokens and no end (the SDK takes expires_at None as "does not
     expire"; the resource is not checked, validate_token_resource is off in mcp_app.py). Compared on SHA-256 digests, in
-    constant time. None when it is not set, too short, or another token."""
+    constant time. Since 21.11.2026 only on a request from inside the server (from_inside): the hub's token sent through the
+    tunnel is refused as any wrong token is (401), with one warning line on the log, never the token.
+    None when it is not set, too short, another token, or not from inside."""
     if len(HUB_TOKEN) < HUB_TOKEN_MIN:
         return None
     if not hmac.compare_digest(hashlib.sha256(token.encode()).digest(), hashlib.sha256(HUB_TOKEN.encode()).digest()):
         return None
+    if not request_inside.get():
+        _LOG.warning("the hub's token was refused: the request did not come from inside the server")
+        return None
     return AccessToken(token=token, client_id=HUB_CLIENT, scopes=[SCOPE])
+
+
+# ---- the owner's sign-in checks, shared by the connector's sign-in (below) and the web app's (web.sign_in) ----------------
+
+def known_device(c, device_token) -> bool:
+    """True when the device cookie belongs to a device that signed in before (hashed in trusted_devices)."""
+    return bool(device_token) and bool(c.execute("SELECT 1 FROM trusted_devices WHERE device_hash = %s", (_h(device_token),)).fetchone())
+
+
+def check_owner(c, password: str, code: str, pool) -> tuple[int, str] | None:
+    """The failure limit, then password and authenticator code (each code once), counted in one pool of failed tries: a known
+    device's own (the hash of its cookie), or a shared one for every other try (the web app's: NULL; the connector's:
+    CONNECTOR_POOL), so a stranger's tries can lock out strangers but never the owner's own devices. A success clears this
+    pool only. -> None when the owner signed in, else (429 or 401, the message)."""
+    c.execute("DELETE FROM login_failures WHERE at < now() - interval '1 day'")
+    fails = c.execute("""SELECT count(*) AS n FROM login_failures WHERE device_hash IS NOT DISTINCT FROM %s
+                         AND at > now() - make_interval(mins => %s)""", (pool, FAILURE_WINDOW_MIN)).fetchone()["n"]
+    if fails >= MAX_FAILURES:
+        return 429, f"Too many failed attempts. Try again in {FAILURE_WINDOW_MIN} minutes."
+    owner = c.execute("SELECT * FROM owner_credentials WHERE id=1").fetchone()
+    ok_pw = check_password(password, owner["password_hash"] if owner else "x$0$0$0$00$00")
+    step = check_totp(owner["totp_secret"], code, owner["last_totp_step"]) if owner else None
+    if not (owner and ok_pw and step):
+        c.execute("INSERT INTO login_failures (device_hash) VALUES (%s)", (pool,))
+        return 401, "Wrong password or code."
+    c.execute("UPDATE owner_credentials SET last_totp_step=%s WHERE id=1", (step,))
+    c.execute("DELETE FROM login_failures WHERE device_hash IS NOT DISTINCT FROM %s", (pool,))
+    return None
+
+
+def trust_device(c, device_token, known: bool) -> str:
+    """After a sign-in: the device's cookie value (a new one for a device not known yet), kept hashed in trusted_devices."""
+    device_token = device_token if known else secrets.token_urlsafe(32)
+    c.execute("""INSERT INTO trusted_devices (device_hash) VALUES (%s)
+                 ON CONFLICT (device_hash) DO UPDATE SET last_seen = now()""", (_h(device_token),))
+    return device_token
+
+
+# A registered client that nobody signed in with: no sign-in ever (used_at), and no live token, code or sign-in request for it.
+UNUSED_CLIENT = """used_at IS NULL
+    AND NOT EXISTS (SELECT 1 FROM oauth_tokens t WHERE t.client_id = oauth_clients.client_id AND t.expires_at > now())
+    AND NOT EXISTS (SELECT 1 FROM oauth_codes k WHERE k.data->>'client_id' = oauth_clients.client_id AND k.expires_at > now())
+    AND NOT EXISTS (SELECT 1 FROM oauth_requests r WHERE r.client_id = oauth_clients.client_id AND r.expires_at > now())"""
+UNUSED_CLIENT_DAYS = 1
+
+
+def remove_unused_clients(c) -> int:
+    """The nightly clean-up (maintenance.py): clients never used and registered more than a day ago. -> how many."""
+    return c.execute(f"DELETE FROM oauth_clients WHERE {UNUSED_CLIENT} AND created_at < now() - make_interval(days => %s)",
+                     (UNUSED_CLIENT_DAYS,)).rowcount
 
 
 # ---- the OAuth provider --------------------------------------------------------------------------
@@ -108,12 +212,17 @@ class OwnerProvider:
                 raise RegistrationError("invalid_redirect_uri", "redirect URI not allowed")
         if not client_info.redirect_uris:
             raise RegistrationError("invalid_redirect_uri", "redirect URI required")
+        full = False
         with connect() as c:
             n = c.execute("SELECT count(*) AS n FROM oauth_clients").fetchone()["n"]
-            if n >= MAX_CLIENTS:
-                raise RegistrationError("invalid_client_metadata", "too many registered clients")
-            c.execute("INSERT INTO oauth_clients (client_id, info) VALUES (%s,%s)",
-                      (client_info.client_id, client_info.model_dump_json()))
+            if n >= MAX_CLIENTS:  # the oldest client never used makes room (junk registrations cannot block a new connector)
+                full = not c.execute(f"""DELETE FROM oauth_clients WHERE client_id = (SELECT client_id FROM oauth_clients WHERE {UNUSED_CLIENT}
+                                         ORDER BY created_at, client_id LIMIT 1)""").rowcount
+            if not full:
+                c.execute("INSERT INTO oauth_clients (client_id, info) VALUES (%s,%s)",
+                          (client_info.client_id, client_info.model_dump_json()))
+        if full:  # raised outside the `with`: the SDK's errors are frozen, and leaving the block with one became a 500
+            raise RegistrationError("invalid_client_metadata", "too many registered clients")
 
     async def authorize(self, client: OAuthClientInformationFull, params: AuthorizationParams) -> str:
         rid = secrets.token_urlsafe(24)
@@ -228,20 +337,18 @@ def add_login_routes(mcp, provider: OwnerProvider) -> None:
         req = _load_request(req_id)
         if not req:
             return HTMLResponse("This sign-in link has expired. Start again from the app.", status_code=400, headers=_HEADERS)
+        device = request.cookies.get(CONNECTOR_DEVICE_COOKIE)
         with connect() as c:
-            c.execute("DELETE FROM login_failures WHERE at < now() - interval '1 day'")
-            fails = c.execute("SELECT count(*) AS n FROM login_failures WHERE at > now() - make_interval(mins => %s)", (FAILURE_WINDOW_MIN,)).fetchone()["n"]
-            if fails >= MAX_FAILURES:
-                return _page(req_id, f"Too many failed attempts. Try again in {FAILURE_WINDOW_MIN} minutes.", 429)
-            owner = c.execute("SELECT * FROM owner_credentials WHERE id=1").fetchone()
-            ok_pw = check_password(password, owner["password_hash"] if owner else "x$0$0$0$00$00")
-            step = check_totp(owner["totp_secret"], code, owner["last_totp_step"]) if owner else None
-            if not (owner and ok_pw and step):
-                c.execute("INSERT INTO login_failures DEFAULT VALUES")
-                return _page(req_id, "Wrong password or code.", 401)
-            c.execute("UPDATE owner_credentials SET last_totp_step=%s WHERE id=1", (step,))
+            known = known_device(c, device)
+            refused = check_owner(c, password, code, _h(device) if known else CONNECTOR_POOL)
+            if refused:
+                return _page(req_id, refused[1], refused[0])
+            device = trust_device(c, device, known)
             c.execute("DELETE FROM oauth_requests WHERE id=%s", (req_id,))
-            c.execute("DELETE FROM login_failures")
+            c.execute("UPDATE oauth_clients SET used_at = coalesce(used_at, now()) WHERE client_id = %s", (req["client_id"],))
         auth_code = provider.create_code(req)
         redirect = construct_redirect_uri(req["params"]["redirect_uri"], code=auth_code, state=req["params"]["state"])
-        return RedirectResponse(redirect, status_code=302, headers={"Cache-Control": "no-store"})
+        resp = RedirectResponse(redirect, status_code=302, headers={"Cache-Control": "no-store"})
+        # Lax, not Strict: the sign-in page is opened from the AI app's site (a top-level link), and the cookie must come along
+        resp.set_cookie(CONNECTOR_DEVICE_COOKIE, device, max_age=CONNECTOR_DEVICE_DAYS * 86400, path="/", secure=True, httponly=True, samesite="lax")
+        return resp

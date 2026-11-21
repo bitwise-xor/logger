@@ -1,14 +1,18 @@
 #!/usr/bin/env bash
 # Deploy the new front end (logger-v2-front, front/). tools/deploy.sh builds and checks the core only; this one the front.
-# Usage: tools/deploy-front.sh <N for front-fixesN>      (N = the deploy number, as for the core)
-# Prints one line per check; "CHECK FAILED" marks a problem.
+# Usage: tools/deploy-front.sh <N>
+#   N  the deploy number, shared with tools/deploy.sh: a number whose rollback image exists already (logger-v2-front:front-fixes<N>
+#      or logger-v2-core:trial-fixes<N>) is refused, and the highest number in use is printed.
+#   ALLOW_UNPUSHED=1 in the environment: deploy a main that is not on GitHub (origin/main) yet, or when GitHub cannot be reached.
+# Prints one line per check; "CHECK FAILED" marks a problem. A container that is not healthy after the wait: the rollback
+# commands are printed and, after the remaining read-only checks, the script exits 1 (no clean-up).
 # Rollback of deploy N: docker tag logger-v2-front:front-fixes<N> logger-v2-front:pilot; docker compose up -d front
 # (the first front deploy has no earlier image: stop it with docker compose stop front).
 
 # The same guard as tools/deploy.sh: only a clean main in the main checkout ships, never two deploys at once (the same lock).
 MAIN=/opt/stacks/logger-v2
 refuse() { echo "DEPLOY REFUSED: $*"; exit 1; }
-[ $# -eq 1 ] && [[ "$1" =~ ^[0-9]+$ ]] || refuse "usage: tools/deploy-front.sh <N for front-fixesN>"
+[ $# -eq 1 ] && [[ "$1" =~ ^[0-9]+$ ]] || refuse "usage: tools/deploy-front.sh <N, the deploy number>"
 self=$(cd "$(dirname "${BASH_SOURCE[0]}")" && git rev-parse --show-toplevel 2>/dev/null)
 here=$(git rev-parse --show-toplevel 2>/dev/null)
 [ "$self" = "$MAIN" ] && [ "$here" = "$MAIN" ] \
@@ -26,10 +30,38 @@ commit=$(git rev-parse --short HEAD)
 echo "guard ok: main at $commit, clean, no other deploy running"
 
 N="$1"
+
+# core 38 (21.11.2026): only what is on GitHub ships, so the deployed commit can always be found again
+if [ "${ALLOW_UNPUSHED:-}" = 1 ]; then
+  echo "push check skipped: ALLOW_UNPUSHED=1 (main at $commit may not be on GitHub)"
+elif ! timeout 60 env GIT_TERMINAL_PROMPT=0 git fetch -q origin main </dev/null >/dev/null 2>&1; then
+  refuse "git fetch origin main failed (no network, or GitHub unreachable), so it is unknown whether main is pushed; ALLOW_UNPUSHED=1 deploys anyway"
+elif ! git merge-base --is-ancestor HEAD origin/main; then
+  refuse "main at $commit is not pushed (origin/main is at $(git rev-parse --short origin/main)); git push first, or ALLOW_UNPUSHED=1"
+else
+  echo "pushed: main at $commit is on origin/main"
+fi
+
+# a deploy number is used once (21.11.2026 it was used twice): core and front deploys share the numbers
+highest=$(docker images --format '{{.Repository}}:{{.Tag}}' | grep -E '^(logger-v2-core:trial-fixes|logger-v2-front:front-fixes)[0-9]+$' | grep -oE '[0-9]+$' | sort -n | tail -n 1)
+for used in "logger-v2-front:front-fixes${N}" "logger-v2-core:trial-fixes${N}"; do
+  ! docker image inspect "$used" >/dev/null 2>&1 || refuse "deploy number $N is in use already ($used exists); the highest number in use is ${highest:-none}"
+done
+echo "deploy number $N is new (the highest in use: ${highest:-none})"
+
 if docker image inspect logger-v2-front:pilot >/dev/null 2>&1; then
-  docker tag logger-v2-front:pilot "logger-v2-front:front-fixes${N}" && echo "rollback image: logger-v2-front:front-fixes${N}"
+  docker tag logger-v2-front:pilot "logger-v2-front:front-fixes${N}" || refuse "the rollback image logger-v2-front:front-fixes${N} could not be made; nothing was built"
+  echo "rollback image: logger-v2-front:front-fixes${N}"
+  rollback() {
+    echo "ROLLBACK of deploy $N (the front image before it):"
+    echo "  cd $MAIN && docker tag logger-v2-front:front-fixes${N} logger-v2-front:pilot && docker compose up -d front"
+  }
 else
   echo "no earlier front image (first deploy): rollback = docker compose stop front"
+  rollback() {
+    echo "ROLLBACK of deploy $N (the first front deploy: there is no image before it, so the front is stopped):"
+    echo "  cd $MAIN && docker compose stop front"
+  }
 fi
 chmod -R a+rX front
 docker build --no-cache --label "logger.commit=$commit" -t logger-v2-front:pilot front </dev/null > /tmp/deploy-front-build.log 2>&1 \
@@ -38,7 +70,8 @@ docker compose up -d front </dev/null 2>&1 | tail -n 3
 for i in $(seq 1 30); do
   s=$(docker inspect -f '{{.State.Health.Status}}' logger-v2-front 2>/dev/null); [ "$s" = healthy ] && break; sleep 3
 done
-echo "container health: $s"; [ "$s" = healthy ] || echo "CHECK FAILED: not healthy"
+unhealthy=0
+echo "container health: $s"; [ "$s" = healthy ] || { unhealthy=1; echo "CHECK FAILED: not healthy (the read-only checks follow, then exit 1)"; rollback; }
 
 echo "== the container's limits"
 docker inspect -f 'image commit {{index .Config.Labels "logger.commit"}}, read-only {{.HostConfig.ReadonlyRootfs}}, memory {{.HostConfig.Memory}}, memory+swap {{.HostConfig.MemorySwap}}, user {{.Config.User}}' logger-v2-front
@@ -75,6 +108,11 @@ echo "/sw.js signed out -> $w"; [[ "$w" =~ ^200\ (text|application)/javascript ]
 echo -n "app. still answers -> "; curl -sk -m 10 -o /dev/null -w "%{http_code} %{redirect_url}\n" --resolve app.19hospitalroad.fyi:443:127.0.0.1 https://app.19hospitalroad.fyi/web/ </dev/null
 
 echo "== errors in the log since start"; docker logs --since 2m logger-v2-front 2>&1 | grep -iE "error|exception" | head -n 10 || true; echo "(end of errors)"
+if [ "$unhealthy" = 1 ]; then
+  echo "DEPLOY FAILED: logger-v2-front is not healthy ($s); nothing was cleaned up"
+  rollback
+  exit 1
+fi
 echo "== clean-up"
 # the newest three by number, not "N-3" (17.11.2026: the numbers have gaps since the core has its own deploys, so old ones stayed)
 docker images --format '{{.Tag}}' logger-v2-front | grep -E '^front-fixes[0-9]+$' | sed 's/^front-fixes//' | sort -rn | tail -n +4 | while read -r n; do
