@@ -99,7 +99,11 @@ echo -n "/login sees the door on and the core answering (must be 0 messages) -> 
 echo -n "/ signed out -> "; curl -sk -m 10 -o /dev/null -w "%{http_code} %{redirect_url}\n" -H "Accept: text/html" "${L[@]}" https://logger.19hospitalroad.fyi/ </dev/null
 echo -n "sign-in from another origin (must be 403) -> "; curl -sk -m 10 -o /dev/null -w "%{http_code}\n" -X POST -H "Origin: https://example.com" -d "password=x&code=1" "${L[@]}" https://logger.19hospitalroad.fyi/login </dev/null
 echo -n "headers: "; curl -sk -m 10 -D - -o /dev/null "${L[@]}" https://logger.19hospitalroad.fyi/login </dev/null | grep -ciE "^(content-security-policy|x-frame-options|x-content-type-options|referrer-policy):" | sed 's/$/ of 4 security headers/'
-echo -n "the door is not reachable through logger. (must be 404 from the front) -> "; curl -sk -m 10 -o /dev/null -w "%{http_code}\n" "${L[@]}" https://logger.19hospitalroad.fyi/api/v1/session </dev/null
+# signed out, the front sends every page it does not serve to its sign-in first (since deploy 123), signed in it is a 404:
+# either way the core's door never answers through logger.
+d=$(curl -sk -m 10 -o /dev/null -w "%{http_code} %{redirect_url}" "${L[@]}" https://logger.19hospitalroad.fyi/api/v1/session </dev/null)
+echo "the door is not reachable through logger. (signed out: the sign-in, or 404) -> $d"
+[[ "$d" =~ ^(404\ |303\ https://logger\.19hospitalroad\.fyi/login(\?|$)) ]] || echo "CHECK FAILED: not the front's sign-in or 404"
 # the home-screen app and the nudges' service worker (deploy 112): served signed out, never the sign-in page
 m=$(curl -sk -m 10 -o /dev/null -w "%{http_code} %{content_type}" "${L[@]}" https://logger.19hospitalroad.fyi/manifest.webmanifest </dev/null)
 echo "/manifest.webmanifest signed out -> $m"; [[ "$m" =~ ^200\ application/manifest\+json ]] || echo "CHECK FAILED: not 200 with a manifest type"
