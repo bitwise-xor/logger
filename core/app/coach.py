@@ -15,7 +15,7 @@ from typing import Optional
 from psycopg.types.json import Jsonb
 
 from . import gym, habitaim, logbook
-from .ai.provider import AnthropicProvider, Provider
+from .ai.provider import AnthropicProvider, Provider, kind as error_kind
 from .db import connect
 from .when import BERLIN
 
@@ -298,7 +298,7 @@ def run(cid: int) -> None:
                         (Jsonb(body), usage.model, round(usage.usd, 5), cid))
             logbook._audit(cur, "coaching", "done", {"id": cid, "kind": row["kind"], "ai": logbook._ai([usage])}, logbook.WEB)
     except Exception as e:  # noqa: BLE001 - any failure is shown on the card as "did not work", never the data
-        kind = type(e).__name__
+        kind = error_kind(e)  # an AI error says which (APITimeoutError, ...), not just ProviderError
         try:
             with connect() as conn, conn.cursor() as cur:
                 cur.execute("UPDATE coachings SET status = 'failed', error = %s, finished_at = now() WHERE id = %s", (kind[:60], cid))

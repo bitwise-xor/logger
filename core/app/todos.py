@@ -15,7 +15,7 @@ from typing import Optional
 from psycopg.types.json import Jsonb
 
 from .ai.parser import BOOL, STR, _null, _obj
-from .ai.provider import Provider, Usage
+from .ai.provider import Provider, ProviderError, Usage
 from .todoist import Todoist, TodoistAPI, TodoistError
 from .v1_food import _sing
 
@@ -176,9 +176,10 @@ def apply(cur, provider: Provider, items: list[dict], raw_id: int, now: datetime
     for it in items:
         try:
             _one(cur, provider, it, f"r{raw_id}", raw_id, text, now, out)
-        except TodoistError as e:
+        except (TodoistError, ProviderError) as e:  # Todoist, or the AI that places a new item, did not answer (core item 32)
             _record(cur, f"r{raw_id}", raw_id, "waiting", it["item"], payload={**it, "text": text})
-            out["notes"].append(f"{e}: '{it['item']}' waits and is sent again with your next message")
+            why = e if isinstance(e, TodoistError) else "The AI service did not answer"
+            out["notes"].append(f"{why}: '{it['item']}' waits and is sent again with your next message")
     return out
 
 
@@ -212,6 +213,8 @@ def answer(cur, provider: Provider, p: dict, reply: str, now: datetime) -> dict:
                 out["receipt"].append(f"Already on your list: {_en(pick['content'])}")
     except TodoistError as e:
         return {"outcome": "rejected", "reason": f"{e}; answer again later"}
+    except ProviderError:  # the AI that places the new item did not answer: the question stays open
+        return {"outcome": "rejected", "reason": "The AI service did not answer; answer again later"}
     cur.execute("UPDATE pending SET resolved_at = now(), resolution = 'confirmed' WHERE id = %s", (p["id"],))
     return {"outcome": "saved", "raw_id": raw_id, "receipt": out["receipt"], "notes": out["notes"], "usages": out["usages"]}
 
@@ -224,8 +227,8 @@ def retry(cur, provider: Provider, now: datetime) -> dict:
     for a in cur.fetchall():
         try:
             _one(cur, provider, a["payload"], a["batch"], a["raw_id"], a["payload"].get("text", ""), now, out)
-        except TodoistError:
-            break  # still down: they keep waiting
+        except (TodoistError, ProviderError):
+            break  # Todoist or the AI still down: they keep waiting, and the message being saved is saved (core item 32)
         cur.execute("UPDATE todo_actions SET undone_at = now(), place = 'sent later' WHERE id = %s", (a["id"],))
     if out["receipt"]:
         out["receipt"] = ["Sent to Todoist now (from an earlier message):"] + out["receipt"]

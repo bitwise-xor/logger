@@ -15,7 +15,7 @@ from psycopg.types.json import Jsonb
 
 from . import commands, cycle, held, labs, lookup, privateline, record, tape, todos
 from .ai import parser
-from .ai.provider import LIVE, AnthropicProvider, Provider, ProviderError
+from .ai.provider import LIVE, AnthropicProvider, Provider, ProviderError, kind as error_kind
 from .db import connect
 from .v1_food import _food_cat, _types
 from .v1_log import Reject
@@ -249,7 +249,7 @@ def _read_held(hid: int, background: bool) -> dict[str, Any]:
             held.done(cur, hid)
         return resp
     except Exception as e:  # noqa: BLE001 - whatever failed, the words stay kept for the next try
-        kind = type(e).__name__
+        kind = error_kind(e)  # an AI error says which (APITimeoutError, OverloadedError, ...), not just ProviderError
         _LOG.warning("message %s not read yet: %s", hid, kind)  # the kind only, never the words
         try:
             with connect() as conn, conn.cursor() as cur:
@@ -257,8 +257,7 @@ def _read_held(hid: int, background: bool) -> dict[str, Any]:
                 _audit(cur, "log", "held", {"held_id": hid, "error": kind, "tries": row["tries"]}, channel)
         except Exception:  # noqa: BLE001 - the database is down too: the 10-minute lease frees the message by itself
             pass
-        reason = ("The AI service did not answer." if isinstance(e, ProviderError) or "anthropic" in type(e).__module__
-                  else "Something went wrong while saving it.")
+        reason = "The AI service did not answer." if isinstance(e, ProviderError) else "Something went wrong while saving it."
         return _public({"outcome": "held", "held_id": hid,
                         "reason": f"{reason} Your words are kept: the logger tries again by itself every 5 minutes for "
                                   f"{held.AUTO_HOURS} hours, and Today has a Try again button."})
@@ -398,6 +397,8 @@ def food_lookup(barcode: Optional[str] = None, name: Optional[str] = None, quest
                 cand, usages, why = None, [], "give a barcode or a name"
         except lookup.FoodFactsError as e:
             cand, usages, why = None, [], f"{e}; try again later or send a label photo"
+        except ProviderError:  # the AI that picks the entry did not answer: say so, like a food database that is down
+            cand, usages, why = None, [], "The AI service did not answer; try again later or send a label photo"
         if not cand:
             out = {"outcome": "rejected", "reason": why}
         elif cand.get("existing"):
