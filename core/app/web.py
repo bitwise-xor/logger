@@ -260,24 +260,11 @@ def sign_in(password: str, code: str, device_token, user_agent: str, front=None)
     -> {"ok": True, "token", "device_token", "expires_at"} or {"ok": False, "status": 429 or 401, "message"}."""
     with connect() as c:
         c.execute("DELETE FROM web_sessions WHERE expires_at < now()")
-        c.execute("DELETE FROM login_failures WHERE at < now() - interval '1 day'")
-        known = bool(device_token) and c.execute("SELECT 1 FROM trusted_devices WHERE device_hash = %s", (_h(device_token),)).fetchone()
-        pool = _h(device_token) if known else None
-        fails = c.execute("""SELECT count(*) AS n FROM login_failures WHERE device_hash IS NOT DISTINCT FROM %s
-                             AND at > now() - make_interval(mins => %s)""", (pool, auth.FAILURE_WINDOW_MIN)).fetchone()["n"]
-        if fails >= auth.MAX_FAILURES:
-            return {"ok": False, "status": 429, "message": f"Too many failed attempts. Try again in {auth.FAILURE_WINDOW_MIN} minutes."}
-        owner = c.execute("SELECT * FROM owner_credentials WHERE id=1").fetchone()
-        ok_pw = auth.check_password(password, owner["password_hash"] if owner else "x$0$0$0$00$00")
-        step = auth.check_totp(owner["totp_secret"], code, owner["last_totp_step"]) if owner else None
-        if not (owner and ok_pw and step):
-            c.execute("INSERT INTO login_failures (device_hash) VALUES (%s)", (pool,))
-            return {"ok": False, "status": 401, "message": "Wrong password or code."}
-        c.execute("UPDATE owner_credentials SET last_totp_step=%s WHERE id=1", (step,))
-        c.execute("DELETE FROM login_failures WHERE device_hash IS NOT DISTINCT FROM %s", (pool,))
-        device_token = device_token if known else secrets.token_urlsafe(32)
-        c.execute("""INSERT INTO trusted_devices (device_hash) VALUES (%s)
-                     ON CONFLICT (device_hash) DO UPDATE SET last_seen = now()""", (_h(device_token),))
+        known = auth.known_device(c, device_token)
+        refused = auth.check_owner(c, password, code, _h(device_token) if known else None)
+        if refused:
+            return {"ok": False, "status": refused[0], "message": refused[1]}
+        device_token = auth.trust_device(c, device_token, known)
         token, csrf = secrets.token_urlsafe(32), secrets.token_urlsafe(24)
         expires = datetime.now(timezone.utc) + timedelta(days=SESSION_DAYS)
         c.execute("INSERT INTO web_sessions (token_hash, csrf, expires_at, user_agent, device_hash, front) VALUES (%s,%s,%s,%s,%s,%s)",
