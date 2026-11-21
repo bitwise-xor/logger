@@ -95,6 +95,12 @@ def today():
     return owner_sql("SELECT log_day(now()) AS d")[0]["d"]
 
 
+def this_week() -> int:
+    """invented()'s sessions this week: today's sink, and the vacuum 2 days ago when that is still this week (weeks start on Monday:
+    on a Monday or a Tuesday it fell in the week before). The other done rows are 9 days ago or older, or a starting point."""
+    return 1 + (today().weekday() >= 2)
+
+
 def data(fn, *a):
     return fn(*a)
 
@@ -126,7 +132,7 @@ def test_the_now_read_is_app_s_tab_as_data(sv, fake):
     assert by["Zz sink"]["done_today"] and by["Zz sink"]["age_text"] == "today" and by["Zz sink"]["label"] == "Zz sink · Zz bath"
     assert by["Zz fridge"]["age"] == 40 and by["Zz fridge"]["age_text"] == "5 weeks ago" and by["Zz fridge"]["done_at"]
     assert by["Zz vacuum"]["minutes"] in (5, 10) and by["Zz vacuum"]["interval"] in (3, 7)
-    assert h["week"] == {"goal": 3, "this": 1, "weeks": h["week"]["weeks"]} and len(h["week"]["weeks"]) == 4
+    assert h["week"] == {"goal": 3, "this": this_week(), "weeks": h["week"]["weeks"]} and len(h["week"]["weeks"]) == 4
     # recent: no starting point; the last 5, newest first
     assert [e["chore"] for e in h["recent"]] == ["Zz sink", "Zz vacuum", "Zz stove", "Zz dust", "Zz stove"] and all(set(e) == DONE for e in h["recent"])
     sink, stove = h["recent"][0], h["recent"][2]
@@ -336,7 +342,7 @@ def test_todays_home_card_in_the_day(sv, fake):
     x = invented()
     card = get(sv, "/day")["day"]["home"]
     assert set(card) == {"this_week", "goal", "text", "waiting", "hidden"}
-    assert card["this_week"] == 1 and card["goal"] == 3 and card["text"] == "this week 1 of 3" and card["hidden"] == 0
+    assert card["this_week"] == this_week() and card["goal"] == 3 and card["text"] == f"this week {this_week()} of 3" and card["hidden"] == 0
     assert set(card["waiting"]) == ROW and card["waiting"]["name"] == "Zz towels" and card["waiting"]["age_text"] == "not logged yet"
     page = homepage.today_card()
     assert card["text"] in page and card["waiting"]["label"] in page
@@ -418,7 +424,7 @@ def test_the_timer_start_pause_resume_stop(sv, fake):
     j = sv.post("/home/stop", timer_id=t["id"])
     assert j["head"] == "Timer closed." and j["home_pick"]["timer"] is None and timers()[0]["closed"]
     assert sv.post("/home/stop", timer_id=t["id"])["reason"] == "That timer is already closed."
-    assert get(sv, "/home")["home"]["week"]["this"] == 1  # a timer that ran out is a session (today has a tick anyway)
+    assert get(sv, "/home")["home"]["week"]["this"] == this_week()  # a timer that ran out is a session (today has a tick anyway)
     assert sv.post("/home/start", pairs=[[x["stove"], x["kitchen"]]], minutes=0)["reason"] == "That job is not in the list any more."
     assert sv.post("/home/start", pairs=[[x["oven"], x["kitchen"]]], minutes=15)["reason"] == "That job is not in the list any more."
 
@@ -662,7 +668,7 @@ def test_app_s_pages_still_draw(fake, web):
     for path in ("/web/home", "/web/home/pick", "/web/home/zones", "/web/home/history", f'/web/home/chore?id={x["dust"]}', "/web/home/edit", "/web/"):
         r = web[0].get(path)
         assert r.status_code == 200 and ("Home" in r.text), path
-    assert "this week 1 of 3" in homepage.today_card()
+    assert f"this week {this_week()} of 3" in homepage.today_card()
 
 
 from test_web import web  # noqa: E402,F401 - the web app's signed-in client
