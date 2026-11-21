@@ -53,15 +53,29 @@ def claim(hid: int):
     return None if gone else "busy"
 
 
-def failed(cur, hid: int, error: str) -> None:
-    """The read or the save failed: free the message for the next try and note the kind of error (a class name only)."""
-    cur.execute("UPDATE private.incoming SET reading_since = NULL, last_error = %s WHERE id = %s", (error[:80], hid))
+def owner(cur, hid: int, tries: int) -> Optional[str]:
+    """At the start of the transaction that saves a claimed message (core item 34, 21.11.2026): does this reader still have it?
+    A read can outlast the lease (cron: several AI calls of up to 3 tries of 60 s), and then another reader may claim it
+    again. `tries` is what this reader's claim returned; each claim adds one. -> None: it is still this reader's, and the
+    row stays locked until this transaction ends, so a claim made meanwhile waits and then finds it saved (deleted) or
+    freed; "busy": another reader claimed it since; "gone": saved or deleted meanwhile. Either way: save nothing."""
+    cur.execute("SELECT tries FROM private.incoming WHERE id = %s AND deleted_at IS NULL FOR UPDATE", (hid,))
+    r = cur.fetchone()
+    return "gone" if r is None else None if r["tries"] == tries else "busy"
 
 
-def needs_you(cur, hid: int, why: str) -> None:
-    """Read by the cron job, but the logger refused it or would not log it: it waits for the owner (no more automatic tries)."""
-    cur.execute("UPDATE private.incoming SET reading_since = NULL, last_error = %s WHERE id = %s",
-                (f"{NEEDS_YOU}{why}"[:300], hid))
+def failed(cur, hid: int, error: str, tries: int) -> None:
+    """The read or the save failed: free the message for the next try and note the kind of error (a class name only).
+    Only while it is still this reader's (`tries` of its claim): one that lost it never frees the other reader's lease."""
+    cur.execute("UPDATE private.incoming SET reading_since = NULL, last_error = %s WHERE id = %s AND tries = %s",
+                (error[:80], hid, tries))
+
+
+def needs_you(cur, hid: int, why: str, tries: int) -> None:
+    """Read by the cron job, but the logger refused it or would not log it: it waits for the owner (no more automatic tries).
+    Only while it is still this reader's, like failed()."""
+    cur.execute("UPDATE private.incoming SET reading_since = NULL, last_error = %s WHERE id = %s AND tries = %s",
+                (f"{NEEDS_YOU}{why}"[:300], hid, tries))
 
 
 def done(cur, hid: int) -> None:

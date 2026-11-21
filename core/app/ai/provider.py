@@ -16,7 +16,18 @@ PRICES = {
 
 
 class ProviderError(Exception):
-    pass
+    """Any failed AI call: a refusal, a cut-off answer, or the API client's own error (a timeout, no connection, overloaded,
+    a 5xx; core item 32, 21.11.2026). `kind` names what went wrong (the client's error class, e.g. APITimeoutError), so the
+    kept message's last_error and the audit row still say which; callers catch this one class."""
+
+    def __init__(self, message: str, kind: str = "ProviderError"):
+        super().__init__(message)
+        self.kind = kind
+
+
+def kind(e: BaseException) -> str:
+    """The kind of an error for a log line, last_error or an audit row (never its words): a ProviderError's own kind."""
+    return e.kind if isinstance(e, ProviderError) else type(e).__name__
 
 
 # A live read of a kept message (core item 5, 02.11.2026): someone waits for the reply, and the words are safe in
@@ -67,17 +78,21 @@ class AnthropicProvider:
         self.effort = effort
 
     def json(self, system: str, user: str, schema: dict, model: str, max_tokens: int = 4000) -> tuple[dict, Usage]:
+        import anthropic
         t0 = time.monotonic()
         client = self.client.with_options(timeout=LIVE_TIMEOUT, max_retries=LIVE_RETRIES) if LIVE.get() else self.client
-        r = client.messages.create(
-            model=model,
-            max_tokens=max_tokens,
-            # The instructions stay cached for an hour (02.11.2026): messages mostly come more than 5 minutes apart, so the
-            # default 5-minute cache was used by about 1 read in 20; a cached read is about 0.7 s faster.
-            system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral", "ttl": "1h"}}],
-            messages=[{"role": "user", "content": user}],
-            output_config={"effort": self.effort, "format": {"type": "json_schema", "schema": schema}},
-        )
+        try:
+            r = client.messages.create(
+                model=model,
+                max_tokens=max_tokens,
+                # The instructions stay cached for an hour (02.11.2026): messages mostly come more than 5 minutes apart, so the
+                # default 5-minute cache was used by about 1 read in 20; a cached read is about 0.7 s faster.
+                system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral", "ttl": "1h"}}],
+                messages=[{"role": "user", "content": user}],
+                output_config={"effort": self.effort, "format": {"type": "json_schema", "schema": schema}},
+            )
+        except anthropic.APIError as e:  # timeout, connection, overloaded, 5xx, ...: one class for the callers (core item 32)
+            raise ProviderError(f"the AI service did not answer ({type(e).__name__})", kind=type(e).__name__) from e
         if r.stop_reason == "refusal":
             raise ProviderError("the model declined the request")
         if r.stop_reason == "max_tokens":
@@ -90,7 +105,10 @@ class AnthropicProvider:
                       getattr(u, "cache_read_input_tokens", 0) or 0,
                       getattr(u, "cache_creation_input_tokens", 0) or 0,
                       time.monotonic() - t0)
-        return json.loads(text), usage
+        try:
+            return json.loads(text), usage
+        except ValueError as e:
+            raise ProviderError("the answer was not JSON", kind=type(e).__name__) from e
 
     def image_json(self, system: str, user: str, images: list[tuple[str, bytes]], schema: dict, model: str,
                    max_tokens: int = 2000) -> tuple[dict, Usage]:

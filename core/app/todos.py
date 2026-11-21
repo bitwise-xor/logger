@@ -3,19 +3,24 @@ Shopping, per item: an open item with that name means "already on your list"; ot
 90 days is unchecked; otherwise the item goes on the list in English, in the best section with a store label (a small
 AI call places it). Several close names become a question; a generic word ("fruits") is not added. Tasks go to the
 fitting section of Lists, unclear ones to the Inbox. Every action is stored in todo_actions, so undo can take it back;
-when Todoist is down, the item waits and is sent again with the next message."""
+when Todoist is down, the item waits and is sent again with the next message.
+A task is made once (core item 33, 21.11.2026): each create has a key (`once`) that is the same on every retry of the same
+request, and the task Todoist made for it is kept in todo_sent, committed at once, so a retry of a save that failed after
+the add takes it from there instead of adding it again."""
+import hashlib
 import os
 import pathlib
 import re
 import secrets
 import time
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from psycopg.types.json import Jsonb
 
 from .ai.parser import BOOL, STR, _null, _obj
-from .ai.provider import Provider, Usage
+from .ai.provider import Provider, ProviderError, Usage
+from .db import connect
 from .todoist import Todoist, TodoistAPI, TodoistError
 from .v1_food import _sing
 
@@ -26,6 +31,8 @@ PLACE_PROMPT = (pathlib.Path(__file__).parent / "ai" / "prompts" / "todo_place.m
 PLACE_SCHEMA = _obj({"section": STR, "label": _null(STR), "generic": BOOL})
 CACHE_SECONDS = 600
 WAIT_DAYS = 3
+SENT_DAYS = 7  # todo_sent rows are kept this long (maintenance.py): a retry comes within hours, a waiting item within 3 days
+LOST_WINDOW = (timedelta(minutes=1), timedelta(minutes=5))  # a lost add's task was made this long before or after it was sent
 
 CLIENT: Optional[Todoist] = None  # created on first use; tests put a fake here
 _cache: dict = {}
@@ -124,7 +131,50 @@ def place(provider: Provider, it: dict, text: str) -> tuple[dict, Usage]:
     return provider.json(PLACE_PROMPT, user, PLACE_SCHEMA, PLACE_MODEL, max_tokens=300)
 
 
-def _create(cur, provider: Provider, it: dict, batch: str, raw_id, text: str, out: dict) -> None:
+def once_key(*parts) -> str:
+    """The key of one create, the same on every retry of the same request (the message's time and the item, a question's
+    id, a waiting row's id), hashed: it may hold the item's words, which are not kept a second time in clear."""
+    return hashlib.sha256("|".join(str(p) for p in parts).encode()).hexdigest()
+
+
+def _keep_sent(once: str, task: dict) -> None:
+    """On its own connection, committed at once: the row outlives the caller's transaction when that one rolls back."""
+    with connect() as c:
+        c.execute("""INSERT INTO todo_sent (once, task) VALUES (%s, %s)
+                     ON CONFLICT (once) DO UPDATE SET task = EXCLUDED.task, at = now()""", (once, Jsonb(task)))
+
+
+def _made(cur, once: str) -> Optional[dict]:
+    """The task already made for this create, or None. An add whose answer was lost (todoist.TodoistError.unsure) may
+    have made it: then the target project's open tasks are read (fresh, not cached) for one with exactly that content
+    made within LOST_WINDOW of the add; found, it is taken (and kept), so it is not added a second time."""
+    cur.execute("SELECT task FROM todo_sent WHERE once = %s", (once,))
+    r = cur.fetchone()
+    if not r:
+        return None
+    t = r["task"]
+    if not t.get("unsure"):
+        return t
+    sent = datetime.fromisoformat(t["sent_at"])
+    for x in client().open_tasks(t["project_id"]):
+        try:
+            added = datetime.fromisoformat(str(x.get("added_at")).replace("Z", "+00:00"))
+        except ValueError:
+            continue  # no time on it: never taken (an older task of the same name is the owner's own)
+        if x["content"] == t["content"] and sent - LOST_WINDOW[0] <= added <= sent + LOST_WINDOW[1]:
+            _keep_sent(once, x)
+            return x
+    return None
+
+
+def _created(cur, t: dict, batch: str, raw_id, out: dict) -> None:
+    """The receipt and the undo row of a task the logger made (now, or on an earlier try of the same request)."""
+    _record(cur, batch, raw_id, "created", t["content"], t, _where(t))
+    out["receipt"].append(f"Created: {t['content']} ({_where(t)})")
+
+
+def _create(cur, provider: Provider, it: dict, batch: str, raw_id, text: str, out: dict, once: str) -> None:
+    """once: once_key(...) of this request; the caller checked _made first."""
     p, u = place(provider, it, text)
     out["usages"].append(u)
     words = it["item"].split()
@@ -137,13 +187,23 @@ def _create(cur, provider: Provider, it: dict, batch: str, raw_id, text: str, ou
     by_name = {v: k for k, v in _sections(SHOPPING if shop else LISTS).items()}
     project = SHOPPING if shop else (INBOX if p["section"] == "Inbox" or p["section"] not in by_name else LISTS)
     section = by_name.get(p["section"]) if project != INBOX else None
-    t = client().add(name, project, section, [p["label"]] if p["label"] else [])
+    sent_at = datetime.now(timezone.utc)
+    try:
+        t = client().add(name, project, section, [p["label"]] if p["label"] else [])
+    except TodoistError as e:
+        if e.unsure:  # it may be there: the next try looks for it before adding (_made)
+            _keep_sent(once, {"unsure": True, "content": name, "project_id": project, "sent_at": sent_at.isoformat()})
+        raise
+    _keep_sent(once, t)
     forget()
-    _record(cur, batch, raw_id, "created", name, t, _where(t))
-    out["receipt"].append(f"Created: {name} ({_where(t)})")
+    _created(cur, t, batch, raw_id, out)
 
 
-def _one(cur, provider: Provider, it: dict, batch: str, raw_id, text: str, now: datetime, out: dict) -> None:
+def _one(cur, provider: Provider, it: dict, batch: str, raw_id, text: str, now: datetime, out: dict, once: str) -> None:
+    t = _made(cur, once)
+    if t:  # made on an earlier try of this same request, whose save then failed: not added again (core item 33)
+        _created(cur, t, batch, raw_id, out)
+        return
     name = it["item"].strip()
     if it["list"] == "shopping":  # only the exact name acts on its own; a close one is asked ("meat" is not "Meat seasoning")
         m, exact = _match(name, _open(SHOPPING))
@@ -167,18 +227,21 @@ def _one(cur, provider: Provider, it: dict, batch: str, raw_id, text: str, now: 
                 for i, c in enumerate(cands[:6], 1)) + "? Or 'new' to add it as a new item.")
             out["ask"].append(dict(kind="todo", text=text_q, item={**it, "text": text}, candidates=cands[:6]))
             return
-    _create(cur, provider, it, batch, raw_id, text, out)
+    _create(cur, provider, it, batch, raw_id, text, out, once)
 
 
 def apply(cur, provider: Provider, items: list[dict], raw_id: int, now: datetime, text: str) -> dict:
     """The to-dos of one message. -> receipt lines, notes, questions to ask (record._ask stores them), AI usages."""
     out = {"receipt": [], "notes": [], "ask": [], "usages": []}
     for it in items:
+        # A message read again later keeps its own time, so this key is the same on every try of the same message.
+        once = once_key(now.isoformat(), it["list"], it["item"].lower())
         try:
-            _one(cur, provider, it, f"r{raw_id}", raw_id, text, now, out)
-        except TodoistError as e:
-            _record(cur, f"r{raw_id}", raw_id, "waiting", it["item"], payload={**it, "text": text})
-            out["notes"].append(f"{e}: '{it['item']}' waits and is sent again with your next message")
+            _one(cur, provider, it, f"r{raw_id}", raw_id, text, now, out, once)
+        except (TodoistError, ProviderError) as e:  # Todoist, or the AI that places a new item, did not answer (core item 32)
+            _record(cur, f"r{raw_id}", raw_id, "waiting", it["item"], payload={**it, "text": text, "once": once})
+            why = e if isinstance(e, TodoistError) else "The AI service did not answer"
+            out["notes"].append(f"{why}: '{it['item']}' waits and is sent again with your next message")
     return out
 
 
@@ -192,7 +255,12 @@ def answer(cur, provider: Provider, p: dict, reply: str, now: datetime) -> dict:
         return {"outcome": "cancelled"}
     try:
         if r in ("new", "add it", "new item", "add new", "a new one"):
-            _create(cur, provider, it, f"r{raw_id}", raw_id, it.get("text", ""), out)
+            once = once_key("answer", p["id"])  # answered again after a failed save: the same question, the same task
+            t = _made(cur, once)
+            if t:
+                _created(cur, t, f"r{raw_id}", raw_id, out)
+            else:
+                _create(cur, provider, it, f"r{raw_id}", raw_id, it.get("text", ""), out, once)
         else:
             m = re.fullmatch(r"\s*(\d+)\s*\)?\s*", r)
             pick = cands[int(m[1]) - 1] if m and 0 < int(m[1]) <= len(cands) else None
@@ -212,6 +280,8 @@ def answer(cur, provider: Provider, p: dict, reply: str, now: datetime) -> dict:
                 out["receipt"].append(f"Already on your list: {_en(pick['content'])}")
     except TodoistError as e:
         return {"outcome": "rejected", "reason": f"{e}; answer again later"}
+    except ProviderError:  # the AI that places the new item did not answer: the question stays open
+        return {"outcome": "rejected", "reason": "The AI service did not answer; answer again later"}
     cur.execute("UPDATE pending SET resolved_at = now(), resolution = 'confirmed' WHERE id = %s", (p["id"],))
     return {"outcome": "saved", "raw_id": raw_id, "receipt": out["receipt"], "notes": out["notes"], "usages": out["usages"]}
 
@@ -223,9 +293,11 @@ def retry(cur, provider: Provider, now: datetime) -> dict:
                    ORDER BY id FOR UPDATE SKIP LOCKED""", (now,))
     for a in cur.fetchall():
         try:
-            _one(cur, provider, a["payload"], a["batch"], a["raw_id"], a["payload"].get("text", ""), now, out)
-        except TodoistError:
-            break  # still down: they keep waiting
+            # The key of the message's own try when it has one (its add may have been lost), else this waiting row's.
+            once = a["payload"].get("once") or once_key("waiting", a["id"])
+            _one(cur, provider, a["payload"], a["batch"], a["raw_id"], a["payload"].get("text", ""), now, out, once)
+        except (TodoistError, ProviderError):
+            break  # Todoist or the AI still down: they keep waiting, and the message being saved is saved (core item 32)
         cur.execute("UPDATE todo_actions SET undone_at = now(), place = 'sent later' WHERE id = %s", (a["id"],))
     if out["receipt"]:
         out["receipt"] = ["Sent to Todoist now (from an earlier message):"] + out["receipt"]
