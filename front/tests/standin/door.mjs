@@ -47,6 +47,7 @@
 // stopped), POST /standin/door-off answers 404 not_found to every door call (FRONT_TOKEN unset at the core), and POST
 // /standin/up (or /standin/reset) brings it back. Sessions survive both, as at the core. Web 65: POST /standin/lose-answer saves the
 // next keyed save and drops its connection before the answer (a save that went through on a weak network); the same key again replays.
+// Web 68: POST /standin/slow-reads?ms=n makes every GET read but the session's wait n ms (0 or /standin/reset: none).
 // Deploy 94: the Habits page's routes, from tests/samples/habits.json (real answers of the door for invented habits): GET /habits?show=
 // (today's ticks, 30 days per tracked habit, Your habits with the filter and its counts), POST /habit/day (a day under its times a
 // day gets a tick, a done day has its ticks taken off; a re-sent key is refused while the day still needs a tick, as the core), POST
@@ -3213,6 +3214,10 @@ createServer(async (req, res) => {
     state.aiDown = req.url.endsWith('down');
     return send(res, 200, { outcome: req.url.slice(9) });
   }
+  if (req.url.startsWith('/standin/slow-reads') && req.method === 'POST') {
+    state.slowReads = Math.min(Number(new URL(req.url, 'http://x').searchParams.get('ms')) || 0, 10_000); // Web 68: GET reads wait so long
+    return send(res, 200, { outcome: 'slow-reads', ms: state.slowReads });
+  }
   if (req.url === '/standin/lose-answer' && req.method === 'POST') {
     state.loseAnswer = true; // Web 65: the next keyed save is saved, then its connection is dropped (no answer reaches the page)
     return send(res, 200, { outcome: 'lose-answer' });
@@ -3222,6 +3227,9 @@ createServer(async (req, res) => {
     return send(res, 200, { outcome: mode });
   }
   if (mode === 'core-down') return req.socket.destroy(); // no answer at all, as from a stopped core
+  if (state.slowReads && req.method === 'GET' && req.url.startsWith('/api/v1/') && !req.url.startsWith('/api/v1/session')) {
+    await new Promise((r) => setTimeout(r, state.slowReads));
+  }
   if (mode === 'door-off') return send(res, 404, { error: 'not_found', message: 'Not found.' });
   if (req.url === '/standin/drop-sessions' && req.method === 'POST') {
     sessions.clear(); // as if the session ended elsewhere: the next call is signed out

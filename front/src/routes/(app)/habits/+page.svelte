@@ -41,7 +41,8 @@
     if (!cal) return;
     const r = cal.getBoundingClientRect();
     const by = Math.min(r.bottom + 8 - top, r.top - 8);
-    if (by > 0) window.scrollBy({ top: by, behavior: 'smooth' });
+    // Web 68: no smooth scroll when the device asks for less motion.
+    if (by > 0) window.scrollBy({ top: by, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
   });
 
   // Deploy 102: on the PC the bar floats at the bottom right over the page's end, where the left column's open calendar can end

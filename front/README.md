@@ -403,6 +403,11 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   day's Day tab (a meal's note to `#meal-N`, a food's note with `?open=`); empty: how to add one. The stand-in answers GET
   `/food/nutrients`, `/food/notes` and POST `/food/mealnote` from `tests/samples/food_space.json` (POST `/standin/notes-empty`), the Food
   day's meals with their notes; `SHOOT_ONLY=foodspace` runs these checks.
+- A sign that a page is loading (Web 68, 21.11.2026): a thin bar at the top of the `(app)` layout while a navigation takes longer
+  than 150 ms (SvelteKit's `navigating`; `.loading-bar` in `app.css`, standing still with reduced motion), and
+  `data-sveltekit-preload-data="tap"` on the body (`app.html`): a page's read starts when the finger goes down. One global
+  `prefers-reduced-motion` rule in `app.css` stops every animation and transition and smooth scrolling (the Habits page's own
+  smooth scroll asks too). The stand-in's POST `/standin/slow-reads?ms=n` slows its reads; `SHOOT_ONLY=loading` runs these checks.
 - Back on the screen (Web 67, 21.11.2026): the `(app)` layout reads the page again (`invalidateAll`) when it becomes visible after
   being hidden for a minute or more (`src/lib/comeback.ts`), unless a save is on its way (`savesInFlight` in `saver.ts`), a text
   field has the focus or holds words typed since it was drawn and not sent (outside the logging box's form, `data-survives-reload`: its words live in Today's state),

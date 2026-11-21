@@ -1082,6 +1082,45 @@ async function checkComeback(page, name, theme) {
   console.log(`comeback ${name} ${theme}: read again after a minute away, held while a row is open`);
 }
 
+/** Web 68: a slow page shows the loading bar until it comes; a read starts on the tap; reduced motion stops the animations. */
+async function checkLoading(page, name, theme) {
+  await page.goto(`${base}/`);
+  await page.locator('[data-kcal-left]').waitFor();
+  assert.equal(await page.locator('body').getAttribute('data-sveltekit-preload-data'), 'tap', 'a read starts when the finger goes down');
+  assert.equal(await page.locator('[data-loading]').count(), 0, 'no bar while nothing loads');
+  await standinPost('/standin/slow-reads?ms=1500');
+  try {
+    await page.locator('[data-place="library"]').click();
+    await page.locator('[data-loading]').waitFor();
+    await page.screenshot({ path: `${out}/loading-bar-${name}-${theme}.png` });
+    await page.waitForURL(/\/library$/);
+    await page.locator('[data-loading]').waitFor({ state: 'detached' });
+  } finally {
+    await standinPost('/standin/slow-reads?ms=0');
+  }
+  // a fast page: no bar at all (under 150 ms)
+  await page.locator('[data-place="today"]').click();
+  await page.locator('[data-kcal-left]').waitFor();
+  assert.equal(await page.locator('[data-loading]').count(), 0, 'a fast page: no bar');
+  // reduced motion: the "being read" dot and the loading stripe stand still, no smooth scroll
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const still = await page.evaluate(() => {
+    const bar = document.createElement('div');
+    bar.className = 'loading-bar';
+    document.body.append(bar);
+    const name = getComputedStyle(bar, '::before').animationName;
+    const dot = document.createElement('span');
+    dot.className = 'animate-pulse';
+    document.body.append(dot);
+    const dur = getComputedStyle(dot).animationDuration;
+    bar.remove();
+    dot.remove();
+    return { name, dur, scroll: getComputedStyle(document.documentElement).scrollBehavior };
+  });
+  assert.deepEqual(still, { name: 'none', dur: '1e-05s', scroll: 'auto' }, 'reduced motion: nothing moves');
+  await page.emulateMedia({ reducedMotion: null });
+}
+
 /** Step F: the core down, the door off, and the way back; the sign-in page in both; `next` after a sign-in. */
 async function checkProblems(page, name, theme) {
   const bar = page.locator('[data-bar]');
@@ -6757,6 +6796,10 @@ for (const theme of ['dark', 'light']) {
     if (only('compact')) {
       await checkCompact(page, name, theme);
       console.log(`the hub's frame, the compact view ${name} ${theme}: checks passed`);
+    }
+    if (only('loading')) {
+      await checkLoading(page, name, theme);
+      console.log(`loading bar, preload on tap, reduced motion ${name} ${theme}: checks passed`);
     }
     if (only('comeback')) {
       await checkComeback(page, name, theme);

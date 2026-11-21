@@ -1,12 +1,24 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
-  import { page } from '$app/state';
+  import { navigating, page } from '$app/state';
   import { Comeback, OPEN, SURVIVES, TEXT_FIELD } from '#lib/comeback.js';
   import { placeOf, SPACES } from '#lib/places.js';
   import { savesInFlight } from '#lib/saver.js';
   import type { LayoutProps } from './$types';
 
   let { children }: LayoutProps = $props();
+
+  // Web 68: a page that takes longer than about 150 ms to come shows a thin bar at the top (app.css, .loading-bar), so a tap on a
+  // slow phone network is seen to have done something. app.html starts the page's read when the finger goes down (preload "tap").
+  let slow = $state(false);
+  $effect(() => {
+    if (!navigating.to) {
+      slow = false;
+      return;
+    }
+    const timer = setTimeout(() => (slow = true), 150);
+    return () => clearTimeout(timer);
+  });
 
   // Web 67: back on the screen after a minute or more, the page reads its data again (invalidateAll), unless a save is on its way,
   // something was typed or something is open (src/lib/comeback.ts says why each would be lost).
@@ -63,6 +75,8 @@
   // a Space on the rail: the PC only
   const rail = 'hidden h-9 items-center rounded-lg px-2.5 text-sm font-medium no-underline desktop:flex';
 </script>
+
+{#if slow}<div class="loading-bar" role="progressbar" aria-label="Loading the page" data-loading></div>{/if}
 
 <div class="flex min-h-dvh flex-col desktop:flex-row">
   <!-- The PC: a rail on the left. Phones and tablets: the tab bar at the bottom. -->
