@@ -1,6 +1,6 @@
 // Saving in place in the browser, against a faked network: the key rule, newest answer wins, and the re-send after a sign-in.
 import { describe, expect, it, vi } from 'vitest';
-import { fingerprint, KEYED, LONG_WAIT_MS, mayResend, RESEND_ITEM, RESEND_MS, Saver, UNANSWERED_ITEM, WAIT_MS, waitMs, type ActionResult } from './saver.js';
+import { fingerprint, savesInFlight, KEYED, LONG_WAIT_MS, mayResend, RESEND_ITEM, RESEND_MS, Saver, UNANSWERED_ITEM, WAIT_MS, waitMs, type ActionResult } from './saver.js';
 
 interface Call {
   url: string;
@@ -61,6 +61,25 @@ describe('the saver', () => {
     void s.send('answer', { question_id: 'q1', reply: 'yes' });
     await tick();
     expect(n.calls.map((c) => c.fields.key)).toEqual([['key-1'], ['key-2'], undefined]);
+  });
+
+  it('counts the saves on their way (Web 67)', async () => {
+    const n = fakeNet();
+    const s = new Saver({ ...n, storage: null });
+    const before = savesInFlight(); // the tests above leave some taps unanswered on purpose
+    const a = s.send('water', {});
+    const b = s.send('water', {});
+    await tick();
+    expect(savesInFlight()).toBe(before + 2);
+    n.calls[0]!.answer(ok('Saved.'));
+    await a;
+    expect(savesInFlight()).toBe(before + 1);
+    n.calls[1]!.answer(ok('Saved.'));
+    await b;
+    expect(savesInFlight()).toBe(before);
+    const failing = new Saver({ fetch: () => Promise.reject(new Error('x')), deserialize: n.deserialize, storage: null });
+    await failing.send('water', {});
+    expect(savesInFlight()).toBe(before);
   });
 
   it('keeps only the newest answer when two saves overlap', async () => {

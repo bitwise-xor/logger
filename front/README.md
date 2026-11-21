@@ -403,6 +403,12 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   day's Day tab (a meal's note to `#meal-N`, a food's note with `?open=`); empty: how to add one. The stand-in answers GET
   `/food/nutrients`, `/food/notes` and POST `/food/mealnote` from `tests/samples/food_space.json` (POST `/standin/notes-empty`), the Food
   day's meals with their notes; `SHOOT_ONLY=foodspace` runs these checks.
+- Back on the screen (Web 67, 21.11.2026): the `(app)` layout reads the page again (`invalidateAll`) when it becomes visible after
+  being hidden for a minute or more (`src/lib/comeback.ts`), unless a save is on its way (`savesInFlight` in `saver.ts`), a text
+  field has the focus or holds words typed since it was drawn and not sent (outside the logging box's form, `data-survives-reload`: its words live in Today's state),
+  something is open (`aria-expanded="true"`: a food row's editor would close, Today's `load()` closes it) or a read-back waits in
+  the answer bar (`data-holds-reload`); then at the next return. Home > Pick keeps its own handler (on every return, for the timer).
+  `SHOOT_ONLY=comeback` plays an absence in the page (visibilityState and Date.now).
 - Error pages (Web 66, 21.11.2026): `src/routes/(app)/+error.svelte` inside the app's layout (the rail or the tab bar stay: the
   home-screen app has no back button) and `src/routes/+error.svelte` for an error outside it (the sign-in page, the layout's own
   check), both the card `components/ErrorCard.svelte`: plain words by status (`src/lib/errorpage.ts`: "Not found", "Something went

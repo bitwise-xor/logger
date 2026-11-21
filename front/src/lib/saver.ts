@@ -169,6 +169,10 @@ export interface Kept {
   page?: string;
 }
 
+/** Saves on their way in this tab, of every Saver (Web 67: the page is not read again meanwhile, src/lib/comeback.ts). */
+let inFlight = 0;
+export const savesInFlight = () => inFlight;
+
 export class Saver {
   #started = 0;
   #shown = 0;
@@ -199,6 +203,7 @@ export class Saver {
     const abort = new AbortController();
     const timer = setTimeout(() => abort.abort(), waitMs(action));
     let result: ActionResult;
+    inFlight++;
     try {
       const res = await this.#d.fetch(`${this.#d.page}?/${action}`, {
         method: 'POST',
@@ -217,6 +222,7 @@ export class Saver {
       return this.#take(seq, action, { kind: 'problem', message: noAnswerText(action, all) });
     } finally {
       clearTimeout(timer);
+      inFlight--;
     }
 
     // The server's door did not answer in time (Web 65): the same, with the server's words.

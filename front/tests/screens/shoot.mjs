@@ -1021,6 +1021,67 @@ async function checkErrors(page, name, theme) {
   assert.equal(await page.locator('[data-places]').count(), 1, 'a deeper unknown address: in the layout too');
 }
 
+/**
+ * Web 67: back on the screen after a minute or more, the page reads its data again; not after a shorter absence, and not while a
+ * food row is open (its editor would close) or words were typed. The absence is played in the page: visibilityState and Date.now.
+ */
+async function checkComeback(page, name, theme) {
+  const away = (ms) =>
+    page.evaluate((ms) => {
+      const set = (v) => {
+        Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => v });
+        document.dispatchEvent(new Event('visibilitychange'));
+      };
+      set('hidden');
+      window.__realNow ??= Date.now;
+      window.__away = (window.__away ?? 0) + ms;
+      const real = window.__realNow;
+      Date.now = () => real() + window.__away;
+      set('visible');
+    }, ms);
+  const waterShown = () => text(page.locator('[data-water]'));
+  /** A glass of water saved in another tab: this tab's read is now behind. -> the other tab's water line. */
+  const elsewhere = async () => {
+    const other = await page.context().newPage();
+    await other.goto(`${base}/`);
+    await other.locator('[data-kcal-left]').waitFor();
+    const before = await text(other.locator('[data-water]'));
+    await other.getByRole('button', { name: `+ ${day.water.glass_ml} ml` }).click();
+    await other.locator('[data-water]').filter({ hasNotText: before }).waitFor();
+    const after = await text(other.locator('[data-water]'));
+    await other.close();
+    return after;
+  };
+  await page.goto(`${base}/`);
+  await page.locator('[data-kcal-left]').waitFor();
+  const shown = await waterShown();
+  const fresh = await elsewhere();
+  await away(30_000);
+  await page.waitForTimeout(800);
+  assert.equal(await waterShown(), shown, 'away 30 s: not read again');
+  await away(61_000);
+  await page.locator('[data-water]').filter({ hasText: fresh }).waitFor();
+  // a food row open: its editor stays, the read waits for the next return
+  const later = await elsewhere();
+  await page.locator('[data-row-line]').first().click();
+  await page.locator('[data-row-line][aria-expanded="true"]').waitFor();
+  await away(120_000);
+  await page.waitForTimeout(800);
+  assert.equal(await page.locator('[data-row-line][aria-expanded="true"]').count(), 1, 'a row open: it stays open');
+  assert.equal(await waterShown(), fresh, 'a row open: not read again');
+  await page.locator('[data-row-line][aria-expanded="true"]').click();
+  await away(1000); // a short absence, but the long one is still owed
+  await page.locator('[data-water]').filter({ hasText: later }).waitFor();
+  // the logging box keeps its words through a read (it is not in the read): typed words there do not hold it
+  await page.fill('#log-text', 'a draft line');
+  const third = await elsewhere();
+  await away(61_000);
+  await page.locator('[data-water]').filter({ hasText: third }).waitFor();
+  assert.equal(await page.inputValue('#log-text'), 'a draft line', 'the logging box keeps its words');
+  await page.fill('#log-text', '');
+  console.log(`comeback ${name} ${theme}: read again after a minute away, held while a row is open`);
+}
+
 /** Step F: the core down, the door off, and the way back; the sign-in page in both; `next` after a sign-in. */
 async function checkProblems(page, name, theme) {
   const bar = page.locator('[data-bar]');
@@ -6547,8 +6608,8 @@ async function checkWidth(page, what) {
 }
 // Collected over the whole run and checked at the end, so one run lists them all.
 const smallTargets = new Set();
-// SHOOT_ONLY=habits runs only that page's checks (a shortcut while building; the full run has no filter).
-const only = (k) => !process.env.SHOOT_ONLY || process.env.SHOOT_ONLY === k;
+// SHOOT_ONLY=habits runs only that page's checks, SHOOT_ONLY=errors,earlier several (a shortcut while building; the full run has no filter).
+const only = (k) => !process.env.SHOOT_ONLY || process.env.SHOOT_ONLY.split(',').includes(k);
 
 const browser = await chromium.launch();
 const sizes = { phone: { width: 390, height: 844 }, tablet: { width: 800, height: 1100 }, pc: { width: 1280, height: 800 } };
@@ -6696,6 +6757,9 @@ for (const theme of ['dark', 'light']) {
     if (only('compact')) {
       await checkCompact(page, name, theme);
       console.log(`the hub's frame, the compact view ${name} ${theme}: checks passed`);
+    }
+    if (only('comeback')) {
+      await checkComeback(page, name, theme);
     }
     if (only('errors')) {
       await checkErrors(page, name, theme);

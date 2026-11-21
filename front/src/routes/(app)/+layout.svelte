@@ -1,9 +1,53 @@
 <script lang="ts">
+  import { invalidateAll } from '$app/navigation';
   import { page } from '$app/state';
+  import { Comeback, OPEN, SURVIVES, TEXT_FIELD } from '#lib/comeback.js';
   import { placeOf, SPACES } from '#lib/places.js';
+  import { savesInFlight } from '#lib/saver.js';
   import type { LayoutProps } from './$types';
 
   let { children }: LayoutProps = $props();
+
+  // Web 67: back on the screen after a minute or more, the page reads its data again (invalidateAll), unless a save is on its way,
+  // something was typed or something is open (src/lib/comeback.ts says why each would be lost).
+  $effect(() => {
+    const comeback = new Comeback();
+    const typed = new Set<Element>();
+    const keep = (e: Event) => {
+      if (e.target instanceof Element && e.target.matches(TEXT_FIELD) && !e.target.closest(SURVIVES)) typed.add(e.target);
+    };
+    const probe = {
+      inFlight: savesInFlight,
+      focused: () => {
+        const a = document.activeElement;
+        return !!a && a.matches(TEXT_FIELD) && !a.closest(SURVIVES);
+      },
+      // typed into, still on the page and not empty (a form emptied after its save no longer counts)
+      typed: () => {
+        for (const el of typed) if (!el.isConnected) typed.delete(el);
+        return [...typed].some((el) => !(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) || el.value !== '');
+      },
+      open: () => [...document.querySelectorAll(OPEN)].some((el) => !el.closest(`${SURVIVES}, [data-places]`)),
+    };
+    // a form sent: its words went with it (its answer brings the fresh read)
+    const sent = (e: Event) => {
+      if (e.target instanceof HTMLFormElement) for (const el of typed) if (e.target.contains(el)) typed.delete(el);
+    };
+    const seen = () => {
+      if (document.visibilityState === 'hidden') comeback.hidden();
+      else if (comeback.visible(probe)) void invalidateAll();
+    };
+    document.addEventListener('visibilitychange', seen);
+    document.addEventListener('input', keep, true);
+    document.addEventListener('change', keep, true);
+    document.addEventListener('submit', sent, true);
+    return () => {
+      document.removeEventListener('visibilitychange', seen);
+      document.removeEventListener('input', keep, true);
+      document.removeEventListener('change', keep, true);
+      document.removeEventListener('submit', sent, true);
+    };
+  });
 
   // The places (deploy 96, the Spaces menu): the PC's rail has Today, Trends, Library, then "Spaces" (Gym, Health, Habits, Home, Medical), then
   // More; the Space you are in is the highlighted one. Phones and tablets keep four tabs, Today, Trends, Library and More; More is

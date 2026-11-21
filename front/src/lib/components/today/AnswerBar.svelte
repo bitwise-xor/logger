@@ -22,6 +22,7 @@
           ? 'border border-amber bg-amber-bg text-text'
           : 'bg-text text-bg'}"
         data-bar={bar.tone}
+        data-holds-reload={bar.confirm ? '' : undefined}
       >
         <div class="flex min-h-11 items-center gap-2.5 desktop:min-h-10">
           <span class="min-w-0 flex-1 truncate font-medium {bar.tone === 'warning' ? 'text-amber' : ''}" data-bar-head>{bar.head}</span>

@@ -243,6 +243,7 @@
     bind:this={form}
     method="POST"
     action="?/log"
+    data-survives-reload
     class="pointer-events-auto m-0 flex flex-col gap-1 border-t border-line bg-bg px-3.5 pt-2 pb-1.5 desktop:order-1 desktop:border-0 desktop:bg-transparent desktop:p-0"
     onsubmit={submit}
   >
