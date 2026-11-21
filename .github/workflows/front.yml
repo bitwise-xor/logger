@@ -23,7 +23,7 @@ jobs:
       run:
         working-directory: front
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install the pinned packages
         run: corepack enable && COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm install --frozen-lockfile
       - name: Run the tests
