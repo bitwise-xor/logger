@@ -3,9 +3,11 @@ import base64
 import hashlib
 import hmac
 import html
+import logging
 import secrets
 import struct
 import time
+from contextvars import ContextVar
 from datetime import datetime, timedelta, timezone
 
 from mcp.server.auth.provider import (AccessToken, AuthorizationCode, AuthorizationParams, AuthorizeError, RefreshToken,
@@ -14,7 +16,7 @@ from mcp.shared.auth import OAuthClientInformationFull, OAuthToken
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, RedirectResponse, Response
 
-from .config import ALLOWED_REDIRECTS, HUB_TOKEN
+from .config import ALLOWED_REDIRECTS, HUB_TOKEN, INTERNAL_HOST
 from .db import connect
 
 SCOPE = "log"
@@ -28,6 +30,7 @@ FAILURE_WINDOW_MIN = 15
 SCRYPT_N = 2 ** 15  # the cost of a new password hash; the tests lower it (conftest.py), a stored hash keeps its own
 HUB_CLIENT = "hub"
 HUB_TOKEN_MIN = 32
+_LOG = logging.getLogger("logger.auth")
 
 
 def _now() -> datetime:
@@ -79,14 +82,60 @@ def check_totp(secret: str, code: str, last_step: int, now: float | None = None)
     return found
 
 
+# Headers a proxy or the Cloudflare tunnel adds to what it passes on. cloudflared adds Cf-Ray, Cf-Connecting-Ip, Cf-Ipcountry,
+# Cf-Visitor, Cf-Warp-Tag-Id, Cdn-Loop, X-Forwarded-For and X-Forwarded-Proto; Caddy adds X-Forwarded-For, -Proto and -Host.
+PROXY_HEADERS = ("x-forwarded-for", "x-forwarded-host", "x-forwarded-proto", "x-real-ip", "forwarded", "via", "cdn-loop", "true-client-ip")
+
+
+def from_inside(host: str, header_names) -> bool:
+    """True when a request came from another container on the server (the hub calls http://logger-v2-core:8000), not through
+    the tunnel or Caddy. Both conditions are needed, because each one alone can be lost:
+    - the Host is the container's own name (INTERNAL_HOST, any port): the tunnel passes the public name (logger-mcp.) on as the
+      Host, but one setting in Cloudflare's dashboard (the route's "HTTP Host Header") would make it pass the container's name;
+    - none of the headers a proxy or the tunnel adds is there (Cf-*, X-Forwarded-*, ...): cloudflared always adds them, but a
+      future proxy in between, or a rule that removes headers, could leave a request from the internet without them.
+    header_names: the request's header names in lower case."""
+    if (host or "").strip().lower().partition(":")[0] != INTERNAL_HOST:
+        return False
+    return not any(h.startswith("cf-") or h in PROXY_HEADERS for h in header_names)
+
+
+# Whether the request being handled came from inside (from_inside), for hub_access: the SDK's token check gets the token only,
+# so InsideMiddleware (mcp_app.build_app) sets this for each request before the check runs. False outside a request.
+request_inside: ContextVar[bool] = ContextVar("request_inside", default=False)
+
+
+class InsideMiddleware:
+    """Pure ASGI: sets request_inside for each HTTP request from its Host and header names, and resets it afterwards."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            return await self.app(scope, receive, send)
+        names = [k.decode("latin-1").lower() for k, _ in scope.get("headers", [])]
+        host = next((v.decode("latin-1") for k, v in scope.get("headers", []) if k.lower() == b"host"), "")
+        mark = request_inside.set(from_inside(host, names))
+        try:
+            return await self.app(scope, receive, send)
+        finally:
+            request_inside.reset(mark)
+
+
 def hub_access(token: str):
     """The hub's service token (config.HUB_TOKEN, 13.11.2026): the connector's scope, but as the client "hub", which may call
     only the hub's tools (mcp_app._not_for_hub). No row in oauth_tokens and no end (the SDK takes expires_at None as "does not
     expire"; the resource is not checked, validate_token_resource is off in mcp_app.py). Compared on SHA-256 digests, in
-    constant time. None when it is not set, too short, or another token."""
+    constant time. Since 21.11.2026 only on a request from inside the server (from_inside): the hub's token sent through the
+    tunnel is refused as any wrong token is (401), with one warning line on the log, never the token.
+    None when it is not set, too short, another token, or not from inside."""
     if len(HUB_TOKEN) < HUB_TOKEN_MIN:
         return None
     if not hmac.compare_digest(hashlib.sha256(token.encode()).digest(), hashlib.sha256(HUB_TOKEN.encode()).digest()):
+        return None
+    if not request_inside.get():
+        _LOG.warning("the hub's token was refused: the request did not come from inside the server")
         return None
     return AccessToken(token=token, client_id=HUB_CLIENT, scopes=[SCOPE])
 

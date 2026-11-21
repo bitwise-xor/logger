@@ -52,6 +52,27 @@ try:
 except Exception as e:  # the listing call differs between library versions
     print("tool listing skipped:", type(e).__name__, e)
 EOF
+# core 35 (21.11.2026): the hub's token is taken only from inside the server (auth.from_inside). Statuses only, never the token.
+docker exec -i logger-v2-core python - </dev/null <<'EOF'
+import os, urllib.error, urllib.request
+token, path = os.environ.get("HUB_TOKEN", "").strip(), os.environ.get("MCP_PATH", "/mcp")
+def status(extra):
+    req = urllib.request.Request("http://127.0.0.1:8000" + path, method="POST", data=b'{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}',
+                                 headers={"Host": "logger-v2-core:8000", "Authorization": "Bearer " + token, "Content-Type": "application/json",
+                                          "Accept": "application/json, text/event-stream", **extra})
+    try:
+        return urllib.request.urlopen(req, timeout=10).status
+    except urllib.error.HTTPError as e:
+        return e.code
+    except Exception as e:  # noqa: BLE001 - the kind only
+        return type(e).__name__
+if len(token) < 32:
+    print("hub token from inside: skipped (HUB_TOKEN not set)"); print("hub token with Cf-Ray: skipped (HUB_TOKEN not set)")
+else:
+    a, b = status({}), status({"Cf-Ray": "0000000000000000-FRA"})
+    print("hub token from inside (must not be 401) ->", a, "" if isinstance(a, int) and a != 401 else "CHECK FAILED")
+    print("hub token with Cf-Ray, as through the tunnel (must be 401) ->", b, "" if b == 401 else "CHECK FAILED")
+EOF
 echo "== pages render against the live data (read only)"
 docker exec -i -w /srv logger-v2-core python - </dev/null <<'EOF'
 import traceback

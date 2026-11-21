@@ -21,14 +21,15 @@ from test_webtoday import day, eat, no_targets, raw  # noqa: F401 - no_targets: 
 HDR = {"Accept": "application/json, text/event-stream", "Content-Type": "application/json", "Host": "log.example.test"}
 TOKEN = "hub-test-token-0123456789abcdef-0123456789"
 APP = "https://app.example.test/web"
+INSIDE = "logger-v2-core:8000"  # the Host of the hub's calls: it calls the container by its name (auth.from_inside)
 KEYS = {"day", "generated_at", "links", "food", "water", "habits", "habit_history", "health", "review", "questions", "chores"}
 # (name, label, group, times a day); the group "behaviour" makes the last one a habit to avoid (habitaim.py)
 HABITS = (("hub_stretch", "Hub stretching", "practice", 1), ("hub_walk", "Hub walk", "practice", 2), ("hub_soda", "Hub soda", "behaviour", 1))
 SECRETS = ("violet umbrella", "copper lantern", "marble staircase", "paper kite", "quiet harbour", "silver thimble")
 
 
-def rpc(c, method, params=None, token=TOKEN, host="log.example.test"):
-    headers = {**HDR, "Host": host, **({"Authorization": "Bearer " + token} if token is not None else {})}
+def rpc(c, method, params=None, token=TOKEN, host=INSIDE, extra=None):
+    headers = {**HDR, "Host": host, **({"Authorization": "Bearer " + token} if token is not None else {}), **(extra or {})}
     return c.post("/mcp-testpath", headers=headers, content=json.dumps({"jsonrpc": "2.0", "id": 1, "method": method, "params": params or {}}))
 
 
@@ -97,7 +98,11 @@ def test_the_hub_token_opens_the_connector_without_a_stored_token(monkeypatch):
         assert r.status_code == 200
         assert {"today_summary", "tick_habit", "untick_habit", "add_water", "set_checkin", "log"} <= {t["name"] for t in r.json()["result"]["tools"]}
     assert n("SELECT count(*) AS n FROM oauth_tokens") == 0
-    got = auth.hub_access(TOKEN)
+    mark = auth.request_inside.set(True)  # as InsideMiddleware sets it for a call from inside
+    try:
+        got = auth.hub_access(TOKEN)
+    finally:
+        auth.request_inside.reset(mark)
     assert (got.client_id, got.scopes, got.expires_at, got.resource) == ("hub", [auth.SCOPE], None, None)
 
 
@@ -126,6 +131,41 @@ def test_a_hub_token_shorter_than_32_characters_is_off(monkeypatch):
         assert rpc(c, "tools/list", token=short + "a").status_code == 200
 
 
+def test_the_hub_token_is_taken_only_from_inside_the_server(monkeypatch, bearer, caplog):
+    """Core 35 (21.11.2026): the hub calls http://logger-v2-core:8000 from its container; a call through the tunnel comes with
+    the public Host and Cloudflare's headers. The hub's token is refused on any call that is not from inside, quietly as a wrong
+    token is; the owner's own sign-in token works on all of them."""
+    monkeypatch.setattr(auth, "HUB_TOKEN", TOKEN)
+    owner = bearer["Authorization"][len("Bearer "):]
+    tried = {"public Host": ("log.example.test", {}), "Cf-Ray": (INSIDE, {"Cf-Ray": "8e1f2a3b4c5d6e7f-FRA"}),
+             "Cf-Connecting-Ip": (INSIDE, {"Cf-Connecting-Ip": "203.0.113.9"}), "X-Forwarded-For": (INSIDE, {"X-Forwarded-For": "203.0.113.9"}),
+             "public Host and the tunnel's headers": ("log.example.test", {"Cf-Ray": "8e1f-FRA", "X-Forwarded-For": "203.0.113.9"})}
+    with client() as c, caplog.at_level("WARNING", logger="logger.auth"):
+        assert rpc(c, "tools/list").status_code == 200
+        assert not caplog.records
+        for why, (host, extra) in tried.items():
+            r = rpc(c, "tools/list", host=host, extra=extra)
+            assert r.status_code == 401 and TOKEN not in r.text, why
+            assert rpc(c, "tools/list", token=owner, host=host, extra=extra).status_code == 200, why
+        assert rpc(c, "tools/call", {"name": "add_water", "arguments": {"ml": 250}}, extra={"X-Forwarded-For": "203.0.113.9"}).status_code == 401
+        assert rpc(c, "tools/list", token=owner).status_code == 200
+    assert n("SELECT count(*) AS n FROM measurements") == 0 and n("SELECT count(*) AS n FROM audit_log") == 0
+    said = [r.getMessage() for r in caplog.records]
+    assert len(said) == len(tried) + 1 and set(said) == {"the hub's token was refused: the request did not come from inside the server"}
+    assert all(TOKEN not in r.getMessage() for r in caplog.records)
+
+
+def test_from_inside_needs_the_container_name_and_no_proxy_header():
+    assert auth.from_inside("logger-v2-core:8000", ["host", "authorization", "accept", "content-type", "user-agent"])
+    assert auth.from_inside("logger-v2-core", ["host"])
+    for host in ("log.example.test", "logger-mcp.example.org", "127.0.0.1:8000", "localhost:8000", "logger-v2-core.example.org:8000", "", None):
+        assert not auth.from_inside(host, ["host"]), host
+    for added in ("cf-ray", "cf-connecting-ip", "cf-ipcountry", "cf-visitor", "cdn-loop", "x-forwarded-for", "x-forwarded-proto",
+                  "x-forwarded-host", "x-real-ip", "forwarded", "via"):
+        assert not auth.from_inside("logger-v2-core:8000", ["host", added]), added
+    assert auth.request_inside.get() is False  # outside a request: not from inside
+
+
 def test_the_sign_in_tokens_work_as_before_next_to_the_hub_token(monkeypatch, bearer):
     monkeypatch.setattr(auth, "HUB_TOKEN", TOKEN)
     with client() as c:
@@ -143,8 +183,9 @@ def test_the_compose_file_lets_the_hub_call_the_container_by_its_name(monkeypatc
     monkeypatch.setattr(auth, "HUB_TOKEN", TOKEN)
     with client() as c:
         assert rpc(c, "tools/list", host="logger-v2-core:8000").status_code == 200
-        assert rpc(c, "tools/list", host="logger-v2-core.example.org:8000").status_code == 421
-        assert rpc(c, "tools/list", host="other-container:8000").status_code == 421
+        # refused: by the token check (not from inside, 401) before the Host check (421) would
+        assert rpc(c, "tools/list", host="logger-v2-core.example.org:8000").status_code in (401, 421)
+        assert rpc(c, "tools/list", host="other-container:8000").status_code in (401, 421)
 
 
 # ---- the hub token may call the hub's tools only ----------------------------------------------------------
