@@ -117,6 +117,8 @@ def save(day: date, meal: int, text: str, today: date) -> dict:
             if keep["note"] == note and (at is None or keep["at"] == at) and not drop:
                 return {"outcome": "unchanged", "head": "Nothing changed."}
             cur.execute("UPDATE food_meal_notes SET note = %s, at = coalesce(%s, at), updated_at = now() WHERE id = %s", (note, at, keep["id"]))
+        elif at is None:  # a day without meals takes no new note: a note on the day is only ever one whose meals are gone
+            return _rejected("This day has no meal to put a note on.")
         else:
             cur.execute("INSERT INTO food_meal_notes (day, at, note) VALUES (%s, %s, %s)", (day, at, note))
     return {"outcome": "changed", "head": "Meal note saved." if meal else "Note saved."}

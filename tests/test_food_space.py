@@ -188,6 +188,8 @@ def test_a_note_moves_to_the_nearest_meal_when_its_entries_go_and_to_the_day_whe
     assert notes_of(yday) == ({}, "lunch note")
     assert mealnotes.save(yday, 0, "the day's note", day())["head"] == "Note saved."
     assert notes_of(yday) == ({}, "the day's note")
+    assert mealnotes.save(yday, 0, "", day())["head"] == "Note removed."
+    assert mealnotes.save(yday, 0, "a new one", day())["outcome"] == "rejected"  # a day without meals takes no new note
     eat(yday, "09:00", oats, 60)
     assert mealnotes.save(yday, 0, "x", day())["outcome"] == "rejected"
 
