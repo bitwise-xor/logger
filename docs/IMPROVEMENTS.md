@@ -15,7 +15,7 @@ running of it, plus the two idea lists and the open tasks and ideas about the Lo
 Size: S about an hour, M about half a day, L a day or more.
 
 **Rounds 1 to 3 below are done and live since 21.11.2026** (core deploys 121 and 122, front deploy 123), and of the features the Food
-space with web 64 (deploy 120). What is left: the features from web 50 on, and the tidying.
+space with web 64 (deploy 120). What is left: the features from web 50 on, and the tidying. Done since, on 22.11.2026: web 50 Insights with sleep, web 57 the Home timer's notification, web 45 last week's summary, core 24 the words review.
 
 **Round 1: nothing saved twice (about a day).** Each can put a wrong or double entry into the data.
 
