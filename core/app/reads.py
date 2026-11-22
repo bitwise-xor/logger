@@ -672,13 +672,14 @@ def habits(show: str = "tracked") -> dict:
         "shows": [{"key": k, "label": label, "count": n[k]} for k, label in habitspage.SHOWS],
         "list": [{"group": cat, "label": title,
                   "habits": [{"name": r["name"], "label": r["label"], "group": r["category"], "target": r["daily_target"], "order": r["sort_order"],
-                              "avoid": r["name"] in avoid, "state": habitspage.state(r), "ticks": r["ticks"], "days30": r["days30"],
+                              "remind_after": num(r["remind_after"]), "avoid": r["name"] in avoid, "state": habitspage.state(r), "ticks": r["ticks"], "days30": r["days30"],
                               "last_day": iso(r["last_day"]), "stats": habitspage.stats(r, d["today"]),
                               "can_track": bool(r["active"]), "can_delete": not r["ticks"]} for r in part]}
                  for cat, title, part in habitspage.sections(d, show)],
         "groups": [{"key": k, "label": v} for k, v in habitspage.GROUPS], "default_group": "practice",
         "limits": {"label_max": habitspage.LABEL_MAX, "target_min": habitspage.TARGET[0], "target_max": habitspage.TARGET[1],
-                   "order_max": habitspage.ORDER_MAX},
+                   "order_max": habitspage.ORDER_MAX,
+                   "remind_min": habitspage.REMIND[0], "remind_max": habitspage.REMIND[1], "remind_step": habitspage.REMIND_STEP},
     }
 
 

@@ -963,7 +963,8 @@ def _whole(name: str, v, lo: int, hi: int) -> int:
 def habits_manage(_request, body, session):
     """One of the list's forms (webhabits.ACTIONS): action, key, and by action
     track: name, on (true or false); retire, restore: name; delete: name, confirmed (true); edit: name, label, target (times a day),
-    order (optional), aim ("do" or "avoid", optional); new: label, group, target (1 when not given), track (true or false).
+    order (optional), aim ("do" or "avoid", optional), remind_after (hours after waking, 0.5 to 15.5 in half hours; null or "" = no
+    reminder; left out = as it is); new: label, group, target (1 when not given), track (true or false).
     Nothing is saved without a plain yes: a label over 40 letters or a target outside 1 to 10 is a bad request here (the page's
     own form stops them first)."""
     action = body.get("action")
@@ -992,6 +993,12 @@ def habits_manage(_request, body, session):
             if body["aim"] not in ("do", "avoid"):
                 raise Refused(400, "bad_request", 'aim must be "do" or "avoid".')
             f["aim"] = body["aim"]
+        if "remind_after" in body:  # left out: the habit keeps its reminder (app.'s form does not send it)
+            v = body["remind_after"]
+            lo, hi = habitspage.REMIND
+            if v is not None and v != "" and (not isinstance(v, (int, float)) or isinstance(v, bool) or webhabits.remind_problem(v)):
+                raise Refused(400, "bad_request", f"remind_after must be a number from {lo:g} to {hi:g} in steps of {habitspage.REMIND_STEP:g}, or null.")
+            f["remind_after"] = "" if v is None else str(v)
     if action == "new":
         if body.get("group") is not None:
             f["group"] = text(body, "group", 20)

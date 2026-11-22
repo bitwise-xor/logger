@@ -372,9 +372,9 @@ def test_the_habits_shapes(sv, fake):
     assert {d["state"] for c in h["calendar"] for d in c["days"]} == {"done", "partly", "logged", "none"}
     assert all(set(s) == {"key", "label", "count"} for s in h["shows"]) and [s["key"] for s in h["shows"]] == ["tracked", "untracked", "retired", "all"]
     assert all(set(g) == {"group", "label", "habits"} for g in h["list"])
-    assert all(set(x) == {"name", "label", "group", "target", "order", "avoid", "state", "ticks", "days30", "last_day", "stats", "can_track", "can_delete"}
+    assert all(set(x) == {"name", "label", "group", "target", "order", "remind_after", "avoid", "state", "ticks", "days30", "last_day", "stats", "can_track", "can_delete"}
                for g in h["list"] for x in g["habits"])
-    assert all(set(g) == {"key", "label"} for g in h["groups"]) and set(h["limits"]) == {"label_max", "target_min", "target_max", "order_max"}
+    assert all(set(g) == {"key", "label"} for g in h["groups"]) and set(h["limits"]) == {"label_max", "target_min", "target_max", "order_max", "remind_min", "remind_max", "remind_step"}
     j = sv.post("/habit/day", name="zz_walk", day=today().isoformat(), key="shape-1")
     assert set(j) == KEYS | {"habits"} and set(j["habits"]) == set(h)
     j = sv.post("/habits/manage", action="edit", name="zz_walk", label="Zz walk", target=1)

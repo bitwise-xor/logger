@@ -15,6 +15,8 @@ EDIT_DAYS = DAYS + 5  # a past day can be changed this far back (a five-week cal
 LABEL_MAX = 40
 TARGET = (1, 10)  # times a day
 ORDER_MAX = 999
+REMIND = (0.5, 15.5)  # a habit's own reminder time (log_types.remind_after, 22.11.2026): hours after waking, in half hours
+REMIND_STEP = 0.5
 LOCKED = {"wake"}  # a time, not a habit; migration 017 took it off the checklist, this stays as a guard for the past-day squares
 GROUPS = (("intake", "Intake"), ("practice", "Practice"), ("learning", "Learning"), ("daily", "Daily routine"), ("behaviour", "Behaviour"))
 SHOWS = (("tracked", "Tracked"), ("untracked", "Not tracked"), ("retired", "Retired"), ("all", "All"))
@@ -48,7 +50,7 @@ def load(cur) -> dict:
                    WHERE t.on_checklist AND e.day BETWEEN %s AND %s GROUP BY 1, 2""", (start, today))
     done = {(r["name"], r["day"]): r["n"] for r in cur.fetchall()}
     avoid = habitaim.avoid(cur)
-    cur.execute("""SELECT t.name, t.label, t.category, t.daily_target, t.on_checklist, t.active, t.sort_order,
+    cur.execute("""SELECT t.name, t.label, t.category, t.daily_target, t.on_checklist, t.active, t.sort_order, t.remind_after,
                           count(e.id)::int AS ticks, count(DISTINCT e.day) FILTER (WHERE e.day BETWEEN %s AND %s)::int AS days30,
                           max(e.day) AS last_day
                    FROM log_types t LEFT JOIN events e ON e.type_id = t.id

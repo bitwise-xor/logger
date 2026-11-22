@@ -85,7 +85,7 @@ def test_the_habits_read_is_app_s_page_as_data(sv, fake):
     assert h["edit_from"] == (t - timedelta(days=35)).isoformat()
     assert h["show"] == "tracked" and h["help"] == habitspage.HELP["tracked"]
     assert h["groups"] == [{"key": k, "label": v} for k, v in habitspage.GROUPS] and h["default_group"] == "practice"
-    assert h["limits"] == {"label_max": 40, "target_min": 1, "target_max": 10, "order_max": 999}
+    assert h["limits"] == {"label_max": 40, "target_min": 1, "target_max": 10, "order_max": 999, "remind_min": 0.5, "remind_max": 15.5, "remind_step": 0.5}
     # today's ticks: "n of N done", the habit to avoid is not counted; the ticked ones carry the tick an untick removes
     c = h["checklist"]
     names = [x["name"] for x in c["habits"]]
@@ -139,7 +139,7 @@ def test_your_habits_with_its_filters_counts_and_what_can_be_done(sv, fake):
         assert [g["group"] for g in got["list"]] == [k for k, _ in habitspage.GROUPS if k in {x["group"] for g in got["list"] for x in g["habits"]}]
     allh = listed(get(sv, "/habits?show=all")["habits"])
     walk, off, old, new, soda, twice = (allh[k] for k in ("zz_walk", "zz_off", "zz_old", "zz_new", "zz_soda", "zz_twice"))
-    assert set(walk) == {"name", "label", "group", "target", "order", "avoid", "state", "ticks", "days30", "last_day", "stats", "can_track", "can_delete"}
+    assert set(walk) == {"name", "label", "group", "target", "order", "remind_after", "avoid", "state", "ticks", "days30", "last_day", "stats", "can_track", "can_delete"}
     assert (walk["state"], off["state"], old["state"]) == ("tracked", "untracked", "retired")
     assert walk["group"] == "practice" and walk["target"] == 1 and walk["order"] == 801 and walk["avoid"] is False and twice["target"] == 2
     assert soda["avoid"] is True and soda["group"] == "behaviour"

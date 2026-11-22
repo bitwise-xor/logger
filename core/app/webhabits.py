@@ -6,14 +6,14 @@ import re
 
 from . import habitaim, logbook
 from .db import connect
-from .habitspage import GROUPS, LABEL_MAX, ORDER_MAX, TARGET
+from .habitspage import GROUPS, LABEL_MAX, ORDER_MAX, REMIND, REMIND_STEP, TARGET
 from .websettings import _int, _rejected
 
 CATEGORIES = {k for k, _v in GROUPS}
 
 
 def _habit(cur, name: str):
-    cur.execute("SELECT name, label, category, on_checklist, active, sort_order FROM log_types WHERE name = %s AND kind = 'event' AND category <> 'sleep'",
+    cur.execute("SELECT name, label, category, on_checklist, active, sort_order, remind_after FROM log_types WHERE name = %s AND kind = 'event' AND category <> 'sleep'",
                 (str(name)[:64],))
     return cur.fetchone()
 
@@ -61,6 +61,18 @@ def restore(form, key, session) -> dict:
     return {"outcome": "changed", "head": f"Brought back {t['label']}" + (" (tracked again)." if t["on_checklist"] else " (not tracked: switch Track on to start).")}
 
 
+def remind_problem(v) -> str:
+    """"" when v (text or a number; "" = no reminder) is a reminder time (REMIND hours after waking in steps of REMIND_STEP) or empty, else why not."""
+    raw = str(v if v is not None else "").strip().replace(",", ".")
+    try:
+        n = float(raw) if raw else None
+    except ValueError:
+        n = float("nan")
+    if n is None or (REMIND[0] <= n <= REMIND[1] and n % REMIND_STEP == 0):
+        return ""
+    return f"The reminder is {REMIND[0]:g} to {REMIND[1]:g} hours after waking, in steps of {REMIND_STEP:g}; leave it empty for none."
+
+
 def edit(form, key, session) -> dict:
     label = _label(form)
     if not label:
@@ -73,8 +85,13 @@ def edit(form, key, session) -> dict:
         if cur.fetchone():
             return _rejected(f"There is already a log type called {label}.")
         order = _int(form.get("sort_order"), 0, ORDER_MAX, t["sort_order"]) if str(form.get("sort_order", "")).strip() else t["sort_order"]
-        cur.execute("UPDATE log_types SET label = %s, daily_target = %s, sort_order = %s WHERE name = %s",
-                    (label, _int(form.get("daily_target"), *TARGET, 1), order, t["name"]))
+        remind = t["remind_after"]  # a form that does not send it (app.'s) leaves it as it is; an empty one clears it
+        if "remind_after" in form:
+            if why := remind_problem(form.get("remind_after")):
+                return _rejected(why)
+            remind = str(form.get("remind_after")).strip().replace(",", ".") or None
+        cur.execute("UPDATE log_types SET label = %s, daily_target = %s, sort_order = %s, remind_after = %s WHERE name = %s",
+                    (label, _int(form.get("daily_target"), *TARGET, 1), order, remind, t["name"]))
         if form.get("aim") in ("do", "avoid"):
             habitaim.set_aim(cur, t["name"], form.get("aim") == "avoid")
         logbook._audit(cur, "web_change", "changed", {"what": "habit settings"}, logbook.WEB)

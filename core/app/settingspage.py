@@ -229,7 +229,8 @@ NUDGE_ROWS = (("weight", "weight_after", 0.5, 12, "No weight yet,", "hours after
               ("checkin", "checkin_after", 2, 15.5, "Mood and energy not in yet,", "hours after waking"),
               ("bp_evening", "bp_evening_after", 2, 15.5, "No evening blood pressure yet,", "hours after waking"),
               ("gratitude", "gratitude_after", 2, 15.5, "Gratitude list: remind me when the day's lines are not full,", "hours after waking"),
-              ("week", "week_after", 0.5, 12, "Last week's summary, on the first day of the week,", "hours after waking"))
+              ("week", "week_after", 0.5, 12, "Last week's summary, on the first day of the week,", "hours after waking"),
+              ("question", "question_after", 1, 48, "A question still waiting for an answer after", "hours"))
 NUDGE_STEP = 0.5
 # The switches without an hours field, after those: (switch, its words, a note under it)
 NUDGE_SWITCH_ROWS = (("home_timer", "When the Home timer ends", "At the moment it ends, at any hour; each timer once."),)
@@ -282,7 +283,7 @@ def _notify(session, csrf: str) -> str:
             f'<div class="card"><h2>Nudges</h2>{form}'
             '<p class="small hint">Times count from the time you woke up (the Woke up value). Quiet hours: nothing before you log waking up, '
             f'nothing after a bed time is logged, nothing later than {nudges.AWAKE_HOURS} hours after waking. Each nudge comes at most once a day, '
-            'last week\'s summary once a week (on the first day of the week you log waking up); the check runs every 5 minutes. The Home timer\'s comes at the moment it ends, at any hour, once for each timer.</p></div></div>')
+            'last week\'s summary once a week (on the first day of the week you log waking up); a waiting question counts its hours from when it was asked; the check runs every 5 minutes. The Home timer\'s comes at the moment it ends, at any hour, once for each timer.</p></div></div>')
 
 
 def render(session, q) -> str:

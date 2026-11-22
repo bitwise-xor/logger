@@ -224,6 +224,7 @@ def nudge_settings(form, key: Optional[str], session) -> dict:
               "gratitude": form.get("gratitude") == "1",
               "gratitude_after": _hours(form.get("gratitude_after"), 2, 15.5, d["gratitude_after"]),
               "week": form.get("week") == "1", "week_after": _hours(form.get("week_after"), 0.5, 12, d["week_after"]),
+              "question": form.get("question") == "1", "question_after": _hours(form.get("question_after"), 1, 48, d["question_after"]),
               "home_timer": form.get("home_timer") == "1"}
     nudges.save(values)
     with connect() as conn, conn.cursor() as cur:

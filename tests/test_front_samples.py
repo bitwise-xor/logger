@@ -437,6 +437,7 @@ def habits_month() -> None:
         owner_sql("""INSERT INTO log_types (name, label, kind, category, aliases, on_checklist, daily_target, active, sort_order)
                      VALUES (%s, %s, 'event', %s, %s, %s, %s, %s, %s)""", name, label, group, [label.lower()], track, target, active, order)
     owner_sql("INSERT INTO ui_settings (key, value) VALUES ('habit_aim', %s)", Jsonb({"avoid": ["sample_soft_drink"]}))
+    owner_sql("UPDATE log_types SET remind_after = 3 WHERE name = 'sample_stretching'")  # a habit with its own reminder time (item 49)
     for i in range(30):
         if i % 4 != 3:
             event("sample_stretching", "07:30", back=i)
@@ -470,7 +471,7 @@ def test_the_habits_sample_has_the_doors_shape(four_pm, fake):
              "day_off": post("/habit/day", name="sample_stretching", day=gap.isoformat(), key="sample-habitday-key-0002"),
              "day_refused": post("/habit/day", name="sample_stretching", day=(t - timedelta(days=36)).isoformat(), key="sample-habitday-key-0003"),
              "track": post("/habits/manage", action="track", name="sample_cold_shower", on=True, show="all"),
-             "edit": post("/habits/manage", action="edit", name="sample_reading", label="Reading", target=3, order=802, aim="do", show="all"),
+             "edit": post("/habits/manage", action="edit", name="sample_reading", label="Reading", target=3, order=802, aim="do", remind_after=9.5, show="all"),
              "new": post("/habits/manage", action="new", label="Evening walk", group="practice", target=1, track=True, show="all"),
              "retire": post("/habits/manage", action="retire", name="sample_cold_shower", show="all"),
              "restore": post("/habits/manage", action="restore", name="sample_cold_shower", show="all"),

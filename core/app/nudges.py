@@ -3,13 +3,14 @@
 waking, after a bed time logged that evening, or more than 16 hours after waking (quiet hours). Each nudge goes at most
 once a logging day (push_sent); last week's summary (weekdigest, 22.11.2026) once a week, on the first logging day of the week the
 owner is up. The owner turns them on and picks them in Settings > Notifications (ui_settings "nudges").
-The Home timer's "Time is up" (switch home_timer, 22.11.2026) is sent by hometimer.py, a thread of the core, at the timer's end."""
+A question that has waited a day (switch question, 22.11.2026) counts from when it was asked; a habit with its own reminder time
+(log_types.remind_after) is reminded that many hours after waking while it is open. The Home timer's "Time is up" (switch home_timer, 22.11.2026) is sent by hometimer.py, a thread of the core, at the timer's end."""
 import json
 from datetime import datetime, timedelta, timezone
 
 from psycopg.types.json import Jsonb
 
-from . import config, gratitude, habitaim, logbook, webpush, weekdigest
+from . import config, gratitude, habitaim, logbook, webpush, webquestions, weekdigest
 from .db import connect
 from .when import BERLIN
 
@@ -19,6 +20,7 @@ DEFAULTS = {"on": True, "weight": True, "weight_after": 2.0, "habits": True, "ha
             "checkin": True, "checkin_after": 12.0, "bp_evening": False, "bp_evening_after": 13.0,
             "gratitude": False, "gratitude_after": 14.0,  # gratitude since 14.11.2026 (off until chosen)
             "week": True, "week_after": 1.0,  # last week's summary (weekdigest, 22.11.2026): once a week
+            "question": True, "question_after": 24.0,  # a question that has waited (22.11.2026): hours since it was asked, not since waking
             "home_timer": True}  # hometimer.py (22.11.2026): no hours, no quiet hours, each timer once
 AWAKE_HOURS = 16
 CHANNELS = ["web", "claude-chat", "mcp"]  # what counts as logging something (imports do not)
@@ -94,6 +96,25 @@ def due(cur, now: datetime) -> list[dict]:
         if not cur.fetchone():
             m = weekdigest.message(cur, day)  # None: last week has no day with food; marked as done all the same, nothing sent
             out.append({"kind": kind, **m} if m else {"kind": kind, "quiet": True})
+    if s["question"]:
+        # hours from when the question was asked, not from waking (quiet hours still apply: this is only reached while the owner is up).
+        # The questions are the ones Today shows (webquestions.load, as reads.day); only how many go into the message, never a word of one.
+        old = timedelta(hours=float(s["question_after"]))
+        n = sum(1 for q in webquestions.load() if now - q["created_at"] >= old)
+        if n:
+            out.append({"kind": "question", "title": "A question is waiting",
+                        "body": "1 question waits for your answer on Today." if n == 1 else f"{n} questions wait for your answer on Today."})
+    # a reminder time of one habit (log_types.remind_after, 22.11.2026): from that many hours after waking while the habit is not done today,
+    # its own kind per habit, independent of the general "habits" switch; a habit to avoid is never "still open"
+    cur.execute("""SELECT t.name, t.label, t.remind_after, c.done, c.target FROM log_types t JOIN checklist_status(%s) c ON c.type_name = t.name
+                   WHERE t.remind_after IS NOT NULL AND NOT c.complete ORDER BY t.sort_order, t.name""", (day,))
+    own = cur.fetchall()
+    if own:
+        avoid = habitaim.avoid(cur)
+        for r in own:
+            if r["name"] not in avoid and now >= wake + timedelta(hours=float(r["remind_after"])):
+                body = f"{r['done']} of {r['target']} done today." if r["target"] > 1 else "Still open today."
+                out.append({"kind": f"habit-{r['name']}", "title": r["label"], "body": body})
     if s["idle"]:
         cur.execute("SELECT max(received_at) AS t FROM raw_inbox WHERE channel = ANY(%s)", (CHANNELS,))
         last = cur.fetchone()["t"]

@@ -235,7 +235,7 @@ def test_the_door_lists_the_week_row_with_its_hours(sv):  # noqa: F811
     w = next(x for x in s["nudges"] if x["key"] == "week")
     assert (w["label"], w["after"], w["on"], w["note"]) == ("Last week's summary, on the first day of the week,", "hours after waking", True, None)
     assert w["hours"] == {"key": "week_after", "value": 1, "min": 0.5, "max": 12, "step": 0.5, "default": 1}
-    assert [x["key"] for x in s["nudges"]][-2:] == ["week", "home_timer"]
+    assert [x["key"] for x in s["nudges"]][-3:] == ["week", "question", "home_timer"]
 
 
 def test_the_door_saves_the_switch_and_clamps_the_hours_to_their_range(sv):  # noqa: F811
