@@ -149,3 +149,11 @@ def test_a_closed_food_question_is_refused_in_record_answers_words(monkeypatch):
     monkeypatch.undo()  # the real record.answer
     ask("log", {**FOOD, "now": NOW}, "expired")
     assert logbook.answer("pa", "N1")["reason"] == "that question does not exist, was already answered, or has expired"
+
+
+def test_every_tool_answer_takes_has_a_handler_and_every_handler_a_tool_it_takes():
+    assert {f.tool for f in logbook.FREE_ANSWERS} | set(logbook.YES_HANDLERS) == set(logbook.ANSWER_TOOLS)
+    # a tool with no yes handler is always taken by a free answer: even an empty question with an unclear reply
+    bare = logbook.Answer({"id": "p", "payload": {}}, "p", "hm", False, logbook.CHANNEL, None, None)
+    taken = {f.tool for f in logbook.FREE_ANSWERS if f.matches(bare)}
+    assert set(logbook.ANSWER_TOOLS) - set(logbook.YES_HANDLERS) <= taken
