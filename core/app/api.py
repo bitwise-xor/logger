@@ -1909,6 +1909,35 @@ def settings_targets_save(_request, body, session):
     return _setting(session, body, websettings.targets, form, "settings_targets")
 
 
+@route("/settings/body_measure", "POST")
+def settings_body_measure(_request, body, session):
+    """Add, change, move or remove a body measure (websettings.MEASURE_ACTIONS, web item 58): action, and by action
+    add: label, landmark (optional), min, max (cm), words (a list, optional); edit: key and the same fields; move: key, dir ("up" or
+    "down"); remove: key (refused when it has values). No key, no Undo (as the other Settings saves); answers with Settings > Body."""
+    action = body.get("action")
+    if action not in websettings.MEASURE_ACTIONS:
+        raise Refused(400, "bad_request", "action must be add, edit, move or remove.")
+    form = {}
+    if action != "add":
+        form["key"] = text(body, "key", 64, required=True)
+    if action in ("add", "edit"):
+        for name, most in (("label", 200), ("landmark", 1000)):
+            v = body.get(name)
+            if v is not None and not isinstance(v, str):
+                raise Refused(400, "bad_request", f"{name} must be text.")
+            form[name] = (v or "")[:most]
+        form.update({k: _number(k, body.get(k)) for k in ("min", "max")})
+        words = body.get("words")
+        if words is not None and (not isinstance(words, list) or not all(isinstance(w, str) for w in words) or len(words) > 50):
+            raise Refused(400, "bad_request", "words must be a list of words.")
+        form["words"] = [w[:200] for w in words or []]
+    if action == "move":
+        if body.get("dir") not in ("up", "down"):
+            raise Refused(400, "bad_request", 'dir must be "up" or "down".')
+        form["dir"] = body["dir"]
+    return _setting(session, body, websettings.MEASURE_ACTIONS[action], form, "settings_body")
+
+
 @route("/settings/height", "POST")
 def settings_height_save(_request, body, session):
     """The height from a day: valid_from (yyyy-mm-dd), height (cm)."""

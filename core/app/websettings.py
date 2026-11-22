@@ -133,6 +133,185 @@ def body_settings(form, key: Optional[str], session) -> dict:
     return {"outcome": "changed", "head": f"Body measurements: due every {n} days" + (f", {len(hidden)} hidden." if hidden else ".")}
 
 
+# ---- the body measures (web item 58, 22.11.2026) ----------------------------------------------------------
+# Settings > Body at logger. adds, changes, moves and removes measures (rows of log_types marked body_measure, migration 038); app.
+# has no form for them. A measure's key (log_types.name) is made from its label once and never changes, so its values stay. Its
+# label, key and words must not be a name, label or word of any other log type (active or not): the typed-line reader resolves words
+# across all types, so a shared word would make a line ambiguous. A label the reader would not find by the key (an umlaut, a sign)
+# is kept among the words (aliases) too, unseen: body.measures leaves it out of the words.
+
+RESERVED = {"day", "r", "key", "csrf", "back", "confirmed", "confirm_del"}  # the Measure form's own fields (webactions.body_save)
+_WORD = re.compile(r"[a-zäöüß]+(?:[ -][a-zäöüß]+)*")
+
+
+def _plainkey(s: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "_", s.lower().replace("ä", "ae").replace("ö", "oe").replace("ü", "ue").replace("ß", "ss")).strip("_")
+
+
+def measure_key(label: str, taken) -> str:
+    """The key of a new measure: the label in lower case, letters and digits, "_" between words, at most 30 characters; "_2", "_3",
+    ... added while the key is taken. "" when the label has no letter or digit."""
+    base = _plainkey(label)[:body.KEY_MAX].strip("_")
+    name, n = base, 2
+    while base and name in taken:
+        end = f"_{n}"
+        name, n = base[:body.KEY_MAX - len(end)].rstrip("_") + end, n + 1
+    return name
+
+
+def _measure_form(form) -> dict | str:
+    """The checked fields of a measure's form ({label, landmark, min, max, words}), or the refusal in plain words."""
+    label = " ".join(str(form.get("label") or "").split())
+    lo, hi = body.LABEL_LEN
+    if not lo <= len(label) <= hi:
+        return f"Name: give {lo} to {hi} characters."
+    if not _plainkey(label):
+        return "Name: use letters or digits."
+    landmark = " ".join(str(form.get("landmark") or "").split())
+    if len(landmark) > body.LANDMARK_MAX:
+        return f"Landmark: at most {body.LANDMARK_MAX} characters."
+    rlo, rhi = body.RANGE_CM
+    vals = {}
+    for k, what in (("min", "Lowest"), ("max", "Highest")):
+        ok, v = _number(form.get(k))
+        if not ok or v is None or not rlo <= v <= rhi:
+            return f"{what}: give a number from {rlo} to {rhi} cm."
+        vals[k] = round(v, 1)
+    if vals["min"] >= vals["max"]:
+        return "The lowest value must be below the highest."
+    words: list[str] = []
+    for part in form.getlist("words"):
+        for w in part.split(","):
+            w = " ".join(w.split()).lower()
+            if w and w not in words:
+                words.append(w)
+    if len(words) > body.WORDS_MAX:
+        return f"Words: at most {body.WORDS_MAX}."
+    for w in words:
+        if len(w) > body.WORD_LEN:
+            return f"The word “{w}” is longer than {body.WORD_LEN} characters."
+        if not _WORD.fullmatch(w):
+            return f"The word “{w}”: use letters, spaces and hyphens only."
+    return {"label": label, "landmark": landmark, **vals, "words": words}
+
+
+def _clash(cur, own_id, texts: list[str]) -> Optional[str]:
+    """The refusal when one of texts (a label, a key, a word) is the name, label or a word of another log type, else None."""
+    from .v1_food import _norm
+    cur.execute("SELECT id, name, label, kind, body_measure, aliases FROM log_types WHERE id IS DISTINCT FROM %s ORDER BY id", (own_id,))
+    taken: dict = {}
+    for r in cur.fetchall():
+        for t, how in ((r["name"], "name"), (r["label"], "name"), *((a, "word") for a in r["aliases"] or [])):
+            taken.setdefault(_norm(t), (r, how))
+    for t in texts:
+        hit = taken.get(_norm(t))
+        if hit:
+            r, how = hit
+            what = "the measure" if r["body_measure"] else "the habit" if r["kind"] == "event" else "the health value"
+            return (f"“{t}” is already the name of {what} {r['label']}: choose another." if how == "name" else
+                    f"“{t}” is already a word for {what} {r['label']}: choose another.")
+    return None
+
+
+def _aliases(f: dict, name: str) -> list[str]:
+    from .v1_food import _norm
+    extra = [f["label"].lower()] if _norm(f["label"]) != _norm(name) and f["label"].lower() not in f["words"] else []
+    return f["words"] + extra
+
+
+def measure_add(form, key: Optional[str], session) -> dict:
+    """A new body measure at the end of the list, shown."""
+    f = _measure_form(form)
+    if isinstance(f, str):
+        return _rejected(f)
+    with connect() as conn, conn.cursor() as cur:
+        cur.execute("SELECT name FROM log_types")
+        name = measure_key(f["label"], {r["name"] for r in cur.fetchall()} | RESERVED)
+        clash = _clash(cur, None, [f["label"], name, *f["words"]])
+        if clash:
+            return _rejected(clash)
+        cur.execute("SELECT coalesce(max(sort_order), 0) + 1 AS n FROM log_types WHERE body_measure")
+        cur.execute("""INSERT INTO log_types (name, label, kind, category, unit, min1, max1, aliases, on_checklist, daily_target, active,
+                                              sort_order, notes, body_measure)
+                       VALUES (%s, %s, 'measurement', 'vitals', 'cm', %s, %s, %s, false, 1, true, %s, %s, true)""",
+                    (name, f["label"], f["min"], f["max"], _aliases(f, name), min(cur.fetchone()["n"], 32767), f["landmark"] or None))
+        logbook._audit(cur, "web_change", "changed", {"what": "body measure added"}, logbook.WEB)
+    typed = name.replace("_", " ")
+    return {"outcome": "changed", "head": f"Added the measure {f['label']}. Measure it in the form, or type “{typed} 38.5”."}
+
+
+def _measure(cur, form) -> Optional[dict]:
+    cur.execute("SELECT id, name, label, sort_order FROM log_types WHERE name = %s AND body_measure AND active", (str(form.get("key") or ""),))
+    return cur.fetchone()
+
+
+def measure_edit(form, key: Optional[str], session) -> dict:
+    """A measure's label, landmark, range and words; its key stays, so its values stay."""
+    f = _measure_form(form)
+    if isinstance(f, str):
+        return _rejected(f)
+    with connect() as conn, conn.cursor() as cur:
+        row = _measure(cur, form)
+        if not row:
+            return _rejected("Unknown measure.")
+        clash = _clash(cur, row["id"], [f["label"], *f["words"]])
+        if clash:
+            return _rejected(clash)
+        cur.execute("UPDATE log_types SET label = %s, notes = %s, min1 = %s, max1 = %s, aliases = %s WHERE id = %s",
+                    (f["label"], f["landmark"] or None, f["min"], f["max"], _aliases(f, row["name"]), row["id"]))
+        logbook._audit(cur, "web_change", "changed", {"what": "body measure changed"}, logbook.WEB)
+    return {"outcome": "changed", "head": f"Saved the measure {f['label']}."}
+
+
+def measure_move(form, key: Optional[str], session) -> dict:
+    """One place up or down: the measure swaps its order with its neighbour's (the orders made distinct first)."""
+    up = form.get("dir") == "up"
+    with connect() as conn, conn.cursor() as cur:
+        row = _measure(cur, form)
+        if not row:
+            return _rejected("Unknown measure.")
+        ms = body.measures(cur)
+        orders = [m["order"] for m in ms]
+        if len(set(orders)) < len(orders):
+            for n, m in enumerate(ms):
+                m["order"] = orders[0] + n
+                cur.execute("UPDATE log_types SET sort_order = %s WHERE name = %s AND body_measure", (m["order"], m["key"]))
+        i = next(n for n, m in enumerate(ms) if m["key"] == row["name"])
+        j = i - 1 if up else i + 1
+        if not 0 <= j < len(ms):
+            return {"outcome": "unchanged", "reason": f"{row['label']} is already {'first' if up else 'last'}."}
+        a, b = ms[i], ms[j]
+        cur.execute("UPDATE log_types SET sort_order = %s WHERE name = %s AND body_measure", (b["order"], a["key"]))
+        cur.execute("UPDATE log_types SET sort_order = %s WHERE name = %s AND body_measure", (a["order"], b["key"]))
+        logbook._audit(cur, "web_change", "changed", {"what": "body measure moved"}, logbook.WEB)
+    return {"outcome": "changed", "head": f"Moved {row['label']} {'up' if up else 'down'}."}
+
+
+def measure_remove(form, key: Optional[str], session) -> dict:
+    """Removes a measure without values (its row); one with values is refused: hide it instead."""
+    with connect() as conn, conn.cursor() as cur:
+        row = _measure(cur, form)
+        if not row:
+            return _rejected("Unknown measure.")
+        cur.execute("SELECT EXISTS (SELECT 1 FROM measurements WHERE type_id = %s) AS v", (row["id"],))
+        if cur.fetchone()["v"]:
+            return _rejected(f"{row['label']} has values: hide it instead.")
+        ms = body.measures(cur)
+        prefs = body.settings(cur, ms)
+        if [m["key"] for m in body.shown(prefs, ms)] == [row["name"]]:
+            return _rejected("Keep at least one measure shown.")
+        cur.execute("DELETE FROM log_types WHERE id = %s", (row["id"],))
+        if row["name"] in prefs["hidden"]:  # a hidden key that is gone would hide a later measure of the same key
+            cur.execute("""INSERT INTO ui_settings (key, value) VALUES (%s, %s)
+                           ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()""",
+                        (body.KEY, Jsonb({"interval": prefs["interval"], "hidden": sorted(prefs["hidden"] - {row["name"]})})))
+        logbook._audit(cur, "web_change", "changed", {"what": "body measure removed"}, logbook.WEB)
+    return {"outcome": "changed", "head": f"Removed the measure {row['label']}."}
+
+
+MEASURE_ACTIONS = {"add": measure_add, "edit": measure_edit, "move": measure_move, "remove": measure_remove}
+
+
 # ---- habits ----------------------------------------------------------------------------------------
 
 def habit(form, key: Optional[str], session) -> dict:

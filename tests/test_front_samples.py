@@ -33,6 +33,7 @@ from test_log import fake, off, skyr  # noqa: F401 - the AI is a fake (a save mu
 from test_api_reads import api, pending  # noqa: F401 - api is a fixture
 from test_webfood import eat_on
 from test_webhabits import habit_types_as_they_were  # noqa: F401 - autouse: the habit types and settings as they were
+from test_body_measures import body_measures_as_they_were  # noqa: F401 - autouse: the body measures as they were (a test adds Neck)
 from test_webtoday import day, food, no_targets, raw  # noqa: F401 - no_targets: clean targets and usual meals
 
 SAMPLES = Path(__file__).resolve().parent.parent / "front" / "tests" / "samples"
@@ -335,7 +336,8 @@ def test_the_scan_sample_has_the_doors_shape(four_pm, fake, off):
 
 def month() -> None:
     """30 invented days of health values: weighings, blood pressure mornings and some evenings, fasted sugar, nights, a nap, a
-    wake-up without a bed time, check-ins; and three tape-measure sessions with a height."""
+    wake-up without a bed time, check-ins; and three tape-measure sessions with a height (six measures: Neck is added first by the
+    caller, web item 58)."""
     def put(kind, d, hm, v1, v2=None, period=None):
         owner_sql("""INSERT INTO measurements (raw_id, type_id, day, event_at, time_known, value1, value2, period, extractor_version)
                      SELECT %s, id, %s, %s, true, %s, %s, %s, 'test' FROM log_types WHERE name = %s""",
@@ -370,8 +372,8 @@ def month() -> None:
         if i == 9:
             ev("bed", d, "14:10")
             ev("nap", d, "14:45")
-    for back, vals in ((60, dict(waist=94.0, hips=103.0, chest=99.0, upper_arm=33.0, thigh=58.0)),
-                       (32, dict(waist=93.0, hips=102.5, chest=99.0, thigh=57.5)), (4, dict(waist=92.0, hips=102.0, chest=98.5))):
+    for back, vals in ((60, dict(waist=94.0, hips=103.0, chest=99.0, upper_arm=33.0, thigh=58.0, neck=39.0)),
+                       (32, dict(waist=93.0, hips=102.5, chest=99.0, thigh=57.5, neck=38.5)), (4, dict(waist=92.0, hips=102.0, chest=98.5, neck=38.0))):
         for k, v in vals.items():
             put(k, t - timedelta(days=back), "07:30", v)
     owner_sql("INSERT INTO body_height (valid_from, height_cm) VALUES ('2020-01-01', 178)")
@@ -380,11 +382,13 @@ def month() -> None:
 def test_the_health_sample_has_the_doors_shape(four_pm, fake):
     """The Health page and body measurements (deploy 91, for the page of deploy 92): GET /health of 30 days with every chart and the
     sleep times filled, a day's row saved (with Undo) and an odd value read back, a delete asked first, GET /body, a body session
-    saved, a jump read back, Today's due line (needs.body_due) and "Not today". Answers of saves without their fresh read."""
-    month()
+    saved, a jump read back, Today's due line (needs.body_due) and "Not today". Answers of saves without their fresh read. Six measures:
+    Neck added in Settings > Body first (web item 58), so the card draws what the door sends."""
     c, bearer, _ = signed_in()
     get = lambda path: c.get("/api/v1" + path, headers=bearer).json()  # noqa: E731
     post = lambda path, **body: c.post("/api/v1" + path, headers=bearer, json=body).json()  # noqa: E731
+    assert post("/settings/body_measure", action="add", label="Neck", landmark="Below the larynx, tape level", min=25, max=60)["outcome"] == "changed"
+    month()
     t = day()
     answers = {"health": get("/health?range=30")}
     h = answers["health"]["health"]
@@ -409,8 +413,9 @@ def test_the_health_sample_has_the_doors_shape(four_pm, fake):
     assert body_saved["outcome"] == "saved" and body_saved["undo"] and jump["outcome"] == "needs_confirmation" and "4 cm" not in jump["head"]
     b = answers["body"]["body"]
     assert b["table"] and b["charts"] and b["waist_height"]["ratio"] and b["weight_rate"] and b["form"][0]["last_cm"] == 92.0
+    assert [f["key"] for f in b["form"]][-1] == "neck" and len(b["form"]) == 6 and b["table"][-1]["key"] == "neck"
     # Today's due line: without the sessions of the last 30 days, the last one is 32 days ago (due after 28), then "Not today"
-    owner_sql("DELETE FROM measurements WHERE day > %s AND type_id IN (SELECT id FROM log_types WHERE name IN ('waist', 'hips', 'chest'))",
+    owner_sql("DELETE FROM measurements WHERE day > %s AND type_id IN (SELECT id FROM log_types WHERE name IN ('waist', 'hips', 'chest', 'neck'))",
               t - timedelta(days=30))
     answers["day_body_due"] = get("/day")["day"]["needs"]["body_due"]
     skip = post("/body/skip")
@@ -894,6 +899,8 @@ def test_the_settings_sample_has_the_doors_shape(monkeypatch):
                          VALUES (%s, %s, %s, %s, %s, %s, now() - interval '3 hours')""", endpoint, p256dh, auth, ua, me, origin)
         owner_sql("""INSERT INTO audit_log (tool, outcome, client, detail, at)
                      VALUES ('export', 'ok', 'web', '{"private": false, "rows": {}}', now() - interval '6 days')""")
+        measure("waist", "06:05", 91.5)  # a measure with values: it cannot be removed (web item 58)
+        assert post("/settings/body_measure", action="add", label="Neck", landmark="Below the larynx, tape level", min=25, max=60)["outcome"] == "changed"
         reads = {tab: get(f"/settings/{tab}") for tab in ("targets", "today", "body", "coach", "devices", "notify", "export")}
         app_device = next(d["id"] for d in reads["devices"]["settings_devices"]["devices"] if d["address"] == "app")
         pc_push = next(s["id"] for s in reads["notify"]["settings_notify"]["subscriptions"] if s["name"] == "Windows, Chrome")
@@ -905,6 +912,14 @@ def test_the_settings_sample_has_the_doors_shape(monkeypatch):
                  "today_reset": post("/settings/today_reset"),
                  "height_refused": post("/settings/height", valid_from="2026-11-17", height=300),
                  "body": post("/settings/body", interval=28, show=["waist", "hips"]),
+                 "measure_add": post("/settings/body_measure", action="add", label="Calf", landmark="Widest point, standing, right side",
+                                     min=20, max=70, words=["calves"]),
+                 "measure_add_refused": post("/settings/body_measure", action="add", label="Belly", min=50, max=200),
+                 "measure_edit": post("/settings/body_measure", action="edit", key="neck", label="Neck", landmark="Below the larynx",
+                                      min=25, max=55, words=["collar"]),
+                 "measure_move": post("/settings/body_measure", action="move", key="neck", dir="up"),
+                 "measure_remove_refused": post("/settings/body_measure", action="remove", key="waist"),
+                 "measure_remove": post("/settings/body_measure", action="remove", key="calf"),
                  "coach": post("/settings/coach", goals="Walk every day.", parts={"week": ["targets", "focus"]}),
                  "coach_refused": post("/settings/coach", parts={"day": []}),
                  "device_current": post("/settings/device", id=sid),
@@ -917,6 +932,9 @@ def test_the_settings_sample_has_the_doors_shape(monkeypatch):
                                            user_agent=iphone),
                  "push_off": post("/push/off", id=pc_push),
                  "push_test": post("/push/test")}
+        b = reads["body"]["settings_body"]
+        assert [m["key"] for m in b["measures"]][-1] == "neck" and b["measures"][0]["has_values"] and [s["label"] for s in b["suggestions"]] == ["Calf"]
+        assert saves["measure_remove_refused"]["reason"] == "Waist has values: hide it instead."
         n = reads["notify"]["settings_notify"]
         assert n["twice"] and [s["this"] for s in n["subscriptions"]] == [False, True, False] and n["public_key"]
         assert reads["devices"]["settings_devices"]["others"] == 2 and reads["export"]["settings_export"]["last"]
