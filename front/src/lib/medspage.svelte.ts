@@ -28,7 +28,7 @@ import {
 import type { SaveAnswer, Undo } from './day.js';
 import { makeKey, type FieldValues, type Sent } from './saver.js';
 
-type MedsAnswer = SaveAnswer & { labs_meds?: Meds };
+export type MedsAnswer = SaveAnswer & { labs_meds?: Meds };
 
 export class MedsPage extends Answers {
   meds = $state.raw<Meds | null>(null);

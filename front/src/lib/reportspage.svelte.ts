@@ -29,7 +29,7 @@ import {
 import type { SaveAnswer, Undo } from './day.js';
 import type { FieldValues, Sent } from './saver.js';
 
-type LabsAnswer = SaveAnswer & { labs?: Labs };
+export type LabsAnswer = SaveAnswer & { labs?: Labs };
 
 export class ReportsPage extends Answers {
   labs = $state.raw<Labs | null>(null);

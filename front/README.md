@@ -500,6 +500,8 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   keyed, Undo), `/body/skip` takes Today's due line away (`door.mjs` says which values do what). `tests/test_front_samples.py` checks on every Python run that the samples still have the
   door's shape; after a change of the door, write it again with
   `WRITE_FRONT_SAMPLES=1 .venv/bin/python -m pytest -q tests/test_front_samples.py` and commit the diff.
+  `src/lib/samples.test.ts` holds each sample against the interface that types it, at compile time: `tools/front-pnpm check` fails on a field
+  the type names and the sample lacks, or the sample has and the type does not (`v`, the door's version, is left out); run it after writing samples.
 - Deploy: `tools/deploy-front.sh <N>` (the core: `tools/deploy.sh`). Rollback of deploy N:
   `docker tag logger-v2-front:front-fixesN logger-v2-front:pilot; docker compose up -d front`.
 

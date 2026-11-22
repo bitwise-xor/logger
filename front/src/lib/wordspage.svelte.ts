@@ -12,7 +12,7 @@ import type { SaveAnswer, Undo } from './day.js';
 import type { FieldValues } from './saver.js';
 import { askedQ, removeFields, viewFields, wordsHref, type View, type WordRow, type Words } from './words.js';
 
-type WordsAnswer = SaveAnswer & { words?: Words };
+export type WordsAnswer = SaveAnswer & { words?: Words };
 
 /** How long the search waits after the last key before it asks (Enter asks at once). */
 export const SEARCH_PAUSE_MS = 400;
