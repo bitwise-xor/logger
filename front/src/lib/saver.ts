@@ -21,6 +21,7 @@
  */
 
 import { replays, unsureText } from './problems.js';
+import { LONG_WAIT_MS, ruleOf, savesWhere, WAIT_MS } from './saverules.js';
 
 /** What SvelteKit's `deserialize` gives back for a form action (an ActionResult). */
 export type ActionResult =
@@ -51,71 +52,24 @@ export interface SaverDeps {
   online?: () => boolean;
 }
 
-/** The actions whose door route takes a key (src/lib/server/saves.ts, `keyed`): only these are re-sent after a sign-in. */
-export const KEYED = new Set([
-  'log', 'water', 'again', 'usual', 'habit', 'checkin', 'health', 'held_retry', 'held_delete',
-  // the usual meals (deploy 87): the Usual meals page's and the Food day's "Save as usual meal"
-  'usual_meal', 'usual_new', 'usual_from_meal',
-  // the scan sheet's new food (deploy 90)
-  'labeladd',
-  // the Health page's day row and body session (deploy 92)
-  'health_day', 'body',
-  // the Habits page's day tap and list forms (deploy 94): each gets a new key
-  'habit_day', 'habits_manage',
-  // the Gym's tick (deploy 96): the only gym save the door takes a key for
-  'gym_tick',
-  // Home (deploy 99): the saves the door keys (home._once): a tick, Done and "Done, next job" on Pick, a job done earlier
-  'home_tick', 'home_pickdone', 'home_picknext', 'home_earlier',
-  // Deploy 100: All done and a starting point's chips (the door keys both: home._once)
-  'home_alldone', 'home_startpoint',
-]);
 /**
- * A keyed action that is never sent again by the page (deploy 94): a day tick of the Habits page. Its message carries the time
- * of the click, so the door does not replay a re-sent key: sent again while the day still needs a tick it is refused, sent after
- * the day is done it unticks. A tap that met a gone session is not kept; the page says to tap again after the sign-in.
- * Deploy 96: no gym save is sent again by the page either (a set is logged by a tap seen to work, never behind your back); the tick is
- * the only keyed one, the others take no key and are never kept anyway.
- * Deploy 97: the rule is for every gym save by its name (`gym_`): the Plan's and Exercises' forms take no key at the door, so a
- * second send would be a second change (a day added twice, an exercise moved twice), and a tap that met a gone session says to
- * tap again after the sign-in.
- * Deploy 99: no Home save is ever sent again by the page either (`home_`), keyed or not: the timer's start, pause, resume, stop and
- * "Not today" take no key at the door, a tick toggles, and a job is marked done only by a tap seen to work, never behind your back;
- * a tap that met a gone session is not kept (after the sign-in it is tapped again by hand).
- * Deploy 100: the same for Zones, History and Edit zones (All done, a starting point, ×, the forms): no Home save is re-sent.
- * Deploy 102: the Week review's button (`coach_start`) takes no key and is never sent again by the page: every start is read by
- * the AI and costs about 20 cents, so only the owner's press sends it (also not after a sign-in, not after a network error).
- * Deploy 109: the same for the day coaching's button (`coach_day`, Today's Coach card and the Coach page): no key, never sent again by the
- * page, also not after a sign-in or a network error (about 6 cents each; the door's refusal of a second one while one is read is only
- * a second line of defence).
- * Deploy 105: Library's Foods tab (`catalogue_`: values, words, barcode, basics, unit, reviewed) takes no key at the door and has no
- * Undo, so a second send would be a second change (a word added twice, a food hidden behind your back): never sent again by the page,
- * also not after a sign-in.
- * Deploy 106: Medical's three forms (`labs_`: a value, a report, a course and its End) take no key at the door and have no Undo either:
- * never sent again by the page, not after a sign-in (a change shown and said Yes to is made once, by a tap seen to work). A new course
- * typed in the Medication page's box is Today's `log`, keyed and treated as Today's is.
- * Deploy 111: Settings' saves (`settings_`, `push_`: targets, the Today page, body, coach, devices, nudges, a device's notifications
- * off, the test) take no key and have no Undo: never sent again by the page, also not after a sign-in (a sign-out of another device or
- * a test notification happens once, by a tap seen to work).
+ * The browser's lists, all made from the one table of how each save behaves (src/lib/saverules.ts, web item 72): the actions that
+ * go with a key; the keyed ones never sent again by the page (a Habits page's day tap, the Gym's tick, Home's keyed saves: the table
+ * says why); whether a tap that met a gone session is kept and sent again after the sign-in (only a keyed one the table marks
+ * `resend`; an unknown action never); the paid coaching starts with their own "no answer" words; how long the browser waits.
  */
-export const NEVER_RESENT = new Set(['habit_day', 'gym_tick', 'home_tick', 'home_pickdone', 'home_picknext', 'home_earlier', 'home_alldone', 'home_startpoint']);
-export const mayResend = (action: string) =>
-  KEYED.has(action) && !NEVER_RESENT.has(action) && !action.startsWith('gym_') && !action.startsWith('home_') && !action.startsWith('coach_') && !action.startsWith('catalogue_') && !action.startsWith('labs_') && !action.startsWith('settings_') && !action.startsWith('push_');
+export const KEYED: ReadonlySet<string> = new Set(savesWhere((r) => r.key !== 'none'));
+export const NEVER_RESENT: ReadonlySet<string> = new Set(savesWhere((r) => r.key !== 'none' && !r.resend));
+export const mayResend = (action: string) => ruleOf(action)?.resend === true;
 /** A paid start that may have gone through although no answer came: its own words (reload to see before pressing again). */
-const UNSURE = new Set(['coach_start', 'coach_day']);
-/**
- * How long the browser waits for a save's answer (Web 65): a little longer than the server waits for the door (15 s, and 60 s for
- * the saves the AI reads or that start the coaching: `timeoutMs` in src/lib/server/saves.ts), so the server's own "no answer in
- * time" comes first. saves.test.ts checks the two against each other.
- */
-export const WAIT_MS = 20_000;
-export const LONG_WAIT_MS = 65_000;
-const LONG_WAIT = new Set(['log', 'held_retry', 'lookup', 'coach_start', 'coach_day']);
-export const waitMs = (action: string) => (LONG_WAIT.has(action) ? LONG_WAIT_MS : WAIT_MS);
+const UNSURE: ReadonlySet<string> = new Set(savesWhere((r) => r.coaching === true));
+export { LONG_WAIT_MS, WAIT_MS };
+export const waitMs = (action: string) => (ruleOf(action)?.long ? LONG_WAIT_MS : WAIT_MS);
 /** The keys of keyed taps that got no answer (Web 65): sessionStorage, 10 minutes. */
 export const UNANSWERED_ITEM = 'logger-unanswered';
 export const UNANSWERED_MS = 10 * 60_000;
 /** The actions the AI reads (up to about 40 s; the look-up since deploy 90): their answer is never dropped for a tap made while they were read. */
-export const SLOW = new Set(['log', 'held_retry', 'lookup']);
+export const SLOW: ReadonlySet<string> = new Set(savesWhere((r) => r.slow === true));
 export const RESEND_ITEM = 'logger-resend';
 export const RESEND_MS = 10 * 60_000;
 

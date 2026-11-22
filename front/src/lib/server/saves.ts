@@ -1,7 +1,8 @@
 /**
- * Today's saves (step C, deploy 80; the logging box's typed line since step D, deploy 81), the Food day's (step E, deploy 84) and
- * the Usual meals page's (deploy 87):
- * which form action calls which door route with which body (docs/API.md, "Saves").
+ * Every page's saves (Today's since step C, deploy 80, and every page's since): what each form action sends to the door (docs/API.md,
+ * "Saves"). How each save behaves (its route, its key, whether it is sent again, its waits, its pages) is the table in
+ * src/lib/saverules.ts (web item 72); this file adds the bodies, the checks and a read first under the same names, and makes the
+ * page lists (`TODAY_SAVES`, …) from the table.
  *
  * Every tap on Today is a SvelteKit form action (src/routes/(app)/+page.server.ts). The browser sends the form's fields and a
  * new `key` per tap (the same key again when it re-sends that tap after a sign-in, src/lib/saver.ts); this file turns the fields
@@ -24,6 +25,7 @@ import { askedOpen, askedTest } from '../medical.js';
 import { FILTERS } from '../coach.js';
 import { measureBody, nudgesBody, type Nudge } from '../settings.js';
 import { subscriptionProblem } from '../pushdevice.js';
+import { LONG_TIMEOUT_MS, SAVE_NAMES, SAVE_RULES, savesOn, type SaveName, type SavePage, type SaveRule } from '../saverules.js';
 
 /** The form's fields: what `FormData` offers (and a plain test double). */
 export interface Fields {
@@ -40,18 +42,22 @@ export interface Asked {
   nudges?: Nudge[];
 }
 
-interface Save {
-  path: string;
-  /** The door's route takes a re-send key (docs/API.md): a re-sent tap then saves once. */
-  keyed: boolean;
+/** What goes to the door for a save (its route, key and waits are the table's: src/lib/saverules.ts). */
+interface Build {
   body: (f: Fields, asked: Asked) => Body;
   /** Why the form cannot go to the door (checked first; the door is not asked): "Not saved." with these words. */
   check?: (f: Fields, asked: Asked) => string | null;
   /** A read of the door the save needs first (Web 70: the nudges the door lists), added to what the action knows. */
   before?: (door: Door, session: string) => Promise<Partial<Asked>>;
-  /** /log and /held/retry read the words with the AI: up to about 40 s. */
-  timeoutMs?: number;
 }
+
+/** A save as runSave uses it: the table's route, whether a key goes with it, the server's wait (none: the door client's 15 s). */
+type Save = Build & {
+  path: string;
+  /** A key goes with it (the table's `key` is not `none`): a re-sent tap then saves once where the core replays it. */
+  keyed: boolean;
+  timeoutMs?: number;
+};
 
 const str = (f: Fields, name: string, limit = 200): string | undefined => {
   const v = f.get(name);
@@ -94,21 +100,17 @@ function usualItems(f: Fields): { item_id: number | string; amount: number | str
     });
 }
 
-export const SAVES = {
+const BODIES = {
   // A typed line, as many lines as the box holds (each can be its own entry); 4000 characters as app.'s box (webentry.MAX_TEXT).
-  log: { path: '/log', keyed: true, body: (f) => ({ text: str(f, 'text', 4000) }), timeoutMs: 60_000 },
-  water: { path: '/water', keyed: true, body: (f) => ({ ml: int(f, 'ml') }) },
+  log: { body: (f) => ({ text: str(f, 'text', 4000) }) },
+  water: { body: (f) => ({ ml: int(f, 'ml') }) },
   // an Again chip; the scan sheet's "Log" (deploy 90) also sends the time (hh:mm)
   again: {
-    path: '/again',
-    keyed: true,
     body: (f) => ({ food_id: str(f, 'food_id', 12), amount: str(f, 'amount', 20), time: str(f, 'time', 5) }),
   },
   // a usual meal's chip: as saved; since deploy 117 its box sends only the ticked foods with their amounts (item_id and amount
   // pairs, as usual_meal reads its foods) and a time (hh:mm; none = now). The saved meal itself stays as it is.
   usual: {
-    path: '/usual',
-    keyed: true,
     body: (f) => {
       const body: Body = { meal_id: str(f, 'meal_id', 12), time: str(f, 'time', 5) };
       if (f.getAll('item_id').length) body.items = usualItems(f);
@@ -125,18 +127,12 @@ export const SAVES = {
     },
   },
   habit: {
-    path: '/habit',
-    keyed: true,
     body: (f) => ({ name: str(f, 'name', 64), action: str(f, 'action', 10), ref: str(f, 'ref', 20) }),
   },
   checkin: {
-    path: '/checkin',
-    keyed: true,
     body: (f) => ({ type: str(f, 'type', 10), value: str(f, 'value', 3), day: str(f, 'day', 10) }),
   },
   health: {
-    path: '/health',
-    keyed: true,
     body: (f) => ({
       row: str(f, 'row', 20),
       ref: str(f, 'ref', 20),
@@ -146,23 +142,19 @@ export const SAVES = {
       confirmed: f.get('confirmed') === '1' ? true : undefined,
     }),
   },
-  answer: { path: '/answer', keyed: false, body: (f) => ({ question_id: str(f, 'question_id', 64), reply: str(f, 'reply', 2000) }) },
+  answer: { body: (f) => ({ question_id: str(f, 'question_id', 64), reply: str(f, 'reply', 2000) }) },
   review: {
-    path: '/review',
-    keyed: false,
     body: (f) =>
       str(f, 'action', 5) === 'all'
         ? { action: 'all', refs: f.getAll('refs').filter((r): r is string => typeof r === 'string').slice(0, 200) }
         : { action: str(f, 'action', 5), ref: str(f, 'ref', 20) },
   },
-  held_retry: { path: '/held/retry', keyed: true, body: (f) => ({ id: int(f, 'id') }), timeoutMs: 60_000 },
-  held_delete: { path: '/held/delete', keyed: true, body: (f) => ({ id: int(f, 'id') }) },
-  undo: { path: '/undo', keyed: false, body: (f) => ({ token: str(f, 'token', 200) }) },
+  held_retry: { body: (f) => ({ id: int(f, 'id') }) },
+  held_delete: { body: (f) => ({ id: int(f, 'id') }) },
+  undo: { body: (f) => ({ token: str(f, 'token', 200) }) },
   // The Food day (step E): change a row (amount in a unit, time hh:mm, another food by its name) or delete it; an odd value is
   // read back first (then the same with confirmed). The door's routes take no key: a change made twice is caught as on app.
   food_entry: {
-    path: '/food/entry',
-    keyed: false,
     body: (f) => ({
       ref: str(f, 'ref', 12),
       action: str(f, 'action', 10),
@@ -174,14 +166,12 @@ export const SAVES = {
     }),
   },
   // A row's note; empty removes it (300 characters, as app.).
-  food_note: { path: '/food/note', keyed: false, body: (f) => ({ ref: str(f, 'ref', 12), note: str(f, 'note', 300) ?? '' }) },
+  food_note: { body: (f) => ({ ref: str(f, 'ref', 12), note: str(f, 'note', 300) ?? '' }) },
   // A meal's one-line note (21.11.2026): day, meal (0: the day's note when no meal is left), note (empty = removed). No key, no Undo.
-  food_mealnote: { path: '/food/mealnote', keyed: false, body: (f) => ({ day: str(f, 'day', 10), meal: int(f, 'meal'), note: str(f, 'note', 300) ?? '' }) },
+  food_mealnote: { body: (f) => ({ day: str(f, 'day', 10), meal: int(f, 'meal'), note: str(f, 'note', 300) ?? '' }) },
   // The Usual meals page (deploy 87): one Save changes a meal (its name and the whole list of foods, in order) or deletes it;
   // made at once with Undo, so the front end always sends confirmed (the door would read it back first otherwise).
   usual_meal: {
-    path: '/usual/meal',
-    keyed: true,
     body: (f) => {
       const action = str(f, 'action', 10);
       const base = { meal_id: int(f, 'meal_id'), action, confirmed: true };
@@ -190,146 +180,119 @@ export const SAVES = {
   },
   // A new usual meal or drink from foods (1 to 8, as app.).
   usual_new: {
-    path: '/usual/new',
-    keyed: true,
     body: (f) => ({ name: str(f, 'name', 200) ?? '', drink: f.get('drink') === '1', items: items(f) }),
   },
   // "Save as usual meal" on a meal of the Food day (not the drinks, meal 0): the day, the meal's number and a name.
   usual_from_meal: {
-    path: '/usual/from_meal',
-    keyed: true,
     body: (f) => ({ day: str(f, 'day', 10), meal: int(f, 'meal'), name: str(f, 'name', 200) ?? '' }),
   },
   // The scan sheet (deploy 90): the checked values of a label photo or of Open Food Facts as a new food, logged at once with an
   // amount (Undo takes back the entry only); a key saves once (src/lib/scan.ts makes the body).
-  labeladd: { path: '/food/labeladd', keyed: true, body: (f) => labeladdBody(f) },
+  labeladd: { body: (f) => labeladdBody(f) },
   // "Look it up" on a food question under Needs you: the words typed in its field, or none (the door then looks up the question's
   // word); the food found is read back as a question (Yes through /answer). An AI call picks the best fit: up to 60 s.
   lookup: {
-    path: '/lookup',
-    keyed: false,
     body: (f) => ({ text: str(f, 'text', 200), question_id: str(f, 'question_id', 64) }),
-    timeoutMs: 60_000,
   },
   // The Health page (deploy 92): one day's row (only the rows changed: `values`), a body session (only the measures changed). A
   // value cleared is read back first (Yes = confirm_delete), then an odd value (Yes = confirmed, keeping confirm_delete).
   health_day: {
-    path: '/health/day',
-    keyed: true,
     body: (f) => ({ day: str(f, 'day', 10), values: healthValues(f), ...yes(f) }),
   },
-  body: { path: '/body', keyed: true, body: (f) => ({ day: str(f, 'day', 10), values: bodyValues(f), ...yes(f) }) },
+  body: { body: (f) => ({ day: str(f, 'day', 10), values: bodyValues(f), ...yes(f) }) },
   // The Habits page (deploy 94): a square of the calendar (a day with fewer ticks than the habit's times a day gets one, a done day
   // has its ticks taken off) and the list's forms. The key is new per tap but the day tap is never sent again by the page: the
   // door does not replay it (a re-sent key would untick, docs/API.md). The list's forms have no Undo.
-  habit_day: { path: '/habit/day', keyed: true, body: (f) => ({ name: str(f, 'name', 64), day: str(f, 'day', 10) }) },
-  habits_manage: { path: '/habits/manage', keyed: true, body: (f) => manageBody(f) },
+  habit_day: { body: (f) => ({ name: str(f, 'name', 64), day: str(f, 'day', 10) }) },
+  habits_manage: { body: (f) => manageBody(f) },
   // Today's "Not today" on "Body measurements due": hidden until the next health day (no key, no Undo).
-  body_skip: { path: '/body/skip', keyed: false, body: () => ({}) },
+  body_skip: { body: () => ({}) },
   // The Gym's Workout page (deploy 96): the door's /gym/<action> takes numbers as JSON numbers and ids as numbers. Only the tick
-  // takes a key (app.'s rule); the page never sends a gym save again by itself (saver.ts, NEVER_RESENT). Each answers with the
+  // takes a key (app.'s rule); the page never sends a gym save again by itself (saverules.ts). Each answers with the
   // Workout read (view "gym").
   gym_tick: {
-    path: '/gym/tick',
-    keyed: true,
     body: (f) => ({ exercise_id: int(f, 'exercise_id'), ...Object.fromEntries(VALS.map((k) => [k, gymNumber(f, k)])) }),
   },
   // one logged row (set_id), or all of today's rows of an exercise (a done circle: exercise_id); the door wants one of them
   gym_remove: {
-    path: '/gym/remove',
-    keyed: false,
     body: (f) => (str(f, 'set_id', 12) !== undefined ? { set_id: int(f, 'set_id') } : { exercise_id: int(f, 'exercise_id') }),
   },
   // a day of the split, or Free workout (day_id null: the field empty)
-  gym_pick: { path: '/gym/pick', keyed: false, body: (f) => ({ day_id: str(f, 'day_id', 12) === undefined ? null : int(f, 'day_id') }) },
+  gym_pick: { body: (f) => ({ day_id: str(f, 'day_id', 12) === undefined ? null : int(f, 'day_id') }) },
   // + Add exercise on the Workout page: today true puts it on today's day of the split; other words typed with commas
   gym_new: {
-    path: '/gym/new',
-    keyed: false,
     body: (f) => ({ name: str(f, 'name', 60) ?? '', kind: str(f, 'kind', 20), words: wordsOf(str(f, 'words', 600) ?? ''), today: f.get('today') === '1' ? true : undefined }),
   },
   // The Plan part (deploy 97): a day's exercises and the days of the split. None takes a key, none has Undo but itemremove. Each
   // answers with the Plan read (view "gym_plan"). Ids are numbers; sets and reps as JSON numbers, both null for no plan numbers.
   gym_itemset: {
-    path: '/gym/itemset',
-    keyed: false,
     body: (f) => ({ item_id: int(f, 'item_id'), sets: gymNumber(f, 'sets'), reps: gymNumber(f, 'reps') }),
   },
-  gym_itemmove: { path: '/gym/itemmove', keyed: false, body: (f) => ({ item_id: int(f, 'item_id'), dir: str(f, 'dir', 4) }) },
-  gym_itemremove: { path: '/gym/itemremove', keyed: false, body: (f) => ({ item_id: int(f, 'item_id') }) },
+  gym_itemmove: { body: (f) => ({ item_id: int(f, 'item_id'), dir: str(f, 'dir', 4) }) },
+  gym_itemremove: { body: (f) => ({ item_id: int(f, 'item_id') }) },
   // sets and reps both or neither: the door says so
   gym_itemadd: {
-    path: '/gym/itemadd',
-    keyed: false,
     body: (f) => ({ day_id: int(f, 'day_id'), exercise_id: int(f, 'exercise_id'), sets: gymNumber(f, 'sets'), reps: gymNumber(f, 'reps') }),
   },
-  gym_daynew: { path: '/gym/daynew', keyed: false, body: (f) => ({ name: str(f, 'name', 40) ?? '' }) },
-  gym_dayedit: { path: '/gym/dayedit', keyed: false, body: (f) => ({ day_id: int(f, 'day_id'), name: str(f, 'name', 40) ?? '' }) },
+  gym_daynew: { body: (f) => ({ name: str(f, 'name', 40) ?? '' }) },
+  gym_dayedit: { body: (f) => ({ day_id: int(f, 'day_id'), name: str(f, 'name', 40) ?? '' }) },
   // Remove a day (on 0) or bring it back (on 1): the door wants true or false
-  gym_dayactive: { path: '/gym/dayactive', keyed: false, body: (f) => ({ day_id: int(f, 'day_id'), on: f.get('on') === '1' }) },
+  gym_dayactive: { body: (f) => ({ day_id: int(f, 'day_id'), on: f.get('on') === '1' }) },
   // The Exercises part (deploy 97): Rename, Retire or Bring back (+ New exercise is gym_new without today). Each answers with the
   // Exercises read (view "gym_exercises"); no key, no Undo.
-  gym_rename: { path: '/gym/rename', keyed: false, body: (f) => ({ exercise_id: int(f, 'exercise_id'), name: str(f, 'name', 60) ?? '' }) },
-  gym_active: { path: '/gym/active', keyed: false, body: (f) => ({ exercise_id: int(f, 'exercise_id'), on: f.get('on') === '1' }) },
+  gym_rename: { body: (f) => ({ exercise_id: int(f, 'exercise_id'), name: str(f, 'name', 60) ?? '' }) },
+  gym_active: { body: (f) => ({ exercise_id: int(f, 'exercise_id'), on: f.get('on') === '1' }) },
   // Home's Now and Pick pages (deploy 99): the door's /home/<action> takes ids as numbers and pairs as [[chore_id, zone_id], ...].
   // Only tick, pickdone, picknext and earlier take a key (home._once); the page never sends a Home save again by itself (saver.ts).
   // A tick toggles: a pair done today is ticked off again. Each answers with its page's read (view "home" or "home_pick").
-  home_tick: { path: '/home/tick', keyed: true, body: (f) => ({ chore_id: int(f, 'chore_id'), zone_id: int(f, 'zone_id') }) },
+  home_tick: { body: (f) => ({ chore_id: int(f, 'chore_id'), zone_id: int(f, 'zone_id') }) },
   // the Pick page's timer: start (the job's pairs and the page's minutes), pause, resume, stop (its id)
-  home_start: { path: '/home/start', keyed: false, body: (f) => ({ pairs: pairsOf(f), minutes: int(f, 'minutes') }) },
-  home_pause: { path: '/home/pause', keyed: false, body: (f) => ({ timer_id: int(f, 'timer_id') }) },
-  home_resume: { path: '/home/resume', keyed: false, body: (f) => ({ timer_id: int(f, 'timer_id') }) },
-  home_stop: { path: '/home/stop', keyed: false, body: (f) => ({ timer_id: int(f, 'timer_id') }) },
+  home_start: { body: (f) => ({ pairs: pairsOf(f), minutes: int(f, 'minutes') }) },
+  home_pause: { body: (f) => ({ timer_id: int(f, 'timer_id') }) },
+  home_resume: { body: (f) => ({ timer_id: int(f, 'timer_id') }) },
+  home_stop: { body: (f) => ({ timer_id: int(f, 'timer_id') }) },
   // "Done" (the timer's id may come along), "Done, next job" (running only), "Not today", "Done it earlier?" (1 to 7 days ago, or a date)
-  home_pickdone: { path: '/home/pickdone', keyed: true, body: (f) => ({ pairs: pairsOf(f), timer_id: int(f, 'timer_id') }) },
-  home_picknext: { path: '/home/picknext', keyed: true, body: (f) => ({ pairs: pairsOf(f), timer_id: int(f, 'timer_id') }) },
-  home_skip: { path: '/home/skip', keyed: false, body: (f) => ({ pairs: pairsOf(f) }) },
-  home_earlier: { path: '/home/earlier', keyed: true, body: (f) => ({ pairs: pairsOf(f), when: whenOf(f) }) },
+  home_pickdone: { body: (f) => ({ pairs: pairsOf(f), timer_id: int(f, 'timer_id') }) },
+  home_picknext: { body: (f) => ({ pairs: pairsOf(f), timer_id: int(f, 'timer_id') }) },
+  home_skip: { body: (f) => ({ pairs: pairsOf(f) }) },
+  home_earlier: { body: (f) => ({ pairs: pairsOf(f), when: whenOf(f) }) },
   // Home's other four pages (deploy 100). Zones: "All done" on a whole-flat chore and a starting point's chips (both keyed, both with
   // Undo; the tile and the row's tick are home_tick). History: the × on a row (no key; its ids as numbers, Undo puts them back) and
   // "+ Add one done earlier" (home_earlier). Edit zones: the weekly goal, the zone and chore forms, Retire and Bring back and the Per
   // zone table: none takes a key, none has Undo. Each answers with its page's read (view "home_zones", "home_history", "home_edit").
-  home_alldone: { path: '/home/alldone', keyed: true, body: (f) => ({ chore_id: int(f, 'chore_id') }) },
-  home_startpoint: { path: '/home/startpoint', keyed: true, body: (f) => ({ pairs: pairsOf(f), ago: str(f, 'ago', 10) }) },
-  home_remove: { path: '/home/remove', keyed: false, body: (f) => ({ ids: idsOf(f) }) },
-  home_goalset: { path: '/home/goalset', keyed: false, body: (f) => ({ goal: int(f, 'goal') }) },
-  home_zonenew: { path: '/home/zonenew', keyed: false, body: (f) => zoneBody(f) },
-  home_zoneedit: { path: '/home/zoneedit', keyed: false, body: (f) => ({ zone_id: int(f, 'zone_id'), ...zoneBody(f) }) },
-  home_zoneactive: { path: '/home/zoneactive', keyed: false, body: (f) => ({ zone_id: int(f, 'zone_id'), on: f.get('on') === '1' }) },
-  home_chorenew: { path: '/home/chorenew', keyed: false, body: (f) => choreBody(f) },
-  home_choreedit: { path: '/home/choreedit', keyed: false, body: (f) => ({ chore_id: int(f, 'chore_id'), ...choreBody(f) }) },
-  home_choreactive: { path: '/home/choreactive', keyed: false, body: (f) => ({ chore_id: int(f, 'chore_id'), on: f.get('on') === '1' }) },
-  home_chorezones: { path: '/home/chorezones', keyed: false, body: (f) => ({ chore_id: int(f, 'chore_id'), zones: zonesOf(f) }) },
+  home_alldone: { body: (f) => ({ chore_id: int(f, 'chore_id') }) },
+  home_startpoint: { body: (f) => ({ pairs: pairsOf(f), ago: str(f, 'ago', 10) }) },
+  home_remove: { body: (f) => ({ ids: idsOf(f) }) },
+  home_goalset: { body: (f) => ({ goal: int(f, 'goal') }) },
+  home_zonenew: { body: (f) => zoneBody(f) },
+  home_zoneedit: { body: (f) => ({ zone_id: int(f, 'zone_id'), ...zoneBody(f) }) },
+  home_zoneactive: { body: (f) => ({ zone_id: int(f, 'zone_id'), on: f.get('on') === '1' }) },
+  home_chorenew: { body: (f) => choreBody(f) },
+  home_choreedit: { body: (f) => ({ chore_id: int(f, 'chore_id'), ...choreBody(f) }) },
+  home_choreactive: { body: (f) => ({ chore_id: int(f, 'chore_id'), on: f.get('on') === '1' }) },
+  home_chorezones: { body: (f) => ({ chore_id: int(f, 'chore_id'), zones: zonesOf(f) }) },
   // The Week review's button (deploy 102, the Trends page): POST /coach/start with the card's period. The door takes NO key and the
   // page never sends it again by itself (saver.ts: not keyed, never kept; a review costs about 20 cents). kind is always "week" (the
   // door has no day coaching yet). It answers with the coaching and the fresh Week of the page's period (view "week", view_p). The
   // core only starts the AI in the background, but the door is given 60 s, so a slow answer is not mistaken for "not saved".
   coach_start: {
-    path: '/coach/start',
-    keyed: false,
     body: (f) => ({ kind: 'week', start: dateOf(f, 'start'), end: dateOf(f, 'end') }),
-    timeoutMs: 60_000,
   },
   // The Coach card's button (deploy 109, Today and the Coach page): POST /coach/start with kind "day", the day twice. The door takes NO
   // key and the page never sends it again by itself (saver.ts: not keyed, never kept; a day coaching costs about 6 cents). Today's
   // answer brings the fresh Today (view "day", view_day), the Coach page's the fresh Coach page (view "coach", view_f, view_day).
   // The Week review's own (`coach_start`, Trends) stays as it is.
   coach_day: {
-    path: '/coach/start',
-    keyed: false,
     body: (f) => {
       const day = dateOf(f, 'start');
       return { kind: 'day', start: day, end: day };
     },
-    timeoutMs: 60_000,
   },
   // Library's Foods tab (deploy 105): the Catalogue's six forms at /food/catalogue/<action> (docs/API.md). The door takes NO key and
-  // has no Undo; the page never sends one again by itself (saver.ts: `catalogue_`). Ids and values as JSON numbers, ticks as true or
+  // has no Undo; the page never sends one again by itself (saverules.ts). Ids and values as JSON numbers, ticks as true or
   // false. Each answers with the fresh Catalogue and the open food's box (view "catalogue" with view_q, view_f, view_s, view_food).
   // values: only the values the owner changed (one left out stays as it is); shown first, then the same with confirmed.
   catalogue_values: {
-    path: '/food/catalogue/values',
-    keyed: false,
     body: (f) => ({
       id: int(f, 'id'),
       ...Object.fromEntries(CATALOGUE_VALUES.filter((k) => str(f, k, 20) !== undefined).map((k) => [k, foodNumber(f, k)])),
@@ -337,34 +300,26 @@ export const SAVES = {
       confirmed: f.get('confirmed') === '1' ? true : undefined,
     }),
   },
-  catalogue_words: { path: '/food/catalogue/words', keyed: false, body: (f) => ({ id: int(f, 'id'), act: str(f, 'act', 10), word: str(f, 'word', 60) ?? '' }) },
-  catalogue_barcode: { path: '/food/catalogue/barcode', keyed: false, body: (f) => ({ id: int(f, 'id'), barcode: str(f, 'barcode', 40) ?? '' }) },
+  catalogue_words: { body: (f) => ({ id: int(f, 'id'), act: str(f, 'act', 10), word: str(f, 'word', 60) ?? '' }) },
+  catalogue_barcode: { body: (f) => ({ id: int(f, 'id'), barcode: str(f, 'barcode', 40) ?? '' }) },
   // name, drink, hide: the form comes filled in, so all three are sent (the door keeps one left out as it is)
   catalogue_basics: {
-    path: '/food/catalogue/basics',
-    keyed: false,
     body: (f) => ({ id: int(f, 'id'), name: str(f, 'name', 120) ?? '', drink: f.get('drink') === '1', hide: f.get('hide') === '1' }),
   },
   // a unit and its weight (grams, or ml for a drink); empty grams is null (the door then asks for it)
   catalogue_unit: {
-    path: '/food/catalogue/unit',
-    keyed: false,
     body: (f) => ({ id: int(f, 'id'), unit: str(f, 'unit', 30) ?? '', grams: str(f, 'grams', 20) === undefined ? null : foodNumber(f, 'grams') }),
   },
-  catalogue_reviewed: { path: '/food/catalogue/reviewed', keyed: false, body: (f) => ({ id: int(f, 'id') }) },
+  catalogue_reviewed: { body: (f) => ({ id: int(f, 'id') }) },
   // Medical's three forms (deploy 106, docs/API.md "Medical's saves"): a correction of a lab value, of a report's date, title, lab and notes,
-  // and of a medication course (or its End). The door takes NO key and has no Undo; the page never sends one again by itself (saver.ts:
-  // `labs_`, not after a sign-in either). Each is shown first (needs_confirmation, its read-back in the answer bar), then the same with
+  // and of a medication course (or its End). The door takes NO key and has no Undo; the page never sends one again by itself
+  // (saverules.ts; not after a sign-in either). Each is shown first (needs_confirmation, its read-back in the answer bar), then the same with
   // confirmed. Only the fields typed over are sent (one left out stays as it is); a cleared one goes as null (empty). The answer brings
   // the fresh read (view "labs" with view_open, "labs_meds").
   labs_value: {
-    path: '/labs/value',
-    keyed: false,
     body: (f) => ({ id: int(f, 'id'), value: typed(f, 'value', 60), unit: typed(f, 'unit', 30), ref: typed(f, 'ref', 60), confirmed: confirmedOf(f) }),
   },
   labs_report: {
-    path: '/labs/report',
-    keyed: false,
     body: (f) => ({
       id: int(f, 'id'),
       collected: typedDate(f, 'collected'),
@@ -376,8 +331,6 @@ export const SAVES = {
   },
   // act "save" (dose, how often, why, start, stop: empty stop = running) or "end" (a running course ends today)
   labs_med: {
-    path: '/labs/med',
-    keyed: false,
     body: (f) => {
       const act = f.get('act') === 'end' ? 'end' : 'save';
       return {
@@ -399,39 +352,33 @@ export const SAVES = {
   // Settings (deploy 111; the door's routes came with 110), each through app.'s own function with its checks and words: no key (the
   // door ignores one), no Undo (a change ends the session's Undo bar, as app.'s forms do), never sent again by the page (saver.ts).
   // The nine targets: a field left empty is "no target" (null), as app.'s form; the row is all nine.
-  settings_targets: { path: '/settings/targets', keyed: false, body: (f) => targetsBody(f) },
+  settings_targets: { body: (f) => targetsBody(f) },
   // One tap on the Today page tab: its whole group, in the order wanted (the form's id and shown fields, pair by pair).
-  settings_today: { path: '/settings/today', keyed: false, body: (f) => todayBody(f) },
-  settings_today_reset: { path: '/settings/today_reset', keyed: false, body: () => ({}) },
-  settings_height: { path: '/settings/height', keyed: false, body: (f) => ({ valid_from: dateOf(f, 'valid_from'), height: decimalOf(f, 'height') }) },
+  settings_today: { body: (f) => todayBody(f) },
+  settings_today_reset: { body: () => ({}) },
+  settings_height: { body: (f) => ({ valid_from: dateOf(f, 'valid_from'), height: decimalOf(f, 'height') }) },
   // the measures shown always go (none ticked is app.'s "Keep at least one measure.")
   settings_body: {
-    path: '/settings/body',
-    keyed: false,
     body: (f) => ({ interval: decimalOf(f, 'interval'), show: f.getAll('show').filter((x): x is string => typeof x === 'string').slice(0, 50) }),
   },
   // Web item 58: a body measure added, changed, moved one place or removed (the door's checks and words; no key, no Undo)
-  settings_body_measure: { path: '/settings/body_measure', keyed: false, body: (f) => measureBody(fieldOf(f)) },
-  settings_coach: { path: '/settings/coach', keyed: false, body: (f) => coachBody(f) },
-  settings_device: { path: '/settings/device', keyed: false, body: (f) => ({ id: str(f, 'id', 64) }) },
-  settings_others: { path: '/settings/others', keyed: false, body: () => ({}) },
+  settings_body_measure: { body: (f) => measureBody(fieldOf(f)) },
+  settings_coach: { body: (f) => coachBody(f) },
+  settings_device: { body: (f) => ({ id: str(f, 'id', 64) }) },
+  settings_others: { body: () => ({}) },
   // Web 70: the keys and the hours' ranges are those of the door's list (GET /settings/notify, read first), never written here.
   settings_nudges: {
-    path: '/settings/nudges',
-    keyed: false,
     before: async (door, session) => ({ nudges: (await door.get<{ settings_notify: { nudges: Nudge[] } }>('/settings/notify', session)).body.settings_notify.nudges ?? [] }),
     check: (f, asked) => nudgesBody(fieldOf(f), asked.nudges ?? []).problem,
     body: (f, asked) => nudgesBody(fieldOf(f), asked.nudges ?? []).body,
   },
   // the notifications of a device (here or at app.) off; a test to every device
-  push_off: { path: '/push/off', keyed: false, body: (f) => ({ id: int(f, 'id') }) },
-  push_test: { path: '/push/test', keyed: false, body: () => ({}) },
+  push_off: { body: (f) => ({ id: int(f, 'id') }) },
+  push_test: { body: () => ({}) },
   // Notifications on this device (deploy 112): the browser's subscription from "This device" (src/lib/pushdevice.ts), checked here
   // first (an https address of up to 1000 characters, the two keys base64url of up to 200 and 100); the device's name comes from the
   // browser's User-Agent header, which the page does not send itself. The door checks the push service and the keys as app. does.
   push_subscribe: {
-    path: '/push/subscribe',
-    keyed: false,
     check: (f) => subscriptionProblem({ endpoint: f.get('endpoint'), p256dh: f.get('p256dh'), auth: f.get('auth') }),
     body: (f, asked) => ({
       endpoint: f.get('endpoint'),
@@ -439,7 +386,7 @@ export const SAVES = {
       user_agent: (asked.userAgent ?? '').slice(0, 300) || undefined,
     }),
   },
-} satisfies Record<string, Save>;
+} satisfies Record<SaveName, Build>;
 
 /** A number of a Settings form as the door takes it (a comma too); empty is left out; anything else as typed (the page checks first). */
 function decimalOf(f: Fields, name: string): number | string | undefined {
@@ -636,74 +583,77 @@ function yes(f: Fields): Body {
   return { confirmed: f.get('confirmed') === '1' ? true : undefined, confirm_delete: f.get('confirm_delete') === '1' ? true : undefined };
 }
 
-export type SaveName = keyof typeof SAVES;
-export const SAVE_NAMES = Object.keys(SAVES) as SaveName[];
-/** The Food day's form actions (src/routes/(app)/food; a meal's note since 21.11.2026), the Usual meals page's (src/routes/(app)/library/usual since deploy 105); Today has all the others, and food_entry and food_note (deploy 117: a food row opened on Today). */
-export const FOOD_SAVES: SaveName[] = ['food_entry', 'food_note', 'food_mealnote', 'usual_from_meal', 'undo'];
-export const USUAL_SAVES: SaveName[] = ['usual_meal', 'usual_new', 'undo'];
-/** The Health page's (deploy 92, src/routes/(app)/health): a day's row, a body session, Undo. */
-export const HEALTH_SAVES: SaveName[] = ['health_day', 'body', 'undo'];
-/** The Habits page's (deploy 94, src/routes/(app)/habits): Today's tick (the same save, asked for the habits read), a calendar day, the list's forms, Undo. */
-export const HABITS_SAVES: SaveName[] = ['habit', 'habit_day', 'habits_manage', 'undo'];
-const HABITS_ONLY: SaveName[] = ['habit_day', 'habits_manage'];
-/** The Gym's Workout page's (deploy 96, src/routes/(app)/gym): a tick, a remove, the day pick, + Add exercise, Undo. */
-export const GYM_SAVES: SaveName[] = ['gym_tick', 'gym_remove', 'gym_pick', 'gym_new', 'undo'];
-/** The Plan part's (deploy 97, src/routes/(app)/gym/plan): the plan's exercises and days, Undo (of a take-off). */
-export const PLAN_SAVES: SaveName[] = ['gym_itemset', 'gym_itemmove', 'gym_itemremove', 'gym_itemadd', 'gym_daynew', 'gym_dayedit', 'gym_dayactive', 'undo'];
-/** The Exercises part's (deploy 97, src/routes/(app)/gym/exercises): Rename, Retire or Bring back, + New exercise. No Undo exists for them. */
-export const EXERCISES_SAVES: SaveName[] = ['gym_rename', 'gym_active', 'gym_new'];
-const GYM_ONLY: SaveName[] = [...GYM_SAVES, ...PLAN_SAVES, ...EXERCISES_SAVES];
-/** Home's Now page's (deploy 99, src/routes/(app)/home): the tick circle, Undo. */
-export const HOME_SAVES: SaveName[] = ['home_tick', 'undo'];
-/** The Pick page's (deploy 99, src/routes/(app)/home/pick): the timer, Done, Done next job, Not today, Done it earlier?, Undo. */
-export const PICK_SAVES: SaveName[] = ['home_start', 'home_pause', 'home_resume', 'home_stop', 'home_pickdone', 'home_picknext', 'home_skip', 'home_earlier', 'undo'];
-/** Zones' (deploy 100, src/routes/(app)/home/zones): the tick of a tile or a row, All done, a starting point's chips, Undo. */
-export const ZONES_SAVES: SaveName[] = ['home_tick', 'home_alldone', 'home_startpoint', 'undo'];
-/** History's (deploy 100, src/routes/(app)/home/history): the × of a row, + Add one done earlier, Undo. */
-export const HISTORY_SAVES: SaveName[] = ['home_remove', 'home_earlier', 'undo'];
-/** Edit zones' (deploy 100, src/routes/(app)/home/edit): the goal, the zone and chore forms, Retire and Bring back, the Per zone table. No Undo exists for them. */
-export const EDIT_SAVES: SaveName[] = ['home_goalset', 'home_zonenew', 'home_zoneedit', 'home_zoneactive', 'home_chorenew', 'home_choreedit', 'home_choreactive', 'home_chorezones'];
-const HOME_ONLY: SaveName[] = [...HOME_SAVES, ...PICK_SAVES, ...ZONES_SAVES, ...HISTORY_SAVES, ...EDIT_SAVES];
-/** The Trends page's (deploy 102, src/routes/(app)/trends): the Week review's button. No Undo exists for it. */
-export const TRENDS_SAVES: SaveName[] = ['coach_start'];
+/** The two sets of names are the same (the table's and the bodies'): the type check fails otherwise. */
+type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+const sameNames: Same<keyof typeof BODIES, SaveName> = true;
+void sameNames;
+
+type Saves = { [K in SaveName]: (typeof BODIES)[K] & { path: (typeof SAVE_RULES)[K]['path']; keyed: boolean; timeoutMs?: number } };
+/** Each save: the table's route, whether a key goes with it and the server's wait for a `long` one, with its body (and check, read first). */
+export const SAVES = Object.fromEntries(
+  SAVE_NAMES.map((n) => {
+    const rule: SaveRule = SAVE_RULES[n];
+    return [n, { ...BODIES[n], path: rule.path, keyed: rule.key !== 'none', ...(rule.long ? { timeoutMs: LONG_TIMEOUT_MS } : {}) }];
+  }),
+) as Saves;
+
+export { SAVE_NAMES, type SaveName };
+
 /**
- * The Coach page's (deploy 109, src/routes/(app)/coach): the day coaching's button. Today has it too (`coach_day` is not in any "only"
- * list, so TODAY_SAVES keeps it by exclusion, as it must: Today's Coach card posts it to Today's own form action).
+ * Each page's form actions, from the table's `pages` (src/lib/saverules.ts; its SAVE_PAGES say which addresses each page is). The order
+ * is the table's and means nothing: a page's actions are an object by name.
  */
-export const COACH_SAVES: SaveName[] = ['coach_day'];
+const on = (page: SavePage): SaveName[] => savesOn(page);
+/** Today (src/routes/(app)): its taps, the logging box, a food row opened in place, the Coach card, Undo. */
+export const TODAY_SAVES = on('today');
+/** The Food day (src/routes/(app)/food): a row's change and note, a meal's note, "Save as usual meal", Undo. */
+export const FOOD_SAVES = on('food');
+/** The Usual meals page (src/routes/(app)/library/usual since deploy 105). */
+export const USUAL_SAVES = on('usual');
+/** The Health page (deploy 92, src/routes/(app)/health): a day's row, a body session, Undo. */
+export const HEALTH_SAVES = on('health');
+/** The Habits page (deploy 94, src/routes/(app)/habits): Today's tick (the same save, asked for the habits read), a calendar day, the list's forms, Undo. */
+export const HABITS_SAVES = on('habits');
+/** The Gym's Workout page (deploy 96, src/routes/(app)/gym): a tick, a remove, the day pick, + Add exercise, Undo. */
+export const GYM_SAVES = on('gym');
+/** The Plan part (deploy 97, src/routes/(app)/gym/plan): the plan's exercises and days, Undo (of a take-off). */
+export const PLAN_SAVES = on('gym_plan');
+/** The Exercises part (deploy 97, src/routes/(app)/gym/exercises) and Library's Exercises tab: Rename, Retire or Bring back, + New exercise. No Undo. */
+export const EXERCISES_SAVES = on('exercises');
+/** Home's Now page (deploy 99, src/routes/(app)/home): the tick circle, Undo. */
+export const HOME_SAVES = on('home');
+/** The Pick page (deploy 99, src/routes/(app)/home/pick): the timer, Done, Done next job, Not today, Done it earlier?, Undo. */
+export const PICK_SAVES = on('home_pick');
+/** Zones (deploy 100, src/routes/(app)/home/zones): the tick of a tile or a row, All done, a starting point's chips, Undo. */
+export const ZONES_SAVES = on('home_zones');
+/** History (deploy 100, src/routes/(app)/home/history): the × of a row, + Add one done earlier, Undo. */
+export const HISTORY_SAVES = on('home_history');
+/** Edit zones (deploy 100, src/routes/(app)/home/edit): the goal, the zone and chore forms, Retire and Bring back, the Per zone table. No Undo. */
+export const EDIT_SAVES = on('home_edit');
+/** The Trends page (deploy 102, src/routes/(app)/trends): the Week review's button. No Undo. */
+export const TRENDS_SAVES = on('trends');
+/** The Coach page (deploy 109, src/routes/(app)/coach): the day coaching's button (Today's Coach card posts it to Today's own action). */
+export const COACH_SAVES = on('coach');
 /**
- * Library's Foods tab's (deploy 105, src/routes/(app)/library): the Catalogue's six forms, and a new food through the look-up and its
- * yes (`lookup`, `answer`: Today's saves, here asked for the Catalogue; the yes has the door's Undo of the new food). The six have no
- * Undo.
+ * Library's Foods tab (deploy 105, src/routes/(app)/library): the Catalogue's six forms, and a new food through the look-up and its yes
+ * (`lookup`, `answer`, here asked for the Catalogue; the yes has the door's Undo of the new food). The six have no Undo.
  */
-const CATALOGUE_ONLY: SaveName[] = ['catalogue_values', 'catalogue_words', 'catalogue_barcode', 'catalogue_basics', 'catalogue_unit', 'catalogue_reviewed'];
-export const CATALOGUE_SAVES: SaveName[] = [...CATALOGUE_ONLY, 'lookup', 'answer', 'undo'];
-/**
- * Library > Foods > Words' (core item 24, src/routes/(app)/library/words): the Catalogue's word save, asked for view "words" (its answer
- * brings the fresh list and, for this view only, an Undo that takes that word back), and Undo.
- */
-export const WORDS_SAVES: SaveName[] = ['catalogue_words', 'undo'];
-/** Library's Habits tab's (deploy 105, src/routes/(app)/library/habits): the list's forms, as on the Habits page. */
-export const LIBRARY_HABITS_SAVES: SaveName[] = ['habits_manage'];
-/**
- * Medical's (deploy 106, src/routes/(app)/medical): the Reports page's two forms (a value, a report's date, title, lab and notes), and the
- * Medication page's form and End, with a new course through Today's typed line and its yes (`log`, `answer`, asked for the Medication
- * read; the door's Undo comes with them, if any). The three Medical forms have no Undo.
- */
-const MEDICAL_ONLY: SaveName[] = ['labs_value', 'labs_report', 'labs_med'];
-export const MEDICAL_REPORTS_SAVES: SaveName[] = ['labs_value', 'labs_report'];
-export const MEDICAL_MEDS_SAVES: SaveName[] = ['labs_med', 'log', 'answer', 'undo'];
-/**
- * Settings' tabs (deploy 111, src/routes/(app)/settings/*): Food targets, the Today page (a group's tap, Show everything again), Body
- * (height, the measurements), Coach, Devices (sign one out, all others), Notifications (the nudges, a device's off, the test). None has
- * a key or Undo, and none is in Today's actions.
- */
-export const SETTINGS_TARGETS_SAVES: SaveName[] = ['settings_targets'];
-export const SETTINGS_TODAY_SAVES: SaveName[] = ['settings_today', 'settings_today_reset'];
-export const SETTINGS_BODY_SAVES: SaveName[] = ['settings_height', 'settings_body', 'settings_body_measure'];
-export const SETTINGS_COACH_SAVES: SaveName[] = ['settings_coach'];
-export const SETTINGS_DEVICES_SAVES: SaveName[] = ['settings_device', 'settings_others'];
-export const SETTINGS_NOTIFY_SAVES: SaveName[] = ['settings_nudges', 'push_off', 'push_test', 'push_subscribe'];
+export const CATALOGUE_SAVES = on('catalogue');
+/** Library > Foods > Words (core item 24, src/routes/(app)/library/words): the word save, asked for view "words" (with an Undo), and Undo. */
+export const WORDS_SAVES = on('words');
+/** Library's Habits tab (deploy 105, src/routes/(app)/library/habits): the list's forms, as on the Habits page. */
+export const LIBRARY_HABITS_SAVES = on('library_habits');
+/** Medical's Reports page (deploy 106, src/routes/(app)/medical): a value, a report's date, title, lab and notes. No Undo. */
+export const MEDICAL_REPORTS_SAVES = on('medical_reports');
+/** The Medication page: its form and End, and a new course through Today's typed line and its yes (`log`, `answer`), Undo. */
+export const MEDICAL_MEDS_SAVES = on('medical_meds');
+/** Settings' tabs (deploy 111, src/routes/(app)/settings/*). None has a key or Undo, and none is in Today's actions. */
+export const SETTINGS_TARGETS_SAVES = on('settings_targets');
+export const SETTINGS_TODAY_SAVES = on('settings_today');
+export const SETTINGS_BODY_SAVES = on('settings_body');
+export const SETTINGS_COACH_SAVES = on('settings_coach');
+export const SETTINGS_DEVICES_SAVES = on('settings_devices');
+export const SETTINGS_NOTIFY_SAVES = on('settings_notify');
 export const SETTINGS_ONLY: SaveName[] = [
   ...SETTINGS_TARGETS_SAVES,
   ...SETTINGS_TODAY_SAVES,
@@ -712,14 +662,6 @@ export const SETTINGS_ONLY: SaveName[] = [
   ...SETTINGS_DEVICES_SAVES,
   ...SETTINGS_NOTIFY_SAVES,
 ];
-export const TODAY_SAVES: SaveName[] = SAVE_NAMES.filter(
-  (n) =>
-    n === 'undo' ||
-    // a food row opened on Today (deploy 117): the Food day's two saves, answering with the fresh Today
-    n === 'food_entry' ||
-    n === 'food_note' ||
-    (!FOOD_SAVES.includes(n) && !USUAL_SAVES.includes(n) && !HEALTH_SAVES.includes(n) && !HABITS_ONLY.includes(n) && !GYM_ONLY.includes(n) && !HOME_ONLY.includes(n) && !TRENDS_SAVES.includes(n) && !CATALOGUE_ONLY.includes(n) && !MEDICAL_ONLY.includes(n) && !SETTINGS_ONLY.includes(n)),
-);
 export type View = 'day' | 'food' | 'usual' | 'health' | 'body' | 'habits' | 'gym' | 'gym_plan' | 'gym_exercises' | 'home' | 'home_pick' | 'home_zones' | 'home_history' | 'home_chore' | 'home_edit' | 'week' | 'coach' | 'catalogue' | 'words' | 'labs' | 'labs_tests' | 'labs_meds'
   | 'settings_targets' | 'settings_today' | 'settings_body' | 'settings_coach' | 'settings_devices' | 'settings_notify';
 

@@ -12,6 +12,8 @@
  * - trouble: anything else (the door's `server_error`, an answer this app cannot read).
  */
 
+import { ruleOf } from './saverules.js';
+
 export type ProblemKind = 'door_off' | 'core_down' | 'trouble';
 export type Where = 'page' | 'save' | 'signin';
 
@@ -52,13 +54,15 @@ export function problemText(kind: ProblemKind, where: Where): string {
 export const linksToApp = (kind: ProblemKind) => kind !== 'core_down';
 
 /**
- * The keyed saves whose key does not make a second send harmless (checked against the core on 21.11.2026, Web 65): a Habits page's
- * day tap toggles (sent again after it went through, it takes the tick back), the Habits list's forms take no key at the core, and
- * a habit's untick takes none either. Every other keyed save sent again with its key gets the first answer back (`replayed`) or a
- * refusal that changes nothing ("Nothing changed.", "no longer waiting").
+ * Whether a second send of a save with its key is harmless (checked against the core on 21.11.2026, Web 65; the table's `key` in
+ * src/lib/saverules.ts since web item 72): a keyed save the core replays gets the first answer back (`replayed`) or a refusal that
+ * changes nothing ("Nothing changed.", "no longer waiting"). Not a Habits page's day tap (it toggles: sent again after it went
+ * through, it takes the tick back), the Habits list's forms (the core's functions take no key) or a habit's untick (no key either).
  */
-const NO_REPLAY = new Set(['habit_day', 'habits_manage']);
-export const replays = (keyed: boolean, action: string, untick = false) => keyed && !NO_REPLAY.has(action) && !(action === 'habit' && untick);
+export const replays = (keyed: boolean, action: string, untick = false) => {
+  const key = ruleOf(action)?.key;
+  return keyed && (key === 'replays' || (key === 'replays_tick' && !untick));
+};
 
 /**
  * A save that went out and got no answer (Web 65, 21.11.2026: the door did not answer in time, or the browser heard nothing back):
