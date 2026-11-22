@@ -121,10 +121,11 @@ def body_settings(form, key: Optional[str], session) -> dict:
     if n is None or not lo <= n <= hi:
         return _rejected(f"Due every: give a whole number of days from {lo} to {hi}.")
     show = {str(x) for x in form.getlist("show")}
-    if not show & set(body.NAMES):
-        return _rejected("Keep at least one measure.")
-    hidden = [k for k in body.NAMES if k not in show]
     with connect() as conn, conn.cursor() as cur:
+        names = body.names(cur)
+        if not show & set(names):
+            return _rejected("Keep at least one measure.")
+        hidden = [k for k in names if k not in show]
         cur.execute("""INSERT INTO ui_settings (key, value) VALUES (%s, %s)
                        ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()""",
                     (body.KEY, Jsonb({"interval": n, "hidden": hidden})))

@@ -32,10 +32,10 @@ def _due_text(last: date, today: date, interval: int) -> str:
 def _form(csrf: str, r: int, day: date, today: date, shown: list, now: dict, before: dict) -> str:
     """One row per shown measure: the session's value (to change), the last value before it as the placeholder."""
     rows = "".join(
-        f'<label class="brow"><span class="bl"><b>{lbl}</b><span class="small">{hint}</span></span>'
-        f'<span class="bin"><input type="number" name="{k}" step="any" min="0" inputmode="decimal" value="{body.cm(now[k]["v"]) if k in now else ""}"'
-        f' placeholder="{body.cm(before[k]) if k in before else ""}" aria-label="{lbl} in cm"> cm</span></label>'
-        for k, lbl, hint in shown)
+        f'<label class="brow"><span class="bl"><b>{esc(m["label"])}</b><span class="small">{esc(m["landmark"])}</span></span>'
+        f'<span class="bin"><input type="number" name="{m["key"]}" step="any" min="0" inputmode="decimal" value="{body.cm(now[m["key"]]["v"]) if m["key"] in now else ""}"'
+        f' placeholder="{body.cm(before[m["key"]]) if m["key"] in before else ""}" aria-label="{esc(m["label"])} in cm"> cm</span></label>'
+        for m in shown)
     which = "" if day == today else f'<p class="small"><b>Changing the session of {day:%d.%m.%Y}.</b> Clearing a value deletes it (asked once).</p>'
     return (f'<form class="fbox bform" method="post" action="/web/body">{hidden("csrf", csrf)}{hidden("day", day.isoformat())}'
             f'{hidden("r", str(r))}{hidden("key", key())}<p class="small">{body.PROTOCOL}</p>{which}{rows}'
@@ -46,7 +46,8 @@ def table(sessions: list, shown: list) -> list[dict]:
     """The table Now / Last / Start as data (deploy 91, app.'s card and the JSON door): per shown measure with a value, its newest
     value (day, cm, ref), the change since the time before and since the first session (None with one value only)."""
     rows = []
-    for k, lbl, _h in shown:
+    for m in shown:
+        k, lbl = m["key"], m["label"]
         vals = [(s["day"], s["vals"][k]) for s in sessions if k in s["vals"]]
         if not vals:
             continue
@@ -60,7 +61,7 @@ def table(sessions: list, shown: list) -> list[dict]:
 def _table(r: int, sessions: list, shown: list) -> str:
     rows = []
     for t in table(sessions, shown):
-        lbl, now_d, now_v = t["label"], t["day"], t["cm"]
+        lbl, now_d, now_v = esc(t["label"]), t["day"], t["cm"]
         last = body.signed(t["last"]) if t["last"] is not None else "–"
         start = body.signed(t["start"]) if t["start"] is not None else "–"
         rows.append(f'<tr><td>{lbl}</td><td class="num"><a href="{esc(_url(r, measure=1, mday=now_d.isoformat()))}" '
@@ -75,7 +76,7 @@ def _table(r: int, sessions: list, shown: list) -> str:
 
 def charted(sessions: list, shown: list) -> list[tuple]:
     """The shown measures that have a value: [(key, label)], in the form's order (one chip and chart each)."""
-    return [(k, lbl) for k, lbl, _h in shown if any(k in s["vals"] for s in sessions)]
+    return [(m["key"], m["label"]) for m in shown if any(m["key"] in s["vals"] for s in sessions)]
 
 
 def chart_data(k: str, label: str, sessions: list, today: date, days: int) -> dict:
@@ -98,7 +99,7 @@ def _chart(r: int, sessions: list, shown: list, pick: Optional[str], today: date
         return ""
     k = pick if pick in dict(have) else have[0][0]
     data = chart_data(k, dict(have)[k], sessions, today, days)
-    chips = "".join(f'<a class="chip{" on" if m == k else ""}" href="{esc(_url(r, bx=m))}"{" aria-current=\"true\"" if m == k else ""}>{lbl}</a>'
+    chips = "".join(f'<a class="chip{" on" if m == k else ""}" href="{esc(_url(r, bx=m))}"{" aria-current=\"true\"" if m == k else ""}>{esc(lbl)}</a>'
                     for m, lbl in have)
     return (f'<p class="chips bchips" role="group" aria-label="Measure">{chips}</p>'
             f'<div class="chart" id="c-body" data-chart="{esc(json.dumps(data, separators=(",", ":")))}"></div>')
@@ -139,18 +140,19 @@ def load(today: date, day: date, before: bool = True) -> dict:
     waist ÷ height and the weight rate, the session of day (the form's values) and, with before, each shown measure's last value
     before that day (the form's placeholders)."""
     with connect() as conn, conn.cursor() as cur:
-        prefs = body.settings(cur)
-        shown = body.shown(prefs)
+        ms = body.measures(cur)
+        prefs = body.settings(cur, ms)
+        shown = body.shown(prefs, ms)
         sessions = body.sessions(cur)
         der = derived(cur, sessions, today)
         now = next((s["vals"] for s in sessions if s["day"] == day), {})
         last_vals = {}
-        for k, _l, _h in shown if before else ():
-            p = body.last_before(cur, k, day)
+        for m in shown if before else ():
+            p = body.last_before(cur, m["key"], day)
             if p:
-                last_vals[k] = p[1]
+                last_vals[m["key"]] = p[1]
     last = sessions[-1]["day"] if sessions else None
-    return {"prefs": prefs, "shown": shown, "sessions": sessions, "derived": der, "day": day, "now": now, "before": last_vals,
+    return {"prefs": prefs, "measures": ms, "shown": shown, "sessions": sessions, "derived": der, "day": day, "now": now, "before": last_vals,
             "last": last, "due_text": _due_text(last, today, prefs["interval"]) if last else None}
 
 

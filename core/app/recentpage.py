@@ -5,7 +5,7 @@ import re
 from datetime import date, timedelta
 
 from . import gym, rules
-from .body import NAMES as BODY, cm as body_cm
+from .body import cm as body_cm
 from .db import connect
 from .todaypage import _plain
 from .webentry import esc
@@ -39,12 +39,12 @@ def load() -> dict:
             meal = "drinks" if r["meal"] == 0 else f"meal {r['meal']}"
             saved[r["raw_id"]].append(("Food", f"{r['name']} {_plain(r['amount'])} {r['basis']} · {meal}"))
             day_of.setdefault(r["raw_id"], r["day"])
-        cur.execute("""SELECT m.raw_id, t.name, t.label, m.value1, m.value2, m.period, t.unit, m.day FROM measurements m
+        cur.execute("""SELECT m.raw_id, t.name, t.label, t.body_measure, m.value1, m.value2, m.period, t.unit, m.day FROM measurements m
                        JOIN log_types t ON t.id = m.type_id WHERE m.raw_id = ANY(%s) ORDER BY m.id""", (ids,))
         tape: dict = {}  # body measurements (03.11.2026): one line per message
         for r in cur.fetchall():
             day_of.setdefault(r["raw_id"], r["day"])
-            if r["name"] in BODY:
+            if r["body_measure"]:
                 tape.setdefault(r["raw_id"], []).append(f"{r['label'].lower()} {body_cm(r['value1'])}")
                 continue
             v = "/".join(_plain(x) for x in (r["value1"], r["value2"]) if x is not None)

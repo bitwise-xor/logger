@@ -109,7 +109,7 @@ def settle(cur, cat: dict, types: dict, pred: dict, now: datetime) -> Reading:
     for h in pred.get("health", []):
         t, _ = _resolve_type(types, h["type"])
         if not t:
-            text = (tape.unknown_text(h["type"], h["value"]) if h.get("tape") else
+            text = (tape.unknown_text(cur, h["type"], h["value"]) if h.get("tape") else
                     f"'{h['type']}' is not a known health type or habit. Is it a habit to add, or a thought?")
             r.questions.append(dict(kind="type", text=text, item=h))
             continue

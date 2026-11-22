@@ -5,7 +5,7 @@ count most, and the daily charts of calories, protein and fat."""
 from datetime import date, timedelta
 
 from . import coachpage, habitaim, trendspage
-from .body import LABEL as BODY_LABEL, sessions as body_sessions, signed
+from .body import labels as body_labels, sessions as body_sessions, signed
 from .db import connect
 from .foodpage import _pct_class
 from .todaypage import _n
@@ -163,11 +163,12 @@ def health_rows(cur, start: date, end: date, ndays: int) -> list:
         items.append(_row("feel", "Mood · energy", said, f'average of {n} evening{"" if n == 1 else "s"}, 1 to 5'))
     # body measurements (03.11.2026): one line per session in the period, with the waist's change since the session before
     sess = body_sessions(cur)
+    body_label = body_labels(cur) if sess else {}
     for i, s in enumerate(sess):
         if start <= s["day"] <= end:
             k = "waist" if "waist" in s["vals"] else next(iter(s["vals"]))
             prev = next((p["vals"][k]["v"] for p in reversed(sess[:i]) if k in p["vals"]), None)
-            said = f'{BODY_LABEL[k].lower()} {signed(s["vals"][k]["v"] - prev)} cm since last' if prev is not None else "the first measurement"
+            said = f'{body_label.get(k, k).lower()} {signed(s["vals"][k]["v"] - prev)} cm since last' if prev is not None else "the first measurement"
             n = len(s["vals"])
             items.append(_row("body", "Body measurements", f'Measured {s["day"]:%d.%m.}: {said}', f'({n} value{"" if n == 1 else "s"})'))
     if habits and ndays:

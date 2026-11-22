@@ -24,6 +24,7 @@ TARGETS_HINT = ("New targets count from the date; earlier days keep the targets 
                 "Water counts every drink by its amount.")
 HEIGHT_HINT = "For waist ÷ height on the Health page. A new height counts from its date; earlier measurements keep the height they had."
 MEASURES_HINT = "A hidden measure keeps its values; it is only left out of the form, the table and the chips."
+REMOVE_HINT = "A measure with values cannot be removed: hide it instead."
 TODAY_HINT = ("Food and drinks always show. A hidden item is only hidden on the Today page: it stays on the Habits page, in the Sheet "
               "and in your records. Order: the smaller number comes first. A hidden review box still shows one line while something waits for review.")
 
@@ -85,12 +86,16 @@ def _targets(session, csrf: str) -> str:
 # ---- body measurements (03.11.2026) ------------------------------------------------------------------
 
 def body_data() -> dict:
-    """{"today", "rows": the heights, newest first, "now": the height in force today (None: not set yet), "prefs": body.settings}."""
+    """{"today", "rows": the heights, newest first, "now": the height in force today (None: not set yet), "prefs": body.settings,
+    "measures": body.measures, "with_values": the keys of the measures that have a value}."""
     with connect() as c, c.cursor() as cur:
         today = cur.execute("SELECT log_day(now()) AS d").fetchone()["d"]
         rows = body.heights(cur)
-        prefs = body.settings(cur)
-    return {"today": today, "rows": rows, "now": next((r for r in rows if r["valid_from"] <= today), None), "prefs": prefs}
+        ms = body.measures(cur)
+        prefs = body.settings(cur, ms)
+        with_values = body.with_values(cur)
+    return {"today": today, "rows": rows, "now": next((r for r in rows if r["valid_from"] <= today), None), "prefs": prefs,
+            "measures": ms, "with_values": with_values}
 
 
 def _body(session, csrf: str) -> str:
@@ -99,8 +104,8 @@ def _body(session, csrf: str) -> str:
     today, rows, prefs, now = d["today"], d["rows"], d["prefs"], d["now"]
     lo, hi = body.HEIGHT_RANGE
     hist = "".join(f'<tr><td>{r["valid_from"]:%d.%m.%Y}</td><td>{_plain(r["height_cm"])} cm</td></tr>' for r in rows)
-    boxes = "".join(f'<label class="row"><input type="checkbox" name="show" value="{k}"{"" if k in prefs["hidden"] else " checked"}> {lbl}</label>'
-                    for k, lbl, _h in body.TAPE)
+    boxes = "".join(f'<label class="row"><input type="checkbox" name="show" value="{m["key"]}"{"" if m["key"] in prefs["hidden"] else " checked"}> {esc(m["label"])}</label>'
+                    for m in d["measures"])
     ilo, ihi = body.INTERVAL_RANGE
     return (f'<div class="card"><h2>Height <span class="small">{f"{_plain(now["height_cm"])} cm" if now else "not set yet"}</span></h2>'
             f'<form method="post" action="/web/settings/height">{hidden("csrf", csrf)}{hidden("back", url(tab="body"))}<div class="fields">'

@@ -201,7 +201,7 @@ def _prepare_entries(cur, entries: list[Entry], now: datetime) -> list[dict]:
                 tally[("bp", day, per)] += 1
             elif name == "blood_sugar":
                 p["period"] = "fasted"
-            if name in body.NAMES:  # body measurements (v2, 03.11.2026): one value a health day, a second one replaces it after a
+            if t.get("body_measure"):  # body measurements (v2, 03.11.2026): one value a health day, a second one replaces it after a
                 cur.execute("""SELECT id, value1 FROM measurements WHERE type_id=%s AND day=%s
                                ORDER BY event_at DESC, id DESC""", (t["id"], day))  # yes; a jump of 4 cm or more asks too
                 same = cur.fetchall()
@@ -209,7 +209,7 @@ def _prepare_entries(cur, entries: list[Entry], now: datetime) -> list[dict]:
                     had = f" {body.cm(same[0]['value1'])}" if same else ""
                     problems.append(f"{t['label']} already{had} on {day:%d.%m.%Y}. Replace?")
                     p["replace"] = [r["id"] for r in same]
-                problems += body.jump(cur, name, v1, day)
+                problems += body.jump(cur, name, t["label"], v1, day)
                 tally[(name, day)] += 1
             if name in _ONCE_PER_DAY:
                 n, r = _first(cur, "measurements", t["id"], day)

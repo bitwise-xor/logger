@@ -14,7 +14,7 @@ from typing import Optional
 
 from psycopg.types.json import Jsonb
 
-from . import gym, habitaim, logbook
+from . import body, gym, habitaim, logbook
 from .ai.provider import AnthropicProvider, Provider, kind as error_kind
 from .db import connect
 from .when import BERLIN
@@ -32,7 +32,7 @@ GOALS_MAX = 2000
 SYSTEM = (Path(__file__).parent / "ai" / "prompts" / "coach.md").read_text(encoding="utf-8")
 PROVIDER: Optional[Provider] = None  # created on first use; tests put a fake here
 BACKGROUND = True  # tests run the coaching in the request instead
-VITALS = ("weight", "bp", "blood_sugar", "mood", "energy", "waist", "hips", "chest", "upper_arm", "thigh")
+VITALS = ("weight", "bp", "blood_sugar", "mood", "energy")  # and the body measures (body.names: rows of log_types since web item 58)
 
 
 def provider() -> Provider:
@@ -131,7 +131,7 @@ def _hm(ts) -> Optional[str]:
 def _vitals(cur, start: date, end: date) -> dict:
     """{day: ["weight 82.4 kg 07:40", "bp 128/82 morning", ...]} for the vital signs, mood, energy and body measurements."""
     cur.execute("""SELECT day, type, period, value1, value2, unit, event_at, time_known FROM v_measurements
-                   WHERE day BETWEEN %s AND %s AND type = ANY(%s) ORDER BY day, event_at, id""", (start, end, list(VITALS)))
+                   WHERE day BETWEEN %s AND %s AND type = ANY(%s) ORDER BY day, event_at, id""", (start, end, list(VITALS) + body.names(cur)))
     out: dict = {}
     for r in cur.fetchall():
         v = f'{_n(r["value1"], 1):g}' + (f'/{_n(r["value2"], 1):g}' if r["value2"] is not None else "")

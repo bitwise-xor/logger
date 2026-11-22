@@ -621,7 +621,7 @@ def test_the_more_and_coach_shapes(sv, monkeypatch):
 SETTINGS = {
     "settings_targets": {"valid_from", "current", "fields", "history", "limits", "hint"},
     "settings_today": {"groups", "hint"},
-    "settings_body": {"valid_from", "height", "heights", "height_range", "interval", "measures", "hints"},
+    "settings_body": {"valid_from", "height", "heights", "height_range", "interval", "measures", "limits", "suggestions", "hints"},
     "settings_coach": {"goals", "style", "max", "kinds", "facts", "model", "daily_limit"},
     "settings_devices": {"devices", "others"},
     "settings_notify": {"on", "on_label", "nudges", "awake_hours", "subscriptions", "public_key", "twice"},
@@ -645,7 +645,9 @@ def test_the_settings_shapes(sv):
         assert all(set(g) == {"kind", "heading", "items"} and all(set(i) == {"id", "label", "shown"} for i in g["items"]) for g in s["settings_today"]["groups"])
         b = s["settings_body"]
         assert set(b["height"]) == {"cm", "valid_from"} and all(set(h) == {"cm", "valid_from", "valid_from_text"} for h in b["heights"])
-        assert set(b["interval"]) == {"days", "min", "max", "default"} and all(set(m) == {"key", "label", "shown"} for m in b["measures"])
+        assert set(b["interval"]) == {"days", "min", "max", "default"} and all(set(m) == {"key", "label", "landmark", "min", "max", "words", "shown", "has_values"} for m in b["measures"])
+        assert set(b["limits"]) == {"label", "landmark_max", "cm", "words_max", "word_max"} and set(b["hints"]) == {"height", "measures", "remove"}
+        assert all(set(x) == {"label", "landmark", "min", "max", "words"} for x in b["suggestions"]) and b["suggestions"]
         assert all(set(k) == {"kind", "title", "parts"} and all(set(p) == {"key", "label", "on"} for p in k["parts"]) for k in s["settings_coach"]["kinds"])
         assert all(set(d) == {"id", "name", "address", "signed_in", "last_used", "expires", "current"} for d in s["settings_devices"]["devices"])
         nt = s["settings_notify"]

@@ -250,33 +250,106 @@
     {
      "key": "waist",
      "label": "Waist",
-     "shown": true
+     "landmark": "At the navel, after a normal breath out",
+     "min": 50,
+     "max": 200,
+     "words": [
+      "belly",
+      "tummy",
+      "waistline"
+     ],
+     "shown": true,
+     "has_values": true
     },
     {
      "key": "hips",
      "label": "Hips",
-     "shown": true
+     "landmark": "Widest point of the buttocks",
+     "min": 60,
+     "max": 200,
+     "words": [
+      "hip",
+      "butt"
+     ],
+     "shown": true,
+     "has_values": false
     },
     {
      "key": "chest",
      "label": "Chest",
-     "shown": false
+     "landmark": "Across the nipples, arms down",
+     "min": 60,
+     "max": 200,
+     "words": [],
+     "shown": false,
+     "has_values": false
     },
     {
      "key": "upper_arm",
      "label": "Upper arm",
-     "shown": true
+     "landmark": "Halfway shoulder to elbow, relaxed, right side",
+     "min": 15,
+     "max": 70,
+     "words": [
+      "arm",
+      "bicep",
+      "biceps"
+     ],
+     "shown": true,
+     "has_values": false
     },
     {
      "key": "thigh",
      "label": "Thigh",
-     "shown": true
+     "landmark": "Halfway hip to knee, standing, right side",
+     "min": 30,
+     "max": 110,
+     "words": [
+      "leg"
+     ],
+     "shown": true,
+     "has_values": false
+    },
+    {
+     "key": "neck",
+     "label": "Neck",
+     "landmark": "Below the larynx, tape level",
+     "min": 25,
+     "max": 60,
+     "words": [],
+     "shown": true,
+     "has_values": false
     }
    ],
    "hints": {
     "height": "For waist ÷ height on the Health page. A new height counts from its date; earlier measurements keep the height they had.",
-    "measures": "A hidden measure keeps its values; it is only left out of the form, the table and the chips."
-   }
+    "measures": "A hidden measure keeps its values; it is only left out of the form, the table and the chips.",
+    "remove": "A measure with values cannot be removed: hide it instead."
+   },
+   "limits": {
+    "label": {
+     "min": 2,
+     "max": 30
+    },
+    "landmark_max": 120,
+    "cm": {
+     "min": 10,
+     "max": 300
+    },
+    "words_max": 8,
+    "word_max": 30
+   },
+   "suggestions": [
+    {
+     "label": "Calf",
+     "landmark": "Widest point, standing, right side",
+     "min": 20,
+     "max": 70,
+     "words": [
+      "calves"
+     ]
+    }
+   ]
   },
   "undo": null
  },

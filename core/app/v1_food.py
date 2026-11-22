@@ -165,7 +165,7 @@ def _use_counts(cur, ids: list[int]) -> dict:
 
 def _types(cur) -> tuple[list[dict], dict]:
     """The type registry (read every call, so types added in NocoDB work at once). Returns (rows, lookup by name/alias)."""
-    cur.execute("""SELECT id, name, label, kind, category, unit, min1, max1, min2, max2, aliases, on_checklist, active
+    cur.execute("""SELECT id, name, label, kind, category, unit, min1, max1, min2, max2, aliases, on_checklist, active, body_measure
                    FROM log_types ORDER BY sort_order, name""")
     rows = cur.fetchall()
     idx: dict = {}

@@ -611,9 +611,8 @@ def body(asked: Optional[date] = None, days: int = healthpage.DEFAULT_RANGE) -> 
     """The Body measurements card (bodypage.load): last measured and the due text, the session form of a day (today, or an earlier
     day asked for), the table Now / Last / Start, a chart per measure, waist ÷ height and the weight rate. days: the Health page's
     range, for the charts (a measure with fewer than 2 sessions in it shows every session)."""
-    with connect() as c, c.cursor() as cur:
+    with connect() as c:
         today = c.execute("SELECT log_day(now()) AS d").fetchone()["d"]
-        limits = tape.ranges(cur)
     the_day = min(asked, today) if asked else today
     b = bodypage.load(today, the_day)
     wh, rate = b["derived"]["waist_height"], b["derived"]["rate"]
@@ -621,9 +620,9 @@ def body(asked: Optional[date] = None, days: int = healthpage.DEFAULT_RANGE) -> 
         "today": iso(today), "day": iso(the_day), "last_measured": iso(b["last"]), "due_text": b["due_text"],
         "interval_days": b["prefs"]["interval"], "hidden": sorted(b["prefs"]["hidden"]), "jump_cm": tape.JUMP_CM,
         "protocol": tape.PROTOCOL, "hint": bodypage.HINT,
-        "form": [{"key": k, "label": lbl, "hint": hint, "ref": b["now"][k]["id"] if k in b["now"] else None,
+        "form": [{"key": k, "label": m["label"], "hint": m["landmark"], "ref": b["now"][k]["id"] if k in b["now"] else None,
                   "cm": b["now"][k]["v"] if k in b["now"] else None, "last_cm": b["before"].get(k),
-                  "min": num(limits[k][0]), "max": num(limits[k][1])} for k, lbl, hint in b["shown"]],
+                  "min": num(m["min"]), "max": num(m["max"])} for m in b["shown"] for k in (m["key"],)],
         "table": [{**{k: t[k] for k in ("key", "label", "ref", "cm")}, "day": iso(t["day"]),
                    "last": _r(t["last"], 1), "start": _r(t["start"], 1),
                    "last_text": tape.signed(t["last"]) if t["last"] is not None else None,
@@ -1385,7 +1384,9 @@ def settings_today() -> dict:
 
 
 def settings_body() -> dict:
-    """Body: the height now and its history, how often measurements are due, which measures show."""
+    """Body: the height now and its history, how often measurements are due, the measures in their order (each with its landmark,
+    range, words, whether it shows and whether it has values: one with values cannot be removed), the add form's limits and the
+    suggested measures not added yet (web item 58)."""
     d = settingspage.body_data()
     lo, hi = tape.HEIGHT_RANGE
     ilo, ihi = tape.INTERVAL_RANGE
@@ -1394,8 +1395,13 @@ def settings_body() -> dict:
             "heights": [{"cm": num(r["height_cm"]), "valid_from": iso(r["valid_from"]), "valid_from_text": _day_text(r["valid_from"])} for r in d["rows"]],
             "height_range": {"min": lo, "max": hi},
             "interval": {"days": d["prefs"]["interval"], "min": ilo, "max": ihi, "default": tape.INTERVAL_DAYS},
-            "measures": [{"key": k, "label": lbl, "shown": k not in d["prefs"]["hidden"]} for k, lbl, _h in tape.TAPE],
-            "hints": {"height": settingspage.HEIGHT_HINT, "measures": settingspage.MEASURES_HINT}}
+            "measures": [{"key": m["key"], "label": m["label"], "landmark": m["landmark"], "min": num(m["min"]), "max": num(m["max"]),
+                          "words": m["words"], "shown": m["key"] not in d["prefs"]["hidden"], "has_values": m["key"] in d["with_values"]}
+                         for m in d["measures"]],
+            "limits": {"label": {"min": tape.LABEL_LEN[0], "max": tape.LABEL_LEN[1]}, "landmark_max": tape.LANDMARK_MAX,
+                       "cm": {"min": tape.RANGE_CM[0], "max": tape.RANGE_CM[1]}, "words_max": tape.WORDS_MAX, "word_max": tape.WORD_LEN},
+            "suggestions": tape.suggestions(d["measures"]),
+            "hints": {"height": settingspage.HEIGHT_HINT, "measures": settingspage.MEASURES_HINT, "remove": settingspage.REMOVE_HINT}}
 
 
 def settings_coach() -> dict:

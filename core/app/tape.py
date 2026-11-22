@@ -2,11 +2,11 @@
 5.2): "waist 123.5", "waist 123,5 hips 128 cm", "measured: waist 49 in". A line made only of such pairs, at least one of them a
 body measurement, becomes the parser's answer at once (logbook.log's no-AI path, like the web app's buttons). An unknown word
 among them becomes a question and is never guessed; a line with anything else in it (a weight, a habit, a time) goes to the AI
-as before."""
+as before. The measures and their words are log_types rows (body_measure, web item 58): one the owner adds is read the same way."""
 import re
 from typing import Optional
 
-from .body import LABEL, NAMES
+from .body import measures
 from .v1_food import _resolve_type, _types
 
 INCH_CM = 2.54
@@ -40,7 +40,7 @@ def read(cur, text: str) -> Optional[dict]:
     health, notes, known = [], [], 0
     for word, v, inches in found:
         t, _ = _resolve_type(idx, word)
-        if t and t["name"] not in NAMES:
+        if t and not t.get("body_measure"):
             return None  # a weight or a habit among them: the AI reads the whole line, as before
         if inches:
             value = round(v * INCH_CM, 1)
@@ -56,7 +56,7 @@ def read(cur, text: str) -> Optional[dict]:
             "health": health, "thoughts": [], "todos": [], "notes": notes}
 
 
-def unknown_text(word: str, value: float) -> str:
+def unknown_text(cur, word: str, value: float) -> str:
     """The question for a word that is not a measure (settled in record.settle)."""
-    return (f"'{word}' is not a body measurement I know ({', '.join(LABEL[k].lower() for k in NAMES)}). "
+    return (f"'{word}' is not a body measurement I know ({', '.join(m['label'].lower() for m in measures(cur))}). "
             f"Log '{word} {value:g}' again with one of those words.")

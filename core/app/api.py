@@ -905,8 +905,10 @@ def body_save(_request, body, session):
     if not isinstance(values, dict) or not values:
         raise Refused(400, "bad_request", "values must be an object of measures and cm.")
     fields = {}
+    with connect() as c, c.cursor() as cur:
+        known = set(tape.names(cur))
     for k, v in values.items():
-        if k not in tape.NAMES:
+        if k not in known:
             raise Refused(400, "bad_request", f"Unknown measure: {str(k)[:20]}.")
         fields[k] = _number(k, v)
     r = str(_range(body.get("range")))

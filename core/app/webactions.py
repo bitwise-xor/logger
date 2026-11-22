@@ -380,9 +380,10 @@ def body_save(form, key: Optional[str]) -> dict:
         if not today - timedelta(days=365) <= day <= today:
             return _rejected("Pick a day of the last 12 months.")
         now_vals = body.day_values(cur, day)
-        ranges = body.ranges(cur)
+        ms = body.measures(cur)
         steps, items, words, said, deletes, checks, filled = [], [], [], [], [], [], False
-        for k, lbl, _h in body.TAPE:
+        for m in ms:
+            k, lbl = m["key"], m["label"]
             sent = form.get(k)
             if sent is None:
                 continue  # a measure the form does not show
@@ -400,10 +401,10 @@ def body_save(form, key: Optional[str]) -> dict:
             v = round(v, 1)
             if had and abs(had["v"] - v) < 0.05:
                 continue
-            lo, hi = ranges[k]
-            if not lo <= v <= hi:
+            lo, hi = m["min"], m["max"]
+            if lo is not None and hi is not None and not lo <= v <= hi:
                 checks.append(f"{lbl} {body.cm(v)} cm is outside the usual range of {lo:g} to {hi:g} cm. Right?")
-            checks += body.jump(cur, k, v, day)
+            checks += body.jump(cur, k, lbl, v, day)
             if had:
                 steps.append({"action": "change", "args": {"id": had["id"], "fields": {"value": v, **({"confirmed": True} if sure else {})}}})
                 said.append(f"{lbl} {body.cm(had['v'])} → {body.cm(v)}")
@@ -415,7 +416,7 @@ def body_save(form, key: Optional[str]) -> dict:
     if not steps and not items:
         return {"outcome": "unchanged", "reason": "Nothing changed." if filled else "Nothing to save. Fill at least one field."}
     dm = f"{day:%a %d.%m.}"
-    again = {k: str(form.get(k)) for k in body.NAMES if form.get(k) is not None} | {"day": day.isoformat(), "r": r}
+    again = {m["key"]: str(form.get(m["key"])) for m in ms if form.get(m["key"]) is not None} | {"day": day.isoformat(), "r": r}
     back = f"/web/health?r={r}&measure=1&mday={day.isoformat()}#body"
     if deletes and form.get("confirm_del") != "1":
         return {"outcome": "needs_confirmation", "read_back": f"Delete on {dm}: {', '.join(deletes)}?",
