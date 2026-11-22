@@ -724,18 +724,34 @@ without a target only the average; with no complete day "no complete days with f
 food (`cls` a; a partly logged day's hover says "(partly logged)"), `line` the 7-day average of the complete days (`cls` b), `lines`
 the target `[value, "t", "2,000"]`, `min` 0, `unit` "" (kcal) or " g", `label` "Calories per day".
 
-#### `GET /api/v1/insights` → `{"insights": Insights, "undo": Undo}`
+#### `GET /api/v1/insights?days=90|180|365` → `{"insights": Insights, "undo": Undo}`
+
+`days` the range (90 when not given; web item 50, 22.11.2026); anything else is 400 `bad_request` ("days must be 90, 180 or 365.").
+app.'s `/web/insights` is always 90 days. A night belongs to the day of its wake-up; its hours (bed to wake-up) count only between 2
+and 14. Calories count complete days only, without the partly logged ones (the Week page's rule: under half the calorie target).
+Caffeine is the entries' own `caffeine_mg` (the food's value per 100 times the amount), only entries with a known time.
 
 ```
-Insights = {days: 90, min_each: 4, title: "Insights", small: "From the last 90 days",
-            cards: [Insight],                         // late (food close to bedtime and fasting sugar), sleep (short nights and
-                                                      // weight), carbs (carb share and fasting sugar), in app.'s order
+Insights = {days: 90, ranges: [90, 180, 365], min_each: 4, title: "Insights", small: "From the last 90 days",
+            cards: [Insight],                         // nine, the ones with a statement first, then the waiting ones, each half
+                                                      // in this order: late (food close to bedtime and fasting sugar), carbs
+                                                      // (carb share and fasting sugar), late_sleep (food close to bedtime and that
+                                                      // night's hours), caffeine_sleep (50 mg or more in the 8 h before bed and that
+                                                      // night's hours), sleep (short nights and weight), sleep_kcal (short nights and
+                                                      // calories that day), sleep_bp (short nights and that morning's systolic blood
+                                                      // pressure), sleep_mood, sleep_energy (short nights and that day's check-in, 1-5)
             note}                                     // "These are patterns in your own numbers, not proof …"
-Insight = {key, title, unit, digits, sign, needs,     // unit "mg/dL" or "g"; digits after the point; sign: values with + / −
+Insight = {key, title, unit, digits, sign, needs,     // unit "mg/dL", "g", "h", "kcal", "mmHg" or "" (mood, energy: no unit, no
+                                                      // trailing space); digits after the point; sign: values with + / −
            waiting, wait_text,                        // waiting: a group has fewer than min_each days; wait_text app.'s
                                                       // "Not enough days yet: 3 for "…" and 5 for "…"; each needs 4. It counts …"
            chip,                                      // the corner: "+11 mg/dL" or "no difference" (null while waiting)
            say: [{text, bold}],                       // app.'s sentence, the two averages bold (null while waiting)
+           caveat,                                    // null, or one sentence: "The difference is smaller than the usual day-to-day
+                                                      // spread (about 9 mg/dL), so it may be chance." (the difference is under half
+                                                      // the pooled standard deviation of the two groups) or "Few days so far (4 and
+                                                      // 6): this can still change a lot." (a group under 8 days); both: the first.
+                                                      // null while waiting and when the chip says "no difference"
            zero,                                      // where zero is on the bars' track (percent: 0, or more when a value is below 0)
            groups: [{key, label, n, mean, text, cls, left, width}]}
                                                       // yes (the group the sentence is about, cls a) and no (cls b): label, days,
