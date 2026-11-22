@@ -216,7 +216,7 @@ def test_the_hub_token_cannot_call_the_other_tools_and_nothing_happens(monkeypat
     monkeypatch.setattr(auth, "HUB_TOKEN", TOKEN)
     question()
     calls = (("add_food", FOOD), ("food_words", dict(food_id=1, words=["crispbread"])), ("food_lookup", dict(name="crispbread")),
-             ("lab_report", dict(text="Hemoglobin 13,8 g/dl")), ("record_weight", dict(kg=82.4)), ("recent_weights", {}), ("undo", dict(receipt_id="m1")))
+             ("lab_report", dict(text="Hemoglobin 13,8 g/dl")))
     with client() as c, caplog.at_level("WARNING", logger="logger.tools"):
         for tool, args in calls:
             res = result(c, tool, TOKEN, **args)
@@ -247,7 +247,6 @@ def test_a_sign_in_token_still_calls_every_tool_the_hub_tools_too(monkeypatch, b
         again = body(result(c, "answer", owner, question_id=question(), reply="yes"))
         assert again["outcome"] in ("saved", "needs_confirmation") and owner_sql("SELECT resolved_at FROM pending WHERE id = 'phub2'")[0]["resolved_at"]
         assert body(result(c, "add_food", owner, **FOOD))["outcome"] == "saved" and n("SELECT count(*) AS n FROM foods WHERE name = %s", FOOD["name"]) == 1
-        assert body(result(c, "record_weight", owner, kg=82.4, at="2026-10-12T08:30"))["outcome"] == "saved"
         assert set(body(result(c, "today_summary", owner))) == KEYS
         assert body(result(c, "tick_habit", owner, name="hub_stretch"))["habit"]["done"] == 1
         assert body(result(c, "untick_habit", owner, name="hub_stretch"))["habit"]["done"] == 0

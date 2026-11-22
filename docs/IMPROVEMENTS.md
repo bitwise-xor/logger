@@ -15,7 +15,7 @@ running of it, plus the two idea lists and the open tasks and ideas about the Lo
 Size: S about an hour, M about half a day, L a day or more.
 
 **Rounds 1 to 3 below are done and live since 21.11.2026** (core deploys 121 and 122, front deploy 123), and of the features the Food
-space with web 64 (deploy 120). What is left: the features from web 50 on, and the tidying. Done since, on 22.11.2026: web 50 Insights with sleep, web 57 the Home timer's notification, web 45 last week's summary, core 24 the words review, web 49 a waiting question's nudge and a reminder time per habit.
+space with web 64 (deploy 120). What is left: the features from web 50 on, and the tidying. Done since, on 22.11.2026: web 50 Insights with sleep, web 57 the Home timer's notification, web 45 last week's summary, core 24 the words review, core 13 removing the pilot tools (in the code), web 49 a waiting question's nudge and a reminder time per habit.
 
 **Round 1: nothing saved twice (about a day).** Each can put a wrong or double entry into the data.
 
@@ -43,7 +43,7 @@ sends); 57 a notification when the Home timer ends (S-M, push works at logger. n
 core 24 words review, in Library > Foods (S-M); 49 the rest of the nudges (S-M); 58 + 56 T2 edit the body measures (now M-L:
 core, door and front); 38 minutes for practices (M); 43 medication reminders (M, only if wanted).
 
-**Then tidying, in order:** core 13 remove the pilot tools (S-M); core 16 one handler per question kind (S-M); core 39 the AI
+**Then tidying, in order:** core 13 remove the pilot tools (S-M; done in the code 22.11.2026); core 16 one handler per question kind (S-M); core 39 the AI
 cost look (S, with core 3); web 71 the door's types checked against the samples (M); web 72 one place for how each save behaves
 (M); core 40 docs and leftovers (S).
 
@@ -82,7 +82,7 @@ Current tab first. Size: S about an hour, M about half a day, L a day or more.
 3. Web 26 Error page (done, deploy 64)
 4. Core 31 Check the watch's sleep import (S)
 5. Core 16 One handler per question kind (S-M)
-6. Core 13 Remove the pilot tools (S-M)
+6. Core 13 Remove the pilot tools (S-M; done in the code 22.11.2026)
 7. Web 50 More Insights with sleep (M)
 8. Web 58 + 56 T2 Edit the body measures (M)
 9. Web 49 More nudges (S-M; in part done, deploy 67)

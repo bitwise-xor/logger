@@ -32,11 +32,12 @@ def test_wrong_host_is_refused(bearer):
 def test_tools_list_and_a_call(bearer):
     with client() as c:
         tools = rpc(c, "tools/list", headers={**HDR, **bearer}).json()["result"]["tools"]
-        assert {t["name"] for t in tools} == {"record_weight", "recent_weights", "record_bp", "recent_blood_pressure", "record_wakeup", "recent_wakeups", "amend", "resolve", "undo", "log", "answer", "add_food", "food_words", "food_lookup", "lab_report",
+        assert {t["name"] for t in tools} == {"log", "answer", "add_food", "food_words", "food_lookup", "lab_report",
                                             "today_summary", "tick_habit", "untick_habit", "add_water", "set_checkin"}
-        r = rpc(c, "tools/call", {"name": "record_weight", "arguments": {"kg": 82.4, "at": "2026-10-12T08:30", "idempotency_key": "mcp1"}}, headers={**HDR, **bearer})
+        food = {"name": "Mcp test crispbread", "kcal": 350, "protein": 10, "fat": 2, "carbs": 70, "source": "estimate"}
+        r = rpc(c, "tools/call", {"name": "add_food", "arguments": food}, headers={**HDR, **bearer})
         res = r.json()["result"]
         assert res.get("isError") in (False, None)
         body = res.get("structuredContent") or json.loads(res["content"][0]["text"])
-        assert body["outcome"] == "saved" and body["receipt"]["at"] == "12.10. 08:30"
-        assert owner_sql("SELECT count(*) AS n FROM measurements")[0]["n"] == 1
+        assert body["outcome"] == "saved"
+        assert owner_sql("SELECT count(*) AS n FROM foods WHERE name = %s", food["name"])[0]["n"] == 1

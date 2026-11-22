@@ -81,7 +81,7 @@ def test_full_flow_refresh_and_single_use():
         cid, tok = full_login(c)
         h = {"Authorization": "Bearer " + tok["access_token"], "Accept": "application/json, text/event-stream"}
         r = c.post("/mcp-testpath", headers=h, json={"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}})
-        assert r.status_code == 200 and "record_weight" in r.text
+        assert r.status_code == 200 and "today_summary" in r.text
         r2 = c.post("/token", data={"grant_type": "refresh_token", "refresh_token": tok["refresh_token"], "client_id": cid})
         assert r2.status_code == 200 and r2.json()["access_token"] != tok["access_token"]
         again = c.post("/token", data={"grant_type": "refresh_token", "refresh_token": tok["refresh_token"], "client_id": cid})

@@ -23,7 +23,7 @@ day, L a day or more):
 1. **30 Safe parallel sessions** (done, deploy 64, 08.11.2026: a test database per worktree, `tools/deploy.sh` guard): its own test database per worktree, and a deploy guard. On 05.11.2026 three sessions
    worked at once and clashed in the shared test database at first.
 2. **16 `answer()` handlers** (S-M): one small handler per question kind; the chain has 10 kinds since the nap answer (05.11.2026).
-3. **13 Remove the pilot tools** (S-M): 9 hidden tools in `mcp_app.py`, plus `service.py` and its tests; dead code that still had to
+3. **13 Remove the pilot tools** (S-M; done in the code 22.11.2026): 9 hidden tools in `mcp_app.py`, plus `service.py` and its tests; dead code that still had to
    follow the new day rule on 05.11.2026.
 4. **31 Check the watch's sleep import** (S, new): no sleep rows have arrived; Today's watch wake-up and the Activity page's sleep need them.
 5. **24 Words review** (S; done in the code 22.11.2026): all learned food words by date, so a wrong one is easy to find.
@@ -86,7 +86,7 @@ public; the mini PC move; ending the v1 fallback.
 
 | # | Idea | Why | Size |
 |---|---|---|---|
-| 13 | Remove the pilot tools: `service.py`, its 9 hidden tools in `mcp_app.py` and `tests/test_service.py` (28 tests) | They have been switched off since the cutover (`PILOT_TOOLS=0`); `test_webtoday.py` and `test_webactions.py` use the module too and need a look first | S-M |
+| 13 | **Done 22.11.2026 (in the code; the deploy follows):** the pilot's typed tools are gone: `core/app/service.py` and `tests/test_service.py` (28 tests) are deleted; `mcp_app.py` no longer has the 9 tools (`record_weight`, `recent_weights`, `record_bp`, `recent_blood_pressure`, `record_wakeup`, `recent_wakeups`, `amend`, `resolve`, `undo`) or the `_pilot` wrapper; `PILOT_TOOLS` is out of `config.py`, the tests' environment and `tools/measure_tokens.py`. Nothing live needed `service.py`: no other module imports it, and the questions and receipts it made are only history (old `pending` rows with a pilot `tool` are still not listed by `webquestions.py`, and the web's Undo works on its own session record, not on the pilot's receipt ids; no rows were touched, no migration). `test_webtoday.py`, `test_webactions.py` and `test_api_saves.py` make their weight or blood pressure with a small insert helper (`measure_now` in `test_webtoday.py`); `tests/test_contract.py` (which only exercised the 9 tools) keeps its tool-schema check and gains a check that `HUB_TOOLS` is unchanged; `test_mcp.py` lists the door's 11 tools and calls `add_food`. The door lists exactly what it listed on the live server before | They have been switched off since the cutover (`PILOT_TOOLS=0`) | S-M |
 | 14 | Update old texts: the README still says "design draft and a small pilot" and that v2 does not replace v1; `config.py` says the MCP path has no login (it has had OAuth since the trial) | Misleading for the next session and for you | S |
 | 15 | Run the tests on GitHub on every push (GitHub Actions with a Postgres service) | The 223 tests only run by hand (about 4 minutes). The golden tests stay private and out of it | M |
 | 16 | `answer()` in `logbook.py`: one small handler per question kind instead of one long if/elif chain over 8 kinds | Safer to add a kind (Telegram, new questions) without breaking another | S-M |

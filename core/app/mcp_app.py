@@ -12,11 +12,11 @@ from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-from . import logbook, service
+from . import logbook
 from mcp.server.auth.settings import AuthSettings, ClientRegistrationOptions
 
 from . import api, auth, hubtools, reads, watch, web
-from .config import EXTRA_ALLOWED_HOSTS, MCP_PATH, PILOT_TOOLS, PUBLIC_URL
+from .config import EXTRA_ALLOWED_HOSTS, MCP_PATH, PUBLIC_URL
 from .db import connect
 
 _LOG = logging.getLogger("logger.tools")  # not `log`: that is the name of the log tool below
@@ -75,15 +75,6 @@ mcp = MCPServer(
                   "Show its reply briefly. When it asks a question, ask the user and pass the reply to `answer`."),
 )
 
-
-
-def _pilot(f):
-    """Register a pilot tool only when PILOT_TOOLS=1 (config.py). Never for the hub's token (_not_for_hub)."""
-    @functools.wraps(f)
-    def inner(*args, **kwargs):
-        _not_for_hub(f.__name__)
-        return f(*args, **kwargs)
-    return mcp.tool()(inner) if PILOT_TOOLS else f
 
 @mcp.tool()
 @_logged
@@ -185,65 +176,6 @@ def set_checkin(mood: Optional[int] = None, energy: Optional[int] = None, idempo
     """Dashboard button: today's check-in, mood and energy from 1 (low) to 5 (high), one or both.
     idempotency_key as for tick_habit."""
     return hubtools.set_checkin(mood, energy, idempotency_key)
-
-
-@_pilot
-def record_weight(kg: float, at: Optional[str] = None, text: Optional[str] = None, idempotency_key: Optional[str] = None) -> dict[str, Any]:
-    """Log a body weight in kg. at = ISO local date/time of the weighing (omit for now). text = the user's original words.
-    idempotency_key = a new unique string per user message; reuse the same one when retrying the same message."""
-    return service.record_weight(kg, at, text, idempotency_key)
-
-
-@_pilot
-def recent_weights(days: int = 14) -> dict[str, Any]:
-    """List the weights logged in the last N days (newest first)."""
-    return service.recent_weights(days)
-
-
-@_pilot
-def record_bp(systolic: float, diastolic: float, period: Optional[str] = None, at: Optional[str] = None, text: Optional[str] = None,
-              idempotency_key: Optional[str] = None) -> dict[str, Any]:
-    """Log a blood pressure reading in mmHg (systolic over diastolic). period = morning or evening if the user said so.
-    at = ISO local date/time of the reading (omit for now). text = the user's original words. idempotency_key as for record_weight."""
-    return service.record_bp(systolic, diastolic, period, at, text, idempotency_key)
-
-
-@_pilot
-def recent_blood_pressure(days: int = 14) -> dict[str, Any]:
-    """List the blood pressure readings logged in the last N days (newest first)."""
-    return service.recent_bp(days)
-
-
-@_pilot
-def record_wakeup(at: Optional[str] = None, text: Optional[str] = None, idempotency_key: Optional[str] = None) -> dict[str, Any]:
-    """Log getting up. at = ISO local date/time of waking (omit for now). text = the user's original words. idempotency_key as for record_weight."""
-    return service.record_wakeup(at, text, idempotency_key)
-
-
-@_pilot
-def recent_wakeups(days: int = 14) -> dict[str, Any]:
-    """List the wake-ups logged in the last N days (newest first)."""
-    return service.recent_wakeups(days)
-
-
-@_pilot
-def amend(receipt_id: str, kg: Optional[float] = None, systolic: Optional[float] = None, diastolic: Optional[float] = None,
-          period: Optional[str] = None, at: Optional[str] = None) -> dict[str, Any]:
-    """Correct an entry already saved, by its receipt id (m123 for weight or blood pressure, e45 for a wake-up). Give only what changes:
-    kg (weight); systolic, diastolic, period (blood pressure); at (any entry, ISO local time). Prefer this over undo plus a new entry."""
-    return service.amend(receipt_id, kg, systolic, diastolic, period, at)
-
-
-@_pilot
-def resolve(pending_id: str, confirm: bool) -> dict[str, Any]:
-    """Answer a needs_confirmation question: confirm true saves the entry, false cancels it."""
-    return service.resolve(pending_id, confirm)
-
-
-@_pilot
-def undo(receipt_id: str) -> dict[str, Any]:
-    """Remove an entry by its receipt id (for example m123 or e45)."""
-    return service.undo(receipt_id)
 
 
 @mcp.custom_route("/health", methods=["GET"])

@@ -2,11 +2,10 @@
 review items. New entries make no AI call; corrections go through the logger's own change function."""
 import pytest
 
-from app import service
 from conftest import owner_sql
 from test_log import fake, off, skyr  # noqa: F401 - fixtures reused
 from test_web import act, n, web  # noqa: F401
-from test_webtoday import day, eat, food, raw
+from test_webtoday import day, eat, food, measure_now, raw
 
 
 @pytest.fixture(autouse=True)
@@ -132,7 +131,7 @@ def test_a_new_evening_blood_pressure_and_a_wake_up_time(web, fake):
 
 
 def test_correcting_todays_weight_is_saved_at_once(web, fake):
-    service.record_weight(82.4)
+    measure_now("weight", 82.4)
     mid = owner_sql("SELECT id FROM measurements")[0]["id"]
     page = act(web, "/web/health", row="weight", id=f"m{mid}", v1="82.1", key="k4")
     assert "Weight changed to 82.1." in page.text
@@ -141,7 +140,7 @@ def test_correcting_todays_weight_is_saved_at_once(web, fake):
 
 
 def test_an_odd_correction_asks_first_then_saves_on_yes(web, fake):
-    service.record_weight(82.4)
+    measure_now("weight", 82.4)
     mid = owner_sql("SELECT id FROM measurements")[0]["id"]
     page = act(web, "/web/health", row="weight", id=f"m{mid}", v1="400", key="k5")
     assert "please confirm" in page.text and "Yes, save it" in page.text
@@ -151,7 +150,7 @@ def test_an_odd_correction_asks_first_then_saves_on_yes(web, fake):
 
 
 def test_health_refuses_bad_input(web, fake):
-    service.record_bp(124, 81, "morning")
+    measure_now("bp", 124, 81, "morning")
     mid = owner_sql("SELECT id FROM measurements")[0]["id"]
     assert "give both numbers" in act(web, "/web/health", row="bp_morning", id=f"m{mid}", v1="130", v2="").text
     assert "a number" in act(web, "/web/health", row="weight", id="", v1="heavy").text

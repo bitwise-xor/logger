@@ -32,7 +32,7 @@ def _test_db_address():
 
 DB_HOST, DB_PORT = _test_db_address()
 os.environ.update(DB_HOST=DB_HOST, DB_PORT=DB_PORT, APP_OWNER_PASSWORD="testowner", CORE_RW_PASSWORD="testcore",
-                  MCP_PATH="/mcp-testpath", ALLOWED_HOSTS="log.example.test,logger-v2-core:*", PUBLIC_URL="https://log.example.test", APP_HOST="app.example.test", PILOT_TOOLS="1")
+                  MCP_PATH="/mcp-testpath", ALLOWED_HOSTS="log.example.test,logger-v2-core:*", PUBLIC_URL="https://log.example.test", APP_HOST="app.example.test")
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "core"))
 
 import pytest  # noqa: E402

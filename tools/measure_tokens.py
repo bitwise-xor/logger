@@ -45,9 +45,9 @@ def main():
     ap.add_argument("--v1-prompt", default=str(pathlib.Path.home() / "migration" / "logger-app" / "docs" / "chat-instructions.md"))
     a = ap.parse_args()
 
-    os.environ.update(MCP_PATH="/mcp", PUBLIC_URL="https://log.example.test", ALLOWED_HOSTS="log.example.test", PILOT_TOOLS="0")
+    os.environ.update(MCP_PATH="/mcp", PUBLIC_URL="https://log.example.test", ALLOWED_HOSTS="log.example.test")
     from app.mcp_app import mcp as v2  # noqa: E402
-    v2_new = tools_of(v2)  # what a v2 chat sees (the pilot tools are hidden)
+    v2_new = tools_of(v2)  # what a v2 chat sees
     v1 = v1_tools(a.v1_server)
     v1_prompt = pathlib.Path(a.v1_prompt).read_text()
 
