@@ -1,5 +1,7 @@
 # Logger v2 design draft
 
+> **Note, 22.11.2026:** this is the original design draft of October 2026, kept as history. Its text below says what was planned then ("nothing is built" was true on 21.10.2026), not what exists now. For what exists, read `README.md` (the parts and how to run, test and deploy them), `docs/API.md` (the JSON door the front end uses) and the two idea lists, `docs/IMPROVEMENTS.md` and `docs/CORE-IMPROVEMENTS.md` (what is done and what is next).
+
 A rebuild of the personal logging app as one core with thin clients, so the iPhone AI app, the desktop AI app, the web app and a future bot all share the same rules. Draft 2, 21 Oct 2026, revised after reading nine days of real v1 usage. Nothing is built, and the running app stays untouched until v2 has earned the switch.
 
 Basis for this draft: the v1 repo docs, and the v1 database read on 21 Oct 2026 (153 chat messages from 13 to 21 Oct, 782 food entries, 241 foods, 6 usual meals, 87 measurements, 135 events, 62 thoughts). Where a decision rests on that data it says so. Private entries were counted, not read.

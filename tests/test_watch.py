@@ -102,3 +102,17 @@ def test_sleep_sent_as_segments(token, web):
     assert post(client("log.19hospitalroad.fyi"), body).json()["metrics"] == 5
     page = web[0].get("/web/gym/activity").text
     assert "7 h 30 min" in page and "Awake 0 h 30 min" in page and "Core 5 h 30 min" in page
+
+
+def test_skipped_metrics_are_named_in_the_log_once_and_never_with_a_value(token, caplog, monkeypatch):
+    monkeypatch.setattr(watch, "_SKIPPED_SEEN", set())
+    c = client("log.19hospitalroad.fyi")
+    day = datetime.now(rules.BERLIN).date() - timedelta(days=1)
+    body = payload(day)
+    body["data"]["metrics"] += [{"name": "bad name; DROP", "data": [{"qty": 7777.5, "date": "2026-01-01 08:00:00 +0100"}]}, {"data": []}]
+    with caplog.at_level("INFO", logger="app.watch"):
+        assert post(c, body).json()["skipped"] == 3
+        post(c, body)  # the same names again: not logged again
+    lines = [r.getMessage() for r in caplog.records if "skipped" in r.getMessage()]
+    assert lines == ["watch metrics skipped, not used by the Activity tab: (no usable name), vo2_max"]
+    assert "7777" not in caplog.text and "40" not in lines[0] and "DROP" not in caplog.text

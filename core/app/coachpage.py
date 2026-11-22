@@ -183,12 +183,6 @@ def week_html(c: dict, p: str, csrf: str) -> str:
             f'<p>{c["blurb"]}</p><p class="row">{weeks}{latest}</p></div>')
 
 
-def week_card(a, b, p: str, csrf: str) -> str:
-    """The review is for a Monday-to-Sunday week (04.11.2026): a rolling 7 or 30 days found no review the next day, and the
-    button said "this week" over 30 days. Those periods link to the week and to the latest review instead."""
-    return week_html(week_review(a, b, p), p, csrf)
-
-
 FILTERS = (("all", "All"), ("days", "Days"), ("weeks", "Weeks"))
 
 

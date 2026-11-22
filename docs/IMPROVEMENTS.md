@@ -45,7 +45,7 @@ core, door and front); 38 minutes for practices (M); 43 medication reminders (M,
 
 **Then tidying, in order:** core 13 remove the pilot tools (S-M; done in the code 22.11.2026); core 16 one handler per question kind (S-M); core 39 the AI
 cost look (S, with core 3); web 71 the door's types checked against the samples (M); web 72 one place for how each save behaves
-(M); core 40 docs and leftovers (S).
+(M); core 40 docs and leftovers (S; done in the code 22.11.2026).
 
 **Owner decisions that block the largest clean-up:** where Ideas and Todoist, Private and the Gratitude list live (logger. or
 the journal app; `front/src/lib/places.ts` says they wait for the journal app). Until then app. stays, and with it about 5,000
