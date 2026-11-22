@@ -1,4 +1,4 @@
-import { readGym } from '#lib/server/gymread.js';
+import { readDoor } from '#lib/server/read.js';
 import { choreIdOf, type Chore } from '#lib/homeparts.js';
 import type { PageServerLoad } from './$types';
 
@@ -7,6 +7,6 @@ import type { PageServerLoad } from './$types';
 // zones with this chore's form open).
 export const load: PageServerLoad = async (event) => {
   // no id, or one that is no id: the door says 400 (and 404 for a chore that is not there); both are "missing" here
-  const r = await readGym<Chore>(event, '/home/chore', 'home_chore', { id: choreIdOf(event.url.searchParams.get('id')) || undefined });
+  const r = await readDoor<Chore>(event, '/home/chore', 'home_chore', { id: choreIdOf(event.url.searchParams.get('id')) || undefined });
   return { chore: r.read, missing: !!r.missing, problem: r.problem };
 };

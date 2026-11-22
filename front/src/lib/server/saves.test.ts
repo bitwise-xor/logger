@@ -6,6 +6,8 @@ import { DEFAULT_TIMEOUT_MS, makeDoor, type Fetch } from './door.js';
 import { bodyFor, CATALOGUE_SAVES, WORDS_SAVES, MEDICAL_MEDS_SAVES, MEDICAL_REPORTS_SAVES, EXERCISES_SAVES, LIBRARY_HABITS_SAVES, FOOD_SAVES, GYM_SAVES, HABITS_SAVES, HEALTH_SAVES, EDIT_SAVES, HISTORY_SAVES, HOME_SAVES, PICK_SAVES, PLAN_SAVES, runSave, SAVE_NAMES, SAVES, TODAY_SAVES, TRENDS_SAVES, COACH_SAVES, USUAL_SAVES, ZONES_SAVES, SETTINGS_ONLY, SETTINGS_TARGETS_SAVES, SETTINGS_TODAY_SAVES, SETTINGS_BODY_SAVES, SETTINGS_COACH_SAVES, SETTINGS_DEVICES_SAVES, SETTINGS_NOTIFY_SAVES } from './saves.js';
 import { KEYED, mayResend, waitMs } from '../saver.js';
 
+/** A page's actions in any order (the table's order means nothing: they are an object by name). */
+const sorted = (xs: readonly string[]) => [...xs].sort();
 const TOKEN = 'f'.repeat(40);
 /** A browser's push subscription as the page sends it (invented: an address of the right shape, keys of the right lengths). */
 const SUB = { endpoint: 'https://fcm.googleapis.com/fcm/send/invented-endpoint-1', p256dh: 'B' + 'A'.repeat(86), auth: 'C'.repeat(22) };
@@ -37,7 +39,7 @@ function net(status = 200, body: unknown = { v: 1, outcome: 'saved', head: 'Save
   return { door: makeDoor({ url: 'http://logger-v2-core:8000', token: TOKEN, fetch }), seen };
 }
 
-describe("the browser's copies of the server's lists (Web 65)", () => {
+describe("the browser's lists and the server's, both made from saverules.ts (Web 65, web 72)", () => {
   it("KEYED in saver.ts is exactly the saves whose door route takes a key", () => {
     const keyed = SAVE_NAMES.filter((n) => SAVES[n].keyed).sort();
     expect([...KEYED].sort()).toEqual(keyed);
@@ -241,8 +243,8 @@ describe('the Food day saves (step E)', () => {
   });
 
   it('offers the Food day and the Usual meals page their saves and Undo, and Today all the others', () => {
-    expect(FOOD_SAVES).toEqual(['food_entry', 'food_note', 'food_mealnote', 'usual_from_meal', 'undo']);
-    expect(USUAL_SAVES).toEqual(['usual_meal', 'usual_new', 'undo']);
+    expect(sorted(FOOD_SAVES)).toEqual(sorted(['food_entry', 'food_note', 'food_mealnote', 'usual_from_meal', 'undo']));
+    expect(sorted(USUAL_SAVES)).toEqual(sorted(['usual_meal', 'usual_new', 'undo']));
     // deploy 117: a food row opens on Today too, so Today has the Food day's two row saves (not "Save as usual meal")
     expect(TODAY_SAVES).toContain('food_entry');
     expect(TODAY_SAVES).toContain('food_note');
@@ -494,7 +496,7 @@ describe('the Health page (deploy 92)', () => {
   });
 
   it('offers the Health page its saves and Undo; Not today stays Today’s', async () => {
-    expect(HEALTH_SAVES).toEqual(['health_day', 'body', 'undo']);
+    expect(sorted(HEALTH_SAVES)).toEqual(sorted(['health_day', 'body', 'undo']));
     expect(TODAY_SAVES).toContain('body_skip');
     expect(TODAY_SAVES).not.toContain('health_day');
     expect(TODAY_SAVES).not.toContain('body');
@@ -512,7 +514,7 @@ describe('the Health page (deploy 92)', () => {
 
 describe('the Habits page (deploy 94)', () => {
   it('offers the Habits page its saves, Today the tick, and keeps the page-only ones off Today', () => {
-    expect(HABITS_SAVES).toEqual(['habit', 'habit_day', 'habits_manage', 'undo']);
+    expect(sorted(HABITS_SAVES)).toEqual(sorted(['habit', 'habit_day', 'habits_manage', 'undo']));
     expect(TODAY_SAVES).toContain('habit');
     expect(TODAY_SAVES).not.toContain('habit_day');
     expect(TODAY_SAVES).not.toContain('habits_manage');
@@ -602,7 +604,7 @@ describe('the Habits page (deploy 94)', () => {
 
 describe('the Gym’s Workout page (deploy 96)', () => {
   it('offers the Workout page its saves and keeps them off Today', () => {
-    expect(GYM_SAVES).toEqual(['gym_tick', 'gym_remove', 'gym_pick', 'gym_new', 'undo']);
+    expect(sorted(GYM_SAVES)).toEqual(sorted(['gym_tick', 'gym_remove', 'gym_pick', 'gym_new', 'undo']));
     for (const n of ['gym_tick', 'gym_remove', 'gym_pick', 'gym_new']) expect(TODAY_SAVES).not.toContain(n);
   });
 
@@ -670,8 +672,8 @@ describe('the Gym’s Plan and Exercises parts (deploy 97)', () => {
   const EX_ACTIONS = ['gym_rename', 'gym_active', 'gym_new'] as const;
 
   it('offers each part its saves and keeps them off Today', () => {
-    expect(PLAN_SAVES).toEqual([...PLAN_ACTIONS, 'undo']);
-    expect(EXERCISES_SAVES).toEqual(['gym_rename', 'gym_active', 'gym_new']);
+    expect(sorted(PLAN_SAVES)).toEqual(sorted([...PLAN_ACTIONS, 'undo']));
+    expect(sorted(EXERCISES_SAVES)).toEqual(sorted(['gym_rename', 'gym_active', 'gym_new']));
     for (const n of PLAN_ACTIONS) expect(TODAY_SAVES).not.toContain(n);
     for (const n of EX_ACTIONS) expect(TODAY_SAVES).not.toContain(n);
   });
@@ -738,8 +740,8 @@ describe('Home’s Now and Pick pages (deploy 99)', () => {
   const HOME = ['home_tick', 'home_start', 'home_pause', 'home_resume', 'home_stop', 'home_pickdone', 'home_picknext', 'home_skip', 'home_earlier'] as const;
 
   it('offers Now the tick and Undo, Pick its eight buttons and Undo, and keeps them off Today', () => {
-    expect(HOME_SAVES).toEqual(['home_tick', 'undo']);
-    expect(PICK_SAVES).toEqual(['home_start', 'home_pause', 'home_resume', 'home_stop', 'home_pickdone', 'home_picknext', 'home_skip', 'home_earlier', 'undo']);
+    expect(sorted(HOME_SAVES)).toEqual(sorted(['home_tick', 'undo']));
+    expect(sorted(PICK_SAVES)).toEqual(sorted(['home_start', 'home_pause', 'home_resume', 'home_stop', 'home_pickdone', 'home_picknext', 'home_skip', 'home_earlier', 'undo']));
     for (const n of HOME) expect(TODAY_SAVES).not.toContain(n);
   });
 
@@ -806,9 +808,9 @@ describe('Home’s Zones, History and Edit zones pages (deploy 100)', () => {
   const EDIT = ['home_goalset', 'home_zonenew', 'home_zoneedit', 'home_zoneactive', 'home_chorenew', 'home_choreedit', 'home_choreactive', 'home_chorezones'] as const;
 
   it('offers each page its saves, and keeps them off Today', () => {
-    expect(ZONES_SAVES).toEqual([...ZONES, 'undo']);
-    expect(HISTORY_SAVES).toEqual(['home_remove', 'home_earlier', 'undo']);
-    expect(EDIT_SAVES).toEqual(EDIT);
+    expect(sorted(ZONES_SAVES)).toEqual(sorted([...ZONES, 'undo']));
+    expect(sorted(HISTORY_SAVES)).toEqual(sorted(['home_remove', 'home_earlier', 'undo']));
+    expect(sorted(EDIT_SAVES)).toEqual(sorted(EDIT));
     expect(EDIT_SAVES).not.toContain('undo'); // none of Edit zones' saves has an Undo
     for (const n of [...ZONES, 'home_remove', ...EDIT]) expect(TODAY_SAVES).not.toContain(n);
   });
@@ -934,7 +936,7 @@ describe('the Week review', () => {
     const body = bodyFor('coach_start', form({ start: '2026-11-02', end: '2026-11-08', view_p: 'last', key: KEY }), undefined, undefined, 'week');
     expect(body).toEqual({ kind: 'week', start: '2026-11-02', end: '2026-11-08', view: 'week', view_p: 'last' });
     expect(SAVES.coach_start.keyed).toBe(false);
-    expect(TRENDS_SAVES).toEqual(['coach_start']);
+    expect(sorted(TRENDS_SAVES)).toEqual(sorted(['coach_start']));
     expect(TODAY_SAVES).not.toContain('coach_start');
   });
 
@@ -957,8 +959,8 @@ describe('the Week review', () => {
 });
 
 // Deploy 109: the day coaching's button (POST /coach/start, kind "day"), on Today's Coach card and on the Coach page: the day twice, never a
-// key, Today's fresh read (view "day", view_day) or the Coach page's (view "coach", view_f, view_day). Today keeps it (TODAY_SAVES is made
-// by exclusion); the Week review's button stays Trends' own.
+// key, Today's fresh read (view "day", view_day) or the Coach page's (view "coach", view_f, view_day). Today keeps it (its pages in
+// saverules.ts are Today and Coach); the Week review's button stays Trends' own.
 describe('the day coaching', () => {
   it('starts a day coaching for the card\'s day twice, with no key', () => {
     const body = bodyFor('coach_day', form({ start: '2026-11-14', end: '2026-11-15', key: KEY }), '2026-11-14', undefined, 'day');
@@ -978,10 +980,10 @@ describe('the day coaching', () => {
   });
 
   it('is on Today\'s and the Coach page\'s form actions, not on Trends\'; the week review is on Trends\' only', () => {
-    expect(COACH_SAVES).toEqual(['coach_day']);
+    expect(sorted(COACH_SAVES)).toEqual(sorted(['coach_day']));
     expect(TODAY_SAVES).toContain('coach_day');
     expect(TODAY_SAVES).not.toContain('coach_start');
-    expect(TRENDS_SAVES).toEqual(['coach_start']);
+    expect(sorted(TRENDS_SAVES)).toEqual(sorted(['coach_start']));
     expect(FOOD_SAVES).not.toContain('coach_day');
   });
 
@@ -1035,7 +1037,7 @@ describe('the Catalogue (Library)', () => {
     expect(b({ view_q: ' rye ', view_shared: '1', view_f: 'drinks', view_food: 'N3' })).toEqual({ id: 9, act: 'remove', word: 'bread', view: 'words', view_q: 'rye', view_shared: true });
     expect(b({ view_shared: 'yes' })).toEqual({ id: 9, act: 'remove', word: 'bread', view: 'words' });
     expect(bodyFor('undo', form({ token: 'tok', view: 'words', view_shared: '1' }), undefined, undefined, 'words')).toEqual({ token: 'tok', view: 'words', view_shared: true });
-    expect(WORDS_SAVES).toEqual(['catalogue_words', 'undo']);
+    expect(sorted(WORDS_SAVES)).toEqual(sorted(['catalogue_words', 'undo']));
   });
 
   it('takes no key for any of the six and keeps them off Today', () => {
@@ -1045,10 +1047,10 @@ describe('the Catalogue (Library)', () => {
       expect(SAVES[n].path).toBe(`/food/catalogue/${n.slice('catalogue_'.length)}`);
       expect(TODAY_SAVES).not.toContain(n);
     }
-    expect(CATALOGUE_SAVES).toEqual([...six, 'lookup', 'answer', 'undo']);
+    expect(sorted(CATALOGUE_SAVES)).toEqual(sorted([...six, 'lookup', 'answer', 'undo']));
     expect(TODAY_SAVES).toContain('lookup');
     expect(TODAY_SAVES).toContain('answer');
-    expect(LIBRARY_HABITS_SAVES).toEqual(['habits_manage']);
+    expect(sorted(LIBRARY_HABITS_SAVES)).toEqual(sorted(['habits_manage']));
   });
 
   it('goes to /food/catalogue/values once, without a key', async () => {
@@ -1105,8 +1107,8 @@ describe('Medical (the Medical Space)', () => {
       expect(SAVES[n].path).toBe(`/labs/${n.slice('labs_'.length)}`);
       expect(TODAY_SAVES).not.toContain(n);
     }
-    expect(MEDICAL_REPORTS_SAVES).toEqual(['labs_value', 'labs_report']);
-    expect(MEDICAL_MEDS_SAVES).toEqual(['labs_med', 'log', 'answer', 'undo']);
+    expect(sorted(MEDICAL_REPORTS_SAVES)).toEqual(sorted(['labs_value', 'labs_report']));
+    expect(sorted(MEDICAL_MEDS_SAVES)).toEqual(sorted(['labs_med', 'log', 'answer', 'undo']));
     expect(TODAY_SAVES).toContain('log');
   });
 

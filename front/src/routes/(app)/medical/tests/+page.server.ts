@@ -1,4 +1,4 @@
-import { readGym } from '#lib/server/gymread.js';
+import { readDoor } from '#lib/server/read.js';
 import { testsViewOf, type Tests } from '#lib/medical.js';
 import type { PageServerLoad } from './$types';
 
@@ -9,8 +9,8 @@ export const load: PageServerLoad = async (event) => {
   const view = testsViewOf(event.url.searchParams);
   const q = view.q || undefined;
   const [list, one] = await Promise.all([
-    readGym<Tests>(event, '/labs/tests', 'labs_tests', { q }),
-    view.t === null ? null : readGym<Tests>(event, '/labs/tests', 'labs_tests', { q, t: String(view.t) }),
+    readDoor<Tests>(event, '/labs/tests', 'labs_tests', { q }),
+    view.t === null ? null : readDoor<Tests>(event, '/labs/tests', 'labs_tests', { q, t: String(view.t) }),
   ]);
   // the test open: the asked one, or the one a search with a single match opened by itself
   const shown = one?.read?.test ? one.read : list.read?.test ? list.read : null;

@@ -1,4 +1,4 @@
-import { readSettings } from '#lib/server/settingsread.js';
+import { readSettings } from '#lib/server/read.js';
 import { EXPORT_REFUSED_COOKIE, refusedText, type SettingsExport } from '#lib/settings.js';
 import type { PageServerLoad } from './$types';
 
