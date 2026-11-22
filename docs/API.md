@@ -1035,10 +1035,12 @@ settings_devices = {devices: [{id, name, address: "logger" | "app", signed_in, l
                                                // app.; name from the browser ("iPhone, Safari", "Unknown device"); current: this
                                                // session; others: how many are not
 settings_notify = {on, on_label: "Send nudges",
-  nudges: [{key, label, after, on, hours: {key, value, min, max, step: 0.5, default}, note}],
+  nudges: [{key, label, after, on, hours: null | {key, value, min, max, step: 0.5, default}, note}],
                                                // weight, habits, idle, checkin, bp_evening, gratitude: "<label> [hours] <after>", e.g.
-                                               // "No weight yet," … "hours after waking"; note (gratitude only): "A tap on this one
+                                               // "No weight yet," … "hours after waking"; note (gratitude): "A tap on this one
                                                // opens the gratitude list in the full app."
+                                               // home_timer (web item 57): a switch alone, after and hours null, label "When the Home
+                                               // timer ends", note "At the moment it ends, at any hour; each timer once."
   awake_hours: 16,                             // quiet hours: nothing later than this after waking
   subscriptions: [{id, name, address: "logger" | "app", on_since, last_delivered, this}],   // oldest first; this: turned on in
                                                // this session (POST /push/subscribe); last_delivered null: nothing delivered yet
@@ -1066,7 +1068,7 @@ as it is now (the door fills it in, as app.'s form comes filled in), except on `
 | `/settings/coach` | `goals`, `style` (text up to 2000, as `coach._clean` reads it), `parts: {day: [keys on], week: [keys on]}` (a kind left out: as now) | `coach.goals_set`: "Saved: the coach reads your settings every time."; "Keep at least one part of the day coaching." / "… week review." |
 | `/settings/device` | `id` (a device of `settings_devices`) | `websettings.device` (also an app. session): "Signed that device out."; this session: "This is the device you are using; use Sign out on More." (app. says "… at the top."); gone: `unchanged` "That device is already signed out."; "Unknown device." |
 | `/settings/others` | | `websettings.others`: every other session, here and at app.: "Signed out 2 other devices." / "No other device was signed in." |
-| `/settings/nudges` | `on`, `weight`, `habits`, `idle`, `checkin`, `bp_evening`, `gratitude` (true or false); `weight_after`, `habits_after`, `idle_hours`, `checkin_after`, `bp_evening_after`, `gratitude_after` (numbers: clamped to their range in half hours, as app.) | `websettings.nudge_settings` (nudges.save stores the whole value; the door fills in what is left out): "Saved. Nudges are on." / "… off." |
+| `/settings/nudges` | `on`, `weight`, `habits`, `idle`, `checkin`, `bp_evening`, `gratitude`, `home_timer` (true or false); `weight_after`, `habits_after`, `idle_hours`, `checkin_after`, `bp_evening_after`, `gratitude_after` (numbers: clamped to their range in half hours, as app.) | `websettings.nudge_settings` (nudges.save stores the whole value; the door fills in what is left out): "Saved. Nudges are on." / "… off." |
 | `/push/subscribe` | `endpoint`, `keys: {p256dh, auth}` (the browser's PushSubscription), `user_agent` | app.'s checks of `/web/push/subscribe` (`webpush.allowed`: https on Apple's, Google's, Mozilla's or Microsoft's push service; `webpush.valid_keys`), else `rejected` "Not a known push service."; kept with `origin` "logger" and this session (upsert on the endpoint; the audit row "notifications on"): "Notifications are on for this device." |
 | `/push/off` | `id` (a number: `settings_notify.subscriptions[].id`, here or at app.) | `websettings.push_off`: "Notifications are off for that device."; "That device is not there any more." |
 | `/push/test` | | `websettings.nudge_test`, to every device (each with its own address's link): "Test notification sent to 2 devices."; none: "No device took the test notification. Turn notifications on again on the phone, then try once more." |
@@ -1080,6 +1082,18 @@ device's `/web/` → `/`, `/web/settings?tab=notify` → `/settings/notification
 `/web/gratitude`: its words stay at app.) → the full app's absolute address `https://<APP_HOST>/web/…`. The payload is otherwise the same:
 `{title, body, url, tag}` (the front end's service worker shows `title` and `body`, and opens `url` on a tap). A device with notifications
 on at both addresses gets each nudge twice (`settings_notify.twice`). app.'s Settings > Notifications lists every device alike.
+
+### The Home timer's notification (web item 57, migration 036)
+
+When the Home > Pick timer ends, every device gets `{title: "Time is up", body: "<the job's title> · 15 minutes" (the minutes alone
+when the job is gone), url: "/web/home/pick" (a logger. device: "/home/pick"), tag: "home_timer"}`, with a TTL of 10 minutes and
+urgency high. It comes from `hometimer.py`, a thread of the core that looks every 10 seconds: one UPDATE claims the timers not closed
+whose `ends_at` passed in the last 10 minutes and sets `home_timers.notified_at`, committed before the send, so a timer is announced
+at most once (two rounds or processes never both; a failed send is not repeated) and never late (after the core was down for more than
+10 minutes, nothing). A paused timer has no end; a resumed one is announced at its new end; "Done, next job" keeps the end (one
+notification); a timer stopped or done before its end never is. Sent when `on` and `home_timer` are both true (on by default); the
+quiet hours and the once-a-day rule (`push_sent`) do not apply. The audit row is `nudge` / `sent` / `{"kind": "home_timer"}`, never the
+job's name.
 
 ### The export: `POST /api/v1/export` → the ZIP
 
