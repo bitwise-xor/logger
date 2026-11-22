@@ -116,7 +116,9 @@
 // (targets, today, body, coach, devices, notify, export) as the state stands, and the saves as the core makes them (websettings, coach.goals_set):
 // /settings/targets (a new row, the same date replaced; the core's refusals), /settings/today (a group's order and switches, the rest after) and
 // /settings/today_reset, /settings/height and /settings/body (their refusals: "Keep at least one measure."), /settings/coach ("Keep at least
-// one part …"), /settings/device and /settings/others, /settings/nudges (hours clamped to half hours), /push/off and /push/test (none: the
+// one part …"), /settings/body_measure (web item 58: add, edit, move, remove a body measure with the core's checks and words; a clash
+// with another measure's or a few health types' names and words refused by name; a measure with values cannot be removed; the
+// suggestions Neck and Calf listed until added), /settings/device and /settings/others, /settings/nudges (hours clamped to half hours), /push/off and /push/test (none: the
 // core's refusal; GET /standin/push-tests counts the tests), each with the fresh tab for view "settings_<tab>", no key, no Undo (a change
 // ends the session's Undo). POST /export answers a small real ZIP made here (invented file names; private.csv only with private: true;
 // GET /standin/exports counts them; POST /standin/settings?export_fail=1 makes it the door's 500). GET /day's `shown` follows the Today page
@@ -2934,7 +2936,90 @@ function stDeviceName(ua) {
 }
 
 /** A Settings save's own tab, when the body names no view (as the core's default). */
-const settingsView = (what) => `settings_${{ targets: 'targets', today: 'today', today_reset: 'today', height: 'body', body: 'body', coach: 'coach', device: 'devices', others: 'devices', nudges: 'notify' }[what] ?? 'targets'}`;
+const settingsView = (what) => `settings_${{ targets: 'targets', today: 'today', today_reset: 'today', height: 'body', body: 'body', body_measure: 'body', coach: 'coach', device: 'devices', others: 'devices', nudges: 'notify' }[what] ?? 'targets'}`;
+
+// Settings > Body's measures (web item 58), as websettings.measure_* answer: the suggestions (body.SUGGESTIONS) and the names and words of
+// a few other log types of the core (the clash check covers every type there; these are enough to try it).
+const ST_SUGGESTIONS = [
+  { label: 'Neck', landmark: 'Below the larynx, tape level', min: 25, max: 60, words: [] },
+  { label: 'Calf', landmark: 'Widest point, standing, right side', min: 20, max: 70, words: ['calves'] },
+];
+const ST_OTHER_TYPES = [
+  { label: 'Weight', what: 'the health value', names: ['weight'], words: ['gewicht', 'kg'] },
+  { label: 'Blood pressure', what: 'the health value', names: ['bp', 'blood pressure'], words: ['blutdruck'] },
+  { label: 'Mood', what: 'the health value', names: ['mood'], words: ['stimmung', 'laune'] },
+  { label: 'Shoonya', what: 'the habit', names: ['shoonya'], words: ['shoonya 1', 'shoonya 2'] },
+];
+const stNorm = (s) => String(s ?? '').trim().toLowerCase().replace(/[\s_-]+/g, ' ');
+const stKey = (label) => label.toLowerCase().replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss').replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+
+function measureSave(B, body, bad) {
+  const act = body.action;
+  if (!['add', 'edit', 'move', 'remove'].includes(act)) return bad('action must be add, edit, move or remove.');
+  const m = act === 'add' ? null : B.measures.find((x) => x.key === body.key);
+  if (act !== 'add' && typeof body.key !== 'string') return bad('key is missing.');
+  if (act !== 'add' && !m) return [200, stRefuse('Unknown measure.')];
+  const listed = () => (B.suggestions = ST_SUGGESTIONS.filter((s) => !B.measures.some((x) => x.label.toLowerCase() === s.label.toLowerCase() || x.key === s.label.toLowerCase())).map((s) => structuredClone(s)));
+  if (act === 'move') {
+    if (!['up', 'down'].includes(body.dir)) return bad('dir must be "up" or "down".');
+    const i = B.measures.indexOf(m);
+    const j = body.dir === 'up' ? i - 1 : i + 1;
+    if (j < 0 || j >= B.measures.length) return [200, { outcome: 'unchanged', tone: 'ok', head: 'Nothing changed.', reason: `${m.label} is already ${body.dir === 'up' ? 'first' : 'last'}.` }];
+    [B.measures[i], B.measures[j]] = [B.measures[j], B.measures[i]];
+    return [200, stOk(`Moved ${m.label} ${body.dir}.`)];
+  }
+  if (act === 'remove') {
+    if (m.has_values) return [200, stRefuse(`${m.label} has values: hide it instead.`)];
+    if (B.measures.filter((x) => x.shown).every((x) => x === m)) return [200, stRefuse('Keep at least one measure shown.')];
+    B.measures = B.measures.filter((x) => x !== m);
+    listed();
+    return [200, stOk(`Removed the measure ${m.label}.`)];
+  }
+  for (const k of ['label', 'landmark']) if (body[k] !== undefined && body[k] !== null && typeof body[k] !== 'string') return bad(`${k} must be text.`);
+  for (const k of ['min', 'max']) if (!stNumber(body[k])) return bad(`${k} must be a number or null.`);
+  if (body.words !== undefined && (!Array.isArray(body.words) || body.words.some((w) => typeof w !== 'string'))) return bad('words must be a list of words.');
+  const L = B.limits;
+  const label = String(body.label ?? '').trim().split(/\s+/).join(' ');
+  const landmark = String(body.landmark ?? '').trim().split(/\s+/).join(' ');
+  if (label.length < L.label.min || label.length > L.label.max) return [200, stRefuse(`Name: give ${L.label.min} to ${L.label.max} characters.`)];
+  if (!stKey(label)) return [200, stRefuse('Name: use letters or digits.')];
+  if (landmark.length > L.landmark_max) return [200, stRefuse(`Landmark: at most ${L.landmark_max} characters.`)];
+  for (const [k, what] of [['min', 'Lowest'], ['max', 'Highest']]) {
+    const v = body[k];
+    if (typeof v !== 'number' || v < L.cm.min || v > L.cm.max) return [200, stRefuse(`${what}: give a number from ${L.cm.min} to ${L.cm.max} cm.`)];
+  }
+  const [min, max] = [Math.round(body.min * 10) / 10, Math.round(body.max * 10) / 10];
+  if (min >= max) return [200, stRefuse('The lowest value must be below the highest.')];
+  const words = [...new Set((body.words ?? []).map((w) => w.trim().split(/\s+/).join(' ').toLowerCase()).filter(Boolean))];
+  if (words.length > L.words_max) return [200, stRefuse(`Words: at most ${L.words_max}.`)];
+  for (const w of words) {
+    if (w.length > L.word_max) return [200, stRefuse(`The word “${w}” is longer than ${L.word_max} characters.`)];
+    if (!/^[a-zäöüß]+(?:[ -][a-zäöüß]+)*$/.test(w)) return [200, stRefuse(`The word “${w}”: use letters, spaces and hyphens only.`)];
+  }
+  let key = m?.key ?? stKey(label).slice(0, 30).replace(/_+$/, '');
+  for (let n = 2; !m && B.measures.some((x) => x.key === key); n++) key = `${stKey(label).slice(0, 30 - String(n).length - 1).replace(/_+$/, '')}_${n}`;
+  const taken = new Map();
+  for (const x of B.measures.filter((x) => x !== m)) {
+    for (const t of [x.key, x.label]) if (!taken.has(stNorm(t))) taken.set(stNorm(t), ['name', 'the measure', x.label]);
+    for (const t of x.words) if (!taken.has(stNorm(t))) taken.set(stNorm(t), ['word', 'the measure', x.label]);
+  }
+  for (const o of ST_OTHER_TYPES) {
+    for (const t of [...o.names, o.label]) if (!taken.has(stNorm(t))) taken.set(stNorm(t), ['name', o.what, o.label]);
+    for (const t of o.words) if (!taken.has(stNorm(t))) taken.set(stNorm(t), ['word', o.what, o.label]);
+  }
+  for (const t of [label, ...(m ? [] : [key]), ...words]) {
+    const hit = taken.get(stNorm(t));
+    if (hit) return [200, stRefuse(hit[0] === 'name' ? `“${t}” is already the name of ${hit[1]} ${hit[2]}: choose another.` : `“${t}” is already a word for ${hit[1]} ${hit[2]}: choose another.`)];
+  }
+  const fields = { label, landmark: landmark ? landmark[0].toUpperCase() + landmark.slice(1) : '', min, max, words: words.filter((w) => stNorm(w) !== stNorm(label)) };
+  if (m) {
+    Object.assign(m, fields);
+    return [200, stOk(`Saved the measure ${label}.`)];
+  }
+  B.measures.push({ key, ...fields, shown: true, has_values: false });
+  listed();
+  return [200, stOk(`Added the measure ${label}. Measure it in the form, or type “${key.replace(/_/g, ' ')} 38.5”.`)];
+}
 
 /** POST /settings/<what>, /push/off, /push/test: [status, answer without the read], as websettings answers. */
 function settingsSave(path, body) {
@@ -2994,6 +3079,7 @@ function settingsSave(path, body) {
     for (const m of B.measures) m.shown = show.includes(m.key);
     return [200, stOk(`Body measurements: due every ${days} days, ${B.measures.filter((m) => !m.shown).length} hidden.`)];
   }
+  if (path === '/settings/body_measure') return measureSave(S.body, body, bad);
   if (path === '/settings/coach') {
     const C = S.coach;
     const clean = (x) => x.split('\n').map((l) => l.split(/\s+/).join(' ').trim()).join('\n').trim().slice(0, C.max);

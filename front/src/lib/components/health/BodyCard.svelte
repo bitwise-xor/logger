@@ -1,13 +1,15 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import Chart from '#lib/components/chart/Chart.svelte';
-  import { bodyDraft, bodyFields, bodySub, cm, dmy, healthHref, waistHeight, weightRate, type Body } from '#lib/health.js';
+  import { MEASURES_FIELD, bodyDraft, bodyFields, bodyPost, bodySub, cm, cmField, dmy, healthHref, waistHeight, weightRate, type Body } from '#lib/health.js';
   import { getHealthPage } from '#lib/healthpage.svelte.js';
 
   // The Body measurements card (app.'s bodypage.card): when it was last measured and when it is due, Measure (the session form:
   // a cm field per shown tape measure with its hint, the last value as the placeholder), the table Now / Last / Start (Now opens
   // that session to change it), a chip per measure with its chart, waist ÷ height and the weekly weight rate. The settings
-  // (interval, hidden measures, height) are Settings > Body (here since deploy 111): the card links there where app.'s does.
+  // (interval, hidden measures, height) are Settings > Body (here since deploy 111): the card links there where app.'s does. The
+  // measures are the door's, in its order (web item 58: the owner adds them in Settings > Body); nothing here names one, except
+  // waist ÷ height, which the door works out.
   let { body, range }: { body: Body; range: number } = $props();
   const page = getHealthPage();
 
@@ -31,7 +33,7 @@
     event.preventDefault();
     if (!changed) return;
     const clears = Object.entries(fields).some(([k, v]) => v === '' && before[k] !== '');
-    void page.tap('body', 'body', { day: body.day, ...fields, ...(clears ? { clears: '1' } : {}) });
+    void page.tap('body', 'body', { day: body.day, ...bodyPost(body, fields), ...(clears ? { clears: '1' } : {}) });
   }
 
   /** Measure: the form for today's session (another session was open: today's is read first). */
@@ -65,6 +67,7 @@
   {#if page.measuring}
     <form method="POST" action="?/body" class="m-0 flex flex-col rounded-lg border border-line bg-panel2 px-3 py-2.5" onsubmit={save} data-body-form={body.day}>
       <input type="hidden" name="day" value={body.day} />
+      <input type="hidden" name={MEASURES_FIELD} value={body.form.map((m) => m.key).join(',')} />
       <p class="m-0 pb-1.5 text-[13px] text-muted">{body.protocol}</p>
       {#if past}
         <p class="m-0 pb-1.5 text-[13px]" data-body-session><b>Changing the session of {dmy(body.day)}.</b> Clearing a value deletes it (asked once).</p>
@@ -77,7 +80,7 @@
           </span>
           <span class="flex items-center gap-1.5 text-muted">
             <input
-              name={m.key}
+              name={cmField(m.key)}
               inputmode="decimal"
               autocomplete="off"
               placeholder={m.last_cm === null ? '' : cm(m.last_cm)}

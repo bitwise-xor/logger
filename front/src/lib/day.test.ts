@@ -324,7 +324,9 @@ describe('where Change on a To review row leads (deploy 113)', () => {
     expect(changeLink(weight, APP)).toEqual({ href: '/health', app: false });
     for (const type of ['bp', 'blood_sugar']) expect(changeLink(row({ kind: 'measurement', ref: 'm9', type }), APP).href).toBe('/health');
     expect(changeLink(row({ kind: 'measurement', ref: 'm9', type: null }), APP).href).toBe('/health');
-    for (const type of ['waist', 'hips', 'chest', 'upper_arm', 'thigh']) {
+    for (const type of ['mood', 'energy']) expect(changeLink(row({ kind: 'measurement', ref: 'm9', type }), APP).href).toBe('/health');
+    // any other measurement is a body measure: the five and one the owner added in Settings > Body (web item 58)
+    for (const type of ['waist', 'hips', 'chest', 'upper_arm', 'thigh', 'neck']) {
       expect(changeLink(row({ kind: 'measurement', ref: 'm9', type, day: '2026-11-12' }), APP)).toEqual({ href: '/health?measure=1&mday=2026-11-12#body', app: false });
     }
   });

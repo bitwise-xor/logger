@@ -78,8 +78,8 @@ export interface Health {
   times: Times;
 }
 
-export type MeasureKey = 'waist' | 'hips' | 'chest' | 'upper_arm' | 'thigh';
-export const MEASURES: MeasureKey[] = ['waist', 'hips', 'chest', 'upper_arm', 'thigh'];
+/** A body measure's key (log_types.name): the measures are the door's (Settings > Body, web item 58), never a list written here. */
+export type MeasureKey = string;
 
 export interface Body {
   today: string;
@@ -225,9 +225,9 @@ interface Fields {
   get(name: string): FormDataEntryValue | null;
 }
 
-const field = (f: Fields, name: string): string | null => {
+const field = (f: Fields, name: string, most = 20): string | null => {
   const v = f.get(name);
-  return typeof v === 'string' ? v.trim().slice(0, 20) : null;
+  return typeof v === 'string' ? v.trim().slice(0, most) : null;
 };
 
 /** A typed number as the door takes it: "81,6" is 81.6; empty is null (a delete); anything else as typed (the door says what is wrong). */
@@ -254,14 +254,26 @@ export function healthValues(f: Fields): Record<string, unknown> {
   return out;
 }
 
-/** POST /body's `values`: the measures sent, in cm (empty = a delete). */
+/** The body form's field of a measure: `cm_<key>`, so a measure's key never meets the form's own fields (day, clears, …). */
+export const cmField = (key: string) => `cm_${key}`;
+/** The form's list of its measures (`measures`, comma-separated keys as the door sent them in the form). */
+export const MEASURES_FIELD = 'measures';
+const KEY = /^[a-z0-9_]{1,40}$/;
+
+/** POST /body's `values`: the measures the form lists, in cm, those with a field (empty = a delete). */
 export function bodyValues(f: Fields): Record<string, unknown> {
   const out: Record<string, unknown> = {};
-  for (const k of MEASURES) {
-    const t = field(f, k);
+  const keys = (field(f, MEASURES_FIELD, 2000) ?? '').split(',').filter((k) => KEY.test(k)).slice(0, 50);
+  for (const k of keys) {
+    const t = field(f, cmField(k));
     if (t !== null) out[k] = num(t);
   }
   return out;
+}
+
+/** The body form's fields for a save: the changed values under their `cm_` names and the list of the form's measures. */
+export function bodyPost(b: Pick<Body, 'form'>, changed: Record<string, string>): Record<string, string> {
+  return { [MEASURES_FIELD]: b.form.map((m) => m.key).join(','), ...Object.fromEntries(Object.entries(changed).map(([k, v]) => [cmField(k), v])) };
 }
 
 // ---- the Body measurements card -------------------------------------------------------------------------------------------------

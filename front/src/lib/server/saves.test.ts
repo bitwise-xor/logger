@@ -480,9 +480,9 @@ describe('the Health page (deploy 92)', () => {
   });
 
   it('a body session: the measures sent in cm, keyed, the card in the answer; a range other than 7, 30, 90 is left out', () => {
-    expect(bodyFor('body', form({ day: '2026-11-16', waist: '91.8', thigh: '', key: KEY, range: '45' }), undefined, undefined, 'body')).toEqual({
+    expect(bodyFor('body', form({ day: '2026-11-16', measures: 'waist,thigh,neck', cm_waist: '91.8', cm_thigh: '', cm_neck: '38.5', key: KEY, range: '45' }), undefined, undefined, 'body')).toEqual({
       day: '2026-11-16',
-      values: { waist: 91.8, thigh: null },
+      values: { waist: 91.8, thigh: null, neck: 38.5 },
       key: KEY,
       view: 'body',
     });
@@ -500,7 +500,7 @@ describe('the Health page (deploy 92)', () => {
     expect(TODAY_SAVES).not.toContain('body');
     const { door, seen } = net();
     await runSave(door, SESSION, 'health_day', form({ day: '2026-11-15', mood: '4', key: KEY }), undefined, 'health');
-    await runSave(door, SESSION, 'body', form({ day: '2026-11-16', hips: '101.5', key: KEY }), undefined, 'body');
+    await runSave(door, SESSION, 'body', form({ day: '2026-11-16', measures: 'hips', cm_hips: '101.5', key: KEY }), undefined, 'body');
     await runSave(door, SESSION, 'body_skip', form({}));
     expect(seen.map((x) => [x.path, x.body.view])).toEqual([
       ['/api/v1/health/day', 'health'],
@@ -1128,7 +1128,7 @@ describe('Medical (the Medical Space)', () => {
 // the coach's parts only when the form had them, the nudges' switches as true or false; never a key, never in Today's actions, never
 // sent again by the page; each tab's fresh read asked for.
 describe('Settings', () => {
-  const NAMES = ['settings_targets', 'settings_today', 'settings_today_reset', 'settings_height', 'settings_body', 'settings_coach', 'settings_device', 'settings_others', 'settings_nudges', 'push_off', 'push_test', 'push_subscribe'] as const;
+  const NAMES = ['settings_targets', 'settings_today', 'settings_today_reset', 'settings_height', 'settings_body', 'settings_body_measure', 'settings_coach', 'settings_device', 'settings_others', 'settings_nudges', 'push_off', 'push_test', 'push_subscribe'] as const;
 
   it('are on their tabs\' form actions only, take no key and are never sent again by the page', () => {
     expect([...SETTINGS_TARGETS_SAVES, ...SETTINGS_TODAY_SAVES, ...SETTINGS_BODY_SAVES, ...SETTINGS_COACH_SAVES, ...SETTINGS_DEVICES_SAVES, ...SETTINGS_NOTIFY_SAVES].sort()).toEqual([...NAMES].sort());
@@ -1144,7 +1144,7 @@ describe('Settings', () => {
   });
 
   it('go to the door\'s routes', () => {
-    expect(NAMES.map((n) => SAVES[n].path)).toEqual(['/settings/targets', '/settings/today', '/settings/today_reset', '/settings/height', '/settings/body', '/settings/coach', '/settings/device', '/settings/others', '/settings/nudges', '/push/off', '/push/test', '/push/subscribe']);
+    expect(NAMES.map((n) => SAVES[n].path)).toEqual(['/settings/targets', '/settings/today', '/settings/today_reset', '/settings/height', '/settings/body', '/settings/body_measure', '/settings/coach', '/settings/device', '/settings/others', '/settings/nudges', '/push/off', '/push/test', '/push/subscribe']);
   });
 
   it('food targets: the date, the nine as numbers (a comma too), an empty one as null (no target), the note left out when empty', () => {
@@ -1168,6 +1168,18 @@ describe('Settings', () => {
     expect(bodyFor('settings_height', form({ valid_from: '2026-11-17', height: '177,5' }), undefined, undefined, 'settings_body')).toEqual({ valid_from: '2026-11-17', height: 177.5, view: 'settings_body' });
     expect(bodyFor('settings_body', form({ interval: '28', show: ['waist', 'hips'] }), undefined, undefined, 'settings_body')).toEqual({ interval: 28, show: ['waist', 'hips'], view: 'settings_body' });
     expect(bodyFor('settings_body', form({ interval: '28' }), undefined, undefined, 'settings_body')).toEqual({ interval: 28, show: [], view: 'settings_body' });
+  });
+
+  it('a body measure: add and edit with their fields (the words as a list), move and remove by key; an unknown action sends nothing', () => {
+    const v = { view: 'settings_body' };
+    expect(bodyFor('settings_body_measure', form({ action: 'add', label: ' Calf ', landmark: 'Widest point', min: '20', max: '70,5', words: 'Calves, calves ,shin' }), undefined, undefined, 'settings_body'))
+      .toEqual({ action: 'add', label: 'Calf', landmark: 'Widest point', min: 20, max: 70.5, words: ['calves', 'shin'], ...v });
+    expect(bodyFor('settings_body_measure', form({ action: 'edit', measure: 'neck', label: 'Neck', min: '', max: 'lots' }), undefined, undefined, 'settings_body'))
+      .toEqual({ action: 'edit', key: 'neck', label: 'Neck', landmark: '', min: null, max: 'lots', words: [], ...v });
+    expect(bodyFor('settings_body_measure', form({ action: 'move', measure: 'neck', dir: 'up' }), undefined, undefined, 'settings_body')).toEqual({ action: 'move', key: 'neck', dir: 'up', ...v });
+    expect(bodyFor('settings_body_measure', form({ action: 'move', measure: 'neck', dir: 'sideways' }), undefined, undefined, 'settings_body')).toMatchObject({ dir: 'down' });
+    expect(bodyFor('settings_body_measure', form({ action: 'remove', measure: 'calf', label: 'x' }), undefined, undefined, 'settings_body')).toEqual({ action: 'remove', key: 'calf', ...v });
+    expect(bodyFor('settings_body_measure', form({ action: 'drop', measure: 'calf' }), undefined, undefined, 'settings_body')).toEqual(v);
   });
 
   it('coach: the texts as typed (up to 2000), the parts switched on only when the form had the switches', () => {

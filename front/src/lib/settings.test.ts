@@ -13,6 +13,13 @@ import {
   heightProblem,
   hoursOf,
   intervalProblem,
+  measureBody,
+  measureDraft,
+  measureFields,
+  measureLine,
+  measureProblem,
+  wordsList,
+  EMPTY_MEASURE,
   moved,
   nudgesDraft,
   nudgesFields,
@@ -81,6 +88,45 @@ describe('the forms\' own checks (app.\'s words)', () => {
     expect(heightProblem('', BODY.height_range)).toBe('Height: give a number from 120 to 230 cm.');
     expect(intervalProblem('28', BODY.interval)).toBeNull();
     expect(intervalProblem('2.5', BODY.interval)).toBe('Due every: give a whole number of days from 7 to 90.');
+  });
+});
+
+describe('Settings > Body\'s measures (web item 58)', () => {
+  it('the door\'s measures in its order, Neck added by the owner, the suggestion not added yet', () => {
+    expect(BODY.measures.map((m) => m.key)).toEqual(['waist', 'hips', 'chest', 'upper_arm', 'thigh', 'neck']);
+    expect(BODY.suggestions.map((s) => s.label)).toEqual(['Calf']);
+    expect(BODY.measures[0]!.has_values).toBe(true);
+  });
+
+  it('a row\'s small line: the landmark and the range', () => {
+    expect(measureLine(BODY.measures.find((m) => m.key === 'neck')!)).toBe('Below the larynx, tape level · 25–60 cm');
+    expect(measureLine({ landmark: '', min: 20, max: 70.5 })).toBe('20–70.5 cm');
+  });
+
+  it('the form from a measure or a suggestion, the words as one comma list', () => {
+    expect(measureDraft(BODY.suggestions[0]!)).toEqual({ label: 'Calf', landmark: 'Widest point, standing, right side', min: '20', max: '70', words: 'calves' });
+    expect(measureDraft(BODY.measures.find((m) => m.key === 'upper_arm')!).words).toBe('arm, bicep, biceps');
+    expect(wordsList(' Calves,calves , Lower  leg,, ')).toEqual(['calves', 'lower leg']);
+  });
+
+  it('a range that is not a number, in the door\'s words; the rest is the door\'s', () => {
+    const lim = BODY.limits.cm;
+    expect(measureProblem({ ...EMPTY_MEASURE, min: '20', max: '70,5' }, lim)).toBeNull();
+    expect(measureProblem({ ...EMPTY_MEASURE, min: '', max: '70' }, lim)).toBe('Lowest: give a number from 10 to 300 cm.');
+    expect(measureProblem({ ...EMPTY_MEASURE, min: '20', max: 'lots' }, lim)).toBe('Highest: give a number from 10 to 300 cm.');
+    expect(measureProblem({ ...EMPTY_MEASURE, label: 'x', min: '5', max: '400' }, lim)).toBeNull(); // out of range: the door says so
+  });
+
+  it('the fields of a save and the door\'s body made from them', () => {
+    const d = { label: 'Calf', landmark: 'Widest point', min: '20', max: '70', words: 'calves' };
+    const add = measureFields('add', d);
+    expect(add).toEqual({ action: 'add', label: 'Calf', landmark: 'Widest point', min: '20', max: '70', words: 'calves' });
+    const get = (f: Record<string, string | string[]>) => (n: string) => (typeof f[n] === 'string' ? (f[n] as string) : undefined);
+    expect(measureBody(get(add))).toEqual({ action: 'add', label: 'Calf', landmark: 'Widest point', min: 20, max: 70, words: ['calves'] });
+    expect(measureBody(get(measureFields('edit', d, 'calf')))).toMatchObject({ action: 'edit', key: 'calf' });
+    expect(measureFields('edit', d, 'calf')).toMatchObject({ measure: 'calf' }); // not `key`: the page's re-send key, which a Yes drops
+    expect(measureBody(get({ action: 'remove', measure: 'calf', key: 'k-1' }))).toEqual({ action: 'remove', key: 'calf' });
+    expect(measureBody(get({}))).toEqual({});
   });
 });
 

@@ -15,6 +15,7 @@ const FORM_OF: Record<string, string> = {
   settings_targets: 'targets',
   settings_height: 'height',
   settings_body: 'body',
+  settings_body_measure: 'measure',
   settings_coach: 'coach',
   settings_nudges: 'nudges',
 };

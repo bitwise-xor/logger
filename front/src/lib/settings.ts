@@ -46,8 +46,26 @@ export interface SettingsBody {
   heights: { cm: number; valid_from: string; valid_from_text: string }[];
   height_range: { min: number; max: number };
   interval: { days: number; min: number; max: number; default: number };
-  measures: { key: string; label: string; shown: boolean }[];
-  hints: { height: string; measures: string };
+  /** The body measures in their order (web item 58: the owner's, from log_types); has_values: cannot be removed, only hidden. */
+  measures: BodyMeasure[];
+  limits: { label: { min: number; max: number }; landmark_max: number; cm: { min: number; max: number }; words_max: number; word_max: number };
+  /** Suggested measures not added yet: quick fills for the add form. */
+  suggestions: MeasureSuggestion[];
+  hints: { height: string; measures: string; remove: string };
+}
+
+export interface MeasureSuggestion {
+  label: string;
+  landmark: string;
+  min: number;
+  max: number;
+  words: string[];
+}
+
+export interface BodyMeasure extends MeasureSuggestion {
+  key: string;
+  shown: boolean;
+  has_values: boolean;
 }
 
 export interface CoachPart {
@@ -193,6 +211,72 @@ export const heightProblem = (t: string, r: { min: number; max: number }) =>
 /** Due every: not a whole number, in app.'s words. */
 export const intervalProblem = (t: string, r: { min: number; max: number }) =>
   /^\d{1,4}$/.test(t.trim()) ? null : `Due every: give a whole number of days from ${r.min} to ${r.max}.`;
+
+// ---- Settings > Body's measures (web item 58) ------------------------------------------------------------------------------------
+
+/** A measure's form as typed: the words as one comma list. */
+export interface MeasureDraft {
+  label: string;
+  landmark: string;
+  min: string;
+  max: string;
+  words: string;
+}
+
+export const EMPTY_MEASURE: MeasureDraft = { label: '', landmark: '', min: '', max: '', words: '' };
+
+/** The form filled from a measure (Edit) or a suggestion (its chip). */
+export const measureDraft = (m: MeasureSuggestion): MeasureDraft => ({
+  label: m.label,
+  landmark: m.landmark,
+  min: String(m.min),
+  max: String(m.max),
+  words: m.words.join(', '),
+});
+
+/** The small line under a measure's name: its landmark and its range ("Below the larynx · 25–60 cm"). */
+export const measureLine = (m: Pick<MeasureSuggestion, 'landmark' | 'min' | 'max'>) => [m.landmark, `${m.min}–${m.max} cm`].filter(Boolean).join(' · ');
+
+/** The words typed as a list: split at commas, lower case, the spaces tidied, each once. */
+export function wordsList(t: string): string[] {
+  const out: string[] = [];
+  for (const w of t.split(',')) {
+    const x = w.trim().split(/\s+/).join(' ').toLowerCase();
+    if (x && !out.includes(x)) out.push(x);
+  }
+  return out;
+}
+
+/** A field of the range that is not a number, in the door's words (websettings._measure_form); the door checks the rest. */
+export function measureProblem(d: MeasureDraft, cm: { min: number; max: number }): string | null {
+  if (!isNumber(d.min)) return `Lowest: give a number from ${cm.min} to ${cm.max} cm.`;
+  if (!isNumber(d.max)) return `Highest: give a number from ${cm.min} to ${cm.max} cm.`;
+  return null;
+}
+
+/** The form's fields for POST /settings/body_measure: add, or edit by key. The measure's key is the field `measure` (`key` is the
+ * page's re-send key, which a Yes in the answer bar takes away). */
+export function measureFields(action: 'add' | 'edit', d: MeasureDraft, key?: string): FieldValues {
+  return { action, ...(key ? { measure: key } : {}), label: d.label, landmark: d.landmark, min: d.min, max: d.max, words: d.words };
+}
+
+/** The body of POST /settings/body_measure from the form: by action its fields (docs/API.md); an unknown action sends none. */
+export function measureBody(get: (name: string) => string | undefined): Record<string, unknown> {
+  const action = get('action');
+  const text = (name: string, most: number) => (get(name) ?? '').trim().slice(0, most);
+  const key = text('measure', 64);
+  const num = (name: string) => {
+    const t = text(name, 20);
+    return isNumber(t) ? Number(t.replace(',', '.')) : t === '' ? null : t;
+  };
+  if (action === 'add' || action === 'edit') {
+    return { action, ...(action === 'edit' ? { key } : {}), label: text('label', 200), landmark: text('landmark', 1000),
+      min: num('min'), max: num('max'), words: wordsList(text('words', 2000)).slice(0, 50) };
+  }
+  if (action === 'move') return { action, key, dir: get('dir') === 'up' ? 'up' : 'down' };
+  if (action === 'remove') return { action, key };
+  return {};
+}
 
 /** The Nudges form as typed: the master switch, and per row its switch and the hours as text (hoursKey null: a switch alone). */
 export interface NudgesDraft {

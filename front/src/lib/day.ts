@@ -4,7 +4,7 @@
  */
 import { dayOf, hm, hours, n, plain } from './format.js';
 import { shiftDay, type FoodDay } from './food.js';
-import { MEASURES, type Body, type BodyDue, type Health } from './health.js';
+import type { Body, BodyDue, Health } from './health.js';
 import type { Habits } from './habits.js';
 import type { GymCard, Workout } from './gym.js';
 import type { Exercises, Plan } from './gymplan.js';
@@ -492,19 +492,23 @@ export function reviewText(r: Review): string {
 
 /**
  * Where a To review row's "Change" leads (deploy 113): a page of this app where one can change that entry, else the old app
- * (`app` true: the link wears the small "app." tag). Food: its day with the entry open (?open=f<id>). A tape measurement (waist,
- * hips, chest, upper arm, thigh): the Health page's body form on that day's session (?measure=1&mday=). Any other measurement
- * (weight, blood pressure, sugar): /health, whose day rows open on a tap (no address opens one). An event (a habit tick or a
+ * (`app` true: the link wears the small "app." tag). Food: its day with the entry open (?open=f<id>). A measurement of the Health
+ * page's rows (weight, blood pressure, sugar, mood, energy; or no type): /health, whose day rows open on a tap (no address opens
+ * one). Any other measurement is a body measure (the owner adds them in Settings > Body, web item 58: no list of them here): the
+ * Health page's body form on that day's session (?measure=1&mday=). An event (a habit tick or a
  * sleep entry): the door's row has no `type` for it, only a label, so the two cannot be told apart: app. A thought is words:
  * app. Anything odd (a ref that does not match its kind, a day that is not yyyy-mm-dd, an unknown kind): app.
  */
+/** The measurement types of the Health page's day rows (the core's healthpage.COLS); every other measurement is a body measure. */
+export const HEALTH_ROW_TYPES = ['weight', 'bp', 'blood_sugar', 'mood', 'energy'];
+
 export function changeLink(r: Pick<Review, 'ref' | 'kind' | 'day' | 'type'>, appUrl: string): { href: string; app: boolean } {
   const old = { href: `${appUrl}/web/`, app: true };
   const here = (href: string) => ({ href, app: false });
   if (!/^\d{4}-\d\d-\d\d$/.test(r.day ?? '')) return old;
   if (r.kind === 'food' && /^f\d{1,9}$/.test(r.ref)) return here(`/food?day=${r.day}&open=${r.ref}`);
   if (r.kind === 'measurement' && /^m\d{1,9}$/.test(r.ref)) {
-    return here((MEASURES as string[]).includes(r.type ?? '') ? `/health?measure=1&mday=${r.day}#body` : '/health');
+    return here(!r.type || HEALTH_ROW_TYPES.includes(r.type) ? '/health' : `/health?measure=1&mday=${r.day}#body`);
   }
   return old;
 }

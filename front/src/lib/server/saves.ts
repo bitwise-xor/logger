@@ -22,7 +22,7 @@ import { linesOf, wordsOfText } from '../homeparts.js';
 import { CATALOGUE_FILTERS, CATALOGUE_SORTS } from '../catalogue.js';
 import { askedOpen, askedTest } from '../medical.js';
 import { FILTERS } from '../coach.js';
-import { nudgesBody, type Nudge } from '../settings.js';
+import { measureBody, nudgesBody, type Nudge } from '../settings.js';
 import { subscriptionProblem } from '../pushdevice.js';
 
 /** The form's fields: what `FormData` offers (and a plain test double). */
@@ -408,8 +408,10 @@ export const SAVES = {
   settings_body: {
     path: '/settings/body',
     keyed: false,
-    body: (f) => ({ interval: decimalOf(f, 'interval'), show: f.getAll('show').filter((x): x is string => typeof x === 'string').slice(0, 10) }),
+    body: (f) => ({ interval: decimalOf(f, 'interval'), show: f.getAll('show').filter((x): x is string => typeof x === 'string').slice(0, 50) }),
   },
+  // Web item 58: a body measure added, changed, moved one place or removed (the door's checks and words; no key, no Undo)
+  settings_body_measure: { path: '/settings/body_measure', keyed: false, body: (f) => measureBody(fieldOf(f)) },
   settings_coach: { path: '/settings/coach', keyed: false, body: (f) => coachBody(f) },
   settings_device: { path: '/settings/device', keyed: false, body: (f) => ({ id: str(f, 'id', 64) }) },
   settings_others: { path: '/settings/others', keyed: false, body: () => ({}) },
@@ -698,7 +700,7 @@ export const MEDICAL_MEDS_SAVES: SaveName[] = ['labs_med', 'log', 'answer', 'und
  */
 export const SETTINGS_TARGETS_SAVES: SaveName[] = ['settings_targets'];
 export const SETTINGS_TODAY_SAVES: SaveName[] = ['settings_today', 'settings_today_reset'];
-export const SETTINGS_BODY_SAVES: SaveName[] = ['settings_height', 'settings_body'];
+export const SETTINGS_BODY_SAVES: SaveName[] = ['settings_height', 'settings_body', 'settings_body_measure'];
 export const SETTINGS_COACH_SAVES: SaveName[] = ['settings_coach'];
 export const SETTINGS_DEVICES_SAVES: SaveName[] = ['settings_device', 'settings_others'];
 export const SETTINGS_NOTIFY_SAVES: SaveName[] = ['settings_nudges', 'push_off', 'push_test', 'push_subscribe'];

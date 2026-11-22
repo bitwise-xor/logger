@@ -8,6 +8,7 @@ import {
   bodyDueLine,
   bodyFields,
   bodySub,
+  bodyPost,
   bodyValues,
   changedRows,
   clears,
@@ -100,8 +101,17 @@ describe("the door's bodies", () => {
     expect(healthValues(form({ day: '2026-11-15' }))).toEqual({});
   });
 
-  it('a body session in cm', () => {
-    expect(bodyValues(form({ waist: '91.8', hips: '', day: '2026-11-16', other: '3' }))).toEqual({ waist: 91.8, hips: null });
+  it('a body session in cm: the measures the form lists, whatever they are', () => {
+    expect(bodyValues(form({ measures: 'waist,hips,neck', cm_waist: '91.8', cm_hips: '', day: '2026-11-16', other: '3' }))).toEqual({ waist: 91.8, hips: null });
+    expect(bodyValues(form({ measures: 'waist,neck,chest', cm_neck: '38,5', cm_chest: '98' }))).toEqual({ neck: 38.5, chest: 98 });
+    expect(bodyValues(form({ cm_waist: '91.8' }))).toEqual({}); // no list: nothing
+    expect(bodyValues(form({ measures: 'day,../x,Waist', cm_day: '1', 'cm_../x': '2', cm_Waist: '3' }))).toEqual({ day: 1 }); // keys as the door makes them
+  });
+
+  it('a save sends the changed values under their cm_ names and the form\'s measures', () => {
+    const b = { form: [{ key: 'waist' }, { key: 'neck' }] } as Pick<Body, 'form'>;
+    expect(bodyPost(b, { neck: '38.5' })).toEqual({ measures: 'waist,neck', cm_neck: '38.5' });
+    expect(bodyValues(form(bodyPost(b, { neck: '38.5', waist: '' })))).toEqual({ neck: 38.5, waist: null });
   });
 });
 
@@ -113,7 +123,7 @@ describe('the body card', () => {
 
   it('the form: the session’s values; a Save sends only the measures changed', () => {
     const was = bodyDraft(body);
-    expect(was).toEqual({ waist: '', hips: '', chest: '', upper_arm: '', thigh: '' });
+    expect(was).toEqual({ waist: '', hips: '', chest: '', upper_arm: '', thigh: '', neck: '' }); // six: Neck was added in Settings > Body (web item 58)
     expect(bodyFields(was, { ...was, waist: '91.8', thigh: ' 57 ' })).toEqual({ waist: '91.8', thigh: '57' });
     const session = bodyDraft({ ...body, form: body.form.map((m) => (m.key === 'waist' ? { ...m, cm: 92, ref: 'm98' } : m)) });
     expect(session.waist).toBe('92.0');

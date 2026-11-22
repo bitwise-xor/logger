@@ -1626,9 +1626,14 @@ async function checkHealth(page, name, theme) {
   assert.equal(await text(body.locator('[data-body-sub]')), `Last measured ${B.last_measured.slice(8, 10)}.${B.last_measured.slice(5, 7)}.${B.last_measured.slice(0, 4)} · ${B.due_text}`, 'body: last measured and due');
   await body.locator('[data-measure]').click();
   const form = body.locator('[data-body-form]');
-  assert.equal(await form.locator('input[name="waist"]').getAttribute('placeholder'), B.form[0].last_cm.toFixed(1), 'the last value as the placeholder');
-  await form.locator('input[name="waist"]').fill('91.8');
-  await form.locator('input[name="hips"]').fill('101.5');
+  assert.equal(await form.locator('input[name="cm_waist"]').getAttribute('placeholder'), B.form[0].last_cm.toFixed(1), 'the last value as the placeholder');
+  // whatever measures the door sends, in its order (web item 58: the sample has six, Neck added in Settings > Body)
+  assert.deepEqual(await form.locator('input[name^="cm_"]').evaluateAll((els) => els.map((e) => e.name.slice(3))), B.form.map((m) => m.key), 'a field per measure');
+  assert.ok(B.form.length === 6 && B.form.at(-1).key === 'neck', 'the sample has six measures');
+  assert.deepEqual(await body.locator('[data-measure-row]').evaluateAll((els) => els.map((e) => e.getAttribute('data-measure-row'))), B.table.map((t) => t.key), 'the table');
+  assert.deepEqual(await body.locator('[data-chip]').evaluateAll((els) => els.map((e) => e.getAttribute('data-chip'))), B.charts.map((c) => c.key), 'a chip per chart');
+  await form.locator('input[name="cm_waist"]').fill('91.8');
+  await form.locator('input[name="cm_hips"]').fill('101.5');
   await body.scrollIntoViewIfNeeded();
   await page.screenshot({ path: `${out}/health-body-form-${name}-${theme}.png`, fullPage: name !== 'pc' ? false : true });
   if (name === 'phone') await body.screenshot({ path: `${out}/health-body-card-${name}-${theme}.png` });
@@ -1639,7 +1644,7 @@ async function checkHealth(page, name, theme) {
   assert.equal(await text(body.locator('[data-now="waist"]')), '91.8', 'the table: the new waist');
   // a jump of 4 cm or more is read back ("Yes, save"), saved on the yes
   await body.locator('[data-measure]').click();
-  await form.locator('input[name="thigh"]').fill('52.5');
+  await form.locator('input[name="cm_thigh"]').fill('52.5');
   await form.getByRole('button', { name: 'Save' }).click();
   await page.locator('[data-bar="warning"]').getByText(HEALTH.saves.body_read_back.read_back).waitFor();
   await page.locator('[data-bar="warning"]').getByRole('button', { name: 'Yes, save' }).click();
@@ -1649,7 +1654,7 @@ async function checkHealth(page, name, theme) {
   const chest = B.table.find((t) => t.key === 'chest');
   await body.locator('[data-now="chest"]').click();
   await body.locator(`[data-body-form="${chest.day}"]`).waitFor();
-  assert.equal(await form.locator('input[name="chest"]').inputValue(), chest.cm.toFixed(1), 'the session\'s value to change');
+  assert.equal(await form.locator('input[name="cm_chest"]').inputValue(), chest.cm.toFixed(1), 'the session\'s value to change');
   assert.match(await text(body.locator('[data-body-session]')), /^Changing the session of \d\d\.\d\d\.\d{4}\./, 'which session');
   await body.getByRole('button', { name: 'Close' }).click();
   await form.waitFor({ state: 'detached' });
@@ -6358,6 +6363,71 @@ async function checkSettings(page, name, theme) {
   await headIs(SETTINGS.saves.body.head);
   assert.equal(await page.locator('[data-form="body"] [data-refusal]').count(), 0);
   await checkWidth(page, 'settings body, saved');
+
+  // the measures (web item 58): the door's list in its order, each row its landmark and range; add with a suggestion, a clash refused
+  // next to the form, edit, move, remove asked first; a measure with values cannot be removed
+  const rowsOf = () => page.locator('[data-measure-row]').evaluateAll((els) => els.map((e) => e.getAttribute('data-measure-row')));
+  assert.deepEqual(await rowsOf(), B.measures.map((x) => x.key), 'the measures in the door\'s order');
+  const neck = B.measures.find((x) => x.key === 'neck');
+  assert.equal(await text(page.locator('[data-measure-row="neck"] [data-measure-line]')), `${neck.landmark} · ${neck.min}–${neck.max} cm`);
+  await page.locator('[data-add-measure]').click();
+  const add = page.locator('[data-measure-form="add"]');
+  assert.deepEqual(await add.locator('[data-suggestion]').allTextContents(), B.suggestions.map((s) => s.label), 'the suggestions not added yet');
+  await add.locator('[data-field="m-label"]').fill('Belly');
+  await add.locator('[data-field="m-min"]').fill('50');
+  await add.locator('[data-field="m-max"]').fill('200');
+  await add.locator('[data-measure-save]').click();
+  await add.locator('[data-measure-refusal]').waitFor();
+  assert.equal(await text(add.locator('[data-measure-refusal]')), SETTINGS.saves.measure_add_refused.reason, 'a clash, in the door\'s words');
+  assert.equal(await add.locator('[data-field="m-label"]').inputValue(), 'Belly', 'what was typed stays');
+  await add.locator('[data-field="m-max"]').fill('lots');
+  await add.locator('[data-measure-save]').click();
+  assert.equal(await text(add.locator('[data-measure-refusal]')), 'Highest: give a number from 10 to 300 cm.', 'not a number: the page\'s own check');
+  await add.locator('[data-suggestion="Calf"]').click();
+  assert.deepEqual(await Promise.all(['m-label', 'm-landmark', 'm-min', 'm-max', 'm-words'].map((f) => add.locator(`[data-field="${f}"]`).inputValue())),
+    ['Calf', 'Widest point, standing, right side', '20', '70', 'calves'], 'the chip fills the form');
+  if (name === 'phone') await shot('body-add-measure');
+  await checkWidth(page, 'settings body, the add form');
+  await add.locator('[data-measure-save]').click();
+  await headIs(SETTINGS.saves.measure_add.head);
+  await add.waitFor({ state: 'detached' });
+  assert.deepEqual(await rowsOf(), [...B.measures.map((x) => x.key), 'calf'], 'the new measure last');
+  assert.equal(await page.locator('[data-measure="calf"]').getAttribute('aria-checked'), 'true', 'a new measure shows');
+  await page.locator('[data-add-measure]').click();
+  assert.equal(await page.locator('[data-measure-form="add"] [data-suggestion]').count(), 0, 'no suggestion left');
+  await page.locator('[data-measure-form="add"] [data-measure-cancel]').click();
+  // edit: the form in place, filled from the measure; the key stays
+  await page.locator('[data-edit="neck"]').click();
+  const edit = page.locator('[data-measure-form="neck"]');
+  assert.equal(await edit.locator('[data-field="m-label"]').inputValue(), 'Neck');
+  assert.equal(await edit.locator('[data-remove="neck"]').isDisabled(), false, 'a measure without values can be removed');
+  await edit.locator('[data-field="m-landmark"]').fill('Below the larynx');
+  await edit.locator('[data-field="m-words"]').fill('collar');
+  if (name === 'phone') await shot('body-edit-measure');
+  await checkWidth(page, 'settings body, the edit form');
+  await edit.locator('[data-measure-save]').click();
+  await headIs(SETTINGS.saves.measure_edit.head);
+  await edit.waitFor({ state: 'detached' });
+  assert.equal(await text(page.locator('[data-measure-row="neck"] [data-measure-line]')), 'Below the larynx · 25–60 cm · also “collar”');
+  // move: one place up, saved at once; the first one cannot go up
+  assert.equal(await page.locator(`[data-up="${B.measures[0].key}"]`).isDisabled(), true);
+  await page.locator('[data-up="neck"]').click();
+  await headIs(SETTINGS.saves.measure_move.head);
+  assert.deepEqual((await rowsOf()).slice(-3), ['neck', 'thigh', 'calf'], 'neck one up');
+  // remove: not possible with values (the door's reason under the button); without, asked first, Yes removes it
+  await page.locator('[data-edit="waist"]').click();
+  assert.equal(await page.locator('[data-remove="waist"]').isDisabled(), true, 'waist has values');
+  assert.equal(await text(page.locator('[data-measure-form="waist"] [data-remove-note]')), B.hints.remove);
+  await page.locator('[data-edit="calf"]').click(); // another Edit: one form at a time
+  assert.equal(await page.locator('[data-measure-form]').count(), 1);
+  await page.locator('[data-remove="calf"]').click();
+  await page.locator('[data-bar-yes]').waitFor();
+  assert.equal(await text(page.locator('[data-bar-yes]')), 'Yes, remove');
+  await page.locator('[data-bar-yes]').click();
+  await headIs(SETTINGS.saves.measure_remove.head);
+  await page.locator('[data-measure-form]').waitFor({ state: 'detached' });
+  assert.deepEqual(await rowsOf(), ['waist', 'hips', 'chest', 'upper_arm', 'neck', 'thigh'], 'calf gone');
+  await checkWidth(page, 'settings body, after the measures');
 
   // ---- Coach -------------------------------------------------------------------------------------------------------------------------
   await open('coach');
