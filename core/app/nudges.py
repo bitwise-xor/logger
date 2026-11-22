@@ -1,7 +1,8 @@
 """Nudges (31.10.2026): small reminders sent as phone notifications (web push), checked every 5 minutes by cron:
 `docker exec logger-v2-core python -m app.nudges`. The times count from the day's wake-up time; nothing is sent before
 waking, after a bed time logged that evening, or more than 16 hours after waking (quiet hours). Each nudge goes at most
-once a logging day (push_sent). The owner turns them on and picks them in Settings > Notifications (ui_settings "nudges")."""
+once a logging day (push_sent). The owner turns them on and picks them in Settings > Notifications (ui_settings "nudges").
+The Home timer's "Time is up" (switch home_timer, 22.11.2026) is sent by hometimer.py, a thread of the core, at the timer's end."""
 import json
 from datetime import datetime, timedelta, timezone
 
@@ -15,7 +16,8 @@ KEY = "nudges"
 # checkin and bp_evening since 08.11.2026 (the check-in on, as the owner asked; evening blood pressure offered, off)
 DEFAULTS = {"on": True, "weight": True, "weight_after": 2.0, "habits": True, "habits_after": 14.0, "idle": True, "idle_hours": 5.0,
             "checkin": True, "checkin_after": 12.0, "bp_evening": False, "bp_evening_after": 13.0,
-            "gratitude": False, "gratitude_after": 14.0}  # gratitude since 14.11.2026 (off until chosen)
+            "gratitude": False, "gratitude_after": 14.0,  # gratitude since 14.11.2026 (off until chosen)
+            "home_timer": True}  # hometimer.py (22.11.2026): no hours, no quiet hours, each timer once
 AWAKE_HOURS = 16
 CHANNELS = ["web", "claude-chat", "mcp"]  # what counts as logging something (imports do not)
 
@@ -96,7 +98,8 @@ def due(cur, now: datetime) -> list[dict]:
 
 
 # A nudge's link on a device that turned notifications on at logger. (deploy 110, migration 032): app.'s pages that logger. has
-LOGGER_LINKS = {"/web/": "/", "/web": "/", "/web/settings?tab=notify": "/settings/notifications"}
+LOGGER_LINKS = {"/web/": "/", "/web": "/", "/web/settings?tab=notify": "/settings/notifications",
+                "/web/home/pick": "/home/pick"}  # the Home timer's (hometimer.py)
 
 
 def link_for(url, origin: str):
@@ -113,14 +116,14 @@ def link_for(url, origin: str):
     return url
 
 
-def deliver(message: dict) -> int:
+def deliver(message: dict, **push) -> int:
     """Send one message to every subscribed device, with its link for the address the device subscribed at (link_for); drop the ones
-    the push service says are gone. Devices reached."""
+    the push service says are gone. push: webpush.send's ttl and urgency (the Home timer's). Devices reached."""
     with connect() as c:
         subs = c.execute("SELECT id, endpoint, p256dh, auth, origin FROM push_subscriptions ORDER BY id").fetchall()
     ok = 0
     for s in subs:
-        status = webpush.send(s, message if s["origin"] != "logger" else {**message, "url": link_for(message.get("url"), "logger")})
+        status = webpush.send(s, message if s["origin"] != "logger" else {**message, "url": link_for(message.get("url"), "logger")}, **push)
         with connect() as c:
             if status in (404, 410):
                 c.execute("DELETE FROM push_subscriptions WHERE id = %s", (s["id"],))

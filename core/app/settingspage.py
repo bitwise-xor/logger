@@ -230,6 +230,8 @@ NUDGE_ROWS = (("weight", "weight_after", 0.5, 12, "No weight yet,", "hours after
               ("bp_evening", "bp_evening_after", 2, 15.5, "No evening blood pressure yet,", "hours after waking"),
               ("gratitude", "gratitude_after", 2, 15.5, "Gratitude list: remind me when the day's lines are not full,", "hours after waking"))
 NUDGE_STEP = 0.5
+# The switches without an hours field, after those: (switch, its words, a note under it)
+NUDGE_SWITCH_ROWS = (("home_timer", "When the Home timer ends", "At the moment it ends, at any hour; each timer once."),)
 
 
 def notify_data() -> dict:
@@ -270,6 +272,7 @@ def _notify(session, csrf: str) -> str:
             f'<label class="row nrow"><input type="checkbox" name="on" value="1"{box("on")}> <b>Send nudges</b></label>'
             + "".join(f'<label class="row nrow"><input type="checkbox" name="{k}" value="1"{box(k)}> {before} {num(hk, lo, hi)} {after}</label>'
                       for k, hk, lo, hi, before, after in NUDGE_ROWS)
+            + "".join(f'<label class="row nrow"><input type="checkbox" name="{k}" value="1"{box(k)}> {words}</label>' for k, words, _n in NUDGE_SWITCH_ROWS)
             + '<p class="row"><button class="primary" type="submit">Save</button></p></form>')
     return (f'<div class="grid2"><div class="card"><h2>This device</h2>{turn_on}'
             '<p class="small hint">On an iPhone (iOS 16.4 or later): add Logger to the home screen first (Share, then Add to Home Screen), '
@@ -278,7 +281,7 @@ def _notify(session, csrf: str) -> str:
             f'<div class="card"><h2>Nudges</h2>{form}'
             '<p class="small hint">Times count from the time you woke up (the Woke up value). Quiet hours: nothing before you log waking up, '
             f'nothing after a bed time is logged, nothing later than {nudges.AWAKE_HOURS} hours after waking. Each nudge comes at most once a day; '
-            'the check runs every 5 minutes.</p></div></div>')
+            'the check runs every 5 minutes. The Home timer\'s comes at the moment it ends, at any hour, once for each timer.</p></div></div>')
 
 
 def render(session, q) -> str:

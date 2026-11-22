@@ -497,6 +497,14 @@
       "default": 14
      },
      "note": "A tap on this one opens the gratitude list in the full app."
+    },
+    {
+     "key": "home_timer",
+     "label": "When the Home timer ends",
+     "after": null,
+     "on": true,
+     "hours": null,
+     "note": "At the moment it ends, at any hour; each timer once."
     }
    ],
    "awake_hours": 16,

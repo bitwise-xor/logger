@@ -87,14 +87,15 @@ def vapid(endpoint: str) -> str:
     return f"vapid t={jwt.encode(claims, _private(), algorithm='ES256')}, k={public_key()}"
 
 
-def send(sub: dict, message: dict, ttl: int = 3600) -> int:
+def send(sub: dict, message: dict, ttl: int = 3600, urgency: str = "normal") -> int:
     """Post one message to one subscription. The push service's status: 201 taken, 404/410 the subscription is gone;
-    0 when nothing could be sent (no key, an unknown service, no network)."""
+    0 when nothing could be sent (no key, an unknown service, no network). ttl: how long the push service keeps it for a device that
+    is offline; urgency "high" for the Home timer's (hometimer.py: wakes a sleeping phone at once)."""
     if not allowed(sub["endpoint"]) or not _private():
         return 0
     data = encrypt(json.dumps(message).encode(), sub["p256dh"], sub["auth"])
     req = urllib.request.Request(sub["endpoint"], data=data, method="POST",
-                                 headers={"Authorization": vapid(sub["endpoint"]), "TTL": str(ttl), "Urgency": "normal",
+                                 headers={"Authorization": vapid(sub["endpoint"]), "TTL": str(ttl), "Urgency": urgency,
                                           "Content-Encoding": "aes128gcm", "Content-Type": "application/octet-stream"})
     try:
         with urllib.request.urlopen(req, timeout=15) as r:  # noqa: S310 - https to a known push service only (allowed)

@@ -1385,7 +1385,8 @@ GRATITUDE_NOTE = "A tap on this one opens the gratitude list in the full app."
 
 
 def settings_notify(session) -> dict:
-    """Settings > Notifications: the nudges (the master switch, each nudge with its hours), the devices with notifications on (this:
+    """Settings > Notifications: the nudges (the master switch, each nudge with its hours; after and hours null for a switch without
+    hours, the Home timer's), the devices with notifications on (this:
     turned on in this session), the key a browser subscribes with (null: not set up), and twice: a device name with notifications on
     both here and at app. (that device gets every nudge twice)."""
     d = settingspage.notify_data()
@@ -1397,7 +1398,9 @@ def settings_notify(session) -> dict:
             "nudges": [{"key": k, "label": before, "after": after, "on": bool(s[k]),
                         "hours": {"key": hk, "value": num(s[hk]), "min": num(lo), "max": num(hi), "step": settingspage.NUDGE_STEP,
                                   "default": num(nudges.DEFAULTS[hk])},
-                        "note": GRATITUDE_NOTE if k == "gratitude" else None} for k, hk, lo, hi, before, after in settingspage.NUDGE_ROWS],
+                        "note": GRATITUDE_NOTE if k == "gratitude" else None} for k, hk, lo, hi, before, after in settingspage.NUDGE_ROWS]
+                      + [{"key": k, "label": words, "after": None, "on": bool(s[k]), "hours": None, "note": note}  # a switch alone (home_timer)
+                         for k, words, note in settingspage.NUDGE_SWITCH_ROWS],
             "awake_hours": nudges.AWAKE_HOURS, "subscriptions": out, "public_key": webpush.public_key(),
             "twice": bool(names["app"] & names["logger"])}
 

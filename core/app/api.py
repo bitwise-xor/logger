@@ -1994,7 +1994,7 @@ def settings_others(_request, body, session):
     return _setting(session, body, websettings.others, {}, "settings_devices")
 
 
-NUDGE_SWITCHES = ("on",) + tuple(k for k, *_x in settingspage.NUDGE_ROWS)
+NUDGE_SWITCHES = ("on",) + tuple(k for k, *_x in settingspage.NUDGE_ROWS) + tuple(k for k, *_x in settingspage.NUDGE_SWITCH_ROWS)
 NUDGE_HOURS = tuple(hk for _k, hk, *_x in settingspage.NUDGE_ROWS)
 
 

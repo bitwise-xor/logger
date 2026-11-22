@@ -639,8 +639,10 @@ def test_the_settings_shapes(sv):
         assert all(set(k) == {"kind", "title", "parts"} and all(set(p) == {"key", "label", "on"} for p in k["parts"]) for k in s["settings_coach"]["kinds"])
         assert all(set(d) == {"id", "name", "address", "signed_in", "last_used", "expires", "current"} for d in s["settings_devices"]["devices"])
         nt = s["settings_notify"]
-        assert all(set(x) == {"key", "label", "after", "on", "hours", "note"} and set(x["hours"]) == {"key", "value", "min", "max", "step", "default"}
+        assert all(set(x) == {"key", "label", "after", "on", "hours", "note"}
+                   and (x["hours"] is None and x["after"] is None or set(x["hours"]) == {"key", "value", "min", "max", "step", "default"})
                    for x in nt["nudges"])
+        assert [x["key"] for x in nt["nudges"] if x["hours"] is None] == ["home_timer"]  # a switch alone (web item 57)
         assert all(set(x) == {"id", "name", "address", "on_since", "last_delivered", "this"} for x in nt["subscriptions"]) and nt["subscriptions"]
         assert set(s["settings_export"]["last"]) == {"at", "private", "text"} and OFFSET.search(s["settings_export"]["last"]["at"])
         assert set(get(sv, "/day")["day"]["shown"]) == {"review", "gratitude"}

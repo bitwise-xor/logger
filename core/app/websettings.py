@@ -222,7 +222,8 @@ def nudge_settings(form, key: Optional[str], session) -> dict:
               "bp_evening": form.get("bp_evening") == "1",
               "bp_evening_after": _hours(form.get("bp_evening_after"), 2, 15.5, d["bp_evening_after"]),
               "gratitude": form.get("gratitude") == "1",
-              "gratitude_after": _hours(form.get("gratitude_after"), 2, 15.5, d["gratitude_after"])}
+              "gratitude_after": _hours(form.get("gratitude_after"), 2, 15.5, d["gratitude_after"]),
+              "home_timer": form.get("home_timer") == "1"}
     nudges.save(values)
     with connect() as conn, conn.cursor() as cur:
         logbook._audit(cur, "web_change", "changed", {"what": "nudges"}, logbook.WEB)

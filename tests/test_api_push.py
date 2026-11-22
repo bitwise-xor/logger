@@ -65,11 +65,11 @@ def test_the_notifications_read(sv):
     s = notify(sv)
     assert s["on"] is True and s["on_label"] == "Send nudges" and s["awake_hours"] == 16 and s["subscriptions"] == [] and s["twice"] is False
     assert s["public_key"] == webpush.public_key() and s["public_key"]
-    assert [x["key"] for x in s["nudges"]] == ["weight", "habits", "idle", "checkin", "bp_evening", "gratitude"]
+    assert [x["key"] for x in s["nudges"]] == ["weight", "habits", "idle", "checkin", "bp_evening", "gratitude", "home_timer"]
     w = s["nudges"][0]
     assert (w["label"], w["after"], w["on"], w["note"]) == ("No weight yet,", "hours after waking", True, None)
     assert w["hours"] == {"key": "weight_after", "value": 2, "min": 0.5, "max": 12, "step": 0.5, "default": 2}
-    g = s["nudges"][-1]
+    g = s["nudges"][-2]
     assert g["on"] is False and g["note"] == "A tap on this one opens the gratitude list in the full app." and g["hours"]["max"] == 15.5
     assert s["nudges"][2]["label"] == "Nothing logged for" and s["nudges"][2]["after"] == "hours"
 
