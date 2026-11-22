@@ -338,9 +338,10 @@ Habits = {
   show, help,                         // the filter and app.'s line under it
   shows: [{key, label, count}],       // tracked, untracked, retired, all
   list: [{group, label,               // the groups with habits in this filter (intake, practice, learning, daily, behaviour)
-          habits: [{name, label, group, target, order, avoid, state, ticks, days30, last_day, stats, can_track, can_delete}]}],
+          habits: [{name, label, group, target, order, remind_after, avoid, state, ticks, days30, last_day, stats, can_track, can_delete}]}],
   groups: [{key, label}], default_group: "practice",   // for a new habit
-  limits: {label_max: 40, target_min: 1, target_max: 10, order_max: 999}
+  limits: {label_max: 40, target_min: 1, target_max: 10, order_max: 999,
+           remind_min: 0.5, remind_max: 15.5, remind_step: 0.5}   // remind_*: the range of a habit's reminder
 }
 ```
 
@@ -351,6 +352,8 @@ Habits = {
   `ticks` all ticks ever, `days30` the days of the last 30 with one, `last_day`; `stats` is app.'s line ("12 of the last 30 days · last
   13.11.", "Never ticked", "Last ticked 02.08."). `can_track`: Track on or off works (not for a retired habit); `can_delete`: no history,
   so Delete works. Edit and Retire (or Bring back, for `retired`) always work.
+- `remind_after` (web item 49, migration 037): the habit's own reminder, hours after waking (a number, 0.5 to 15.5 in half hours), or `null`
+  for none: the phone reminds of the habit from then on while it is open today (below, "Two more nudges"). Set in the habit's Edit form.
 - Wake-up and Bedtime are times, not habits: never listed. Hiding and ordering habits on Today and the reminders stay at app.
   (Settings > Today page, Habits): no route here.
 
@@ -1064,10 +1067,12 @@ settings_devices = {devices: [{id, name, address: "logger" | "app", signed_in, l
                                                // session; others: how many are not
 settings_notify = {on, on_label: "Send nudges",
   nudges: [{key, label, after, on, hours: null | {key, value, min, max, step: 0.5, default}, note}],
-                                               // weight, habits, idle, checkin, bp_evening, gratitude, week: "<label> [hours] <after>", e.g.
+                                               // weight, habits, idle, checkin, bp_evening, gratitude, week, question: "<label> [hours] <after>", e.g.
                                                // "No weight yet," … "hours after waking"; note (gratitude): "A tap on this one
                                                // opens the gratitude list in the full app."; week (web item 45): "Last week's summary,
                                                // on the first day of the week," … "hours after waking" (1 by default, 0.5 to 12)
+                                               // question (web item 49): "A question still waiting for an answer after" … "hours"
+                                               // (24 by default, 1 to 48)
                                                // home_timer (web item 57): a switch alone, after and hours null, label "When the Home
                                                // timer ends", note "At the moment it ends, at any hour; each timer once."
   awake_hours: 16,                             // quiet hours: nothing later than this after waking
@@ -1097,7 +1102,7 @@ as it is now (the door fills it in, as app.'s form comes filled in), except on `
 | `/settings/coach` | `goals`, `style` (text up to 2000, as `coach._clean` reads it), `parts: {day: [keys on], week: [keys on]}` (a kind left out: as now) | `coach.goals_set`: "Saved: the coach reads your settings every time."; "Keep at least one part of the day coaching." / "… week review." |
 | `/settings/device` | `id` (a device of `settings_devices`) | `websettings.device` (also an app. session): "Signed that device out."; this session: "This is the device you are using; use Sign out on More." (app. says "… at the top."); gone: `unchanged` "That device is already signed out."; "Unknown device." |
 | `/settings/others` | | `websettings.others`: every other session, here and at app.: "Signed out 2 other devices." / "No other device was signed in." |
-| `/settings/nudges` | `on`, `weight`, `habits`, `idle`, `checkin`, `bp_evening`, `gratitude`, `week`, `home_timer` (true or false); `weight_after`, `habits_after`, `idle_hours`, `checkin_after`, `bp_evening_after`, `gratitude_after`, `week_after` (numbers: clamped to their range in half hours, as app.) | `websettings.nudge_settings` (nudges.save stores the whole value; the door fills in what is left out): "Saved. Nudges are on." / "… off." |
+| `/settings/nudges` | `on`, `weight`, `habits`, `idle`, `checkin`, `bp_evening`, `gratitude`, `week`, `question`, `home_timer` (true or false); `weight_after`, `habits_after`, `idle_hours`, `checkin_after`, `bp_evening_after`, `gratitude_after`, `week_after`, `question_after` (numbers: clamped to their range in half hours, as app.) | `websettings.nudge_settings` (nudges.save stores the whole value; the door fills in what is left out): "Saved. Nudges are on." / "… off." |
 | `/push/subscribe` | `endpoint`, `keys: {p256dh, auth}` (the browser's PushSubscription), `user_agent` | app.'s checks of `/web/push/subscribe` (`webpush.allowed`: https on Apple's, Google's, Mozilla's or Microsoft's push service; `webpush.valid_keys`), else `rejected` "Not a known push service."; kept with `origin` "logger" and this session (upsert on the endpoint; the audit row "notifications on"): "Notifications are on for this device." |
 | `/push/off` | `id` (a number: `settings_notify.subscriptions[].id`, here or at app.) | `websettings.push_off`: "Notifications are off for that device."; "That device is not there any more." |
 | `/push/test` | | `websettings.nudge_test`, to every device (each with its own address's link): "Test notification sent to 2 devices."; none: "No device took the test notification. Turn notifications on again on the phone, then try once more." |
@@ -1138,6 +1143,24 @@ the parts with data joined by " · ": "6 of 7 days logged · kcal 94 %, protein 
 (percents of the latest target, the average of the fully logged days; the weight's change from the first to the last weighed day,
 with two weighed days or more). Last week without a day with food: nothing is sent, the week is marked as done all the same (the
 audit row `nudge` / `skipped`). Sent when `on` and `week` are both true (on by default). Not part of it: a daily digest and Telegram.
+
+### Two more nudges (web item 49)
+
+Both are nudges of `nudges.due` (cron, every 5 minutes): `on` is true, the owner is up (the quiet hours: after the wake-up, not gone to
+bed, at most 16 hours after waking), and each kind goes at most once a logging day (`push_sent`). The link is Today (`/web/`, a logger.
+device `/`); the payload is `{title, body, url, tag: <the kind>}`.
+
+- **A question that has waited** (kind `question`, switch `question`, on by default; hours `question_after`, 24 by default, 1 to 48):
+  the hours count from when the question was asked (`pending.created_at`), not from waking. The questions are the ones Today shows
+  (`webquestions.load`, the list of `needs.questions`: open, not expired, the tools Today answers); it is due when at least one of them was
+  asked `question_after` hours ago or longer. Title "A question is waiting", body "1 question waits for your answer on Today." or "N
+  questions wait for your answer on Today." (N: the ones old enough). Never a word or value of a question: a notification shows on a
+  locked screen.
+- **A reminder time for one habit** (kind `habit-<the habit's name>`, `log_types.remind_after`, migration 037, set by `POST
+  /habits/manage` `edit`): for each active habit on the checklist with a reminder time that is not complete today (`checklist_status`,
+  as "Habits still open") and is not a habit to avoid (`habitaim.avoid`), from `remind_after` hours after waking. Title the habit's label,
+  body "Still open today." (a habit with a target above 1: "1 of 2 done today."). It obeys `on` and the quiet hours and is independent of
+  the `habits` switch ("Habits still open" is unchanged: both can come on one day). Once a logging day per habit.
 
 ### The export: `POST /api/v1/export` → the ZIP
 
@@ -1279,7 +1302,9 @@ The Habits page's saves (93), each like app.'s form:
 - `/habits/manage` fields by `action` (a plain yes is the click; Hiding and ordering on Today are not here):
   `track`: `name`, `on` (true or false; a retired habit is refused: "… is retired: bring it back first."; a newly tracked habit goes
   last on Today); `retire`, `restore`: `name`; `edit`: `name`, `label`, `target` (times a day, required: app.'s function sets 1 for a
-  field left out), optional `order` (0 to 999; kept when not sent) and `aim` (`do` or `avoid`; kept when not sent); `delete`: `name`,
+  field left out), optional `order` (0 to 999; kept when not sent), `aim` (`do` or `avoid`; kept when not sent) and `remind_after` (a
+  number, 0.5 to 15.5 in steps of 0.5: hours after waking; `null` or `""` clears the reminder; left out, the habit keeps it, as app.'s
+  form does not send it); `delete`: `name`,
   `confirmed: true` (without it: "Press Yes, delete to delete a habit."; with history: "… has history, so it cannot be deleted. Retire
   it instead."); `new`: `label`, `group` (one of `groups`; "daily" when not sent), `target` (1 when not sent), `track` (true or false;
   false when not sent). Refusals as `rejected`: a label another habit or log type already has, in any case ("There is already a log
@@ -1288,7 +1313,8 @@ The Habits page's saves (93), each like app.'s form:
   habit."; Wake-up and Bedtime too).
 - 400 `bad_request` (the page's own form stops these first; app.'s functions would cut or clamp them): a `label` of more than 40
   characters (after its spaces are tidied), a `target` that is not a whole number from 1 to 10, an `order` outside 0 to 999, an `aim`
-  other than `do` or `avoid`, `on`, `track` not true or false, a missing `name`, an unknown `action`, an edit without `target`.
+  other than `do` or `avoid`, a `remind_after` that is not null, empty or a number from 0.5 to 15.5 in steps of 0.5 ("remind_after must
+  be a number from 0.5 to 15.5 in steps of 0.5, or null."), `on`, `track` not true or false, a missing `name`, an unknown `action`, an edit without `target`.
 - `key` on `/habits/manage`: accepted, but app.'s functions take none: a `new` sent twice is refused the second time (the label is
   there), the others are the same twice.
 - **Undo** (`POST /undo`): a ticked day (`saved`): the logged message taken back (the chat's undo, while it is the newest); an unticked
