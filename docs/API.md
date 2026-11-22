@@ -304,7 +304,8 @@ Body = {
   due_text,                           // "due now", "next due in 3 days", "next due in about 4 weeks"; null before the first session
   interval_days, hidden: [keys],      // Settings > Body (changed through POST /settings/body since 110)
   jump_cm: 4, protocol, hint,         // the form's line on how to measure; the line under the card (typing it in the Log bar)
-  form: [{key, label, hint, ref, cm, last_cm, min, max}],   // the shown measures in order: waist, hips, chest, upper_arm, thigh
+  form: [{key, label, hint, ref, cm, last_cm, min, max}],   // the shown measures in order (Settings > Body's list, web item 58:
+                                      // the five of 024 and any the owner added; hint: the landmark)
                                       // cm: the session's value (ref its entry) or null; last_cm: the last value before the
                                       // session (the field's placeholder); min, max: the usual range (outside it is read back)
   table: [{key, label, ref, cm, day, last, start, last_text, start_text}],   // Now / Last / Start: each measure's newest value
@@ -1054,8 +1055,16 @@ settings_today = {groups: [{kind, heading, items: [{id, label, shown}]}], hint}
 settings_body = {valid_from, height: null | {cm, valid_from},   // the height in force today
   heights: [{cm, valid_from, valid_from_text}],                 // newest first
   height_range: {min: 120, max: 230}, interval: {days, min: 7, max: 90, default: 28},
-  measures: [{key, label, shown}],             // waist, hips, chest, upper_arm, thigh
-  hints: {height, measures}}
+  measures: [{key, label, landmark, min, max, words, shown, has_values}],
+                                               // the body measures in their order (web item 58: log_types rows marked body_measure,
+                                               // migration 038; the five of 024 and any the owner added): landmark as stored with a
+                                               // capital first letter ("" when none), min and max the usual range in cm, words the
+                                               // other words the typed-line reader takes (the label itself left out), has_values:
+                                               // it cannot be removed, only hidden
+  limits: {label: {min: 2, max: 30}, landmark_max: 120, cm: {min: 10, max: 300}, words_max: 8, word_max: 30},
+  suggestions: [{label, landmark, min, max, words}],   // the suggested measures not added yet (Neck: "Below the larynx, tape
+                                               // level", 25 to 60 cm; Calf: "Widest point, standing, right side", 20 to 70, "calves")
+  hints: {height, measures, remove}}           // remove: "A measure with values cannot be removed: hide it instead."
 settings_coach = {goals, style, max: 2000,
   kinds: [{kind: "day" | "week", title, parts: [{key, label, on}]}],   // "Day coaching (Today)": went_well, improve, next_meal, gaps,
                                                // doctor; "Week review (Week page)": targets, trends, habits, days, focus, doctor
@@ -1099,6 +1108,7 @@ as it is now (the door fills it in, as app.'s form comes filled in), except on `
 | `/settings/today_reset` | | `websettings.today_reset`: "The Today page shows everything again, in the default order." |
 | `/settings/height` | `valid_from`, `height` (cm) | `websettings.height`: "Height 177 cm saved, from 01.02.2026."; "Give the date the height counts from.", "Height: give a number from 120 to 230 cm." |
 | `/settings/body` | `interval` (whole days), `show` (the measure keys shown) | `websettings.body_settings`: "Body measurements: due every 28 days, 3 hidden."; "Due every: give a whole number of days from 7 to 90.", "Keep at least one measure." |
+| `/settings/body_measure` (web item 58) | `action`: `add` with `label` (2 to 30 characters), `landmark` (optional, up to 120), `min`, `max` (cm, 10 to 300, min below max), `words` (a list, optional: up to 8, each up to 30 characters, letters, spaces and hyphens; stored in lower case); `edit` with `key` and the same fields; `move` with `key` and `dir` ("up" or "down"); `remove` with `key` | `websettings.measure_add`, `_edit`, `_move`, `_remove` (logger. only; app. has no form for them): "Added the measure Neck. Measure it in the form, or type “neck 38.5”.", "Saved the measure Neck.", "Moved Neck up.", "Removed the measure Neck."; `unchanged` "Neck is already first."; "Name: give 2 to 30 characters.", "Lowest: give a number from 10 to 300 cm.", "The lowest value must be below the highest.", "Words: at most 8.", "Waist has values: hide it instead.", "Keep at least one measure shown.", "Unknown measure.". A new measure's key (`log_types.name`) is made from the label once (lower case, letters and digits, `_` between words, at most 30 characters, `_2`, `_3` … when taken) and never changes, so its values stay. The label, the key and every word must not be the name, label or a word of any other log type, active or not (the typed-line reader resolves words across all of them): "“Belly” is already a word for the measure Waist: choose another.", "“Shoonya” is already the name of the habit Shoonya: choose another." A narrower range is allowed (it is only what is read back as unusual). |
 | `/settings/coach` | `goals`, `style` (text up to 2000, as `coach._clean` reads it), `parts: {day: [keys on], week: [keys on]}` (a kind left out: as now) | `coach.goals_set`: "Saved: the coach reads your settings every time."; "Keep at least one part of the day coaching." / "… week review." |
 | `/settings/device` | `id` (a device of `settings_devices`) | `websettings.device` (also an app. session): "Signed that device out."; this session: "This is the device you are using; use Sign out on More." (app. says "… at the top."); gone: `unchanged` "That device is already signed out."; "Unknown device." |
 | `/settings/others` | | `websettings.others`: every other session, here and at app.: "Signed out 2 other devices." / "No other device was signed in." |
@@ -1266,7 +1276,7 @@ back: `needs_confirmation`, `read_back` (its values per 100) and its question in
 The Health page's row and the body session (91), each like app.'s Save of that row or form:
 
 - `values` of `/health/day`: `weight`, `sugar`, `mood`, `energy` a number; `bp_morning`, `bp_evening` `[upper, lower]`; `bed`, `wake`
-  `"hh:mm"`. `/body`: `waist`, `hips`, `chest`, `upper_arm`, `thigh` in cm. A value that is there is changed (Save is the yes), an
+  `"hh:mm"`. `/body`: the body measures' keys (Settings > Body's list, web item 58; an unknown key is 400) in cm. A value that is there is changed (Save is the yes), an
   empty day's value is added for that day (no AI call), `null` or `""` deletes it; a row the same as now is left alone (all the
   same: `unchanged`, "Nothing changed."). Any value of the last 12 months: a later or older day is `rejected` ("Pick a day of the
   last 12 months."); `rejected` too for one number of a blood pressure ("BP morning: give both numbers."), a time not hh:mm, a body

@@ -333,7 +333,7 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   `/settings/targets`, `/today`, `/body`, `/coach`, `/devices`, `/notifications`, `/export` (`SETTINGS_TABS` in `places.ts`; More's Settings row,
   More lit; `SettingsHeader.svelte`: back to More, the theme button, the tabs scrolling sideways inside their row on phones). Each reads GET
   `/settings/<tab>` (`server/settingsread.ts`; a failed read is `ProblemCard` with app.'s `/web/settings?tab=…`) and saves through form actions
-  (`saves.ts`: `settings_targets`, `settings_today`, `settings_today_reset`, `settings_height`, `settings_body`, `settings_coach`, `settings_device`,
+  (`saves.ts`: `settings_targets`, `settings_today`, `settings_today_reset`, `settings_height`, `settings_body`, `settings_body_measure`, `settings_coach`, `settings_device`,
   `settings_others`, `settings_nudges`, `push_off`, `push_test`; no key, no Undo, never sent again by the page, none in Today's actions), each answer
   bringing the tab's fresh read (`settingspage.svelte.ts`). A form's refusal stands next to it in the door's words (a field that is no number is
   checked first, in app.'s words: `settings.ts`); the Today page tab saves every tap at once (a switch or an arrow posts the whole group; the list is the
@@ -344,6 +344,16 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   of the code (a wrong or missing one, too many tries) comes back to the tab in the door's words, carried in a cookie read once
   (`__Host-logger-export-refused`, `?refused=1`; never the words in the address), the box still ticked. The stand-in takes `123456`. The "This device" card came with deploy 112 (below). Also with 111: no footer line any more; Habits, Library > Habits, Health's height and every
   "Your goals" (`GOALS_HERE`) open Settings here; Today hides the To review items (one line instead) and the Gratitude card when `day.shown` says so.
+  Web 58 (22.11.2026): Settings > Body lists the body measures in the door's order (`measures`), each row with its landmark and range,
+  the shown switch (saved with "Due every" by Save), up and down (saved at once) and Edit, which opens the form in place (name, where to
+  measure, lowest and highest cm, other words as a comma list; Save, Cancel, Remove asked first in the answer bar and disabled with the
+  door's `hints.remove` for a measure with values); "+ Add a measure" opens it empty with the door's `suggestions` as chips that fill it;
+  one form at a time (`settings_body_measure`, `measureBody` in `settings.ts`: the measure's key travels as `measure`, since `key` is
+  the page's re-send key). The front has no list of measures any more: the Health card's Measure form names its fields `cm_<key>` and
+  lists them in `measures` (`bodyValues`, `bodyPost` in `health.ts`), and Today's "Change" link sends any measurement that is not one of
+  the Health page's rows (`HEALTH_ROW_TYPES` in `day.ts`) to the body form. The stand-in answers `/settings/body_measure` with the
+  core's checks and words (a clash with a few other types' names and words, the suggestions Neck and Calf); the samples have six
+  measures (Neck added in Settings > Body).
   Web 70 (21.11.2026): the Nudges form and its save take the nudges from the door's list, never from a list written here, so a nudge the
   core adds later shows and saves: `settings_nudges` reads GET `/settings/notify` first (`before` in `saves.ts`; its failure says nothing
   was saved) and sends only the listed nudges' switches and hours, hours outside the door's min and max refused in plain words
