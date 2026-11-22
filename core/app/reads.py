@@ -1244,6 +1244,41 @@ def food_item(fid: int) -> Optional[dict]:
             "limits": foodpage.LIMITS}
 
 
+WORDS_LIMIT = 500
+WORDS_Q_MAX = 60
+_WORD_BY = {"core_rw": "web", "mcp_writer": "chat"}  # food_changes.changed_by: the web app and the front end's door, the chat connector
+
+
+def food_words(q: str = "", shared: bool = False) -> dict:
+    """Every word (alias) of an active food, for the words review (core item 24): the word, its food, when it was added and from
+    where, and how many active foods have it (compared in lower case). `added_at` and `by` come from the food's latest change that
+    added the word (food_changes: the new aliases have it, the old ones do not); a word that came with the food has no such row: its
+    time is the food's creation and `by` is None. Newest first, unknown dates last, then by word; at most WORDS_LIMIT rows (`total`
+    is the number before the limit). q (a word or a name, any case) and `shared` (only words on more than one food) narrow it."""
+    t = q.strip().lower()
+    with connect() as c:
+        rows = c.execute("""
+            WITH w AS (SELECT f.id AS food_id, f.name AS food, a.word, f.created_at
+                       FROM foods f CROSS JOIN LATERAL unnest(f.aliases) AS a(word) WHERE f.active),
+                 n AS (SELECT lower(word) AS lw, count(DISTINCT food_id) AS foods FROM w GROUP BY 1)
+            SELECT * FROM (
+              SELECT w.word, w.food_id, w.food, coalesce(ch.changed_at, w.created_at) AS added_at, ch.changed_by, n.foods AS shared,
+                     count(*) OVER () AS total
+              FROM w JOIN n ON n.lw = lower(w.word)
+              LEFT JOIN LATERAL (SELECT x.changed_at, x.changed_by FROM food_changes x
+                                 WHERE x.food_id = w.food_id AND x.op = 'update' AND (x.new_values -> 'aliases') ? w.word
+                                   AND NOT coalesce((x.old_values -> 'aliases') ? w.word, true)
+                                 ORDER BY x.changed_at DESC, x.id DESC LIMIT 1) ch ON true
+              WHERE (%(t)s = '' OR position(%(t)s in lower(w.word)) > 0 OR position(%(t)s in lower(w.food)) > 0)
+                AND (NOT %(shared)s OR n.foods > 1)
+            ) r ORDER BY added_at DESC NULLS LAST, word, food_id LIMIT %(limit)s""",
+                         {"t": t, "shared": bool(shared), "limit": WORDS_LIMIT}).fetchall()
+    out = [{"word": r["word"], "food_id": r["food_id"], "food": r["food"], "added_at": iso(r["added_at"]),
+            "by": None if r["changed_by"] is None else _WORD_BY.get(r["changed_by"], "other"), "shared": r["shared"],
+            "month": r["added_at"].astimezone(BERLIN).strftime("%Y-%m") if r["added_at"] else None} for r in rows]
+    return {"count": len(out), "total": rows[0]["total"] if rows else 0, "rows": out, "limit": WORDS_LIMIT}
+
+
 # ---- Medical: lab reports, tests over time, medication (deploy 104) -----------------------------------------------------------------
 # app.'s Medical page as data (labspage.reports_data, tests_data, test_chart, meds_data: app.'s three tabs draw from the same, byte for
 # byte as before). Values as the logger prints them (v1's _val_text, _ref_text); the correction forms start from labspage.printed.

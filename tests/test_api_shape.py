@@ -567,6 +567,16 @@ def test_the_library_and_medical_shapes(sv, fake):
     assert set(sv.post("/labs/value", id=x["r4_hb"], value="12.9", view="labs_tests", view_t=x["t_hb"])) == KEYS | {"labs_tests"}
 
 
+def test_the_food_words_shape(sv, fake):
+    from test_food_words import ROW, WORDS, foods
+    x = foods()
+    w = get(sv, "/food/words")
+    assert set(w) == {"v", "words", "undo"} and set(w["words"]) == WORDS and w["words"]["rows"] and all(set(r) == ROW for r in w["words"]["rows"])
+    assert w["words"]["rows"][0]["added_at"] and OFFSET.search(w["words"]["rows"][0]["added_at"]) and w["words"]["rows"][0]["month"] == "2026-08"
+    j = sv.post("/food/catalogue/words", id=x["rye"], act="remove", word="bread", view="words")
+    assert set(j) == KEYS | {"words"} and set(j["words"]) == WORDS and j["undo"] and set(j["undo"]) == {"token", "head", "expires_at"}
+
+
 # ---- 16. Search, Recent, Usage, Coach (deploy 107) ----------------------------------------------------------------------------------
 
 def test_the_more_and_coach_shapes(sv, monkeypatch):

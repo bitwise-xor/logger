@@ -82,6 +82,8 @@ def _record(resp: dict, rows: Optional[list] = None) -> Optional[dict]:
         return {"token": secrets.token_urlsafe(12), "head": (resp.get("head") or "Saved.")[:160], "gym": resp["gym_undo"]}
     if resp.get("home_undo") and not resp.get("replayed"):  # a chore tick or a removed history row (home.py)
         return {"token": secrets.token_urlsafe(12), "head": (resp.get("head") or "Saved.")[:160], "home": resp["home_undo"]}
+    if resp.get("words_undo") and resp.get("outcome") == "changed" and not resp.get("replayed"):  # a word added or removed (api.py, words review)
+        return {"token": secrets.token_urlsafe(12), "head": (resp.get("head") or "Changed.")[:160], "words": resp["words_undo"]}
     if resp.get("usual_undo") and resp.get("outcome") == "changed" and not resp.get("replayed"):  # a usual meal (webfood, 86)
         return {"token": secrets.token_urlsafe(12), "head": (resp.get("head") or "Changed.")[:160], "usual": resp["usual_undo"]}
     if resp.get("outcome") == "changed" and rows:
@@ -106,6 +108,8 @@ def apply(rec: dict) -> dict:
         return home_undo(rec["home"])
     if rec.get("usual"):
         return usual_undo(rec["usual"])
+    if rec.get("words"):
+        return words_undo(rec["words"])
     if rec.get("held"):
         if held.restore(int(rec["held"])):
             return {"outcome": "changed", "head": "The unread message is back."}
@@ -126,6 +130,25 @@ def apply(rec: dict) -> dict:
             cur.execute("SELECT assign_meals(%s::date)", (d,))
         logbook._audit(cur, "web_change", "changed", {"what": "undo", "ids": ids}, logbook.WEB)
     return {"outcome": "changed", "head": "Undone."}
+
+
+def words_undo(w: dict) -> dict:
+    """A word added or removed on a food (the words review, 22.11.2026) taken back by the opposite change of that word alone, so the
+    food's other words stay as they are now. w = {"food_id", "act" (the opposite of what was done), "word"}. A word taken off is put
+    back without the button's check that no other food has it: the food had it before (a word on two foods is how it was found),
+    and Undo puts back what was."""
+    with connect() as conn, conn.cursor() as cur:
+        if w["act"] == "add":
+            cur.execute("""UPDATE foods SET aliases = CASE WHEN %s = ANY(aliases) THEN aliases ELSE array_append(aliases, %s) END
+                           WHERE id = %s RETURNING name""", (w["word"], w["word"], w["food_id"]))
+        else:
+            cur.execute("UPDATE foods SET aliases = array_remove(aliases, %s) WHERE id = %s RETURNING name", (w["word"], w["food_id"]))
+        food = cur.fetchone()
+        if not food:
+            return {"outcome": "rejected", "head": "Nothing undone.", "reason": "That food is not there any more."}
+        logbook._audit(cur, "web_change", "changed", {"what": "undo words", "ids": [f"N{w['food_id']}"]}, logbook.WEB)
+    said = f'"{w["word"]}" now means N{w["food_id"]} {food["name"]} again.' if w["act"] == "add" else f'"{w["word"]}" no longer means N{w["food_id"]} {food["name"]}.'
+    return {"outcome": "changed", "head": "Undone: " + said}
 
 
 def usual_undo(u: dict) -> dict:

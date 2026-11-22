@@ -350,8 +350,9 @@ def test_signed_out_and_door_off(method, path, body, monkeypatch, fake):
 def test_every_form_has_a_route_and_the_old_food_routes_are_as_they_were(sv, fake):
     assert set(api.CATALOGUE_FORMS) == {"values", "words", "barcode", "basics", "unit", "reviewed"}
     assert set(api.CATALOGUE_FORMS) < set(webfood.ACTIONS) | {"unit"}
-    for path in ("/food/values", "/food/words", "/food/catalogue/lookup", "/food/catalogue/usualmeal"):
+    for path in ("/food/values", "/food/catalogue/lookup", "/food/catalogue/usualmeal"):
         assert sv.c.post("/api/v1" + path, headers=sv.h, json={}).status_code == 404, path
+    assert sv.c.post("/api/v1/food/words", headers=sv.h, json={}).status_code == 405  # GET /food/words is the words review's read (core item 24)
     assert reads.catalogue and reads.food_item
 
 

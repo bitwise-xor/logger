@@ -468,6 +468,8 @@ def saved(session, out: dict, body: dict, view: str = "day", private: bool = Fal
         res["week"] = reads.week(_period(body.get("view_p"), strict=False))
     elif shown == "catalogue":  # the Catalogue (deploy 104), as GET /food/catalogue with view_q, view_f, view_s; and view_food's box
         res["catalogue"], res["food_item"] = _catalogue_view(body)
+    elif shown == "words":  # the words review (core item 24), as GET /food/words with view_q and view_shared
+        res["words"] = _words_view(body)
     elif shown in LABS_VIEWS:  # a Medical tab (deploy 104), as its GET with view_open, or view_q and view_t
         res[shown] = LABS_VIEWS[shown](body)
     elif shown == "coach":  # the Coach page (deploy 107), as GET /coach with view_f (all when unknown) and view_day (a later day: today)
@@ -1569,6 +1571,27 @@ def catalogue_read(request, _body, session):
     return {"catalogue": reads.catalogue(qp.get("q", "")[:60], f, s), "undo": _undo_out(session.get("undo"))}
 
 
+def _words_view(body: dict):
+    """The words review as GET /food/words with the body's view_q and view_shared (a save's fresh read of the words page)."""
+    q = body.get("view_q") if isinstance(body.get("view_q"), str) else ""
+    return reads.food_words(q[:reads.WORDS_Q_MAX], body.get("view_shared") is True)
+
+
+@route("/food/words", "GET")
+def food_words_read(request, _body, session):
+    """The words review (core item 24): every word of an active food with its food, when and from where it was added and how many
+    foods have it. ?q= (a word or a food's name; at most 60 characters), ?shared=1 (only words on more than one food), and the
+    session's Undo. A word is removed with POST /food/catalogue/words (act remove)."""
+    qp = request.query_params
+    q = qp.get("q", "")
+    if len(q) > reads.WORDS_Q_MAX:
+        raise Refused(400, "bad_request", f"q must be {reads.WORDS_Q_MAX} characters or fewer.")
+    shared = qp.get("shared", "")
+    if shared not in ("", "0", "1"):
+        raise Refused(400, "bad_request", "shared must be 1 or 0.")
+    return {"words": reads.food_words(q, shared == "1"), "undo": _undo_out(session.get("undo"))}
+
+
 @route("/food/item", "GET")
 def food_item_read(request, _body, session):
     """One food's box: ?id=N12 or 12; not one is 400, a food that is not there 404 no_entry."""
@@ -1671,7 +1694,14 @@ def _catalogue_route(action: str):
         if body.get("confirmed") is True:
             f["confirmed"] = "1"
         form = Form({**{k: v for k, v in f.items() if v != ""}, "back": "/web/food/catalogue"})
-        return saved(session, _work(lambda: fn(form, None)), body, view="catalogue")
+        word = " ".join(f["word"].split()).lower()[:60] if action == "words" else ""
+        had = word in ((webfood._food(f["id"]) or {}).get("aliases") or []) if word and body.get("view") == "words" else None
+        out = _work(lambda: fn(form, None))
+        if had is not None and out.get("outcome") == "changed" and had == (f["act"] == "remove"):
+            # only the words review has an Undo (core item 24), and only for a change that made a difference: the opposite change of
+            # that word alone (webundo.words_undo); an add of a word the food had, or a remove of one it had not, has nothing to undo
+            out["words_undo"] = {"food_id": int(f["id"][1:]), "act": "add" if had else "remove", "word": word}
+        return saved(session, out, body, view="catalogue")
     handler.__name__ = f"catalogue_{action}"
     handler.__doc__ = f"app.'s /web/food/{action} (webfood.ACTIONS[{action!r}]); no key, no Undo; see docs/API.md."
     return handler
