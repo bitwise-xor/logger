@@ -22,6 +22,11 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   door's `X-Session-Expires`; the device, which outlasts a sign-out).
 - `src/routes/login`: password and authenticator code (the web app's own checks and limits). `src/routes/(app)`: the
   signed-in pages; the layout checks the session with the door on every page.
+- `src/lib/server/read.ts` (web item 72): the one read of the door for a page's load and the layout, `readDoor` (one read) and
+  `readDoors` (several at once): the session renewed, a gone session to the sign-in page and back (`next`), any other trouble as a
+  plain problem kind the page draws. Where pages differ it is an option: `notThere` (a 404 `no_entry` or a 400 as `missing`, the
+  default, or as trouble: the older pages, Trends, Settings), `required` (an answer without its read is trouble), `together` (the
+  Health page's two reads fail together; otherwise each answers for itself, as Trends' Charts). `readSettings` is Settings' tabs.
 - `src/lib/day.ts`: the door's Day shape and what Today makes of it (header line, kcal left, the timeline with meal labels, the
   Health card, what needs you); `src/lib/format.ts`: numbers and times as app. writes them (halves rounded to even, as Python).
   The cards are in `src/lib/components/today/`. The timeline leaves out the Health card's entries and the habit ticks.
@@ -36,7 +41,18 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   not be saved twice" (a save without a key, or one the core does not replay: a Habits page's day tap, its list forms, an untick:
   "reload the page to look before you try again"; `replays` in `problems.ts`). "Nothing was saved" only where that is
   certain: the phone offline before the send, the core's connection refused or its name not found, or an error of the door.
-  `saves.test.ts` checks `KEYED` against the server's `keyed` and the browser's waits against the server's. `src/lib/today.svelte.ts` puts the
+  **How each save behaves is one table** (web item 72): `src/lib/saverules.ts`, `SAVE_RULES`, one row per form action with its
+  door path, its `key` (`none`; `replays`: the core answers a re-sent key with the first answer; `replays_tick`: the same but for an
+  untick; `not_replayed`: a key goes along but the core does not replay it), `resend` (kept and sent again after a sign-in; only a
+  keyed save), `long` (60 s at the server, 65 s in the browser), `slow` (its answer is never dropped for a newer tap's: the AI's
+  saves), `coaching` (the paid start's own "no answer" words) and `pages` (at least one; `SAVE_PAGES` says which addresses each page
+  is). Made from it: `KEYED`, `NEVER_RESENT`, `mayResend`, `SLOW`, `waitMs` in `saver.ts`, `replays` in `problems.ts`, and in
+  `saves.ts` each save's path, key and timeout (`SAVES`) and every page's action list (`TODAY_SAVES`, `FOOD_SAVES`, …). **To add a
+  save:** a row in `SAVE_RULES` (its pages named; the type check fails on none, and on `resend` without a key), its body (and check,
+  or read first) under the same name in `BODIES` in `saves.ts` (the type check fails when the two sets of names differ), a page's
+  `formActions(<its list>, …)` if the page is new (and the page in `SAVE_PAGES`), and its line in
+  `src/lib/server/savebehaviour.test.ts`, which holds every save's behaviour as it was on 22.11.2026 and the three saves where the
+  front sends a key the core does not use (`held_retry`, `held_delete`, `habits_manage`: harmless, see there). `src/lib/today.svelte.ts` puts the
   answer's fresh day on screen (a new row gets a blue edge) and its head, tone, read-back (Yes = the same tap with
   `confirmed`) and Undo in the answer bar (`components/today/AnswerBar.svelte`; after a reload from GET /day's `undo`).
 - The logging box (step D): `src/lib/components/today/LogBox.svelte`, above the tab bar on phones and at the top on the PC,
@@ -141,7 +157,7 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   `per_week`); Activity (read only): the guide while the watch has sent nothing, else the day with its links, tiles, night, the watch's
   workouts and three 7-day charts; History: the last 60 workouts as cards with their anchors (`#w<id>`). None of the saves takes a key
   at the door; a button is blocked while its save is on the way and no gym save is ever sent again by the page, also not after a
-  sign-in (`mayResend` in `saver.ts` refuses every `gym_` action). Plain rules: `src/lib/gymplan.ts`, `gymread.ts`; saves in
+  sign-in (no gym save is marked `resend` in `saverules.ts`). Plain rules: `src/lib/gymplan.ts`, `gymread.ts`; saves in
   `saves.ts` (`PLAN_SAVES`, `EXERCISES_SAVES`). The stand-in answers the five reads and the plan and exercise actions, changing the
   data as the core would (POST `/standin/watch-none`: no watch data; `/standin/gym-empty`: no exercises or days; `/standin/week-done`;
   `/standin/slow` slows every gym save); `SHOOT_ONLY=gymparts` runs only these checks.
@@ -162,8 +178,8 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   back into view it reads again (the end lives on the server). Every button saves in place (`home_start`, `home_pause`, `home_resume`,
   `home_stop`, `home_pickdone`, `home_picknext`, `home_skip`, `home_earlier`; `PICK_SAVES`); a refusal is said next to its button;
   "Done" ends on Now with its answer bar and Undo carried over; Not today and Done it earlier? stay on Pick with the next job. Only tick,
-  pickdone, picknext and earlier take a key, and no Home save is ever sent again by the page, also not after a sign-in (`mayResend`
-  refuses every `home_` action). Today's Home card (`components/today/HomeCard.svelte`, from `day.home`; none when it is null) sits
+  pickdone, picknext and earlier take a key, and no Home save is ever sent again by the page, also not after a sign-in (no Home save
+  is marked `resend` in `saverules.ts`). Today's Home card (`components/today/HomeCard.svelte`, from `day.home`; none when it is null) sits
   right after Habits: "this week N of goal", "Waiting longest" with the label and "age · interval" (or "Nothing else is waiting
   today."), "N hidden for today", "15 minutes" and "Open Home". Plain rules: `src/lib/home.ts`; state: `homepage.svelte.ts`;
   components: `components/home/`. The stand-in answers `/home`, `/home/pick`, `Day.home` and the Pick and tick saves from
@@ -183,7 +199,7 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   with "last N", a heading per day, rows with time (blank for a dated one), label, how and × (`home_remove`, no key, Undo; the row leaves at once),
   "Show more" (`?n=`) while the door says there is more, "Nothing ticked yet". **A chore's page**: "‹ Zones", name, meta, steps, how-to, "Edit" (to
   `/home/edit#chore-ID`, that chore's form open), "Last done" with "(starting point)" and "usually every N days", per zone for a whole-flat chore;
-  an unknown or missing id says "That chore is not in the list." on the page (readGym's `missing`: the door's 404 `no_entry` or 400). Nothing saves
+  an unknown or missing id says "That chore is not in the list." on the page (`readDoor`'s `missing`, `src/lib/server/read.ts`: the door's 404 `no_entry` or 400). Nothing saves
   there. **Edit zones** (`EditPage` in `homeedit.svelte.ts`, `components/home/edit/`): "Weekly goal" (`home_goalset`), "Whole flat", a card per zone
   (retired ones too, greyed, "· retired"), a chore opens its form (name, Where, every N days, minutes, steps one per line, how-to, other words =
   `home_choreedit`), "Retire" / "Bring back" (`home_choreactive`, `home_zoneactive` with "History stays."), "Per zone" for an active whole-flat chore
@@ -192,7 +208,7 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   (`novalidate`): the door's refusals (a name in use, a number out of range, ...) are said next to the form in the door's words and what was typed
   stays; only what the door would answer with a plain 400 is checked first (a number that is not whole, too many or too long lines or words:
   `choreProblem`, `zoneProblem` in `homeparts.ts`, with the limits of the read). Numbers are kept as typed text. No Home save is ever sent again by
-  the page (`mayResend` refuses every `home_` action; `NEVER_RESENT` lists the keyed ones). Also: on Pick the three buttons of a timer no longer wrap
+  the page (no Home save is marked `resend` in `saverules.ts`; `NEVER_RESENT` lists the keyed ones). Also: on Pick the three buttons of a timer no longer wrap
   at 390 px ("Stop timer" on its own row). Plain rules and the saves' fields: `src/lib/homeparts.ts`; saves in `saves.ts` (`ZONES_SAVES`,
   `HISTORY_SAVES`, `EDIT_SAVES`). The stand-in now keeps Home's zones and chores as Edit zones' sample has them and changes them as the core would
   (the pairs are worked out from them; History from the sample's rows): POST `/standin/home-many` (70 more history rows), `/standin/home-nohistory`,
@@ -222,7 +238,7 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   one column up to the tablet width, two from 1100 px; the five charts and the sleep times), **Body** (`components/trends/BodyCharts.svelte`: a chart
   per measure from GET /body, three to a row from 1100 px; with none: "No measurements yet." with a link to the Health page and the door's `hint`),
   **Gym** (`ExerciseChips`, `ProgressCard` and `WeekBars`, shared with `/gym/progress`; the chips are links `?range=…&x=…` on this page; a line that
-  it is the last 8 weeks whatever the range says). The four reads go together and each answers for itself (`src/lib/server/trendsread.ts`: a gone
+  it is the last 8 weeks whatever the range says). The four reads go together and each answers for itself (`readDoors` in `src/lib/server/read.ts`: a gone
   session still goes to the sign-in); a failing one shows its section's plain message (`ProblemCard`) and the others are drawn, all four failing
   the same way say it once. Insights (`?days=90|180|365`, 90 without or for anything else; web item 50): the range chips "90 days · 180 days · 365 days" built like
   Charts' (`insightRangeLinks`), the door's `small` line, the nine cards in the door's order (`InsightCard`: title, the corner chip in a
@@ -250,7 +266,7 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   (`catalogue_barcode`). Every save sends `view: "catalogue"` with view_q, view_f, view_s, view_food and puts the fresh Catalogue and box on
   screen; a refusal and "Nothing changed." are said next to their form, which keeps what was typed (a known value cleared, a value or a
   unit's weight that is not a number are said before sending, in app.'s words). None has a key or Undo, and none is ever sent again by the
-  page (`mayResend` refuses `catalogue_`). "+ New food": "Name or barcode" and "Look up" = Today's `lookup` save with view catalogue (the button
+  page (none is marked `resend` in `saverules.ts`). "+ New food": "Name or barcode" and "Look up" = Today's `lookup` save with view catalogue (the button
   says "Looking…"); its question's read-back comes in the answer bar with Yes and No (`yes()`/`no()` of `Answers`: the question's `answer`
   through POST /answer, view catalogue); Yes shows the new row with a blue edge (the door's Undo takes it out again). **Usual meals** moved to
   `/library/usual` unchanged in function (`/food/usual` redirects there with its query, 302; Today's Edit and the Food day link here; the
@@ -289,7 +305,7 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   without q. **Medication** (`/medical/meds`): "Add a course" sends the sentence through Today's `log` save (same saver, answer bar and line keys) with
   view `labs_meds`; the read-back of its question comes in the bar with Yes and No (`answer` with the same view); the card with "n running" and a row per
   course in the door's order (pencil: `labs_med` act save, dates as date inputs, an empty stop = running; End: act end, "Yes, end it today"). None of
-  `labs_value`, `labs_report`, `labs_med` has a key or Undo, and none is ever sent again by the page (`mayResend` refuses `labs_`). The stand-in serves
+  `labs_value`, `labs_report`, `labs_med` has a key or Undo, and none is ever sent again by the page (none is marked `resend` in `saverules.ts`). The stand-in serves
   the three reads and the saves from `tests/samples/labs.json` (R1 to R3's values are invented; flags follow a range rule; POST `/standin/labs-empty`,
   `/standin/labs-novalues`, `/standin/labs-oneday`, `/standin/labs-end?id=1`); `SHOOT_ONLY=medical` runs these checks. All pages carry `Cache-Control:
   no-store` (`hooks.server.ts`, every response).
@@ -319,7 +335,7 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   coaching's next meal (title, why, the kcal, protein, carbs and fat line) and `tone` "warn" (To improve) in amber. **Today's Coach card** (`day.coach`, null = no card, the
   Settings switch) is the same card without the date field, after the Home card on phones and last of the cards in the right column on the PC, with "All coachings ›"
   and "Your goals ›". **The button costs real money each time (about 6 cents), so it is sent once per press and never again by itself**: the form action `coach_day`
-  (`saves.ts`: POST /coach/start, kind "day", the day twice, 60 s, no key; Today's own action list keeps it by exclusion, the Coach page has `COACH_SAVES`) is posted by the
+  (`saves.ts`: POST /coach/start, kind "day", the day twice, 60 s, no key; its pages in `saverules.ts` are Today and Coach: `TODAY_SAVES`, `COACH_SAVES`) is posted by the
   Saver, `OneStart` plus the busy flag (`coachrun.svelte.ts`; the button is also disabled) take a second press while one is on its way, `mayResend()` is false and `UNSURE` is
   set for `coach_` actions (`saver.ts`: nothing is kept for after a sign-in, nothing is retried after a network error, which says the coaching may have started). The answer
   brings the fresh Today (view "day") or Coach page (view "coach", `view_f`, `view_day`); its words, a refusal's reason too, are in the answer bar. While a card is working
@@ -332,7 +348,7 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
 - Settings (deploy 111; the door's routes came with 110): `/settings` (redirects to `/settings/targets`) with seven tabs, each its own page:
   `/settings/targets`, `/today`, `/body`, `/coach`, `/devices`, `/notifications`, `/export` (`SETTINGS_TABS` in `places.ts`; More's Settings row,
   More lit; `SettingsHeader.svelte`: back to More, the theme button, the tabs scrolling sideways inside their row on phones). Each reads GET
-  `/settings/<tab>` (`server/settingsread.ts`; a failed read is `ProblemCard` with app.'s `/web/settings?tab=…`) and saves through form actions
+  `/settings/<tab>` (`readSettings` in `server/read.ts`; a failed read is `ProblemCard` with app.'s `/web/settings?tab=…`) and saves through form actions
   (`saves.ts`: `settings_targets`, `settings_today`, `settings_today_reset`, `settings_height`, `settings_body`, `settings_body_measure`, `settings_coach`, `settings_device`,
   `settings_others`, `settings_nudges`, `push_off`, `push_test`; no key, no Undo, never sent again by the page, none in Today's actions), each answer
   bringing the tab's fresh read (`settingspage.svelte.ts`). A form's refusal stands next to it in the door's words (a field that is no number is
