@@ -3,6 +3,11 @@
   "v": 1,
   "insights": {
    "days": 90,
+   "ranges": [
+    90,
+    180,
+    365
+   ],
    "min_each": 4,
    "title": "Insights",
    "small": "From the last 90 days",
@@ -39,6 +44,7 @@
        "bold": false
       }
      ],
+     "caveat": null,
      "zero": 0,
      "groups": [
       {
@@ -60,41 +66,6 @@
        "cls": "b",
        "left": 0,
        "width": 90
-      }
-     ]
-    },
-    {
-     "key": "sleep",
-     "title": "Short nights and weight",
-     "unit": "g",
-     "digits": 0,
-     "sign": true,
-     "needs": "nights with a bed and wake-up time and a weight that day and the day before",
-     "waiting": true,
-     "wait_text": "Not enough days yet: 3 for \"under 6 h of sleep\" and 5 for \"6 h or more\"; each needs 4. It counts nights with a bed and wake-up time and a weight that day and the day before.",
-     "chip": null,
-     "say": null,
-     "zero": null,
-     "groups": [
-      {
-       "key": "yes",
-       "label": "Under 6 h of sleep",
-       "n": 3,
-       "mean": null,
-       "text": null,
-       "cls": "a",
-       "left": null,
-       "width": null
-      },
-      {
-       "key": "no",
-       "label": "6 h or more",
-       "n": 5,
-       "mean": null,
-       "text": null,
-       "cls": "b",
-       "left": null,
-       "width": null
       }
      ]
     },
@@ -130,6 +101,7 @@
        "bold": false
       }
      ],
+     "caveat": null,
      "zero": 0,
      "groups": [
       {
@@ -151,6 +123,342 @@
        "cls": "b",
        "left": 0,
        "width": 96.2
+      }
+     ]
+    },
+    {
+     "key": "late_sleep",
+     "title": "Food close to bedtime and sleep",
+     "unit": "h",
+     "digits": 1,
+     "sign": false,
+     "needs": "days with a bed time, the time of the last food and a wake-up the next morning",
+     "waiting": false,
+     "wait_text": null,
+     "chip": "+1.3 h",
+     "say": [
+      {
+       "text": "On the 24 days your last food was less than 3 hours before bed, you slept ",
+       "bold": false
+      },
+      {
+       "text": "7.5 h",
+       "bold": true
+      },
+      {
+       "text": " that night on average, against ",
+       "bold": false
+      },
+      {
+       "text": "6.2 h",
+       "bold": true
+      },
+      {
+       "text": " after the 60 days with a longer gap.",
+       "bold": false
+      }
+     ],
+     "caveat": null,
+     "zero": 0,
+     "groups": [
+      {
+       "key": "yes",
+       "label": "Last food under 3 h before bed",
+       "n": 24,
+       "mean": 7.54,
+       "text": "7.5 h",
+       "cls": "a",
+       "left": 0,
+       "width": 100
+      },
+      {
+       "key": "no",
+       "label": "3 h or more before bed",
+       "n": 60,
+       "mean": 6.22,
+       "text": "6.2 h",
+       "cls": "b",
+       "left": 0,
+       "width": 82.4
+      }
+     ]
+    },
+    {
+     "key": "sleep_kcal",
+     "title": "Short nights and calories",
+     "unit": "kcal",
+     "digits": 0,
+     "sign": false,
+     "needs": "nights with a bed and wake-up time followed by a complete day with all its food logged",
+     "waiting": false,
+     "wait_text": null,
+     "chip": "-22 kcal",
+     "say": [
+      {
+       "text": "On the 28 days after a night of less than 6 hours of sleep, you ate ",
+       "bold": false
+      },
+      {
+       "text": "2034 kcal",
+       "bold": true
+      },
+      {
+       "text": " on average, against ",
+       "bold": false
+      },
+      {
+       "text": "2055 kcal",
+       "bold": true
+      },
+      {
+       "text": " on the 47 days after a longer night.",
+       "bold": false
+      }
+     ],
+     "caveat": "The difference is smaller than the usual day-to-day spread (about 198 kcal), so it may be chance.",
+     "zero": 0,
+     "groups": [
+      {
+       "key": "yes",
+       "label": "Under 6 h of sleep",
+       "n": 28,
+       "mean": 2033.5,
+       "text": "2034 kcal",
+       "cls": "a",
+       "left": 0,
+       "width": 98.9
+      },
+      {
+       "key": "no",
+       "label": "6 h or more",
+       "n": 47,
+       "mean": 2055.15,
+       "text": "2055 kcal",
+       "cls": "b",
+       "left": 0,
+       "width": 100
+      }
+     ]
+    },
+    {
+     "key": "sleep_mood",
+     "title": "Short nights and mood",
+     "unit": "",
+     "digits": 1,
+     "sign": false,
+     "needs": "nights with a bed and wake-up time and a mood check-in that day",
+     "waiting": false,
+     "wait_text": null,
+     "chip": "no difference",
+     "say": [
+      {
+       "text": "On the 15 days after a night of less than 6 hours of sleep, mood that day averaged ",
+       "bold": false
+      },
+      {
+       "text": "3.0",
+       "bold": true
+      },
+      {
+       "text": " of 5, against ",
+       "bold": false
+      },
+      {
+       "text": "3.0",
+       "bold": true
+      },
+      {
+       "text": " after the 30 longer nights.",
+       "bold": false
+      }
+     ],
+     "caveat": null,
+     "zero": 0,
+     "groups": [
+      {
+       "key": "yes",
+       "label": "Under 6 h of sleep",
+       "n": 15,
+       "mean": 3,
+       "text": "3.0",
+       "cls": "a",
+       "left": 0,
+       "width": 100
+      },
+      {
+       "key": "no",
+       "label": "6 h or more",
+       "n": 30,
+       "mean": 3,
+       "text": "3.0",
+       "cls": "b",
+       "left": 0,
+       "width": 100
+      }
+     ]
+    },
+    {
+     "key": "sleep_energy",
+     "title": "Short nights and energy",
+     "unit": "",
+     "digits": 1,
+     "sign": false,
+     "needs": "nights with a bed and wake-up time and an energy check-in that day",
+     "waiting": false,
+     "wait_text": null,
+     "chip": "no difference",
+     "say": [
+      {
+       "text": "On the 15 days after a night of less than 6 hours of sleep, energy that day averaged ",
+       "bold": false
+      },
+      {
+       "text": "3.0",
+       "bold": true
+      },
+      {
+       "text": " of 5, against ",
+       "bold": false
+      },
+      {
+       "text": "3.0",
+       "bold": true
+      },
+      {
+       "text": " after the 30 longer nights.",
+       "bold": false
+      }
+     ],
+     "caveat": null,
+     "zero": 0,
+     "groups": [
+      {
+       "key": "yes",
+       "label": "Under 6 h of sleep",
+       "n": 15,
+       "mean": 3,
+       "text": "3.0",
+       "cls": "a",
+       "left": 0,
+       "width": 100
+      },
+      {
+       "key": "no",
+       "label": "6 h or more",
+       "n": 30,
+       "mean": 3,
+       "text": "3.0",
+       "cls": "b",
+       "left": 0,
+       "width": 100
+      }
+     ]
+    },
+    {
+     "key": "caffeine_sleep",
+     "title": "Late caffeine and sleep",
+     "unit": "h",
+     "digits": 1,
+     "sign": false,
+     "needs": "days with food logged at known times, a bed time and a wake-up the next morning",
+     "waiting": true,
+     "wait_text": "Not enough days yet: 0 for \"50 mg caffeine or more within 8 h of bed\" and 84 for \"less than 50 mg\"; each needs 4. It counts days with food logged at known times, a bed time and a wake-up the next morning.",
+     "chip": null,
+     "say": null,
+     "caveat": null,
+     "zero": null,
+     "groups": [
+      {
+       "key": "yes",
+       "label": "50 mg caffeine or more within 8 h of bed",
+       "n": 0,
+       "mean": null,
+       "text": null,
+       "cls": "a",
+       "left": null,
+       "width": null
+      },
+      {
+       "key": "no",
+       "label": "Less than 50 mg",
+       "n": 84,
+       "mean": null,
+       "text": null,
+       "cls": "b",
+       "left": null,
+       "width": null
+      }
+     ]
+    },
+    {
+     "key": "sleep",
+     "title": "Short nights and weight",
+     "unit": "g",
+     "digits": 0,
+     "sign": true,
+     "needs": "nights with a bed and wake-up time and a weight that day and the day before",
+     "waiting": true,
+     "wait_text": "Not enough days yet: 3 for \"under 6 h of sleep\" and 5 for \"6 h or more\"; each needs 4. It counts nights with a bed and wake-up time and a weight that day and the day before.",
+     "chip": null,
+     "say": null,
+     "caveat": null,
+     "zero": null,
+     "groups": [
+      {
+       "key": "yes",
+       "label": "Under 6 h of sleep",
+       "n": 3,
+       "mean": null,
+       "text": null,
+       "cls": "a",
+       "left": null,
+       "width": null
+      },
+      {
+       "key": "no",
+       "label": "6 h or more",
+       "n": 5,
+       "mean": null,
+       "text": null,
+       "cls": "b",
+       "left": null,
+       "width": null
+      }
+     ]
+    },
+    {
+     "key": "sleep_bp",
+     "title": "Short nights and morning blood pressure",
+     "unit": "mmHg",
+     "digits": 0,
+     "sign": false,
+     "needs": "nights with a bed and wake-up time and a morning blood pressure that day",
+     "waiting": true,
+     "wait_text": "Not enough days yet: 0 for \"under 6 h of sleep\" and 30 for \"6 h or more\"; each needs 4. It counts nights with a bed and wake-up time and a morning blood pressure that day.",
+     "chip": null,
+     "say": null,
+     "caveat": null,
+     "zero": null,
+     "groups": [
+      {
+       "key": "yes",
+       "label": "Under 6 h of sleep",
+       "n": 0,
+       "mean": null,
+       "text": null,
+       "cls": "a",
+       "left": null,
+       "width": null
+      },
+      {
+       "key": "no",
+       "label": "6 h or more",
+       "n": 30,
+       "mean": null,
+       "text": null,
+       "cls": "b",
+       "left": null,
+       "width": null
       }
      ]
     }

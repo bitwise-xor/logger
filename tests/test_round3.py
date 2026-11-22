@@ -58,7 +58,8 @@ def sample(n: int) -> dict:
         w += 0.4 if even else -0.1
         weight[nxt] = round(w, 1)
         macros[d] = (100.0, 300.0 if even else 120.0, 60.0)
-    return {"today": d0 + timedelta(days=n), "sugar": sugar, "weight": weight, "wake": wake, "bed": bed, "last": last, "macros": macros}
+    return {"today": d0 + timedelta(days=n), "sugar": sugar, "weight": weight, "wake": wake, "bed": bed, "last": last, "macros": macros,
+            "mood": {}, "energy": {}, "bp": {}, "kcal": {}, "caffeine": []}
 
 
 def test_late_food_and_carbs_are_compared_with_the_next_mornings_sugar():
@@ -85,7 +86,7 @@ def test_too_few_days_say_what_is_missing():
 
 def test_the_page_renders_with_no_data_and_is_in_the_menu(web):
     page = web[0].get("/web/insights").text
-    assert "<h1>Insights</h1>" in page and page.count("Not enough days yet") == 3 and 'aria-current="page">Insights' in page
+    assert "<h1>Insights</h1>" in page and page.count("Not enough days yet") == 9 and 'aria-current="page">Insights' in page
     assert "not proof" in page
 
 

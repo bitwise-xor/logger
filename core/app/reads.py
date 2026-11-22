@@ -1070,9 +1070,9 @@ def food_trends(days: int = trendspage.DEFAULT_RANGE) -> dict:
     return {**t, "start": iso(t["start"]), "end": iso(t["end"])}
 
 
-def insights() -> dict:
-    """The Insights page (insightspage.data): the three cards of the last 90 days."""
-    d = insightspage.data()
+def insights(days: int = insightspage.DAYS) -> dict:
+    """The Insights page (insightspage.data): the nine cards of the last `days` days (90, 180 or 365)."""
+    d = insightspage.data(days)
     return {**d, "cards": [{**c, "zero": _r(c["zero"], 1),
                             "groups": [{**g, "mean": _r(g["mean"], 2), "left": _r(g["left"], 1), "width": _r(g["width"], 1)} for g in c["groups"]]}
                            for c in d["cards"]]}

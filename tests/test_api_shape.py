@@ -527,8 +527,8 @@ def test_the_trends_shapes(sv, monkeypatch):
     t = get(sv, "/food/trends?range=7")["trends"]
     assert set(t) == {"range", "ranges", "start", "end", "title", "small", "charts"} and all(set(c) == CARD for c in t["charts"])
     i = get(sv, "/insights")["insights"]
-    assert set(i) == {"days", "min_each", "title", "small", "cards", "note"}
-    keys = {"key", "title", "unit", "digits", "sign", "needs", "waiting", "wait_text", "chip", "say", "zero", "groups"}
+    assert set(i) == {"days", "ranges", "min_each", "title", "small", "cards", "note"}
+    keys = {"key", "title", "unit", "digits", "sign", "needs", "waiting", "wait_text", "chip", "say", "caveat", "zero", "groups"}
     assert all(set(c) == keys and all(set(g) == {"key", "label", "n", "mean", "text", "cls", "left", "width"} for g in c["groups"]) for c in i["cards"])
     assert get(sv, "/coach/status?id=1")["coaching"].keys() == {"id", "state"}
     from app import weekpage

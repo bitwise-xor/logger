@@ -759,6 +759,7 @@ dialog.scan{max-height:calc(100dvh - 1.5rem);overflow-y:auto}
 .insight .dp{background:var(--bar);color:var(--ink);font-size:.8rem}
 .insight.wait{box-shadow:none;border:1px dashed var(--line2);background:transparent}
 .isay{margin:0 0 .9rem;max-width:62ch}
+.icav{margin:.6rem 0 0;max-width:62ch}
 .ib{display:grid;grid-template-columns:minmax(0,12rem) minmax(0,1fr) auto;gap:.3rem .8rem;align-items:center;padding:.35rem 0;font-size:.9rem}
 .ib-l{min-width:0}
 .ib-v{font-weight:600;white-space:nowrap}

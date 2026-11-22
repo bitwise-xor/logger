@@ -403,26 +403,192 @@ def test_trends_default_bad_range_and_no_food(sv):
 def test_the_insights_read_is_app_s_page_as_data(sv):
     invented()
     i = get(sv, "/insights")["insights"]
-    assert set(i) == {"days", "min_each", "title", "small", "cards", "note"} and (i["days"], i["min_each"]) == (90, 4)
+    assert set(i) == {"days", "ranges", "min_each", "title", "small", "cards", "note"} and (i["days"], i["min_each"]) == (90, 4)
+    assert i["ranges"] == [90, 180, 365] and i["small"] == "From the last 90 days"
     page = insightspage.render("x")
     assert f'<span class="small">{i["small"]}</span>' in page and i["note"] in page
-    assert [c["key"] for c in i["cards"]] == ["late", "sleep", "carbs"] and [c["waiting"] for c in i["cards"]] == [False, True, False]
-    wait = i["cards"][1]
-    assert wait["wait_text"].startswith("Not enough days yet: ") and wait["chip"] is None and wait["say"] is None
-    assert html.escape(wait["wait_text"], quote=False) in page and [g["n"] for g in wait["groups"]] == [int(x) for x in re.findall(r"(\d+) for", wait["wait_text"])]
-    for c in (i["cards"][0], i["cards"][2]):
+    # the cards with a statement first, the waiting ones after, each half in the page's order
+    assert [c["key"] for c in i["cards"]] == ["late", "carbs", "late_sleep", "sleep_kcal", "sleep_mood", "sleep_energy",
+                                              "caffeine_sleep", "sleep", "sleep_bp"]
+    assert [c["waiting"] for c in i["cards"]] == [False] * 6 + [True] * 3
+    for wait in i["cards"][6:]:
+        assert wait["wait_text"].startswith("Not enough days yet: ") and wait["chip"] is None and wait["say"] is None and wait["caveat"] is None
+        assert html.escape(wait["wait_text"], quote=False) in page and [g["n"] for g in wait["groups"]] == [int(x) for x in re.findall(r"(\d+) for", wait["wait_text"])]
+    for c in i["cards"][:6]:
         assert f'<h2>{c["title"]}<span class="dp">{c["chip"]}</span></h2>' in page
         said = "".join(f'<b>{p["text"]}</b>' if p["bold"] else p["text"] for p in c["say"])
         assert f'<p class="isay">{said}</p>' in page and [p["text"] for p in c["say"] if p["bold"]] == [g["text"] for g in c["groups"]]
         for g in c["groups"]:
             assert g["n"] >= 4 and f'x="{g["left"]:.1f}" width="{g["width"]:.1f}"' in page and f'<span class="ib-v num">{g["text"]}</span>' in page
             assert set(g) == {"key", "label", "n", "mean", "text", "cls", "left", "width"}
+        assert c["caveat"] is None or f'<p class="small icav">{html.escape(c["caveat"])}</p>' in page
+    for c in i["cards"][:2]:
         assert c["unit"] == "mg/dL" and c["digits"] == 0 and c["sign"] is False and c["zero"] == 0
+    assert page.count('class="small icav"') == sum(1 for c in i["cards"] if c["caveat"])
 
 
 def test_insights_with_no_data_all_wait(sv):
     cards = get(sv, "/insights")["insights"]["cards"]
     assert all(c["waiting"] and c["wait_text"] for c in cards) and all(g["n"] == 0 for c in cards for g in c["groups"])
+    assert [c["key"] for c in cards] == ["late", "carbs", "late_sleep", "caffeine_sleep", "sleep", "sleep_kcal", "sleep_bp", "sleep_mood",
+                                         "sleep_energy"]
+
+
+LATE = {3, 5, 7, 9, 13, 17}  # the log days (days back) whose last food is at 21:30, under 3 h before bed; the others at 18:00
+
+
+def nights(back: int = 0) -> date:
+    """16 invented nights, numbered by the days back b of the log day before them (b = 2 to 17; the night ends on the next day): b
+    even a short night (b % 4 == 0: 02:00 to 07:00, 5 h; else 02:30 to 07:00, 4.5 h), b odd a long one (b % 4 == 1: 23:00 to 07:00,
+    8 h; else 23:30 to 07:00, 7.5 h). On the day a night ends: calories 2400, 2200, 2000 or 1900 (b % 4 == 0, 2, 1, 3; the day after
+    night 2 only 800, partly logged), a morning blood pressure 140, 110, 130 or 114 (night 2's day two readings, 108 and 112, and an
+    evening one that never counts), mood 2, 3, 4 or 5 and energy 2, 2, 4 or 4 (each after a first answer of 1 that day). Coffee
+    (40 mg of caffeine per 100 g): 150 g at 17:00 on days 4 and 8 (9 h before bed: not counted), 150 g at 20:00 on 12 and 16, 100 g at
+    19:00 and at 22:00 on 6 and 10, 100 g at 22:00 on 14 (40 mg: under 50), 150 g at 16:00 on 5, and 150 g with no known time on 3.
+    `back` moves every day further back. -> today."""
+    with connect(owner=True) as c:
+        t0 = c.execute("SELECT log_day(now()) AS d").fetchone()["d"]
+        raw = c.execute("INSERT INTO raw_inbox (channel, content) VALUES ('test', 'by hand') RETURNING id").fetchone()["id"]
+        c.execute("INSERT INTO food_targets (valid_from, kcal, protein, fat, carbs) VALUES ('2020-01-01', %s, %s, %s, %s)", TARGETS)
+        fid = {k: c.execute("""INSERT INTO foods (name, basis, kcal, protein, fat, carbs, caffeine_mg, source) VALUES (%s, 'g', %s, 1, 1, 1,
+                                %s, 'label') RETURNING id""", (f"Zz night {k}", 0 if k == "coffee" else 150, 40 if k == "coffee" else 0)).fetchone()["id"]
+               for k in ("meal", "coffee")}
+        types = {r["name"]: r["id"] for r in c.execute("SELECT name, id FROM log_types").fetchall()}
+
+        def food(d, hm, kcal):
+            c.execute("""INSERT INTO food_entries (raw_id, food_id, amount, eaten_at, time_known, day, day_rule, extractor_version, kcal, protein,
+                         fat, carbs, source) VALUES (%s, %s, 100, %s, true, %s, 'wake', 'test', %s, 30, 20, 60, 'label')""",
+                      (raw, fid["meal"], at(d, hm), d, kcal))
+
+        def coffee(d, hm, grams, known=True):  # no kcal given: the entry takes the food's values times the amount (60 mg for 150 g)
+            c.execute("""INSERT INTO food_entries (raw_id, food_id, amount, eaten_at, time_known, day, day_rule, extractor_version)
+                         VALUES (%s, %s, %s, %s, %s, %s, 'wake', 'test')""", (raw, fid["coffee"], grams, at(d, hm), known, d))
+
+        def event(name, d, ts):
+            c.execute("INSERT INTO events (raw_id, type_id, day, event_at, time_known, extractor_version) VALUES (%s, %s, %s, %s, true, 'test')",
+                      (raw, types[name], d, ts))
+
+        def measure(name, d, hm, v1, v2=None, period=None):
+            c.execute("""INSERT INTO measurements (raw_id, type_id, day, event_at, time_known, value1, value2, period, extractor_version)
+                         VALUES (%s, %s, %s, %s, true, %s, %s, %s, 'test')""", (raw, types[name], d, at(d, hm), v1, v2, period))
+
+        kcal = {0: 2400, 2: 2200, 1: 2000, 3: 1900}
+        for b in range(1, 18):
+            d = t0 - timedelta(days=b + back)  # the log day b; its food's calories belong to night b + 1, its last food to night b
+            k = 800 if b == 1 else kcal[(b + 1) % 4]
+            food(d, "10:00", k // 2)
+            food(d, "21:30" if b in LATE else "18:00", k - k // 2)
+            if b == 1:
+                continue
+            w, m = d + timedelta(days=1), b % 4
+            event("bed", d, {0: at(w, "02:00"), 2: at(w, "02:30"), 1: at(d, "23:00"), 3: at(d, "23:30")}[m])
+            event("wake", w, at(w, "07:00"))
+            if b == 2:
+                measure("bp", w, "07:20", 108, 70, "morning")
+                measure("bp", w, "07:25", 112, 72, "morning")
+            else:
+                measure("bp", w, "07:20", {0: 140, 2: 110, 1: 130, 3: 114}[m], 80, "morning")
+            if b == 4:
+                measure("bp", w, "20:00", 170, 95, "evening")
+            measure("mood", w, "08:00", 1)
+            measure("energy", w, "08:01", 1)
+            measure("mood", w, "21:00", {0: 2, 2: 3, 1: 4, 3: 5}[m])
+            measure("energy", w, "21:01", {0: 2, 2: 2, 1: 4, 3: 4}[m])
+        for b, hm, grams in ((4, "17:00", 150), (8, "17:00", 150), (12, "20:00", 150), (16, "20:00", 150), (6, "19:00", 100), (6, "22:00", 100),
+                             (10, "19:00", 100), (10, "22:00", 100), (14, "22:00", 100), (5, "16:00", 150)):
+            coffee(t0 - timedelta(days=b + back), hm, grams)
+        coffee(t0 - timedelta(days=3 + back), "20:00", 150, known=False)
+    return t0
+
+
+def card_of(cards: list, key: str) -> dict:
+    return next(c for c in cards if c["key"] == key)
+
+
+def test_the_new_questions_by_hand(sv):
+    """Every mean below is worked out by hand from nights()."""
+    nights()
+    cards = get(sv, "/insights")["insights"]["cards"]
+    assert [c["key"] for c in cards] == ["late_sleep", "caffeine_sleep", "sleep_kcal", "sleep_bp", "sleep_mood", "sleep_energy",
+                                         "late", "carbs", "sleep"]
+    assert [c["waiting"] for c in cards] == [False] * 6 + [True] * 3
+
+    def seen(key):
+        c = card_of(cards, key)
+        return c["chip"], [g["n"] for g in c["groups"]], [g["text"] for g in c["groups"]], c["caveat"]
+
+    # food under 3 h before bed: nights 3, 5, 7, 9, 13, 17 (8, 7.5, 8, 7.5, 8, 8 h: 47 / 6); the other ten: eight short ones
+    # (4 x 5 + 4 x 4.5) and nights 11 and 15 (7.5 each): 53 / 10
+    assert seen("late_sleep") == ("+2.5 h", [6, 10], ["7.8 h", "5.3 h"], "Few days so far (6 and 10): this can still change a lot.")
+    # 50 mg or more in the 8 h before bed: nights 12, 16 (60 mg at 20:00, bed 02:00: 5 h each), 6, 10 (40 + 40 mg, 4.5 h each) and 5
+    # (60 mg at 16:00, bed 23:00: 8 h) = 27 / 5; the other eleven nights (17:00 is 9 h before 02:00, 40 mg is too little, an entry with no
+    # time does not count) = 73 / 11
+    assert seen("caffeine_sleep") == ("-1.2 h", [5, 11], ["5.4 h", "6.6 h"], "Few days so far (5 and 11): this can still change a lot.")
+    # after a short night: 4 x 2400 and 3 x 2200 (the day after night 2 is partly logged) = 16200 / 7; after a long one: 4 x 2000 and
+    # 4 x 1900 = 1950
+    assert seen("sleep_kcal") == ("+364 kcal", [7, 8], ["2314 kcal", "1950 kcal"], "Few days so far (7 and 8): this can still change a lot.")
+    # mornings after a short night: 4 x 140 and 4 x 110 (night 2: 108 and 112 averaged; the evening 170 never counts) = 125; after a long
+    # one: 4 x 130 and 4 x 114 = 122. Spread: sqrt((8 x 15^2 + 8 x 8^2) / 14) = 12.85, the difference 3 is under half of it
+    assert seen("sleep_bp") == ("+3 mmHg", [8, 8], ["125 mmHg", "122 mmHg"],
+                                "The difference is smaller than the usual day-to-day spread (about 13 mmHg), so it may be chance.")
+    # the latest answer of a day: short 4 x 2 and 4 x 3, long 4 x 4 and 4 x 5; energy short all 2, long all 4 (no spread at all)
+    assert seen("sleep_mood") == ("-2.0", [8, 8], ["2.5", "4.5"], None)
+    assert seen("sleep_energy") == ("-2.0", [8, 8], ["2.0", "4.0"], None)
+    mood = card_of(cards, "sleep_mood")
+    assert mood["unit"] == "" and mood["digits"] == 1 and plain(mood["say"]) == (
+        "On the 8 days after a night of less than 6 hours of sleep, mood that day averaged 2.5 of 5, against 4.5 after the 8 longer nights.")
+    assert [c["key"] for c in cards if c["waiting"]] == ["late", "carbs", "sleep"]
+    page = insightspage.render("x")
+    assert '<span class="dp">-2.0</span>' in page and '<span class="ib-v num">2.5</span>' in page and "2.5 </" not in page
+
+
+def test_the_caveat_and_the_empty_unit():
+    card = lambda yes, no, unit="mg/dL", digits=0: insightspage.card_data(  # noqa: E731
+        {"key": "x", "title": "X", "pairs": [(True, v) for v in yes] + [(False, v) for v in no], "unit": unit, "digits": digits, "sign": False,
+         "yes": "A", "no": "B", "say": "{ny} {my} {nn} {mn}", "needs": "days"})
+    # a small difference (3 against 2.9) in a wide spread wins over few days (4 and 5 days; spread sqrt((16 + 4.2) / 7) = 1.70)
+    c = card([1, 5, 1, 5], [2, 4, 2, 4, 2.5], unit="", digits=1)
+    assert c["caveat"] == "The difference is smaller than the usual day-to-day spread (about 1.7), so it may be chance."
+    assert card([100] * 8, [90] * 8)["caveat"] is None  # enough days, no spread
+    assert card([100] * 8, [90] * 7)["caveat"] == "Few days so far (8 and 7): this can still change a lot."
+    assert card([100, 101, 99, 100], [100.2, 99.8, 100, 100])["caveat"] is None  # rounds to no difference: no caveat
+    assert card([100, 101, 99, 100], [100.2, 99.8, 100, 100])["chip"] == "no difference"
+    e = card([3, 4, 3, 4], [2, 2, 2, 2], unit="", digits=1)
+    assert e["chip"] == "+1.5" and [g["text"] for g in e["groups"]] == ["3.5", "2.0"] and plain(e["say"]) == "4 3.5 4 2.0"
+    assert insightspage._fmt(0.04, 1, True, "") == "0.0" and insightspage._fmt(-2, 1, True, "") == "-2.0"
+    assert e["caveat"] == "Few days so far (4 and 4): this can still change a lot."
+    assert '<p class="small icav">Few days so far (4 and 4)' in insightspage.card_html(e) and "icav" not in insightspage.card_html(card([100] * 8, [90] * 8))
+
+
+def test_the_insights_range(sv):
+    """?days=90|180|365: nights() 100 days back are outside the 90 days and inside 180 and 365; anything else is a bad request."""
+    nights(back=100)
+    i = get(sv, "/insights")["insights"]
+    assert i["days"] == 90 and all(c["waiting"] for c in i["cards"])
+    assert get(sv, "/insights?days=90")["insights"] == i
+    for days in (180, 365):
+        j = get(sv, f"/insights?days={days}")["insights"]
+        assert (j["days"], j["small"], j["ranges"]) == (days, f"From the last {days} days", [90, 180, 365])
+        assert [c["key"] for c in j["cards"] if not c["waiting"]] == ["late_sleep", "caffeine_sleep", "sleep_kcal", "sleep_bp", "sleep_mood",
+                                                                      "sleep_energy"]
+        assert card_of(j["cards"], "sleep_bp")["chip"] == "+3 mmHg"
+    for bad in ("30", "x", "90.0", "-90"):
+        r = sv.c.get(f"/api/v1/insights?days={bad}", headers=sv.h)
+        assert r.status_code == 400 and r.json() == {"v": 1, "error": "bad_request", "message": "days must be 90, 180 or 365."}
+    with pytest.raises(ValueError):
+        insightspage.data(30)
+
+
+def test_app_s_insights_page_draws_the_doors_cards(web, sv):
+    """app.'s /web/insights stays at 90 days and draws the same nine cards as the door, in the same order, with the caveats."""
+    nights()
+    i = get(sv, "/insights")["insights"]
+    page = web[0].get("/web/insights").text
+    assert "From the last 90 days" in page and "?days=" not in page
+    page = page.split('<div class="grid2 insights">')[1]
+    assert re.findall(r"<h2>([^<]+)", page) == [c["title"] for c in i["cards"]]
+    assert re.findall(r'<span class="dp">([^<]+)</span>', page) == [c["chip"] for c in i["cards"] if not c["waiting"]]
+    assert re.findall(r'<p class="small icav">([^<]+)</p>', page) == [html.escape(c["caveat"]) for c in i["cards"] if c["caveat"]]
 
 
 # ---- the door's own checks and app.'s pages ---------------------------------------------------------------------------------------------

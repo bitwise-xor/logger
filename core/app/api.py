@@ -22,7 +22,7 @@ from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
-from . import auth, body as tape, coach, coachpage, export, foodpage, gym, gympage, habitspage, healthpage, home as homelib, hubtools, labelread, labspage, logbook, mealnotes, nudges, privateline, reads, settingspage, trendspage, uiprefs, usagepage, web, webactions, webentry, webfood, webhabits, webheld, weblabs, webpush, websettings, webundo, weekpage
+from . import auth, body as tape, coach, coachpage, export, foodpage, gym, gympage, habitspage, healthpage, home as homelib, hubtools, insightspage, labelread, labspage, logbook, mealnotes, nudges, privateline, reads, settingspage, trendspage, uiprefs, usagepage, web, webactions, webentry, webfood, webhabits, webheld, weblabs, webpush, websettings, webundo, weekpage
 from .ai.provider import ProviderError
 from .config import FRONT_TOKEN
 from .db import connect
@@ -1412,9 +1412,19 @@ def food_trends_read(request, _body, session):
     return {"trends": reads.food_trends(_trend_range(request.query_params.get("range"))), "undo": _undo_out(session.get("undo"))}
 
 
+def _insight_days(raw) -> int:
+    """The Insights page's range: 90, 180 or 365 days (90 when not given; anything else is a bad request)."""
+    if raw in (None, ""):
+        return insightspage.DAYS
+    if str(raw) in {str(r) for r in insightspage.RANGES}:
+        return int(raw)
+    raise Refused(400, "bad_request", "days must be 90, 180 or 365.")
+
+
 @route("/insights", "GET")
-def insights_read(_request, _body, session):
-    return {"insights": reads.insights(), "undo": _undo_out(session.get("undo"))}
+def insights_read(request, _body, session):
+    """The Insights page: ?days=90|180|365 (90); and the session's Undo."""
+    return {"insights": reads.insights(_insight_days(request.query_params.get("days"))), "undo": _undo_out(session.get("undo"))}
 
 
 @route("/coach/status", "GET")

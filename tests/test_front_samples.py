@@ -684,7 +684,7 @@ def test_the_food_trends_and_insights_samples_have_the_doors_shape(monkeypatch):
     finally:
         owner_sql("DELETE FROM food_targets")
     assert all(len(t["trends"]["charts"]) == 4 for t in trends.values())
-    assert [c_["waiting"] for c_ in insights["insights"]["insights"]["cards"]] == [False, True, False]
+    assert [c_["waiting"] for c_ in insights["insights"]["insights"]["cards"]] == [False] * 6 + [True] * 3
     _write_or_check("food_trends.json", trends)
     _write_or_check("insights.json", insights)
 
