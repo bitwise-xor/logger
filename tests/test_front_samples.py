@@ -717,6 +717,38 @@ def test_the_catalogue_sample_has_the_doors_shape(fake):
     _write_or_check("catalogue.json", answers)
 
 
+def test_the_food_words_sample_has_the_doors_shape(fake):
+    """The words review (core item 24, for the Library's Words page): the 14 invented foods of the catalogue sample with 13 words on
+    them, made on 04.03.2026 or added on fixed days from September to November 2026 by the web, the chat or by hand, two words on more
+    than one food ("bread": the rye bread and a banana by mistake; "mix": the oat flakes and the morning bowl); the list, only the
+    shared words, a search and one with no match, and the saves' answers without their fresh read: a word removed (with its Undo) and
+    that Undo."""
+    from test_api_library import invented
+    from test_food_words import pin
+    x = invented(plain=True)
+    owner_sql("UPDATE foods SET created_at = '2026-03-04 09:00+01'")
+    for key, word, when, by in (("rye", "toast", "2026-11-19 08:12+01", "mcp_writer"), ("rye", "wholemeal", "2026-11-19 08:12+01", "core_rw"),
+                                ("choc", "chocolate bar", "2026-11-21 17:40+01", "mcp_writer"), ("oats", "mix", "2026-11-14 07:30+01", "core_rw"),
+                                ("bowl", "mix", "2026-10-02 12:05+02", "mcp_writer"), ("banana", "bread", "2026-10-20 18:21+02", "core_rw"),
+                                ("soup", "lentils", "2026-10-02 12:05+02", "core_rw"), ("tea", "brew", "2026-09-28 09:00+02", "pgadmin"),
+                                ("rice", "basmati", "2026-11-12 19:02+01", "core_rw")):
+        owner_sql("UPDATE foods SET aliases = aliases || ARRAY[%s] WHERE id = %s", word, x[key])
+        pin(x[key], word, when, by)
+    c, bearer, _ = signed_in()
+    get = lambda path: c.get("/api/v1" + path, headers=bearer).json()  # noqa: E731
+    post = lambda path, **body: c.post("/api/v1" + path, headers=bearer, json=body).json()  # noqa: E731
+    answers = {"all": get("/food/words"), "shared": get("/food/words?shared=1"), "search": get("/food/words?q=bread"), "none": get("/food/words?q=zzqq")}
+    assert answers["all"]["words"]["total"] == 13 and answers["shared"]["words"]["total"] == 4 and answers["none"]["words"]["rows"] == []
+    assert {r["by"] for r in answers["all"]["words"]["rows"]} == {"web", "chat", "other", None}
+    removed = post("/food/catalogue/words", id=x["banana"], act="remove", word="bread", view="words", view_shared=True)
+    undone = post("/undo", token=removed["undo"]["token"], view="words", view_shared=True)
+    assert removed["words"]["total"] == 2 and undone["words"]["total"] == 4 and removed["undo"] and undone["undo"] is None
+    for a in (removed, undone):
+        a.pop("words")
+    answers["saves"] = {"remove": removed, "undo": undone}
+    _write_or_check("food_words.json", answers)
+
+
 def test_the_labs_sample_has_the_doors_shape(fake):
     """Medical (deploy 104, for the Medical page of deploy 106): five invented reports (one imaging; test_api_medical.invented), the
     Reports tab with nothing open and with one report open, Tests over time (the list, a search, one test with four values and a range,

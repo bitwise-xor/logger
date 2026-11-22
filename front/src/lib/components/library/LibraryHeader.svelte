@@ -4,7 +4,7 @@
 
   // The title "Library" with the theme button and the tabs Foods · Usual meals · Habits · Exercises (deploy 105, as Trends' tabs):
   // each tab is its own page of this app; `on` is the one you are in. `hidden` hides the header on phones and tablets (the Usual
-  // meals page while a meal is open there: the meal is its own screen).
+  // meals page while a meal is open there: the meal is its own screen). The words review (/library/words) is a page under Foods, reached by "Review words" there, with Foods lit.
   let { on, hidden = false }: { on: LibraryTab; hidden?: boolean } = $props();
   const tab = 'inline-flex min-h-11 items-center gap-1 border-b-2 px-3 text-sm font-medium whitespace-nowrap no-underline desktop:min-h-10';
 </script>

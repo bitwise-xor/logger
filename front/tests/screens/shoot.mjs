@@ -63,6 +63,10 @@
 // the Food day's editor (a change, a read-back confirmed, a delete with Undo), an Again chip's amount and a usual meal's "…" open their
 // boxes (logged with another amount and time, or only some foods), the logging box's food suggestions after two letters (arrows, Enter,
 // a click, Escape; none when they cannot be read), and the order of the cards on phones and the PC.
+// 22.11.2026 (core item 24): Library > Foods > Words (checkWords says what): from the Foods tab's "Review words", the words by month against the
+// sample, where each came from, the amber mark on a word other foods have, the search and the chip "On more than one food" in the address, a
+// food's link into its box, a word removed in place with Undo (also where the list is narrowed), words with no date, a list cut at 500, the
+// door off; `SHOOT_ONLY=words` runs these checks.
 // 20.11.2026: the hub's frame (checkCompact says what): Today framed by a stand-in hub with ?compact=1, without the places, a tap, a link
 // and a reload staying compact, and Settings and the sign-in refused in a frame; the preview needs HUB_ORIGIN=http://localhost:3999.
 // Every check throws on a failure, so the script ends with an error.
@@ -89,6 +93,7 @@ const WEEK = JSON.parse(readFileSync(new URL('../samples/week.json', import.meta
 const FOODTRENDS = JSON.parse(readFileSync(new URL('../samples/food_trends.json', import.meta.url), 'utf8'));
 const INSIGHTS = JSON.parse(readFileSync(new URL('../samples/insights.json', import.meta.url), 'utf8')).insights.insights;
 const CAT = JSON.parse(readFileSync(new URL('../samples/catalogue.json', import.meta.url), 'utf8'));
+const WORDS = JSON.parse(readFileSync(new URL('../samples/food_words.json', import.meta.url), 'utf8'));
 const LABS = JSON.parse(readFileSync(new URL('../samples/labs.json', import.meta.url), 'utf8'));
 const SETTINGS = JSON.parse(readFileSync(new URL('../samples/settings.json', import.meta.url), 'utf8'));
 
@@ -4404,6 +4409,167 @@ async function checkLibrary(page, name, theme) {
   await page.goto(`${base}/`);
 }
 
+/** 22.11.2026 (core item 24): Library > Foods > Words (the words review against tests/samples/food_words.json; Remove saving in place with Undo). */
+async function checkWords(page, name, theme) {
+  await standinPost('/standin/reset');
+  const pc = name === 'pc';
+  const phone = name === 'phone';
+  const shot = (n, full = true) => page.screenshot({ path: `${out}/library-words-${n}-${name}-${theme}.png`, fullPage: full });
+  const bar = page.locator('[data-bar]');
+  const headIs = async (want) => {
+    await page.locator('[data-bar-head]', { hasText: want }).waitFor();
+    assert.equal(await text(page.locator('[data-bar-head]')), want, 'the answer bar');
+  };
+  const ALL = WORDS.all.words;
+  const rows = page.locator('[data-word-row]');
+  const rowOf = (word, food) => page.locator(`[data-word-row][data-word="${word}"][data-food="${food}"]`);
+  const waitRows = (n) => page.waitForFunction((k) => document.querySelectorAll('[data-word-row]').length === k, n);
+  const months = ['November 2026', 'October 2026', 'September 2026', 'March 2026'];
+  const MON = ['2026-11', '2026-10', '2026-09', '2026-03'];
+  const when = (r) => `${r.added_at.slice(8, 10)}.${r.added_at.slice(5, 7)}. · ${{ web: 'added on the web', chat: 'added in chat', other: 'added by hand' }[r.by] ?? 'came with the food'}`;
+
+  // ---- the Foods tab leads here; Foods stays lit ------------------------------------------------------------------------------------
+  await page.goto(`${base}/library`);
+  assert.equal(await page.locator('[data-words-link]').getAttribute('href'), '/library/words');
+  assert.equal(await text(page.locator('[data-count]')), '13 foods', 'the Foods count is as it was');
+  await page.locator('[data-words-link]').click();
+  await page.waitForURL(/\/library\/words$/);
+  await page.locator('[data-group]').first().waitFor();
+  assert.equal(await page.locator('[data-tab="foods"]').getAttribute('aria-current'), 'page', 'Foods lit');
+  assert.equal(await page.locator('[data-place="library"]').getAttribute('aria-current'), 'true', 'the Library tab lit');
+  assert.deepEqual(await page.locator('[data-tab]').evaluateAll((els) => els.map((e) => e.getAttribute('data-tab'))), ['foods', 'usual', 'habits', 'exercises'], 'no fifth tab');
+  assert.equal(await page.locator('[data-back]').getAttribute('href'), '/library');
+  await page.evaluate(() => (window.__noReload = true));
+
+  // ---- the groups, the rows and the marks against the sample --------------------------------------------------------------------------
+  assert.deepEqual(await page.locator('[data-group-head]').allTextContents(), months);
+  assert.deepEqual(await page.locator('[data-group]').evaluateAll((els) => els.map((e) => e.getAttribute('data-group'))), MON);
+  for (const [k, month] of MON.entries()) {
+    const want = ALL.rows.filter((r) => r.month === month);
+    const got = await page.locator(`[data-group="${month}"] [data-word-row]`).evaluateAll((els) => els.map((e) => [e.dataset.word, Number(e.dataset.food)]));
+    assert.deepEqual(got, want.map((r) => [r.word, r.food_id]), `${months[k]}: the words in the door's order`);
+  }
+  assert.equal(await text(page.locator('[data-count]')), '13 words');
+  for (const r of ALL.rows) {
+    const li = rowOf(r.word, r.food_id);
+    assert.equal(await text(li.locator('[data-word-text]')), r.word);
+    assert.equal(await text(li.locator('[data-food-link]')), r.food);
+    assert.equal(await li.locator('[data-food-link]').getAttribute('href'), `/library?food=N${r.food_id}`, `${r.word}: opens its food's box`);
+    assert.equal(await text(li.locator('[data-when]')), when(r), `${r.word}: when and from where`);
+    assert.equal(await li.locator('[data-shared-mark]').count() ? await text(li.locator('[data-shared-mark]')) : null, r.shared > 1 ? `also on ${r.shared - 1} other food` : null, `${r.word}: the mark`);
+    assert.equal(await text(li.locator('[data-remove]')), 'Remove');
+    assert.equal(await li.locator('[data-remove]').getAttribute('aria-label'), `Remove ${r.word} from ${r.food}`);
+  }
+  assert.equal(await page.locator('[data-shared-mark]').count(), 4, 'bread twice, mix twice');
+  assert.match(await page.locator('[data-shared-mark]').first().evaluate((e) => getComputedStyle(e).color), /^rgb/);
+  if (!pc) for (const b of await page.locator('[data-remove]').all()) assert.ok((await b.boundingBox()).height >= 43.5, 'Remove: a 44 px target');
+  if (phone) assert.ok((await page.locator('[data-remove]').first().boundingBox()).width >= 43.5, 'Remove: 44 px wide');
+  await shot('list');
+  await checkWidth(page, 'library words');
+
+  // ---- the chip and the search, in the address ----------------------------------------------------------------------------------------
+  await page.locator('[data-shared]').click();
+  await page.waitForURL(/\/library\/words\?shared=1$/);
+  await waitRows(4);
+  assert.equal(await page.locator('[data-shared]').getAttribute('aria-current'), 'true');
+  assert.equal(await text(page.locator('[data-count]')), '4 words on more than one food');
+  assert.deepEqual(await rows.evaluateAll((els) => els.map((e) => [e.dataset.word, Number(e.dataset.food)])), WORDS.shared.words.rows.map((r) => [r.word, r.food_id]));
+  await shot('shared');
+  await page.locator('[data-search]').pressSequentially('mix', { delay: 40 });
+  await page.waitForURL(/\/library\/words\?q=mix&shared=1$/);
+  await waitRows(2);
+  assert.equal(await page.evaluate(() => document.activeElement?.hasAttribute('data-search')), true, 'the search box keeps the focus');
+  assert.equal(await text(page.locator('[data-count]')), '2 words matching “mix”, on more than one food');
+  await page.locator('[data-shared]').click(); // the chip off keeps the search
+  await page.waitForURL(/\/library\/words\?q=mix$/);
+  await page.locator('[data-search]').fill('Bread');
+  await page.locator('[data-search]').press('Enter');
+  await page.waitForURL(/q=Bread/);
+  await waitRows(WORDS.search.words.rows.length);
+  assert.deepEqual(await rows.evaluateAll((els) => els.map((e) => [e.dataset.word, Number(e.dataset.food)])), WORDS.search.words.rows.map((r) => [r.word, r.food_id]), 'a word or a food name, any case');
+  assert.equal(await text(page.locator('[data-count]')), `${WORDS.search.words.total} words matching “Bread”`);
+  await page.locator('[data-search]').fill('zzqq');
+  await page.locator('[data-search]').press('Enter');
+  await page.locator('[data-empty]').waitFor();
+  assert.equal(await text(page.locator('[data-empty]')), 'No word matches.');
+  assert.equal(await text(page.locator('[data-count]')), '0 words matching “zzqq”');
+  await checkWidth(page, 'library words, nothing found');
+  await page.locator('[data-search]').fill('');
+  await page.locator('[data-search]').press('Enter');
+  await page.waitForURL(/\/library\/words$/);
+  await waitRows(13);
+  assert.equal(await page.evaluate(() => window.__noReload), true, 'search and chip without a reload');
+
+  // ---- a word removed in place, with Undo; the list is read again with the page's chip ----------------------------------------------------
+  await page.goto(`${base}/library/words?shared=1`);
+  await waitRows(4);
+  await page.evaluate(() => (window.__noReload = true));
+  await rowOf('bread', 9).locator('[data-remove]').click();
+  await headIs('"bread" no longer means N9 Banana.');
+  await waitRows(2); // the word is on one food now: no longer "on more than one food"
+  assert.equal(await rowOf('bread', 9).count(), 0);
+  assert.deepEqual(await rows.evaluateAll((els) => els.map((e) => e.dataset.word)), ['mix', 'mix']);
+  assert.equal(await text(page.locator('[data-count]')), '2 words on more than one food');
+  assert.equal(await bar.getByRole('button', { name: 'Undo' }).count(), 1, 'Undo in the answer bar');
+  await shot('removed');
+  await checkWidth(page, 'library words, a word removed');
+  await bar.getByRole('button', { name: 'Undo' }).click();
+  await headIs('Undone.');
+  await waitRows(4);
+  assert.equal(await rowOf('bread', 9).count(), 1, 'Undo brings the word back');
+  assert.equal(await text(page.locator('[data-count]')), '4 words on more than one food');
+  // not narrowed: the word goes, the count follows, Undo brings it back in its place
+  await page.goto(`${base}/library/words`);
+  await waitRows(13);
+  await page.evaluate(() => (window.__noReload = true));
+  await rowOf('toast', 5).locator('[data-remove]').click();
+  await headIs('"toast" no longer means N5 Rye bread.');
+  await waitRows(12);
+  assert.equal(await text(page.locator('[data-count]')), '12 words');
+  assert.equal(await rowOf('toast', 5).count(), 0);
+  await bar.getByRole('button', { name: 'Undo' }).click();
+  await waitRows(13);
+  assert.deepEqual(await rows.evaluateAll((els) => els.slice(0, 3).map((e) => e.dataset.word)), ['chocolate bar', 'toast', 'wholemeal'], 'back in its place');
+  assert.equal(await page.evaluate(() => window.__noReload), true, 'a removal and its Undo without a reload');
+
+  // ---- a food's name opens its box in the Foods tab ------------------------------------------------------------------------------------------
+  await rowOf('quark', 2).locator('[data-food-link]').click();
+  await page.waitForURL(/\/library\?food=N2$/);
+  await page.locator('[data-box="2"]').waitFor();
+  assert.deepEqual(await page.locator('[data-box="2"] [data-word]').evaluateAll((els) => els.map((e) => e.dataset.word)), ['quark']);
+
+  // ---- words with no date: the last group, where each came from still said --------------------------------------------------------------------
+  await standinPost('/standin/words-undated');
+  await page.goto(`${base}/library/words`);
+  await page.locator('[data-group="unknown"]').waitFor();
+  assert.deepEqual(await page.locator('[data-group-head]').allTextContents(), ['November 2026', 'October 2026', 'September 2026', 'Earlier, date unknown']);
+  assert.deepEqual(await page.locator('[data-group="unknown"] [data-word-row]').evaluateAll((els) => els.map((e) => e.dataset.word)), ['bread', 'cuppa', 'porridge', 'quark']);
+  assert.equal(await text(page.locator('[data-group="unknown"] [data-when]').first()), 'came with the food');
+  await shot('undated');
+  await checkWidth(page, 'library words, no date');
+  await standinPost('/standin/reset');
+
+  // ---- more than the door lists: the count says it ------------------------------------------------------------------------------------------
+  await standinPost('/standin/words-many');
+  await page.goto(`${base}/library/words`);
+  await waitRows(500);
+  assert.equal(await text(page.locator('[data-count]')), '500 of 533 words · the newest 500 are shown; search to find others');
+  await checkWidth(page, 'library words, a long list');
+  await standinPost('/standin/reset');
+
+  // ---- no words at all, the door off -------------------------------------------------------------------------------------------------------
+  await page.goto(`${base}/library/words?q=${'x'.repeat(80)}`);
+  await page.locator('[data-empty]').waitFor();
+  assert.equal((await page.locator('[data-search]').inputValue()).length, 60, 'a long search is cut at 60, the door is not asked for its 400');
+  await standinPost('/standin/door-off');
+  await page.goto(`${base}/library/words`);
+  await page.locator('[data-problem]').waitFor();
+  assert.match(await page.getByRole('link', { name: 'Open the full app' }).getAttribute('href'), /\/web\/food\/catalogue$/);
+  await checkWidth(page, 'library words, door off');
+  await standinPost('/standin/up');
+  await page.goto(`${base}/`);
+}
+
 /** Deploy 105: Library's Usual meals, Habits and Exercises tabs (the same parts and saves as their own pages). */
 async function checkLibraryTabs(page, name, theme) {
   await standinPost('/standin/reset');
@@ -6876,6 +7042,10 @@ for (const theme of ['dark', 'light']) {
       console.log(`library foods, the library tab ${name} ${theme}: checks passed`);
       await checkLibraryTabs(page, name, theme);
       console.log(`library usual meals, habits, exercises ${name} ${theme}: checks passed`);
+    }
+    if (only('words')) {
+      await checkWords(page, name, theme);
+      console.log(`library words ${name} ${theme}: checks passed`);
     }
     if (only('medical')) {
       await checkMedicalPlace(page, name, theme);

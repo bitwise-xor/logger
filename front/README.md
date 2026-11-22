@@ -260,6 +260,20 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   the path). The stand-in answers GET `/food/catalogue`, `/food/item` and POST `/food/catalogue/<action>`, `/lookup` and `/answer` with view
   catalogue from `tests/samples/catalogue.json` (the samples' lists come out byte for byte); `SHOOT_ONLY=library` runs these checks. Also: the
   footer reads "Medical, Settings and the rest are in the full app"; `usual.test.ts` no longer has svelte-check errors.
+- Library > Foods > Words (core item 24, 22.11.2026; the door's `GET /food/words`): the words review, `/library/words` (`?q=` the word or the food's
+  name, at most 60 characters; `?shared=1` the chip "On more than one food"). Not a fifth tab (the four already scroll sideways on a phone): a
+  link "Review words ›" beside the Foods count, and on the page "‹ Foods" with the Foods tab still lit (`LibraryHeader on="foods"`, `placeOf`
+  lights Library for every `/library` path). The count line ("213 words", "1 word"; "4 words on more than one food", "2 words matching
+  “bread”"; "500 of 650 words" with a line when the door cut the list at its 500), then the words by month under a small heading ("November
+  2026"; "Earlier, date unknown" for a word with no date), newest first as the door sorts them: the word, the food's name as a link to its box
+  in the Foods tab (`catalogueHref`), "12.11. · added in chat" (or "on the web", "by hand", "came with the food" when no change row says), an
+  amber "also on 1 other food" when `shared` is above 1, and Remove (44 px). Remove is the Catalogue's `catalogue_words` save (`act` remove) asked
+  for `view: "words"` with the page's search and chip (`WORDS_SAVES`, `viewFields` in `words.ts`): the answer brings the list again and the
+  door's Undo of that word in the answer bar (only a save asked for this view has an Undo; the Foods tab's has none); a refusal or "Nothing
+  changed." is said in the bar. `src/lib/words.ts` has the plain rules (address, groups, labels; `words.test.ts`), `wordspage.svelte.ts` the
+  state (`WordsPage`, as the Catalogue's search). The stand-in answers GET `/food/words` and the save from `tests/samples/food_words.json` (POST
+  `/standin/words-undated`: the words that came with their food have no date, which the door never answers today; `/standin/words-many`: 520
+  more, for the cut list); `SHOOT_ONLY=words` runs these checks.
 - **Medical** (deploy 106, step 5 continued; a live Space: the PC rail's Spaces group, `/more`, the More tab lit on every `/medical` page; `SPACES`
   has `href: '/medical'` and `MEDICAL_TABS` the tabs; the footer and More now say "Settings and the rest are in the full app"). Header "Medical" with
   Reports · Tests over time · Medication, each its own page (`MedicalHeader`; `src/lib/medical.ts` has the types, addresses, row lines and form rules

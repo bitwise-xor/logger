@@ -125,9 +125,13 @@
     </form>
   {/if}
 
-  <p class="m-0 text-[13px] text-muted" data-count>
-    {countLine(c)}{#if c.more}<span> · {c.more}</span>{/if}
-  </p>
+  <div class="flex items-center justify-between gap-2">
+    <p class="m-0 text-[13px] text-muted" data-count>
+      {countLine(c)}{#if c.more}<span> · {c.more}</span>{/if}
+    </p>
+    <!-- the words review (core item 24): every word of every food, to find a wrong one; its own page under Foods -->
+    <a href="/library/words" class="inline-flex min-h-11 shrink-0 items-center text-[13px] whitespace-nowrap no-underline desktop:min-h-9" data-words-link>Review words ›</a>
+  </div>
 
   <main class="flex flex-col gap-3 desktop:flex-row desktop:items-start desktop:gap-4">
     <div class="flex min-w-0 flex-col gap-3 desktop:flex-1">

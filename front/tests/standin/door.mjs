@@ -91,6 +91,12 @@
 // changes its grams), reviewed; none has a key or Undo, the same values again are "Nothing changed.". POST /lookup and /answer with view
 // "catalogue": a read-back of the words typed as a question (after a moment), its yes adds the food (Undo takes it out again), its no
 // closes it; every catalogue save answers with the Catalogue of view_q, view_f, view_s and the box of view_food.
+// 22.11.2026 (core item 24): Library > Foods > Words, from tests/samples/food_words.json (real answers of the door for 13 invented words on the
+// catalogue's foods): GET /food/words?q=&shared= worked out from the words as they stand (q in the word or the food's name, shared 1 only
+// the words more than one active food has, newest first, unknown dates last, then by word; q over 60 or shared not 0 or 1 is 400), and
+// POST /food/catalogue/words with view "words" (view_q, view_shared): a word removed or added as the core does, answering with the fresh
+// list and an Undo of that word; Undo puts it back, also where another food has it now. POST /standin/words-undated: the words that came
+// with their food have no date (the door never answers so today: a food has a creation time), POST /standin/words-many: 520 more words.
 // Deploy 108: More's Search, Recent and Usage, from tests/samples/search.json, recent.json and usage.json (real answers of the door for invented
 // data): GET /search?q= (the sample of that word: muesli, rowing, pull, stove, vitamin, zzqq; "many" is made here from the muesli sample, a food
 // group cut at 15 with `more`; under two letters the sample's hint; any other word has no match, as the sample's zzqq; the word is squeezed and
@@ -144,6 +150,7 @@ const GYM = read('gym.json');
 const FOODTRENDS = read('food_trends.json');
 const INSIGHTS = read('insights.json');
 const CAT = read('catalogue.json');
+const WORDS = read('food_words.json');
 const LABS = read('labs.json');
 const SEARCH = read('search.json');
 const RECENT = read('recent.json');
@@ -158,7 +165,7 @@ let suggestOff = false; // deploy 117: GET /foods/suggest answers 500 (POST /sta
 function reset() {
   state = { day: read('day.json').day, usual: usualStart(), undo: null, before: null, keys: new Map(), lines: new Map(), aiDown: false,
     scanned: new Map([[SCAN.barcode.code, SCAN.barcode.food]]), labelFail: false,
-    hv: healthStart(), sessions: sessionsStart(), hab: habitsStart(), dayKeys: new Set(), slow: 0, locked: new Set(), gym: gymStart(), watchNone: false, gymEmpty: false, home: homeStart(), week: weekStart(), coach: coachState(), fail: new Set(), cat: catStart(), labs: labsStart(), recentNone: false, usageEmpty: false, settings: settingsStart(),
+    hv: healthStart(), sessions: sessionsStart(), hab: habitsStart(), dayKeys: new Set(), slow: 0, locked: new Set(), gym: gymStart(), watchNone: false, gymEmpty: false, home: homeStart(), week: weekStart(), coach: coachState(), fail: new Set(), cat: catStart(), words: wordsStart(), wordsUndated: false, labs: labsStart(), recentNone: false, usageEmpty: false, settings: settingsStart(),
     mealNotes: new Map(FOOD.food_day.food_day.meals.filter((m) => m.note).map((m) => [m.meal, m.note])), notesEmpty: false };
   state.day.needs.body_due = structuredClone(HEALTH.day_body_due);
   // the notes of the food sample's rows (the same invented day), kept on the rows so an Undo puts them back too
@@ -2395,6 +2402,60 @@ function itemOut(id) {
     words: structuredClone(CT_WORDS), limits: structuredClone(CT_LIMITS) };
 }
 
+// ---- Library > Foods > Words (core item 24) ----------------------------------------------------------------------------------------------
+
+/** The words as the sample lists them: {word, food_id, added_at, by}; the food's name and the shared count are worked out. */
+const wordsStart = () => WORDS.all.words.rows.map(({ word, food_id, added_at, by }) => ({ word, food_id, added_at, by }));
+const WD_LIMIT = 500;
+
+/** GET /food/words as the door answers: the words of active foods matching q (word or food name) and shared, newest first. */
+function wordsOut(q0, shared) {
+  const k = String(q0 ?? '').trim().toLowerCase();
+  const food = (id) => state.cat.foods.find((x) => x.id === id);
+  const live = state.words.filter((w) => food(w.food_id)?.active);
+  const count = new Map();
+  for (const w of live) count.set(w.word.toLowerCase(), new Set([...(count.get(w.word.toLowerCase()) ?? []), w.food_id]));
+  let rows = live.map((w) => {
+    const undated = state.wordsUndated && w.by === null;
+    return { word: w.word, food_id: w.food_id, food: food(w.food_id).name, added_at: undated ? null : w.added_at, by: w.by,
+      shared: count.get(w.word.toLowerCase()).size, month: undated ? null : w.added_at.slice(0, 7) };
+  });
+  if (k) rows = rows.filter((r) => r.word.toLowerCase().includes(k) || r.food.toLowerCase().includes(k));
+  if (shared) rows = rows.filter((r) => r.shared > 1);
+  rows.sort((a, b) => (a.added_at === null) - (b.added_at === null) || (b.added_at ?? '').localeCompare(a.added_at ?? '') || (a.word < b.word ? -1 : a.word > b.word ? 1 : 0) || a.food_id - b.food_id);
+  return { count: Math.min(rows.length, WD_LIMIT), total: rows.length, rows: rows.slice(0, WD_LIMIT), limit: WD_LIMIT };
+}
+
+/** The words save of view "words": the Catalogue's words save, changing the list too, with an Undo that takes that word back. */
+function wordsSave(b) {
+  if (!Number.isInteger(b.id)) return ctBad('id must be a number.');
+  if (!['add', 'remove'].includes(b.act)) return ctBad('act must be add or remove.');
+  const f = state.cat.foods.find((x) => x.id === b.id);
+  if (!f) return ctNo('rejected', 'Unknown food.');
+  const w = ctTidy(b.word).toLowerCase().slice(0, 60);
+  const had = state.words.some((x) => x.food_id === f.id && x.word === w);
+  const before = { cat: structuredClone(state.cat), words: structuredClone(state.words) };
+  let out;
+  if (b.act === 'remove') {
+    if (!/\p{L}/u.test(w)) return ctNo('rejected', 'Type a word first.');
+    if (!had && !f.aliases.includes(w)) return ctNo('unchanged', 'Nothing changed.');
+    state.words = state.words.filter((x) => !(x.food_id === f.id && x.word === w));
+    f.aliases = f.aliases.filter((a) => a !== w);
+    out = { outcome: 'changed', head: `"${w}" no longer means N${f.id} ${f.name}.`, undo: null };
+  } else {
+    const [status, said] = catalogueSave('words', b); // the core's checks and words
+    if (status !== 200 || said.outcome !== 'changed') return [status, said];
+    if (!had) state.words.push({ word: w, food_id: f.id, added_at: new Date().toISOString(), by: 'web' });
+    out = said;
+  }
+  if (had !== (b.act === 'add')) {
+    state.before = { day: state.day, usual: state.usual, ...before };
+    state.undo = { token: randomBytes(12).toString('base64url'), head: out.head, expires_at: new Date(Date.now() + 15 * 60_000).toISOString() };
+    return [200, { ...out, undo: state.undo }];
+  }
+  return [200, out];
+}
+
 const CT_F = ['all', 'drinks', 'new', 'review'];
 const CT_S = CT_SORTS.map((x) => x.key);
 /** A save's fresh read (view "catalogue"): the Catalogue of view_q, view_f, view_s and the box of view_food when it is in the list. */
@@ -3156,6 +3217,14 @@ createServer(async (req, res) => {
     if (m) m.stop = LB_TODAY;
     return send(res, 200, { outcome: 'labs-end' });
   }
+  if (req.url === '/standin/words-undated' && req.method === 'POST') {
+    state.wordsUndated = true;
+    return send(res, 200, { outcome: 'words-undated' });
+  }
+  if (req.url === '/standin/words-many' && req.method === 'POST') {
+    for (let k = 1; k <= 520; k++) state.words.push({ word: `word${String(k).padStart(3, '0')}`, food_id: state.cat.foods[k % state.cat.foods.length].id, added_at: `2026-11-${String(1 + (k % 20)).padStart(2, '0')}T12:00:00+01:00`, by: 'web' });
+    return send(res, 200, { outcome: 'words-many' });
+  }
   if (req.url === '/standin/recent-none' && req.method === 'POST') {
     state.recentNone = true;
     return send(res, 200, { outcome: 'recent-none' });
@@ -3374,6 +3443,13 @@ createServer(async (req, res) => {
     if (!CT_S.includes(so)) return send(res, 400, { error: 'bad_request', message: `s must be ${CT_S.slice(0, -1).join(', ')} or ${CT_S.at(-1)}.` }, signedIn);
     return send(res, 200, { catalogue: catalogueOut(url.searchParams.get('q') ?? '', f, so), undo: undo() }, signedIn);
   }
+  if (url.pathname === '/api/v1/food/words' && req.method === 'GET') {
+    const q = url.searchParams.get('q') ?? '';
+    const sh = url.searchParams.get('shared') ?? '';
+    if (q.length > 60) return send(res, 400, { error: 'bad_request', message: 'q must be 60 characters or fewer.' }, signedIn);
+    if (!['', '0', '1'].includes(sh)) return send(res, 400, { error: 'bad_request', message: 'shared must be 1 or 0.' }, signedIn);
+    return send(res, 200, { words: wordsOut(q, sh === '1'), undo: undo() }, signedIn);
+  }
   if (url.pathname === '/api/v1/food/item' && req.method === 'GET') {
     const m = /^[Nn]?(\d{1,9})$/.exec(url.searchParams.get('id') ?? '');
     if (!m) return send(res, 400, { error: 'bad_request', message: "id must be a food's id (N12 or 12)." }, signedIn);
@@ -3444,6 +3520,7 @@ createServer(async (req, res) => {
     : view === 'home_chore' ? { home_chore: body.view_id ? hmChoreOut(body.view_id) : null }
     : view === 'home_edit' ? { home_edit: hmEditOut() }
     : view === 'catalogue' ? catView(body)
+    : view === 'words' ? { words: wordsOut(typeof body.view_q === 'string' ? body.view_q.slice(0, 60) : '', body.view_shared === true) }
     : view === 'labs' ? { labs: labsOut(body.view_open) }
     : view === 'labs_tests' ? { labs_tests: testsOut(body.view_q, body.view_t) }
     : view === 'labs_meds' ? { labs_meds: medsOut() }
@@ -3466,6 +3543,7 @@ createServer(async (req, res) => {
       if (state.before.hv) [state.hv, state.sessions] = [state.before.hv, state.before.sessions];
       if (state.before.hab) state.hab = state.before.hab;
       if (state.before.cat) state.cat = state.before.cat;
+      if (state.before.words) state.words = state.before.words;
       const head = state.before.gymUndo ?? state.before.homeUndo ?? 'Undone.';
       if (state.before.gym) state.gym = state.before.gym;
       if (state.before.home) state.home = state.before.home;
@@ -3528,9 +3606,10 @@ createServer(async (req, res) => {
     }
     if (path.startsWith('/food/catalogue/')) {
       if ('key' in body) return send(res, 400, { error: 'bad_request', message: 'The stand-in: the catalogue takes no key.' }, signedIn);
-      const [status, out] = catalogueSave(path.slice('/food/catalogue/'.length), body);
+      const words = path === '/food/catalogue/words' && body.view === 'words'; // the words review: its own Undo (core item 24)
+      const [status, out] = words ? wordsSave(body) : catalogueSave(path.slice('/food/catalogue/'.length), body);
       if (status !== 200) return send(res, status, out, signedIn);
-      if (out.outcome === 'changed') state.undo = null; // as app., a change here ends the session's Undo bar
+      if (out.outcome === 'changed' && !words) state.undo = null; // as app., a change here ends the session's Undo bar
       const answer = { ...base, ...out, v: 1, tone: ['changed', 'unchanged'].includes(out.outcome) ? 'ok' : 'warning' };
       return send(res, 200, { ...answer, ...fresh() }, signedIn);
     }

@@ -1,0 +1,272 @@
+{
+ "all": {
+  "v": 1,
+  "words": {
+   "count": 13,
+   "total": 13,
+   "rows": [
+    {
+     "word": "chocolate bar",
+     "food_id": 8,
+     "food": "Dark chocolate",
+     "added_at": "2026-11-21T17:40:00+01:00",
+     "by": "chat",
+     "shared": 1,
+     "month": "2026-11"
+    },
+    {
+     "word": "toast",
+     "food_id": 5,
+     "food": "Rye bread",
+     "added_at": "2026-11-19T08:12:00+01:00",
+     "by": "chat",
+     "shared": 1,
+     "month": "2026-11"
+    },
+    {
+     "word": "wholemeal",
+     "food_id": 5,
+     "food": "Rye bread",
+     "added_at": "2026-11-19T08:12:00+01:00",
+     "by": "web",
+     "shared": 1,
+     "month": "2026-11"
+    },
+    {
+     "word": "mix",
+     "food_id": 1,
+     "food": "Oat flakes",
+     "added_at": "2026-11-14T07:30:00+01:00",
+     "by": "web",
+     "shared": 2,
+     "month": "2026-11"
+    },
+    {
+     "word": "basmati",
+     "food_id": 12,
+     "food": "Rice",
+     "added_at": "2026-11-12T19:02:00+01:00",
+     "by": "web",
+     "shared": 1,
+     "month": "2026-11"
+    },
+    {
+     "word": "bread",
+     "food_id": 9,
+     "food": "Banana",
+     "added_at": "2026-10-20T18:21:00+02:00",
+     "by": "web",
+     "shared": 2,
+     "month": "2026-10"
+    },
+    {
+     "word": "lentils",
+     "food_id": 7,
+     "food": "Lentil soup",
+     "added_at": "2026-10-02T12:05:00+02:00",
+     "by": "web",
+     "shared": 1,
+     "month": "2026-10"
+    },
+    {
+     "word": "mix",
+     "food_id": 14,
+     "food": "Morning bowl",
+     "added_at": "2026-10-02T12:05:00+02:00",
+     "by": "chat",
+     "shared": 2,
+     "month": "2026-10"
+    },
+    {
+     "word": "brew",
+     "food_id": 4,
+     "food": "Green tea",
+     "added_at": "2026-09-28T09:00:00+02:00",
+     "by": "other",
+     "shared": 1,
+     "month": "2026-09"
+    },
+    {
+     "word": "bread",
+     "food_id": 5,
+     "food": "Rye bread",
+     "added_at": "2026-03-04T09:00:00+01:00",
+     "by": null,
+     "shared": 2,
+     "month": "2026-03"
+    },
+    {
+     "word": "cuppa",
+     "food_id": 4,
+     "food": "Green tea",
+     "added_at": "2026-03-04T09:00:00+01:00",
+     "by": null,
+     "shared": 1,
+     "month": "2026-03"
+    },
+    {
+     "word": "porridge",
+     "food_id": 1,
+     "food": "Oat flakes",
+     "added_at": "2026-03-04T09:00:00+01:00",
+     "by": null,
+     "shared": 1,
+     "month": "2026-03"
+    },
+    {
+     "word": "quark",
+     "food_id": 2,
+     "food": "Skyr",
+     "added_at": "2026-03-04T09:00:00+01:00",
+     "by": null,
+     "shared": 1,
+     "month": "2026-03"
+    }
+   ],
+   "limit": 500
+  },
+  "undo": null
+ },
+ "shared": {
+  "v": 1,
+  "words": {
+   "count": 4,
+   "total": 4,
+   "rows": [
+    {
+     "word": "mix",
+     "food_id": 1,
+     "food": "Oat flakes",
+     "added_at": "2026-11-14T07:30:00+01:00",
+     "by": "web",
+     "shared": 2,
+     "month": "2026-11"
+    },
+    {
+     "word": "bread",
+     "food_id": 9,
+     "food": "Banana",
+     "added_at": "2026-10-20T18:21:00+02:00",
+     "by": "web",
+     "shared": 2,
+     "month": "2026-10"
+    },
+    {
+     "word": "mix",
+     "food_id": 14,
+     "food": "Morning bowl",
+     "added_at": "2026-10-02T12:05:00+02:00",
+     "by": "chat",
+     "shared": 2,
+     "month": "2026-10"
+    },
+    {
+     "word": "bread",
+     "food_id": 5,
+     "food": "Rye bread",
+     "added_at": "2026-03-04T09:00:00+01:00",
+     "by": null,
+     "shared": 2,
+     "month": "2026-03"
+    }
+   ],
+   "limit": 500
+  },
+  "undo": null
+ },
+ "search": {
+  "v": 1,
+  "words": {
+   "count": 4,
+   "total": 4,
+   "rows": [
+    {
+     "word": "toast",
+     "food_id": 5,
+     "food": "Rye bread",
+     "added_at": "2026-11-19T08:12:00+01:00",
+     "by": "chat",
+     "shared": 1,
+     "month": "2026-11"
+    },
+    {
+     "word": "wholemeal",
+     "food_id": 5,
+     "food": "Rye bread",
+     "added_at": "2026-11-19T08:12:00+01:00",
+     "by": "web",
+     "shared": 1,
+     "month": "2026-11"
+    },
+    {
+     "word": "bread",
+     "food_id": 9,
+     "food": "Banana",
+     "added_at": "2026-10-20T18:21:00+02:00",
+     "by": "web",
+     "shared": 2,
+     "month": "2026-10"
+    },
+    {
+     "word": "bread",
+     "food_id": 5,
+     "food": "Rye bread",
+     "added_at": "2026-03-04T09:00:00+01:00",
+     "by": null,
+     "shared": 2,
+     "month": "2026-03"
+    }
+   ],
+   "limit": 500
+  },
+  "undo": null
+ },
+ "none": {
+  "v": 1,
+  "words": {
+   "count": 0,
+   "total": 0,
+   "rows": [],
+   "limit": 500
+  },
+  "undo": null
+ },
+ "saves": {
+  "remove": {
+   "v": 1,
+   "outcome": "changed",
+   "tone": "ok",
+   "head": "\"bread\" no longer means N9 Banana.",
+   "receipt": [],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": {
+    "token": "_rwOliXhLMqHZXZN",
+    "head": "\"bread\" no longer means N9 Banana.",
+    "expires_at": "2026-11-22T15:40:21.606189+00:00"
+   }
+  },
+  "undo": {
+   "v": 1,
+   "outcome": "changed",
+   "tone": "ok",
+   "head": "Undone: \"bread\" now means N9 Banana again.",
+   "receipt": [],
+   "notes": [],
+   "reason": null,
+   "questions": [],
+   "read_back": null,
+   "confirm": null,
+   "result": null,
+   "refill": null,
+   "replayed": false,
+   "undo": null
+  }
+ }
+}

@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 // day asked for, and a gone session told apart from other problems.
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_TIMEOUT_MS, makeDoor, type Fetch } from './door.js';
-import { bodyFor, CATALOGUE_SAVES, MEDICAL_MEDS_SAVES, MEDICAL_REPORTS_SAVES, EXERCISES_SAVES, LIBRARY_HABITS_SAVES, FOOD_SAVES, GYM_SAVES, HABITS_SAVES, HEALTH_SAVES, EDIT_SAVES, HISTORY_SAVES, HOME_SAVES, PICK_SAVES, PLAN_SAVES, runSave, SAVE_NAMES, SAVES, TODAY_SAVES, TRENDS_SAVES, COACH_SAVES, USUAL_SAVES, ZONES_SAVES, SETTINGS_ONLY, SETTINGS_TARGETS_SAVES, SETTINGS_TODAY_SAVES, SETTINGS_BODY_SAVES, SETTINGS_COACH_SAVES, SETTINGS_DEVICES_SAVES, SETTINGS_NOTIFY_SAVES } from './saves.js';
+import { bodyFor, CATALOGUE_SAVES, WORDS_SAVES, MEDICAL_MEDS_SAVES, MEDICAL_REPORTS_SAVES, EXERCISES_SAVES, LIBRARY_HABITS_SAVES, FOOD_SAVES, GYM_SAVES, HABITS_SAVES, HEALTH_SAVES, EDIT_SAVES, HISTORY_SAVES, HOME_SAVES, PICK_SAVES, PLAN_SAVES, runSave, SAVE_NAMES, SAVES, TODAY_SAVES, TRENDS_SAVES, COACH_SAVES, USUAL_SAVES, ZONES_SAVES, SETTINGS_ONLY, SETTINGS_TARGETS_SAVES, SETTINGS_TODAY_SAVES, SETTINGS_BODY_SAVES, SETTINGS_COACH_SAVES, SETTINGS_DEVICES_SAVES, SETTINGS_NOTIFY_SAVES } from './saves.js';
 import { KEYED, mayResend, waitMs } from '../saver.js';
 
 const TOKEN = 'f'.repeat(40);
@@ -1014,6 +1014,15 @@ describe('the Catalogue (Library)', () => {
     expect(bodyFor('lookup', form({ text: 'crispbread', ...VIEW }), undefined, undefined, 'catalogue')).toEqual({ text: 'crispbread', ...fresh });
     expect(bodyFor('answer', form({ question_id: 'p1', reply: 'yes', view_food: 'N12' }), undefined, undefined, 'catalogue')).toEqual({ question_id: 'p1', reply: 'yes', view: 'catalogue', view_food: 12 });
     expect(bodyFor('answer', form({ question_id: 'p1', reply: 'no', view_f: 'odd', view_s: 'best', view_food: 'x1' }), undefined, undefined, 'catalogue')).toEqual({ question_id: 'p1', reply: 'no', view: 'catalogue' });
+  });
+
+  it("asks the words save for the words review's list: the search and the chip, nothing else", () => {
+    const b = (f: Record<string, string>) => bodyFor('catalogue_words', form({ id: '9', act: 'remove', word: 'bread', ...f }), undefined, undefined, 'words');
+    expect(b({})).toEqual({ id: 9, act: 'remove', word: 'bread', view: 'words' });
+    expect(b({ view_q: ' rye ', view_shared: '1', view_f: 'drinks', view_food: 'N3' })).toEqual({ id: 9, act: 'remove', word: 'bread', view: 'words', view_q: 'rye', view_shared: true });
+    expect(b({ view_shared: 'yes' })).toEqual({ id: 9, act: 'remove', word: 'bread', view: 'words' });
+    expect(bodyFor('undo', form({ token: 'tok', view: 'words', view_shared: '1' }), undefined, undefined, 'words')).toEqual({ token: 'tok', view: 'words', view_shared: true });
+    expect(WORDS_SAVES).toEqual(['catalogue_words', 'undo']);
   });
 
   it('takes no key for any of the six and keeps them off Today', () => {

@@ -656,6 +656,11 @@ export const COACH_SAVES: SaveName[] = ['coach_day'];
  */
 const CATALOGUE_ONLY: SaveName[] = ['catalogue_values', 'catalogue_words', 'catalogue_barcode', 'catalogue_basics', 'catalogue_unit', 'catalogue_reviewed'];
 export const CATALOGUE_SAVES: SaveName[] = [...CATALOGUE_ONLY, 'lookup', 'answer', 'undo'];
+/**
+ * Library > Foods > Words' (core item 24, src/routes/(app)/library/words): the Catalogue's word save, asked for view "words" (its answer
+ * brings the fresh list and, for this view only, an Undo that takes that word back), and Undo.
+ */
+export const WORDS_SAVES: SaveName[] = ['catalogue_words', 'undo'];
 /** Library's Habits tab's (deploy 105, src/routes/(app)/library/habits): the list's forms, as on the Habits page. */
 export const LIBRARY_HABITS_SAVES: SaveName[] = ['habits_manage'];
 /**
@@ -693,7 +698,7 @@ export const TODAY_SAVES: SaveName[] = SAVE_NAMES.filter(
     n === 'food_note' ||
     (!FOOD_SAVES.includes(n) && !USUAL_SAVES.includes(n) && !HEALTH_SAVES.includes(n) && !HABITS_ONLY.includes(n) && !GYM_ONLY.includes(n) && !HOME_ONLY.includes(n) && !TRENDS_SAVES.includes(n) && !CATALOGUE_ONLY.includes(n) && !MEDICAL_ONLY.includes(n) && !SETTINGS_ONLY.includes(n)),
 );
-export type View = 'day' | 'food' | 'usual' | 'health' | 'body' | 'habits' | 'gym' | 'gym_plan' | 'gym_exercises' | 'home' | 'home_pick' | 'home_zones' | 'home_history' | 'home_chore' | 'home_edit' | 'week' | 'coach' | 'catalogue' | 'labs' | 'labs_tests' | 'labs_meds'
+export type View = 'day' | 'food' | 'usual' | 'health' | 'body' | 'habits' | 'gym' | 'gym_plan' | 'gym_exercises' | 'home' | 'home_pick' | 'home_zones' | 'home_history' | 'home_chore' | 'home_edit' | 'week' | 'coach' | 'catalogue' | 'words' | 'labs' | 'labs_tests' | 'labs_meds'
   | 'settings_targets' | 'settings_today' | 'settings_body' | 'settings_coach' | 'settings_devices' | 'settings_notify';
 
 /** A key as the browser makes them (src/lib/saver.ts): a random UUID or base64url; anything else is replaced. */
@@ -759,6 +764,12 @@ export function bodyFor(
     if (so && (CATALOGUE_SORTS as readonly string[]).includes(so)) body.view_s = so;
     const food = str(f, 'view_food', 12);
     if (food && /^[Nn]?\d{1,9}$/.test(food)) body.view_food = Number(food.replace(/^[Nn]/, ''));
+  }
+  // The words review's fresh read (core item 24): the page's search and chip (?q=, ?shared=1).
+  if (view === 'words') {
+    const q = str(f, 'view_q', 60);
+    if (q) body.view_q = q;
+    if (f.get('view_shared') === '1') body.view_shared = true;
   }
   // Medical's fresh read (deploy 106): the Reports page's open report (view_open, R12 as the door says it), or the Tests page's search and test.
   if (view === 'labs') {
