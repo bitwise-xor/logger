@@ -1036,9 +1036,10 @@ settings_devices = {devices: [{id, name, address: "logger" | "app", signed_in, l
                                                // session; others: how many are not
 settings_notify = {on, on_label: "Send nudges",
   nudges: [{key, label, after, on, hours: null | {key, value, min, max, step: 0.5, default}, note}],
-                                               // weight, habits, idle, checkin, bp_evening, gratitude: "<label> [hours] <after>", e.g.
+                                               // weight, habits, idle, checkin, bp_evening, gratitude, week: "<label> [hours] <after>", e.g.
                                                // "No weight yet," … "hours after waking"; note (gratitude): "A tap on this one
-                                               // opens the gratitude list in the full app."
+                                               // opens the gratitude list in the full app."; week (web item 45): "Last week's summary,
+                                               // on the first day of the week," … "hours after waking" (1 by default, 0.5 to 12)
                                                // home_timer (web item 57): a switch alone, after and hours null, label "When the Home
                                                // timer ends", note "At the moment it ends, at any hour; each timer once."
   awake_hours: 16,                             // quiet hours: nothing later than this after waking
@@ -1068,7 +1069,7 @@ as it is now (the door fills it in, as app.'s form comes filled in), except on `
 | `/settings/coach` | `goals`, `style` (text up to 2000, as `coach._clean` reads it), `parts: {day: [keys on], week: [keys on]}` (a kind left out: as now) | `coach.goals_set`: "Saved: the coach reads your settings every time."; "Keep at least one part of the day coaching." / "… week review." |
 | `/settings/device` | `id` (a device of `settings_devices`) | `websettings.device` (also an app. session): "Signed that device out."; this session: "This is the device you are using; use Sign out on More." (app. says "… at the top."); gone: `unchanged` "That device is already signed out."; "Unknown device." |
 | `/settings/others` | | `websettings.others`: every other session, here and at app.: "Signed out 2 other devices." / "No other device was signed in." |
-| `/settings/nudges` | `on`, `weight`, `habits`, `idle`, `checkin`, `bp_evening`, `gratitude`, `home_timer` (true or false); `weight_after`, `habits_after`, `idle_hours`, `checkin_after`, `bp_evening_after`, `gratitude_after` (numbers: clamped to their range in half hours, as app.) | `websettings.nudge_settings` (nudges.save stores the whole value; the door fills in what is left out): "Saved. Nudges are on." / "… off." |
+| `/settings/nudges` | `on`, `weight`, `habits`, `idle`, `checkin`, `bp_evening`, `gratitude`, `week`, `home_timer` (true or false); `weight_after`, `habits_after`, `idle_hours`, `checkin_after`, `bp_evening_after`, `gratitude_after`, `week_after` (numbers: clamped to their range in half hours, as app.) | `websettings.nudge_settings` (nudges.save stores the whole value; the door fills in what is left out): "Saved. Nudges are on." / "… off." |
 | `/push/subscribe` | `endpoint`, `keys: {p256dh, auth}` (the browser's PushSubscription), `user_agent` | app.'s checks of `/web/push/subscribe` (`webpush.allowed`: https on Apple's, Google's, Mozilla's or Microsoft's push service; `webpush.valid_keys`), else `rejected` "Not a known push service."; kept with `origin` "logger" and this session (upsert on the endpoint; the audit row "notifications on"): "Notifications are on for this device." |
 | `/push/off` | `id` (a number: `settings_notify.subscriptions[].id`, here or at app.) | `websettings.push_off`: "Notifications are off for that device."; "That device is not there any more." |
 | `/push/test` | | `websettings.nudge_test`, to every device (each with its own address's link): "Test notification sent to 2 devices."; none: "No device took the test notification. Turn notifications on again on the phone, then try once more." |
@@ -1078,7 +1079,8 @@ as it is now (the door fills it in, as app.'s form comes filled in), except on `
 `push_subscriptions.origin` is `app` (`/web/push/subscribe`, every row before 110) or `logger` (`POST /push/subscribe`). One VAPID key
 serves both; each browser's subscription has its own endpoint. `nudges.deliver` sends every message (the nudges, "Not read yet" of
 held.py, the test) to every device with the link of its address (`nudges.link_for`): app.'s unchanged (`/web/…`, as before); a logger.
-device's `/web/` → `/`, `/web/settings?tab=notify` → `/settings/notifications`, and any other app. page (the gratitude nudge's
+device's `/web/` → `/`, `/web/settings?tab=notify` → `/settings/notifications`, `/web/home/pick` → `/home/pick`, `/web/week?p=last`
+→ `/trends?p=last` (last week's summary), and any other app. page (the gratitude nudge's
 `/web/gratitude`: its words stay at app.) → the full app's absolute address `https://<APP_HOST>/web/…`. The payload is otherwise the same:
 `{title, body, url, tag}` (the front end's service worker shows `title` and `body`, and opens `url` on a tap). A device with notifications
 on at both addresses gets each nudge twice (`settings_notify.twice`). app.'s Settings > Notifications lists every device alike.
@@ -1094,6 +1096,20 @@ at most once (two rounds or processes never both; a failed send is not repeated)
 notification); a timer stopped or done before its end never is. Sent when `on` and `home_timer` are both true (on by default); the
 quiet hours and the once-a-day rule (`push_sent`) do not apply. The audit row is `nudge` / `sent` / `{"kind": "home_timer"}`, never the
 job's name.
+
+### Last week's summary (web item 45, core item 17)
+
+Once a week every device gets `{title: "Last week · 16.11. to 22.11.", body, url: "/web/week?p=last" (a logger. device:
+"/trends?p=last"), tag: "week-20261116"}`. It is a nudge of `nudges.due` (cron, every 5 minutes): on the first logging day of the week
+(Monday to Sunday) on which `week_after` hours (1 by default) have passed since waking, inside the usual quiet hours; on Tuesday when
+Monday had no wake-up, and so on; never twice for one week. `push_sent` is per day, so the kind names the week summarised by its
+Monday (`week-YYYYMMDD`, last week's Monday) and is looked for on every day, before the week is read (the Week read runs once a week).
+The words are `weekdigest.message`, from the Week page's own numbers for last week (`weekpage`: the days with food, the Food tiles,
+the weight by day, the Habits row): one line of shares and changes only, never an absolute health value (a locked screen shows it),
+the parts with data joined by " · ": "6 of 7 days logged · kcal 94 %, protein 88 % of target · weight −0.4 kg · habits 71 %"
+(percents of the latest target, the average of the fully logged days; the weight's change from the first to the last weighed day,
+with two weighed days or more). Last week without a day with food: nothing is sent, the week is marked as done all the same (the
+audit row `nudge` / `skipped`). Sent when `on` and `week` are both true (on by default). Not part of it: a daily digest and Telegram.
 
 ### The export: `POST /api/v1/export` → the ZIP
 
