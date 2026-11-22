@@ -23,6 +23,22 @@ def test_the_instructions_are_cached_for_an_hour():
     assert u.seconds >= 0
 
 
+def test_the_seldom_called_models_send_no_cache_and_sonnets_cache_reads_cost_a_twentieth():
+    p = AnthropicProvider("sk-test")
+    sent = {}
+
+    def create(**kw):
+        sent.update(kw)
+        return SimpleNamespace(stop_reason="end_turn", content=[SimpleNamespace(type="text", text="{}")],
+                               usage=SimpleNamespace(input_tokens=1000, output_tokens=10, cache_read_input_tokens=2000, cache_creation_input_tokens=0))
+    p.client = SimpleNamespace(messages=SimpleNamespace(create=create))
+    for model in ("claude-sonnet-5-5", "claude-opus-5-5"):
+        out, u = p.json("the instructions", "a message", {"type": "object"}, model)
+        assert sent["system"] == [{"type": "text", "text": "the instructions"}], model
+    _out, u = p.json("the instructions", "a message", {"type": "object"}, "claude-sonnet-5-5")
+    assert round(u.usd, 6) == round((1000 * 2.00 + 10 * 10.00 + 2000 * 0.10) / 1e6, 6)
+
+
 def test_the_audit_row_shows_how_long_the_message_and_each_ai_call_took(fake, skyr):
     real = fake.json
 

@@ -10,9 +10,17 @@ from typing import Protocol
 # the cost log, not a bill.
 PRICES = {
     "claude-haiku-5-5": (0.10, 0.50, 0.01, 0.20),
-    "claude-sonnet-5-5": (2.00, 10.00, 0.20, 4.00),
+    "claude-sonnet-5-5": (2.00, 10.00, 0.10, 4.00),  # cache reads at 0.10 (0.20 until 22.11.2026 was Opus's)
     "claude-opus-5-5": (4.00, 20.00, 0.20, 8.00),
 }
+
+
+# Only the model read many times a day keeps its instructions cached (core item 39, 22.11.2026). An hour's cache write costs twice
+# the input price and pays only when a second call comes within the hour: the small model's reads do (1.16 M tokens read from the
+# cache against 0.73 M written in the 30 days to 22.11.2026), but the larger models are called about once a day (the second read,
+# a label photo, a lab report, a coaching), so their cache was written and almost never read (Sonnet: 136 k tokens written, 21 k
+# read, half of its cost). Without the cache they pay the plain input price.
+CACHED_MODELS = {"claude-haiku-5-5"}
 
 
 class ProviderError(Exception):
@@ -86,8 +94,10 @@ class AnthropicProvider:
                 model=model,
                 max_tokens=max_tokens,
                 # The instructions stay cached for an hour (02.11.2026): messages mostly come more than 5 minutes apart, so the
-                # default 5-minute cache was used by about 1 read in 20; a cached read is about 0.7 s faster.
-                system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral", "ttl": "1h"}}],
+                # default 5-minute cache was used by about 1 read in 20; a cached read is about 0.7 s faster. Only for the models in
+                # CACHED_MODELS (22.11.2026): the others are called too seldom for a cache write to pay.
+                system=[{"type": "text", "text": system,
+                         **({"cache_control": {"type": "ephemeral", "ttl": "1h"}} if model in CACHED_MODELS else {})}],
                 messages=[{"role": "user", "content": user}],
                 output_config={"effort": self.effort, "format": {"type": "json_schema", "schema": schema}},
             )
