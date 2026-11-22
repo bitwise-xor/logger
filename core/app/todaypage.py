@@ -724,7 +724,3 @@ def render(csrf: str, asked: date | None = None) -> str:
     return (f'{_daybar(d["day"], d["today"])}{note}<div class="grid"><section>{_food_section(d, csrf)}</section>'
             f'<aside>{_checkin_section(d, csrf)}{_gratitude_card(d, csrf)}{_habit_section(d, csrf)}{_home_card(d)}{"" if d["past"] else gympage.today_card()}{_health_section(d, csrf)}{_coach_card(d, csrf)}{review}'
             '<p class="small"><a href="/web/settings?tab=today">Customize this page</a></p></aside></div>')
-
-
-def day_title(day: date) -> str:
-    return day.strftime("%a %d.%m.%Y")

@@ -1,14 +1,17 @@
 """Watch data from Apple Health (02.11.2026, Gym step d; plan and the owner's answers in the doc, section "Step (d), Activity").
 
-POST /watch/health on the public log host, sent by the iPhone app Health Auto Export (REST API automations, JSON, export
-version 2) with the header "Authorization: Bearer <WATCH_TOKEN>". The owner types WATCH_TOKEN into /opt/stacks/logger-v2/.env
-(compose passes it on); without it the address answers 503. Each run re-sends yesterday and today, so readings are upserted on
-(metric, time, source) and workouts on Apple's id: totals are overwritten, never added up. Energy is kept in kcal and distance in
-km whatever the app sends. Only counts go to the audit log, never values."""
+POST /watch/health on the core's public address (the MCP door's host, PUBLIC_URL), sent by the iPhone app Health Auto Export
+(REST API automations, JSON, export version 2) with the header "Authorization: Bearer <WATCH_TOKEN>". It has no sign-in; the token
+is the check. The owner types WATCH_TOKEN into /opt/stacks/logger-v2/.env (compose passes it on); without it the address answers
+503. Each run re-sends yesterday and today, so readings are upserted on (metric, time, source) and workouts on Apple's id: totals
+are overwritten, never added up. Energy is kept in kcal and distance in km whatever the app sends. Only counts go to the audit log,
+never values. The names of the metrics that are skipped (not used by the Activity tab) go to the container's log once per name and
+start of the core (never a value), so a metric that arrives under another name than the one expected can be seen (core item 31)."""
 import hmac
 import json
 import logging
 import os
+import re
 from datetime import datetime
 
 from psycopg.types.json import Jsonb
@@ -24,6 +27,7 @@ PATH = "/watch/health"
 MAX_BYTES = 10_000_000
 METRICS = ("step_count", "active_energy", "apple_exercise_time", "resting_heart_rate", "heart_rate_variability",
            "walking_running_distance", "flights_climbed", "sleep_analysis", "heart_rate")
+_SKIPPED_SEEN: set[str] = set()  # names already logged since the core started
 SLEEP_KEYS = ("totalSleep", "asleep", "core", "deep", "rem", "awake", "inBed", "sleepStart", "sleepEnd", "inBedStart", "inBedEnd")
 
 
@@ -116,14 +120,24 @@ def _workout_row(w: dict) -> tuple | None:
         return None
 
 
+def _log_skipped(names: list[str]) -> None:
+    """Log the names of skipped metrics that have not been logged yet (names only: a metric's name says what it is, never a value)."""
+    new = sorted({n for n in names if n not in _SKIPPED_SEEN})[:30]
+    if new:
+        _SKIPPED_SEEN.update(new)
+        _LOG.info("watch metrics skipped, not used by the Activity tab: %s", ", ".join(new))
+
+
 def save(data: dict) -> dict:
-    """Upsert one request's readings and workouts. Metrics the Activity tab does not use are skipped."""
-    rows, skipped = [], 0
+    """Upsert one request's readings and workouts. Metrics the Activity tab does not use are skipped (their names are logged)."""
+    rows, skipped, skipped_names = [], 0, []
     for m in data.get("metrics") or []:
         if isinstance(m, dict) and m.get("name") in METRICS:
             rows += _metric_rows(m)
         else:
             skipped += 1
+            raw = m.get("name") if isinstance(m, dict) else None
+            skipped_names.append(raw[:60] if isinstance(raw, str) and re.fullmatch(r"\w{1,60}", raw) else "(no usable name)")
     works = [r for r in (_workout_row(w) for w in data.get("workouts") or [] if isinstance(w, dict)) if r]
     with connect() as conn, conn.cursor() as cur:
         for r in rows:
@@ -138,6 +152,7 @@ def save(data: dict) -> dict:
                            source = EXCLUDED.source, received_at = now()""", r)
         out = {"metrics": len(rows), "workouts": len(works), "skipped": skipped}
         logbook._audit(cur, "watch", "saved", out, "health-auto-export")
+    _log_skipped(skipped_names)
     return out
 
 

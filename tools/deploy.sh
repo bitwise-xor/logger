@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Deploy logger-v2-core by the recipe in HANDOVER.md section 4. Usage: tools/deploy.sh <N> <what, for the dump name>
+# Deploy logger-v2-core. The steps are in this script (HANDOVER.md, which an older comment pointed to, is not in the repo). Usage: tools/deploy.sh <N> <what, for the dump name>
 #   N     the deploy number, shared with tools/deploy-front.sh: a number whose rollback image exists already is refused (the
 #         highest number in use is printed). The rollback image is logger-v2-core:trial-fixes<N>.
 #   what  a few words for the dump's name: private-dumps/v2-live-before-<N>-<what>-<date>.dump
