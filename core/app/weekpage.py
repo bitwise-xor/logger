@@ -102,6 +102,18 @@ def _row(key: str, label: str, value: str, detail=None) -> dict:
     return {"key": key, "label": label, "value": value, "detail": detail}
 
 
+def kg_change(change: float) -> str:
+    """A weight change as the Weight row writes it: "+0.3 kg", "−0.4 kg", "±0.0 kg" (also the week's notification, weekdigest)."""
+    return f'{"+" if change > 0 else "−" if change < 0 else "±"}{abs(change):.1f} kg'
+
+
+def weights(cur, start: date, end: date) -> dict:
+    """{day: the day's last weight in kg} for the days a to b with a weight (the days table's kg; the week's notification's change)."""
+    cur.execute("""SELECT m.day, m.value1 FROM measurements m JOIN log_types t ON t.id = m.type_id
+                   WHERE t.name = 'weight' AND m.day BETWEEN %s AND %s ORDER BY m.event_at, m.id""", (start, end))
+    return {r["day"]: float(r["value1"]) for r in cur.fetchall()}
+
+
 def health_rows(cur, start: date, end: date, ndays: int) -> list:
     """The "Health and habits" card's rows in app.'s order (deploy 101: data for app. and the door), only those with data: {key,
     label, value, detail} with app.'s words (detail: the small grey words after the value, or null). Keys: weight, bp_morning,
@@ -131,7 +143,7 @@ def health_rows(cur, start: date, end: date, ndays: int) -> list:
     if weights:
         ds = sorted(weights)
         change = weights[ds[-1]] - weights[ds[0]]
-        items.append(_row("weight", "Weight", f'{weights[ds[-1]]:.1f} kg', f'({"+" if change > 0 else "−" if change < 0 else "±"}{abs(change):.1f} kg since {ds[0]:%d.%m.})'))
+        items.append(_row("weight", "Weight", f'{weights[ds[-1]]:.1f} kg', f'({kg_change(change)} since {ds[0]:%d.%m.})'))
     for p in ("morning", "evening"):
         if bp[p]:
             items.append(_row(f"bp_{p}", f"Blood pressure {p}", f'{_avg(r["value1"] for r in bp[p]):.0f}/{_avg(r["value2"] for r in bp[p]):.0f}', f'average of {len(bp[p])}'))
@@ -184,10 +196,8 @@ def _health(items: list) -> str:
 def day_rows(cur, totals: dict, start: date, end: date) -> list:
     """The days table's rows, newest first: day, label (app.'s "Mon 09.11."), kcal, protein, fat, carbs, kg (the day's last
     weight or null) and partly (under half the calorie target: app.'s table does not mark it; its charts and averages do)."""
-    cur.execute("""SELECT m.day, m.value1 FROM measurements m JOIN log_types t ON t.id = m.type_id
-                   WHERE t.name = 'weight' AND m.day BETWEEN %s AND %s ORDER BY m.event_at, m.id""", (start, end))
-    weights = {r["day"]: float(r["value1"]) for r in cur.fetchall()}
-    return [{"day": d, "label": f"{d:%a %d.%m.}", **{k: totals[d][k] for k, _l, _u in MACROS}, "kg": weights.get(d),
+    kg = weights(cur, start, end)
+    return [{"day": d, "label": f"{d:%a %d.%m.}", **{k: totals[d][k] for k, _l, _u in MACROS}, "kg": kg.get(d),
              "partly": trendspage.partly(totals[d])} for d in sorted(totals, reverse=True)]
 
 

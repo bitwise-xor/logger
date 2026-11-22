@@ -1,14 +1,15 @@
 """Nudges (31.10.2026): small reminders sent as phone notifications (web push), checked every 5 minutes by cron:
 `docker exec logger-v2-core python -m app.nudges`. The times count from the day's wake-up time; nothing is sent before
 waking, after a bed time logged that evening, or more than 16 hours after waking (quiet hours). Each nudge goes at most
-once a logging day (push_sent). The owner turns them on and picks them in Settings > Notifications (ui_settings "nudges").
+once a logging day (push_sent); last week's summary (weekdigest, 22.11.2026) once a week, on the first logging day of the week the
+owner is up. The owner turns them on and picks them in Settings > Notifications (ui_settings "nudges").
 The Home timer's "Time is up" (switch home_timer, 22.11.2026) is sent by hometimer.py, a thread of the core, at the timer's end."""
 import json
 from datetime import datetime, timedelta, timezone
 
 from psycopg.types.json import Jsonb
 
-from . import config, gratitude, habitaim, logbook, webpush
+from . import config, gratitude, habitaim, logbook, webpush, weekdigest
 from .db import connect
 from .when import BERLIN
 
@@ -17,6 +18,7 @@ KEY = "nudges"
 DEFAULTS = {"on": True, "weight": True, "weight_after": 2.0, "habits": True, "habits_after": 14.0, "idle": True, "idle_hours": 5.0,
             "checkin": True, "checkin_after": 12.0, "bp_evening": False, "bp_evening_after": 13.0,
             "gratitude": False, "gratitude_after": 14.0,  # gratitude since 14.11.2026 (off until chosen)
+            "week": True, "week_after": 1.0,  # last week's summary (weekdigest, 22.11.2026): once a week
             "home_timer": True}  # hometimer.py (22.11.2026): no hours, no quiet hours, each timer once
 AWAKE_HOURS = 16
 CHANNELS = ["web", "claude-chat", "mcp"]  # what counts as logging something (imports do not)
@@ -84,6 +86,14 @@ def due(cur, now: datetime) -> list[dict]:
         if n < goal:
             body = "Tap to write today's lines." if n == 0 else f"{goal - n} to go. Tap to open the list."
             out.append({"kind": "gratitude", "title": f"Gratitude {n}/{goal}", "body": body, "url": "/web/gratitude"})
+    if s["week"] and now >= wake + timedelta(hours=float(s["week_after"])):
+        # once a week, on the first day of the week that gets here (Monday, or Tuesday when Monday had no wake-up, ...): its kind names
+        # the week summarised, checked on every day (push_sent is per day) before the week is read, so the Week read runs once a week
+        kind = weekdigest.kind(day)
+        cur.execute("SELECT 1 FROM push_sent WHERE kind = %s", (kind,))
+        if not cur.fetchone():
+            m = weekdigest.message(cur, day)  # None: last week has no day with food; marked as done all the same, nothing sent
+            out.append({"kind": kind, **m} if m else {"kind": kind, "quiet": True})
     if s["idle"]:
         cur.execute("SELECT max(received_at) AS t FROM raw_inbox WHERE channel = ANY(%s)", (CHANNELS,))
         last = cur.fetchone()["t"]
@@ -99,12 +109,13 @@ def due(cur, now: datetime) -> list[dict]:
 
 # A nudge's link on a device that turned notifications on at logger. (deploy 110, migration 032): app.'s pages that logger. has
 LOGGER_LINKS = {"/web/": "/", "/web": "/", "/web/settings?tab=notify": "/settings/notifications",
-                "/web/home/pick": "/home/pick"}  # the Home timer's (hometimer.py)
+                "/web/home/pick": "/home/pick",  # the Home timer's (hometimer.py)
+                weekdigest.URL: "/trends?p=last"}  # last week's summary: Trends > Week, last week
 
 
 def link_for(url, origin: str):
     """The link a message opens on a device of this origin. app.: as written (a relative /web/ path, its service worker resolves it).
-    logger.: its own page where it has one (Today, Settings > Notifications); any other app. page (the gratitude list: its words stay
+    logger.: its own page where it has one (Today, Settings > Notifications, the Home timer, last week's Week); any other app. page (the gratitude list: its words stay
     at app.) as the full app's absolute address, so it never opens a page logger. does not have."""
     url = url or "/web/"
     if origin != "logger":
@@ -144,6 +155,11 @@ def run(now=None) -> dict:
     sent = 0
     if devices:
         for n in todo:
+            if n.get("quiet"):  # last week's summary with nothing to say: the week is done, nothing goes out
+                with connect() as c, c.cursor() as cur:
+                    cur.execute("INSERT INTO push_sent (day, kind) VALUES (%s, %s) ON CONFLICT DO NOTHING", (n["day"], n["kind"]))
+                    logbook._audit(cur, "nudge", "skipped", {"kind": n["kind"], "why": "nothing logged last week"}, "nudges")
+                continue
             sent += bool(deliver({"title": n["title"], "body": n["body"], "url": n.get("url", "/web/"), "tag": n["kind"]}))
             with connect() as c, c.cursor() as cur:  # marked even when no device took it: no repeats every 5 minutes
                 cur.execute("INSERT INTO push_sent (day, kind) VALUES (%s, %s) ON CONFLICT DO NOTHING", (n["day"], n["kind"]))

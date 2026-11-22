@@ -9,7 +9,7 @@ from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
-from app import nudges, webpush
+from app import nudges, webpush, weekdigest
 from app.db import connect
 from app.when import BERLIN
 from conftest import owner_sql
@@ -39,6 +39,8 @@ def push_clean(monkeypatch):  # (not named "clean": that would hide conftest's d
             f"DELETE FROM events WHERE day = '{DAY}'", f"DELETE FROM measurements WHERE day = '{DAY}'")
     for sql in wipe:
         owner_sql(sql)
+    # last week's summary (weekdigest, 22.11.2026) already went this week: these tests are about the daily nudges (test_week_digest)
+    owner_sql("INSERT INTO push_sent (day, kind) VALUES (%s, %s)", DAY - timedelta(days=DAY.weekday()), weekdigest.kind(DAY))
     yield
     for sql in wipe:
         owner_sql(sql)
@@ -222,7 +224,7 @@ def grat(n: int, hm: str = "10:00") -> None:
 
 
 def only_gratitude(**more):
-    nudges.save({**nudges.DEFAULTS, "idle": False, "habits": False, "checkin": False, "weight": False, **more})
+    nudges.save({**nudges.DEFAULTS, "idle": False, "habits": False, "checkin": False, "weight": False, "week": False, **more})
 
 
 def messages(now):

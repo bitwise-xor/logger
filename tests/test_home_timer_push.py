@@ -132,7 +132,7 @@ def test_the_quiet_hours_and_once_a_day_do_not_apply(starter, phone, sent):
     for _ in range(2):
         t = start()
         assert hometimer.round(at_end(t))["sent"] == 1
-    assert len(sent) == 2 and owner_sql("SELECT count(*) AS n FROM push_sent")[0]["n"] == 0
+    assert len(sent) == 2 and owner_sql("SELECT count(*) AS n FROM push_sent WHERE kind NOT LIKE 'week-%%'")[0]["n"] == 0
 
 
 def test_with_no_device_the_timer_is_still_marked(starter, sent):
