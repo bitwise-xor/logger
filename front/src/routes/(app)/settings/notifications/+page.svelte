@@ -117,7 +117,8 @@
       <div><button type="submit" class={S.primary} disabled={!!page.busy.nudges}>Save</button></div>
       <p class={S.note}>
         Times count from the time you woke up (the Woke up value). Quiet hours: nothing before you log waking up, nothing after a bed time is logged,
-        nothing later than {s.awake_hours} hours after waking. Each nudge comes at most once a day; the check runs every 5 minutes. The Home timer's
+        nothing later than {s.awake_hours} hours after waking. Each nudge comes at most once a day, last week's summary once a week (on the first day
+        of the week you log waking up); the check runs every 5 minutes. The Home timer's
         comes at the moment it ends, at any hour, once for each timer.
       </p>
     </form>

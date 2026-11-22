@@ -499,6 +499,21 @@
      "note": "A tap on this one opens the gratitude list in the full app."
     },
     {
+     "key": "week",
+     "label": "Last week's summary, on the first day of the week,",
+     "after": "hours after waking",
+     "on": true,
+     "hours": {
+      "key": "week_after",
+      "value": 1,
+      "min": 0.5,
+      "max": 12,
+      "step": 0.5,
+      "default": 1
+     },
+     "note": null
+    },
+    {
      "key": "home_timer",
      "label": "When the Home timer ends",
      "after": null,
