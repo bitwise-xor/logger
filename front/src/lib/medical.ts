@@ -55,6 +55,9 @@ export interface LabValue {
   value: number | null;
   unit: string | null;
   range: string;
+  /** The reference range's numbers (the page draws `range`); null where the report printed none. */
+  ref_low: number | null;
+  ref_high: number | null;
   flag: Flag;
   flag_word: string | null;
   site: string | null;

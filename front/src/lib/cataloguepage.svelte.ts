@@ -35,7 +35,7 @@ import {
 import type { SaveAnswer, Undo } from './day.js';
 import type { Sent, FieldValues } from './saver.js';
 
-type CatalogueAnswer = SaveAnswer & { catalogue?: Catalogue; food_item?: Item | null };
+export type CatalogueAnswer = SaveAnswer & { catalogue?: Catalogue; food_item?: Item | null };
 
 /** How long the search waits after the last key before it asks (Enter asks at once). */
 export const SEARCH_PAUSE_MS = 400;
