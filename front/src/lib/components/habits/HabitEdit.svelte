@@ -2,7 +2,7 @@
   import type { ListHabit } from '#lib/habits.js';
   import { getHabitsPage } from '#lib/habitspage.svelte.js';
 
-  // A habit's Edit form: its label, times a day, order and aim (do or avoid). Save sends them all (as app.'s form); a refusal is
+  // A habit's Edit form: its label, times a day, order, the reminder (hours after waking, empty for none) and aim (do or avoid). Save sends them all; a refusal is
   // said under the form and what was typed stays. Lists' forms have no Undo.
   let { h }: { h: ListHabit } = $props();
   const page = getHabitsPage();
@@ -39,6 +39,23 @@
       <input name="order" type="text" inputmode="numeric" maxlength="3" autocomplete="off" bind:value={d.order} class="{field} num text-text" aria-label="Order of {h.label}" />
     </label>
   </div>
+  <label class="flex flex-col gap-1 text-xs text-muted" data-remind>
+    Remind me
+    <span class="flex items-center gap-2">
+      <input
+        name="remind_after"
+        type="text"
+        inputmode="decimal"
+        maxlength="4"
+        autocomplete="off"
+        placeholder="none"
+        bind:value={d.remind}
+        class="{field} num w-20 shrink-0 text-text"
+        aria-label="Hours after waking to remind me of {h.label}, empty for no reminder"
+      />
+      <span class="min-w-0">hours after waking if still open</span>
+    </span>
+  </label>
   <label class="flex flex-col gap-1 text-xs text-muted">
     Aim
     <select name="aim" bind:value={d.aim} class="{field} text-text" aria-label="Aim of {h.label}">

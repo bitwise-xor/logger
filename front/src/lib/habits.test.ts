@@ -25,6 +25,7 @@ import {
   newDraft,
   newFields,
   problem,
+  remindValue,
   readOnlyWhy,
   restoreFields,
   retireFields,
@@ -205,8 +206,9 @@ describe('the forms', () => {
 
   it("an Edit form starts from the habit's own values and sends all of them", () => {
     const d = editDraft(row(habits, 'sample_reading'));
-    expect(d).toMatchObject({ label: 'Reading', target: '2', order: '802', aim: 'do' });
+    expect(d).toMatchObject({ label: 'Reading', target: '2', order: '802', remind: '', aim: 'do' });
     expect(editDraft(row(habits, 'sample_soft_drink')).aim).toBe('avoid');
+    expect(editDraft(row(habits, 'sample_stretching')).remind).toBe('3');
     expect(editFields('sample_reading', { ...d, label: '  Reading   more ', target: ' 3 ', aim: 'avoid' })).toEqual({
       action: 'edit',
       name: 'sample_reading',
@@ -214,7 +216,10 @@ describe('the forms', () => {
       target: '3',
       order: '802',
       aim: 'avoid',
+      remind_after: '',
     });
+    // the reminder is always sent: as typed, empty clears it
+    expect(editFields('x', { ...d, remind: ' 2.5 ' }).remind_after).toBe('2.5');
     // an order left empty is not sent, so the door keeps it
     expect(editFields('x', { ...d, order: ' ' })).not.toHaveProperty('order');
   });
@@ -245,8 +250,20 @@ describe('the forms', () => {
     expect(problem({ ...d, order: '1000' }, limits, false)).toBe('Order: a whole number from 0 to 999.');
     expect(problem({ ...d, order: '' }, limits, false)).toBeNull();
     expect(problem({ ...d, order: '999' }, limits, false)).toBeNull();
+    // the reminder: empty for none, 0.5 to 15.5 in half hours (a comma is a point)
+    const why = 'Reminder: a number from 0.5 to 15.5 in steps of 0.5, or empty for none.';
+    for (const ok of ['', ' ', '0.5', '15.5', '3', '2,5', '12.0']) expect(problem({ ...d, remind: ok }, limits, false), ok).toBeNull();
+    for (const bad of ['0', '0.4', '16', '15.6', '1.3', '-1', 'soon', '2h']) expect(problem({ ...d, remind: bad }, limits, false), bad).toBe(why);
+    expect(problem({ ...d, remind: 'soon' }, limits, true)).toBeNull(); // not asked of a new habit
     // the order is not asked of a new habit
     expect(problem({ ...d, order: 'abc' }, limits, true)).toBeNull();
+  });
+
+  it('the reminder as a number', () => {
+    expect(remindValue('3')).toBe(3);
+    expect(remindValue(' 2,5 ')).toBe(2.5);
+    expect(remindValue('')).toBeNull();
+    expect(remindValue('x')).toBeNull();
   });
 
   it('track, retire, bring back and delete', () => {

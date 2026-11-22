@@ -576,6 +576,18 @@ function zonesOf(f: Fields): Body[] | undefined {
 }
 
 /**
+ * A habit's reminder (hours after waking): a field left out stays as it is (undefined, not sent), an empty one clears it (null), a number
+ * as a JSON number, anything else as typed (the door refuses it in plain words).
+ */
+function remindAfter(f: Fields): number | string | null | undefined {
+  const v = f.get('remind_after');
+  if (typeof v !== 'string') return undefined;
+  const t = v.trim().slice(0, 20).replace(',', '.');
+  if (t === '') return null;
+  return /^\d{1,3}(\.\d{1,3})?$/.test(t) ? Number(t) : t;
+}
+
+/**
  * One of the Habits page's list forms (docs/API.md, /habits/manage): only the fields its action takes, as numbers and true or
  * false where the door wants them (it refuses `on` or `track` that are not true or false, so they go only where they belong).
  */
@@ -591,7 +603,15 @@ function manageBody(f: Fields): Body {
       return { action, name, on: f.get('on') === '1' };
     case 'edit': {
       const aim = str(f, 'aim', 10);
-      return { action, name, label: label(), target: int(f, 'target'), order: int(f, 'order'), aim: aim === 'do' || aim === 'avoid' ? aim : undefined };
+      return {
+        action,
+        name,
+        label: label(),
+        target: int(f, 'target'),
+        order: int(f, 'order'),
+        aim: aim === 'do' || aim === 'avoid' ? aim : undefined,
+        remind_after: remindAfter(f),
+      };
     }
     case 'delete':
       return { action, name, confirmed: f.get('confirmed') === '1' ? true : undefined };

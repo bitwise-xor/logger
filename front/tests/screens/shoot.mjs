@@ -1901,6 +1901,9 @@ async function checkHabits(page, name, theme) {
   assert.equal(await edit.locator('input[name=target]').inputValue(), '2');
   assert.equal(await edit.locator('input[name=order]').inputValue(), '802');
   assert.equal(await edit.locator('select[name=aim]').inputValue(), 'do');
+  // web item 49: the reminder, empty for a habit without one
+  assert.equal(await text(edit.locator('[data-remind]')), 'Remind me hours after waking if still open');
+  assert.equal(await edit.locator('input[name=remind_after]').inputValue(), '', 'no reminder');
   await edit.locator('input[name=label]').fill('Stretching');
   await edit.locator('input[name=target]').fill('3');
   await edit.getByRole('button', { name: 'Save' }).click();
@@ -1918,6 +1921,13 @@ async function checkHabits(page, name, theme) {
   // saved: the label and the times a day change everywhere, the row has a blue edge, and no Undo is offered
   await edit.locator('input[name=target]').fill('3');
   await edit.locator('select[name=aim]').selectOption('avoid');
+  // the reminder out of its range or not in half hours is said next to the form, nothing is sent
+  for (const bad of ['16', '0.4', '2.3', 'soon']) {
+    await edit.locator('input[name=remind_after]').fill(bad);
+    await edit.getByRole('button', { name: 'Save' }).click();
+    assert.equal(await text(edit.locator('[data-refusal]')), 'Reminder: a number from 0.5 to 15.5 in steps of 0.5, or empty for none.', bad);
+  }
+  await edit.locator('input[name=remind_after]').fill('9,5');
   if (name === 'phone') await reads.screenshot({ path: `${out}/habits-edit-${name}-${theme}.png` });
   await edit.getByRole('button', { name: 'Save' }).click();
   await headIs('Saved the habit Reading time.');
@@ -1931,11 +1941,16 @@ async function checkHabits(page, name, theme) {
   assert.match(await text(page.locator('[data-card="ticks"] [data-habit="sample_reading"]')), /^Reading time 2\/3 avoid$/, "the ticks follow the edit");
   assert.equal(await text(doneLine), '1 of 3 done', 'a habit to avoid is not counted');
   await reads.getByRole('button', { name: 'Edit' }).click();
+  assert.equal(await edit.locator('input[name=remind_after]').inputValue(), '9.5', 'the reminder was saved (9,5 typed) and comes back');
   await edit.locator('input[name=label]').fill('Reading');
   await edit.locator('input[name=target]').fill('2');
   await edit.locator('select[name=aim]').selectOption('do');
+  await edit.locator('input[name=remind_after]').fill('');
   await edit.getByRole('button', { name: 'Save' }).click();
   await headIs('Saved the habit Reading.');
+  await reads.getByRole('button', { name: 'Edit' }).click();
+  assert.equal(await edit.locator('input[name=remind_after]').inputValue(), '', 'an empty field clears the reminder');
+  await edit.getByRole('button', { name: 'Cancel' }).click();
   assert.equal(await text(doneLine), '2 of 4 done');
 
   // a new habit: the form with the read's group list and limits; a used name is refused and keeps the words; then it is added
@@ -4622,6 +4637,26 @@ async function checkLibraryTabs(page, name, theme) {
   await page.locator('[data-habit-row="ayurveda"]').waitFor();
   await page.locator('[data-show="tracked"]').click();
   await page.waitForURL(/\/library\/habits$/);
+  // web item 49: the same form here: Stretching has a reminder of 3 hours (the sample), set to 4.5, then cleared; a value out of range is refused
+  const stretch = page.locator('[data-habit-row="sample_stretching"]');
+  await stretch.getByRole('button', { name: 'Edit' }).click();
+  const sEdit = page.locator('[data-edit-form="sample_stretching"]');
+  assert.equal(await sEdit.locator('input[name=remind_after]').inputValue(), String(hb.list.flatMap((g) => g.habits).find((x) => x.name === 'sample_stretching').remind_after));
+  if (name === 'phone') await sEdit.screenshot({ path: `${out}/library-habit-remind-${name}-${theme}.png` });
+  await sEdit.locator('input[name=remind_after]').fill('16');
+  await sEdit.getByRole('button', { name: 'Save' }).click();
+  assert.equal(await text(sEdit.locator('[data-refusal]')), 'Reminder: a number from 0.5 to 15.5 in steps of 0.5, or empty for none.');
+  await sEdit.locator('input[name=remind_after]').fill('4.5');
+  await sEdit.getByRole('button', { name: 'Save' }).click();
+  await headIs('Saved the habit Stretching.');
+  await stretch.getByRole('button', { name: 'Edit' }).click();
+  assert.equal(await sEdit.locator('input[name=remind_after]').inputValue(), '4.5', 'saved');
+  await sEdit.locator('input[name=remind_after]').fill('');
+  await sEdit.getByRole('button', { name: 'Save' }).click();
+  await headIs('Saved the habit Stretching.');
+  await stretch.getByRole('button', { name: 'Edit' }).click();
+  assert.equal(await sEdit.locator('input[name=remind_after]').inputValue(), '', 'cleared');
+  await sEdit.getByRole('button', { name: 'Cancel' }).click();
   // a new habit: a used name refused next to the form, then added; Retire and Bring back
   await page.locator('[data-new-habit]').click();
   const form = page.locator('[data-new-form]');
@@ -6397,6 +6432,11 @@ async function checkSettings(page, name, theme) {
   }
   assert.equal(await text(page.locator('[data-nudge="gratitude"] [data-note]')), N.nudges.find((x) => x.key === 'gratitude').note);
   assert.equal(await page.locator('[data-nudges-on]').getAttribute('aria-checked'), String(N.on));
+  // web item 49: the waiting question's row comes from the door's list (no front code): its words, its switch on, 24 hours, from 1 to 48
+  assert.equal(await text(page.locator('[data-nudge="question"]')), 'A question still waiting for an answer after hours');
+  assert.equal(await page.locator('[data-nudge="question"] [data-switch]').getAttribute('aria-checked'), 'true');
+  assert.equal(await page.locator('[data-hours="question_after"]').inputValue(), '24');
+  assert.deepEqual(await page.locator('[data-nudge]').evaluateAll((els) => els.slice(-3).map((e) => e.getAttribute('data-nudge'))), ['week', 'question', 'home_timer']);
   await shot('notifications');
   const appSub = N.subscriptions.find((s) => s.address === 'app').id;
   await page.locator(`[data-subscription="${appSub}"] [data-push-off]`).click();
@@ -6410,9 +6450,11 @@ async function checkSettings(page, name, theme) {
   await page.locator('[data-nudge="idle"] [data-switch]').click();
   await page.locator('[data-nudge="home_timer"] [data-switch]').click();
   await page.locator('[data-hours="gratitude_after"]').fill('13');
+  await page.locator('[data-hours="question_after"]').fill('36');
   await page.locator('[data-form="nudges"] button[type=submit]').click();
   await headIs(SETTINGS.saves.nudges.head);
   await page.reload();
+  assert.equal(await page.locator('[data-hours="question_after"]').inputValue(), '36', 'the question row saved from the door\'s list');
   assert.equal(await page.locator('[data-nudge="idle"] [data-switch]').getAttribute('aria-checked'), 'false');
   assert.equal(await page.locator('[data-nudge="home_timer"] [data-switch]').getAttribute('aria-checked'), 'false', 'a switch alone: saved');
   assert.equal(await page.locator('[data-hours="gratitude_after"]').inputValue(), '13');

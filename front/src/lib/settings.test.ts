@@ -96,6 +96,7 @@ describe('the Nudges form', () => {
       ['bp_evening', false, 'bp_evening_after', '13'],
       ['gratitude', true, 'gratitude_after', '14'],
       ['week', true, 'week_after', '1'],
+      ['question', true, 'question_after', '24'],
       ['home_timer', true, null, ''],
     ]);
   });
@@ -108,7 +109,7 @@ describe('the Nudges form', () => {
     expect(nudgesFields(d)).toEqual({
       on: '0', weight: '1', weight_after: '2.5', habits: '1', habits_after: '14', idle: '1', idle_hours: '6.5',
       checkin: '1', checkin_after: '12', bp_evening: '0', bp_evening_after: '13', gratitude: '1', gratitude_after: '14', week: '1', week_after: '1',
-      home_timer: '1',
+      question: '1', question_after: '24', home_timer: '1',
     });
   });
 

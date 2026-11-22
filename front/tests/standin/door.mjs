@@ -52,7 +52,7 @@
 // Deploy 94: the Habits page's routes, from tests/samples/habits.json (real answers of the door for invented habits): GET /habits?show=
 // (today's ticks, 30 days per tracked habit, Your habits with the filter and its counts), POST /habit/day (a day under its times a
 // day gets a tick, a done day has its ticks taken off; a re-sent key is refused while the day still needs a tick, as the core), POST
-// /habits/manage (track, retire, restore, edit, delete with confirmed, new: the core's checks and words, no Undo), and Today's POST
+// /habits/manage (track, retire, restore, edit, delete with confirmed, new: the core's checks and words, no Undo; edit takes remind_after: a number in half hours, null clears it, left out keeps it), and Today's POST
 // /habit with view "habits". The habits are the sample's list (names from the sample), kept as ticks per day; POST /standin/slow
 // makes the day taps take a moment (to try a button blocked while its save is on the way), POST /standin/locked marks Medication as not editable.
 // Deploy 96: the Gym's Workout page, from tests/samples/gym.json (real answers of the door for an invented split): GET /gym worked out
@@ -940,7 +940,7 @@ function habitsStart() {
     const days = c ? Object.fromEntries(c.days.filter((d) => d.n).map((d) => [d.day, d.n])) : {};
     const inWindow = Object.values(days).reduce((a, n) => a + n, 0);
     return {
-      name: h.name, label: h.label, group: h.group, target: h.target, order: h.order, avoid: h.avoid,
+      name: h.name, label: h.label, group: h.group, target: h.target, order: h.order, remind: h.remind_after ?? null, avoid: h.avoid,
       on: h.state === 'tracked', active: h.state !== 'retired', days,
       older: Math.max(0, h.ticks - inWindow), base30: c ? 0 : h.days30, lastOld: h.last_day,
     };
@@ -968,7 +968,7 @@ function habitsOut(show = 'tracked') {
   const now = (h) => h.days[today] ?? 0;
   const days = Array.from({ length: HB.days }, (_, i) => shiftIso(HB.start, i));
   const rows = (h) => ({
-    name: h.name, label: h.label, group: h.group, target: h.target, order: h.order, avoid: h.avoid, state: hbState(h),
+    name: h.name, label: h.label, group: h.group, target: h.target, order: h.order, remind_after: h.remind, avoid: h.avoid, state: hbState(h),
     ticks: hbTicks(h), days30: h.base30 + Object.keys(h.days).length, last_day: hbLast(h) ?? null, stats: hbStats(h, today),
     can_track: h.active, can_delete: hbTicks(h) === 0,
   });
@@ -1056,6 +1056,9 @@ function habitsManage(b) {
   if (b.target !== undefined && !(hbWhole(b.target) && b.target >= L.target_min && b.target <= L.target_max)) return [400, hbBad('target must be a whole number from 1 to 10.')];
   if (b.order !== undefined && !(hbWhole(b.order) && b.order >= 0 && b.order <= L.order_max)) return [400, hbBad('order must be a whole number from 0 to 999.')];
   if (b.aim !== undefined && !['do', 'avoid'].includes(b.aim)) return [400, hbBad('aim must be do or avoid.')];
+  if (b.action === 'edit' && b.remind_after !== undefined && b.remind_after !== null && !(typeof b.remind_after === 'number' && b.remind_after >= L.remind_min && b.remind_after <= L.remind_max && Number.isInteger(b.remind_after / L.remind_step))) {
+    return [400, hbBad(`remind_after must be a number from ${L.remind_min} to ${L.remind_max} in steps of ${L.remind_step}, or null.`)];
+  }
   if (b.action === 'edit' && b.target === undefined) return [400, hbBad('target is missing.')];
   if (b.action === 'track' && typeof b.on !== 'boolean') return [400, hbBad('on must be true or false.')];
   if (b.action === 'new' && b.track !== undefined && typeof b.track !== 'boolean') return [400, hbBad('track must be true or false.')];
@@ -1085,6 +1088,7 @@ function habitsManage(b) {
     [h.label, h.target] = [label, b.target];
     if (b.order !== undefined) h.order = b.order;
     if (b.aim) h.avoid = b.aim === 'avoid';
+    if (b.remind_after !== undefined) h.remind = b.remind_after; // null clears it; left out keeps it (as the core)
     head = `Saved the habit ${label}.`;
   } else if (b.action === 'delete') {
     if (b.confirmed !== true) return [200, rejected('Press Yes, delete to delete a habit.')];
@@ -1098,7 +1102,7 @@ function habitsManage(b) {
     if (!HB.groups.some((g) => g.key === group)) return [200, rejected('Choose a group for the habit.')];
     const old = state.hab.find((x) => x.name === name || x.label.toLowerCase() === label.toLowerCase());
     if (old) return [200, rejected(`There is already a log type called ${label}` + (old.active ? '' : ' (retired: bring it back from the Retired list)') + '.')];
-    state.hab.push({ name, label, group, target: b.target ?? 1, order: Math.min(Math.max(0, ...state.hab.map((x) => x.order)) + 10, L.order_max), avoid: false, on: b.track === true, active: true, days: {}, older: 0, base30: 0, lastOld: null });
+    state.hab.push({ name, label, group, target: b.target ?? 1, order: Math.min(Math.max(0, ...state.hab.map((x) => x.order)) + 10, L.order_max), remind: null, avoid: false, on: b.track === true, active: true, days: {}, older: 0, base30: 0, lastOld: null });
     head = `Added the habit ${label}. ` + (b.track === true ? 'It is tracked: tick it above or log it by its name.' : 'It is in the list, not tracked yet: switch Track on to start.');
   }
   state.before = null;

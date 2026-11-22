@@ -56,6 +56,8 @@ export interface ListHabit {
   group: string;
   target: number;
   order: number;
+  /** Hours after waking at which the phone reminds of this habit while it is open today; null: no reminder of its own. */
+  remind_after: number | null;
   avoid: boolean;
   state: 'tracked' | 'untracked' | 'retired';
   ticks: number;
@@ -80,7 +82,15 @@ export interface Habits {
   list: { group: string; label: string; habits: ListHabit[] }[];
   groups: { key: string; label: string }[];
   default_group: string;
-  limits: { label_max: number; target_min: number; target_max: number; order_max: number };
+  limits: {
+    label_max: number;
+    target_min: number;
+    target_max: number;
+    order_max: number;
+    remind_min: number;
+    remind_max: number;
+    remind_step: number;
+  };
 }
 
 // ---- today's ticks -----------------------------------------------------------------------------------------------------------
@@ -209,6 +219,8 @@ export interface Draft {
   label: string;
   target: string;
   order: string;
+  /** The reminder's hours after waking as typed; empty: none. */
+  remind: string;
   aim: 'do' | 'avoid';
   group: string;
   track: boolean;
@@ -218,17 +230,24 @@ export const editDraft = (h: ListHabit): Draft => ({
   label: h.label,
   target: String(h.target),
   order: String(h.order),
+  remind: h.remind_after === null ? '' : String(h.remind_after),
   aim: h.avoid ? 'avoid' : 'do',
   group: h.group,
   track: false,
 });
 
-export const newDraft = (h: Pick<Habits, 'default_group'>): Draft => ({ label: '', target: '1', order: '', aim: 'do', group: h.default_group, track: true });
+export const newDraft = (h: Pick<Habits, 'default_group'>): Draft => ({ label: '', target: '1', order: '', remind: '', aim: 'do', group: h.default_group, track: true });
 
 /** Spaces tidied as the door tidies them: runs of spaces become one, none at the ends. */
 export const tidy = (s: string) => s.split(/\s+/).filter(Boolean).join(' ');
 
 const whole = (s: string) => (/^\d{1,6}$/.test(s.trim()) ? Number(s.trim()) : null);
+
+/** The reminder as a number, or null when it is empty or not a number ("2,5" is 2.5). */
+export const remindValue = (s: string): number | null => {
+  const t = s.trim().replace(',', '.');
+  return /^\d{1,3}(\.\d{1,3})?$/.test(t) ? Number(t) : null;
+};
 
 /** A check before sending, in the door's words where it has them; none when the form can go. */
 export function problem(d: Draft, limits: Habits['limits'], isNew: boolean): string | null {
@@ -241,6 +260,13 @@ export function problem(d: Draft, limits: Habits['limits'], isNew: boolean): str
     const o = whole(d.order);
     if (o === null || o > limits.order_max) return `Order: a whole number from 0 to ${limits.order_max}.`;
   }
+  if (!isNew && d.remind.trim() !== '') {
+    const r = remindValue(d.remind);
+    const { remind_min: lo, remind_max: hi, remind_step: step } = limits;
+    if (r === null || r < lo || r > hi || Math.abs(r / step - Math.round(r / step)) > 1e-9) {
+      return `Reminder: a number from ${lo} to ${hi} in steps of ${step}, or empty for none.`;
+    }
+  }
   return null;
 }
 
@@ -251,6 +277,8 @@ export const editFields = (name: string, d: Draft): FieldValues => ({
   target: d.target.trim(),
   ...(d.order.trim() !== '' ? { order: d.order.trim() } : {}),
   aim: d.aim,
+  // always sent: empty clears the reminder (the door keeps it only when the field is left out)
+  remind_after: d.remind.trim(),
 });
 
 export const newFields = (d: Draft): FieldValues => ({

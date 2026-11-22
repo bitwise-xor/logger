@@ -572,6 +572,19 @@ describe('the Habits page (deploy 94)', () => {
     expect(body({ action: 'new', label: 'Evening walk', group: 'daily', target: '1', track: '0' })).toMatchObject({ track: false });
   });
 
+  it("a habit's reminder: a number, null to clear it (an empty field), left out when the form does not send it, as typed when it is not a number", () => {
+    const body = (f: Record<string, string>) => bodyFor('habits_manage', form({ action: 'edit', name: 'meds', label: 'A', target: '1', ...f, key: KEY }), undefined, undefined, 'habits');
+    expect(body({ remind_after: '7.5' })).toMatchObject({ remind_after: 7.5 });
+    expect(body({ remind_after: ' 2,5 ' })).toMatchObject({ remind_after: 2.5 });
+    expect(body({ remind_after: '8' })).toMatchObject({ remind_after: 8 });
+    expect(body({ remind_after: '' })).toHaveProperty('remind_after', null);
+    expect(JSON.stringify(body({ remind_after: ' ' }))).toContain('"remind_after":null');
+    expect(body({})).not.toHaveProperty('remind_after');
+    expect(body({ remind_after: 'soon' })).toMatchObject({ remind_after: 'soon' });
+    // only an edit takes it
+    expect(bodyFor('habits_manage', form({ action: 'new', label: 'A', group: 'daily', target: '1', remind_after: '3', key: KEY }), undefined, undefined, 'habits')).not.toHaveProperty('remind_after');
+  });
+
   it('Delete sends confirmed only with its yes', () => {
     const body = (f: Record<string, string>) => bodyFor('habits_manage', form({ ...f, key: KEY }), undefined, undefined, 'habits');
     expect(body({ action: 'delete', name: 'x', confirmed: '1' })).toEqual({ action: 'delete', name: 'x', confirmed: true, view: 'habits', key: KEY });
