@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from app import api, reads, service, webentry, webundo
+from app import api, reads, webentry, webundo
 from app import web as webapp
 from app.rules import BERLIN
 from conftest import owner_sql
@@ -16,7 +16,7 @@ from test_api_door import door, door_on, signed_in  # noqa: F401 - door_on is au
 from test_log import fake, off, skyr  # noqa: F401 - fixtures reused: the AI is a fake (off: no Open Food Facts)
 from test_web import web  # noqa: F401 - a signed-in app. session (fixture)
 from test_webfood import eat_on, entry, oats
-from test_webtoday import day, eat, food, raw
+from test_webtoday import day, eat, food, measure_now, raw
 
 KEYS = {"v", "outcome", "head", "receipt", "notes", "reason", "questions", "read_back", "confirm", "result", "replayed", "undo", "tone", "refill"}
 SKYR_LINE = "150 g skyr, weight 82.4"  # in test_log's fake answers: 150 g Skyr natural and a weight of 82.4
@@ -497,7 +497,7 @@ def test_a_new_weight(sv, fake):
 
 
 def test_a_correction_with_a_ref_changes_the_entry(sv, fake):
-    service.record_weight(82.4)
+    measure_now("weight", 82.4)
     mid = owner_sql("SELECT id FROM measurements")[0]["id"]
     j = shaped(sv.post("/health", row="weight", ref=f"m{mid}", v1=82.1))
     assert j["outcome"] == "changed" and j["head"] == "Weight changed to 82.1." and got_undo(j)
@@ -545,7 +545,7 @@ def test_a_health_request_without_a_row_is_a_400(sv, fake):
 
 
 def test_an_odd_correction_is_read_back_first_and_saved_on_confirmed(sv, fake):
-    service.record_weight(82.4)
+    measure_now("weight", 82.4)
     mid = owner_sql("SELECT id FROM measurements")[0]["id"]
     j = shaped(sv.post("/health", row="weight", ref=f"m{mid}", v1=400))
     assert j["outcome"] == "needs_confirmation" and j["head"] == "Nothing saved yet: please confirm."

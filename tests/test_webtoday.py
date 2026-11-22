@@ -3,7 +3,6 @@ import re
 
 import pytest
 
-from app import service
 from conftest import owner_sql
 from test_web import web  # noqa: F401
 
@@ -29,6 +28,13 @@ def day():
 
 def raw():
     return owner_sql("INSERT INTO raw_inbox (channel, content) VALUES ('test', 'by hand') RETURNING id")[0]["id"]
+
+
+def measure_now(name, v1, v2=None, period=None):
+    """A weight or blood pressure taken now, put straight into the table (what the typed tools used to make for these tests)."""
+    return owner_sql("""INSERT INTO measurements (raw_id, type_id, day, event_at, time_known, value1, value2, period, extractor_version)
+                        SELECT %s, id, log_day(now()), now(), true, %s, %s, %s, 'test' FROM log_types WHERE name = %s RETURNING id""",
+                     raw(), v1, v2, period, name)[0]["id"]
 
 
 def food(name, kcal, protein, fat=1, carbs=1, drink=False):
@@ -101,8 +107,8 @@ def test_habits_are_toggles(web):
 
 
 def test_health_card_shows_todays_values_in_fields(web):
-    service.record_weight(81.5)
-    service.record_bp(124, 81, "morning")
+    measure_now("weight", 81.5)
+    measure_now("bp", 124, 81, "morning")
     page = today(web)
     w = re.search(r'<form class="hrow"[^>]*>(?:(?!</form>).)*?value="weight".*?</form>', page, re.S)[0]
     assert 'value="81.5"' in w and re.search(r'name="id" value="m\d+"', w)
