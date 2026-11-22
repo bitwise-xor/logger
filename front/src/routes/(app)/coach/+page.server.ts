@@ -1,6 +1,6 @@
 import { askedDay, askedFilter, latestDay, type CoachRead } from '#lib/coach.js';
 import { formActions } from '#lib/server/actions.js';
-import { readGym } from '#lib/server/gymread.js';
+import { readDoor } from '#lib/server/read.js';
 import { COACH_SAVES } from '#lib/server/saves.js';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -11,8 +11,8 @@ export const load: PageServerLoad = async (event) => {
   const f = askedFilter(event.url.searchParams.get('f')) ?? 'all';
   const asked = askedDay(event.url.searchParams.get('day'));
   const query = (day: string | undefined) => ({ f: f === 'all' ? undefined : f, day });
-  let r = await readGym<CoachRead>(event, '/coach', 'coach', query(asked));
-  if (r.missing && asked) r = await readGym<CoachRead>(event, '/coach', 'coach', query(undefined));
+  let r = await readDoor<CoachRead>(event, '/coach', 'coach', query(asked));
+  if (r.missing && asked) r = await readDoor<CoachRead>(event, '/coach', 'coach', query(undefined));
   // the latest day the date field offers (the door refuses a day after its today)
   const latest = r.read ? latestDay(r.read.day, asked && r.read.day === asked ? asked : undefined) : null;
   return { coach: r.read, problem: r.problem ?? (r.missing ? 'trouble' : null), latest };

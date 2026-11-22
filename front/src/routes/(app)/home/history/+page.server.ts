@@ -1,5 +1,5 @@
 import { formActions } from '#lib/server/actions.js';
-import { readGym } from '#lib/server/gymread.js';
+import { readDoor } from '#lib/server/read.js';
 import { HISTORY_SAVES } from '#lib/server/saves.js';
 import { askedNumber } from '#lib/home.js';
 import type { History } from '#lib/homeparts.js';
@@ -9,7 +9,7 @@ import type { Actions, PageServerLoad } from './$types';
 // them up to 600; the door clamps it).
 export const load: PageServerLoad = async (event) => {
   const n = askedNumber(event.url.searchParams.get('n'), 4);
-  const r = await readGym<History>(event, '/home/history', 'home_history', { n: n || undefined });
+  const r = await readDoor<History>(event, '/home/history', 'home_history', { n: n || undefined });
   return { history: r.read, undo: r.undo, problem: r.problem };
 };
 

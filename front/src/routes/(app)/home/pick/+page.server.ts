@@ -1,5 +1,5 @@
 import { formActions } from '#lib/server/actions.js';
-import { readGym } from '#lib/server/gymread.js';
+import { readDoor } from '#lib/server/read.js';
 import { PICK_SAVES } from '#lib/server/saves.js';
 import { askedNumber, type HomePick } from '#lib/home.js';
 import type { Actions, PageServerLoad } from './$types';
@@ -9,7 +9,7 @@ import type { Actions, PageServerLoad } from './$types';
 export const load: PageServerLoad = async (event) => {
   const min = askedNumber(event.url.searchParams.get('min'), 3);
   const n = askedNumber(event.url.searchParams.get('n'), 4);
-  const r = await readGym<HomePick>(event, '/home/pick', 'home_pick', { min: min || undefined, n: n || undefined });
+  const r = await readDoor<HomePick>(event, '/home/pick', 'home_pick', { min: min || undefined, n: n || undefined });
   return { pick: r.read, undo: r.undo, problem: r.problem, min, n };
 };
 

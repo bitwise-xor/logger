@@ -1,6 +1,6 @@
 import { formActions } from '#lib/server/actions.js';
 import { SETTINGS_NOTIFY_SAVES } from '#lib/server/saves.js';
-import { readSettings } from '#lib/server/settingsread.js';
+import { readSettings } from '#lib/server/read.js';
 import type { SettingsNotify } from '#lib/settings.js';
 import type { Actions, PageServerLoad } from './$types';
 

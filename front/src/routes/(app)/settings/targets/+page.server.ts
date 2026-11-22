@@ -1,6 +1,6 @@
 import { formActions } from '#lib/server/actions.js';
 import { SETTINGS_TARGETS_SAVES } from '#lib/server/saves.js';
-import { readSettings } from '#lib/server/settingsread.js';
+import { readSettings } from '#lib/server/read.js';
 import type { SettingsTargets } from '#lib/settings.js';
 import type { Actions, PageServerLoad } from './$types';
 

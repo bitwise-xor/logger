@@ -1,15 +1,15 @@
 import { formActions } from '#lib/server/actions.js';
-import { readGym } from '#lib/server/gymread.js';
+import { readDoor } from '#lib/server/read.js';
 import { LIBRARY_HABITS_SAVES } from '#lib/server/saves.js';
 import type { Undo } from '#lib/day.js';
 import { askedShow, type Habits } from '#lib/habits.js';
 import type { Actions, PageServerLoad } from './$types';
 
 // Library's Habits tab (deploy 105): the Habits page's "Your habits" (?show=tracked|untracked|retired|all, tracked without) from the same
-// GET /api/v1/habits; readGym is the shared read of a door page (the session renewed, a gone session to the sign-in and back here).
+// GET /api/v1/habits; readDoor is the shared read of a door page (the session renewed, a gone session to the sign-in and back here).
 export const load: PageServerLoad = async (event) => {
   const show = askedShow(event.url.searchParams.get('show'));
-  const r = await readGym<Habits>(event, '/habits', 'habits', { show });
+  const r = await readDoor<Habits>(event, '/habits', 'habits', { show });
   return { habits: r.read, undo: r.undo as Undo | null, problem: r.problem ?? (r.missing ? 'trouble' : null) };
 };
 
