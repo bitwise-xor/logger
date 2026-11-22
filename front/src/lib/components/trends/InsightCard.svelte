@@ -2,8 +2,9 @@
   import InsightBars from '#lib/components/trends/InsightBars.svelte';
   import { waitParts, type Insight } from '#lib/trendscharts.js';
 
-  // One of the three insight cards, in the door's words: the title with the corner chip (the difference, or "no difference"), the
-  // sentence with its two averages in bold, then the two bars. A card that waits (a group has fewer days than it needs) is dashed:
+  // One of the nine insight cards, in the door's words: the title with the corner chip (the difference, or "no difference"), the
+  // sentence with its two averages in bold, then the two bars and, when the door gives one, its caveat (a small difference or few
+  // days) as a muted line under them. A card that waits (a group has fewer days than it needs) is dashed:
   // the door's "Not enough days yet" words and the sentence on what it counts.
   let { card: c }: { card: Insight } = $props();
   const wait = $derived(waitParts(c.wait_text));
@@ -25,5 +26,6 @@
       {#each c.say ?? [] as p, i (i)}{#if p.bold}<b class="num font-semibold">{p.text}</b>{:else}{p.text}{/if}{/each}
     </p>
     <InsightBars card={c} />
+    {#if c.caveat}<p class="m-0 text-[13px] leading-snug text-muted" data-caveat>{c.caveat}</p>{/if}
   </section>
 {/if}

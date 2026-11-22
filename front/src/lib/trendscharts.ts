@@ -1,7 +1,8 @@
 /**
  * Trends' Charts and Insights tabs (deploy 103; the door's reads came with deploy 101): the door's Food trends and Insights shapes
- * (docs/API.md, GET /food/trends and GET /insights) and what the two pages make of them: the page's address (the range and the
- * gym chart's exercise, kept when the other changes), the insight bars' geometry and the two halves of a waiting card's words.
+ * (docs/API.md, GET /food/trends and GET /insights) and what the two pages make of them: the pages' addresses (Charts: the range and
+ * the gym chart's exercise, kept when the other changes; Insights: its range of days), the insight bars' geometry and the two halves
+ * of a waiting card's words.
  * Plain TypeScript, so the tests need no browser; the charts are drawn by the chart part (components/chart/).
  */
 import type { ChartCard, Range } from './health.js';
@@ -42,6 +43,8 @@ export interface Insight {
   /** The corner: "+11 mg/dL" or "no difference"; null while the card waits. */
   chip: string | null;
   say: { text: string; bold: boolean }[] | null;
+  /** The door's warning when the difference is small against the usual spread, or the days are few; null when there is none. */
+  caveat: string | null;
   /** Where zero is on the track (percent); null while the card waits. */
   zero: number | null;
   groups: InsightGroup[];
@@ -49,6 +52,8 @@ export interface Insight {
 
 export interface Insights {
   days: number;
+  /** The ranges the door answers: 90, 180 and 365 days. */
+  ranges: number[];
   min_each: number;
   title: string;
   small: string;
@@ -74,6 +79,22 @@ export const rangeLinks = (asked: Range, x?: string): { range: number; label: st
 
 /** The gym chips' address on this page: the range kept. */
 export const chipHref = (range: number, exerciseId: number): string => chartsHref(range, exerciseId);
+
+/** The Insights page's ranges (web item 50): the door's ?days=. */
+export const INSIGHT_RANGES = [90, 180, 365] as const;
+
+/** The asked range of days from the address: 90, 180 or 365; anything else (or nothing) is 90, never an error page. */
+export function askedDays(v: string | null): number {
+  const d = Number(v);
+  return v !== null && /^\d+$/.test(v) && (INSIGHT_RANGES as readonly number[]).includes(d) ? d : 90;
+}
+
+/** The Insights page's address: 90 days is the default and left out. */
+export const insightsHref = (days: number): string => (days === 90 ? '/trends/insights' : `/trends/insights?days=${days}`);
+
+/** The Insights range chips: "90 days · 180 days · 365 days" (the door's ranges when it gave them), the asked one current. */
+export const insightRangeLinks = (asked: number, ranges: readonly number[] = INSIGHT_RANGES): { days: number; label: string; href: string; current: boolean }[] =>
+  (ranges.length ? ranges : INSIGHT_RANGES).map((d) => ({ days: d, label: rangeLabel(d), href: insightsHref(d), current: d === asked }));
 
 /**
  * A bar of an insight card as inline styles: from `left` to `left + width` percent of the track (app. draws it so), and where zero

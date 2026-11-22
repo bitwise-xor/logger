@@ -4031,6 +4031,11 @@ async function checkTrendsTabs(page, name, theme) {
   assert.deepEqual(await page.locator('[data-tab]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-tab'), e.getAttribute('aria-current')])), [['week', null], ['charts', null], ['insights', 'page']]);
   assert.equal(await page.locator('[data-place="trends"]').getAttribute('aria-current'), 'true', 'Trends lit on /trends/insights');
   assert.equal(await text(page.locator('[data-head-line]')), INSIGHTS.small);
+  // web item 50: the range chips, built like the Charts tab's; 90 days is the default and left out of the address
+  assert.deepEqual(await page.locator('[data-ranges] a').evaluateAll((els) => els.map((e) => [e.textContent.trim(), e.getAttribute('href'), e.getAttribute('aria-current')])),
+    [['90 days', '/trends/insights', 'page'], ['180 days', '/trends/insights?days=180', null], ['365 days', '/trends/insights?days=365', null]]);
+  const rr = await page.locator('[data-ranges] a').evaluateAll((els) => els.map((e) => e.getBoundingClientRect()).map((r) => ({ y: r.y, h: r.height })));
+  assert.ok(rr.every((r) => Math.abs(r.y - rr[0].y) < 1 && r.h <= 46), `${name}: the range chips sit in one row, each on one line`);
   assert.deepEqual(await page.locator('[data-insight]').evaluateAll((els) => els.map((e) => e.getAttribute('data-insight'))), INSIGHTS.cards.map((c) => c.key), 'the cards in the door\'s order');
   for (const c of INSIGHTS.cards) {
     const el = page.locator(`[data-insight="${c.key}"]`);
@@ -4046,6 +4051,16 @@ async function checkTrendsTabs(page, name, theme) {
     }
     assert.equal(await el.getAttribute('data-waiting'), null);
     assert.equal(await text(el.locator('[data-chip]')), c.chip, 'the corner chip');
+    const chipBox = await el.locator('[data-chip]').boundingBox();
+    const cardBox = await el.boundingBox();
+    assert.ok(chipBox.height < 26 && chipBox.x + chipBox.width <= cardBox.x + cardBox.width, `${c.key}: the chip stays on one line inside its card`);
+    if (c.caveat) {
+      assert.equal(await text(el.locator('[data-caveat]')), c.caveat, 'the door\'s caveat');
+      const cav = await el.locator('[data-caveat]').boundingBox();
+      const lastBar = await el.locator('[data-bar-value]').last().boundingBox();
+      assert.ok(cav.y >= lastBar.y + lastBar.height + 4, `${c.key}: the caveat sits under the bars with room`);
+      assert.equal(await el.locator('[data-caveat]').evaluate((e) => getComputedStyle(e).fontSize), '13px');
+    } else assert.equal(await el.locator('[data-caveat]').count(), 0, `${c.key}: no caveat`);
     assert.equal(await text(el.locator('[data-say]')), c.say.map((x) => x.text).join('').replace(/\s+/g, ' ').trim(), 'the door\'s sentence');
     assert.deepEqual(await el.locator('[data-say] b').allTextContents(), c.say.filter((x) => x.bold).map((x) => x.text), 'the two averages bold');
     assert.deepEqual(await el.locator('[data-bar-label]').allTextContents(), c.groups.map((g) => `${g.label} · ${g.n} days`));
@@ -4068,6 +4083,16 @@ async function checkTrendsTabs(page, name, theme) {
   else assert.ok(ic.every((r) => Math.abs(r.x - ic[0].x) < 1 && Math.abs(r.w - ic[0].w) < 1) && ic[1].y > ic[0].y && ic[2].y > ic[1].y, `${name}: one column`);
   await shot('insights');
   await checkWidth(page, 'trends insights');
+  await page.locator('[data-range="180"]').click();
+  await page.waitForURL(/\/trends\/insights\?days=180$/);
+  await page.getByText('From the last 180 days').waitFor();
+  assert.equal(await page.locator('[data-range="180"]').getAttribute('aria-current'), 'page');
+  assert.equal(await page.locator('[data-insight]').count(), INSIGHTS.cards.length);
+  await checkWidth(page, 'trends insights, 180 days');
+  await page.goto(`${base}/trends/insights?days=7`); // not a range: 90 days, no error page
+  await page.locator('[data-insights]').waitFor();
+  assert.equal(await text(page.locator('[data-head-line]')), 'From the last 90 days');
+  assert.equal(await page.locator('[data-range="90"]').getAttribute('aria-current'), 'page');
   await page.goto(`${base}/trends/insights`);
   await standinPost('/standin/trends?fail=insights');
   await page.goto(`${base}/trends/insights`);

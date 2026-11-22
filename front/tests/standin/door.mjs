@@ -3293,7 +3293,12 @@ createServer(async (req, res) => {
     if (!['7', '30', '90'].includes(r)) return send(res, 400, { error: 'bad_request', message: 'range must be 7, 30 or 90.' }, signedIn);
     return send(res, 200, { trends: structuredClone(FOODTRENDS[r].trends), undo: undo() }, signedIn);
   }
-  if (url.pathname === '/api/v1/insights' && req.method === 'GET') return send(res, 200, { insights: structuredClone(INSIGHTS.insights.insights), undo: undo() }, signedIn);
+  if (url.pathname === '/api/v1/insights' && req.method === 'GET') {
+    // web item 50: ?days=90|180|365 (90); the sample's cards for every range, with the range's own header words
+    const d = url.searchParams.get('days') ?? '90';
+    if (!['90', '180', '365'].includes(d)) return send(res, 400, { error: 'bad_request', message: 'days must be 90, 180 or 365.' }, signedIn);
+    return send(res, 200, { insights: { ...structuredClone(INSIGHTS.insights.insights), days: Number(d), small: `From the last ${d} days` }, undo: undo() }, signedIn);
+  }
   if (url.pathname === '/api/v1/food/day' && req.method === 'GET') {
     return send(res, 200, { food_day: foodDay(url.searchParams.get('day')), undo: undo() }, signedIn);
   }

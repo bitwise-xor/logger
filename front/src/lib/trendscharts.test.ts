@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { askedExercise } from './gymread.js';
 import { askedRange } from './health.js';
-import { barStyle, chartsHref, chipHref, daysText, rangeLinks, waitParts } from './trendscharts.js';
+import { askedDays, barStyle, chartsHref, chipHref, daysText, insightRangeLinks, insightsHref, rangeLinks, waitParts } from './trendscharts.js';
 import type { FoodTrends, Insights } from './trendscharts.js';
 
 const sample = (f: string) => JSON.parse(readFileSync(new URL(`../../tests/samples/${f}`, import.meta.url), 'utf8'));
@@ -75,9 +75,13 @@ describe('the insight bars', () => {
     expect([1, 24].map(daysText)).toEqual(['1 day', '24 days']);
   });
 
-  it('has two real cards and a waiting one, in the door\'s order, with the door\'s note', () => {
-    expect(ins.cards.map((c) => [c.key, c.waiting])).toEqual([['late', false], ['sleep', true], ['carbs', false]]);
+  it('has the cards with a statement first and the waiting ones after, in the door\'s order, with the door\'s note', () => {
+    expect(ins.cards.map((c) => [c.key, c.waiting])).toEqual([
+      ['late', false], ['carbs', false], ['late_sleep', false], ['sleep_kcal', false], ['sleep_mood', false], ['sleep_energy', false],
+      ['caffeine_sleep', true], ['sleep', true], ['sleep_bp', true],
+    ]);
     expect(ins.small).toBe('From the last 90 days');
+    expect(ins.ranges).toEqual([90, 180, 365]);
     expect(ins.note).toMatch(/^These are patterns in your own numbers/);
     for (const c of ins.cards.filter((x) => !x.waiting)) {
       expect(c.chip).toBeTruthy();
@@ -86,11 +90,40 @@ describe('the insight bars', () => {
   });
 });
 
+describe('the Insights range', () => {
+  it('reads 90, 180 or 365 from the address and falls back to 90 for anything else', () => {
+    expect(['90', '180', '365'].map(askedDays)).toEqual([90, 180, 365]);
+    expect([null, '', '30', 'x', '180.0', ' 180', '-90', '1e2'].map(askedDays)).toEqual([90, 90, 90, 90, 90, 90, 90, 90]);
+  });
+
+  it('leaves 90 out of the address', () => {
+    expect([90, 180, 365].map(insightsHref)).toEqual(['/trends/insights', '/trends/insights?days=180', '/trends/insights?days=365']);
+  });
+
+  it('draws one chip per range, the asked one current', () => {
+    expect(insightRangeLinks(180, ins.ranges).map((l) => [l.label, l.href, l.current])).toEqual([
+      ['90 days', '/trends/insights', false],
+      ['180 days', '/trends/insights?days=180', true],
+      ['365 days', '/trends/insights?days=365', false],
+    ]);
+    expect(insightRangeLinks(90).map((l) => l.days)).toEqual([90, 180, 365]);
+    expect(insightRangeLinks(90, []).map((l) => l.current)).toEqual([true, false, false]);
+  });
+});
+
+describe('the caveat', () => {
+  it('is a sentence on a card with a statement or null, never on a waiting card', () => {
+    expect(ins.cards.filter((c) => c.caveat).map((c) => c.key)).toEqual(['sleep_kcal']);
+    expect(ins.cards.find((c) => c.caveat)!.caveat).toMatch(/^The difference is smaller than the usual day-to-day spread \(about .+\), so it may be chance\.$/);
+    expect(ins.cards.filter((c) => c.waiting).every((c) => c.caveat === null)).toBe(true);
+  });
+});
+
 describe("a waiting card's words", () => {
   it('splits the door\'s words from the sentence on what it counts', () => {
     const w = ins.cards.find((c) => c.waiting)!;
     const p = waitParts(w.wait_text);
-    expect(p.head).toMatch(/^Not enough days yet: 3 for .* each needs 4\.$/);
+    expect(p.head).toMatch(/^Not enough days yet: 0 for .* each needs 4\.$/);
     expect(p.counts).toBe(`It counts ${w.needs}.`);
     expect(`${p.head} ${p.counts}`).toBe(w.wait_text);
   });

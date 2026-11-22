@@ -224,13 +224,15 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   **Gym** (`ExerciseChips`, `ProgressCard` and `WeekBars`, shared with `/gym/progress`; the chips are links `?range=…&x=…` on this page; a line that
   it is the last 8 weeks whatever the range says). The four reads go together and each answers for itself (`src/lib/server/trendsread.ts`: a gone
   session still goes to the sign-in); a failing one shows its section's plain message (`ProblemCard`) and the others are drawn, all four failing
-  the same way say it once. Insights: the door's `small` line, the three cards in the door's order (`InsightCard`: title, the corner chip in a
+  the same way say it once. Insights (`?days=90|180|365`, 90 without or for anything else; web item 50): the range chips "90 days · 180 days · 365 days" built like
+  Charts' (`insightRangeLinks`), the door's `small` line, the nine cards in the door's order (`InsightCard`: title, the corner chip in a
   neutral colour, the door's sentence with its two averages bold, `InsightBars`: a bar per group from `left` to `left + width` percent of its
-  track, the first in `--chart-a`, the second in `--chart-b`, a thin line for zero when it is not at the left), a card that waits is dashed with the
+  track, the first in `--chart-a`, the second in `--chart-b`, a thin line for zero when it is not at the left, then the door's `caveat` as a
+  muted 13 px line when there is one), a card that waits is dashed with the
   door's "Not enough days yet" words and, smaller, its "It counts …" sentence (`waitParts` in `src/lib/trendscharts.ts`), and the door's note;
   one column up to the tablet width, two from 1100 px (three from 1500 px). Plain rules and the door's shapes: `src/lib/trendscharts.ts`. The
   stand-in answers GET `/food/trends` (the three ranges of `tests/samples/food_trends.json`, a bad range 400) and `/insights`
-  (`tests/samples/insights.json`); POST `/standin/trends?fail=food,health,body,gym,insights` makes those reads answer 500, POST `/standin/body-none`
+  (`tests/samples/insights.json` for every `days`, with that range's header line; a bad `days` 400); POST `/standin/trends?fail=food,health,body,gym,insights` makes those reads answer 500, POST `/standin/body-none`
   leaves no body session; `SHOOT_ONLY=trends` runs these checks too.
 - Library (deploy 105, the move's step 5; the door's routes came with deploy 104): the Library tab is a link (lit on every `/library` path:
   `placeOf`), the title "Library" with the tabs Foods · Usual meals · Habits · Exercises (`components/library/LibraryHeader.svelte`,
