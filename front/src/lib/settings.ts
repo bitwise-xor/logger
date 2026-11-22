@@ -80,12 +80,13 @@ export interface SettingsDevices {
   others: number;
 }
 
+/** A nudge of Settings > Notifications. after and hours are null for a switch alone (web item 57: "When the Home timer ends"). */
 export interface Nudge {
   key: string;
   label: string;
-  after: string;
+  after: string | null;
   on: boolean;
-  hours: { key: string; value: number; min: number; max: number; step: number; default: number };
+  hours: { key: string; value: number; min: number; max: number; step: number; default: number } | null;
   note: string | null;
 }
 export interface Subscription {
@@ -193,15 +194,15 @@ export const heightProblem = (t: string, r: { min: number; max: number }) =>
 export const intervalProblem = (t: string, r: { min: number; max: number }) =>
   /^\d{1,4}$/.test(t.trim()) ? null : `Due every: give a whole number of days from ${r.min} to ${r.max}.`;
 
-/** The Nudges form as typed: the master switch, and per row its switch and the hours as text. */
+/** The Nudges form as typed: the master switch, and per row its switch and the hours as text (hoursKey null: a switch alone). */
 export interface NudgesDraft {
   on: boolean;
-  rows: { key: string; on: boolean; hoursKey: string; hours: string }[];
+  rows: { key: string; on: boolean; hoursKey: string | null; hours: string }[];
 }
 
 export const nudgesDraft = (n: SettingsNotify): NudgesDraft => ({
   on: n.on,
-  rows: n.nudges.map((x) => ({ key: x.key, on: x.on, hoursKey: x.hours.key, hours: String(x.hours.value) })),
+  rows: n.nudges.map((x) => ({ key: x.key, on: x.on, hoursKey: x.hours?.key ?? null, hours: x.hours ? String(x.hours.value) : '' })),
 });
 
 /** The form's fields for POST /settings/nudges: every switch "1" or "0" and every hours field as typed. */
@@ -209,7 +210,7 @@ export function nudgesFields(d: NudgesDraft): FieldValues {
   const f: FieldValues = { on: d.on ? '1' : '0' };
   for (const r of d.rows) {
     f[r.key] = r.on ? '1' : '0';
-    f[r.hoursKey] = r.hours.trim();
+    if (r.hoursKey) f[r.hoursKey] = r.hours.trim();
   }
   return f;
 }
@@ -218,7 +219,8 @@ export function nudgesFields(d: NudgesDraft): FieldValues {
  * The body of POST /settings/nudges from the form, with the nudges the door listed (Web 70, 21.11.2026: GET /settings/notify read
  * just before, src/lib/server/saves.ts; before, the keys were written here, so a nudge the core adds later would show and not save):
  * the master switch, each listed nudge's switch (true or false) and its hours (a number). A field of a nudge the door did not list
- * is left out; a field left out stays as it is at the door. -> the body, or why it cannot be saved: hours outside the door's range.
+ * is left out; a field left out stays as it is at the door. A nudge without hours (the Home timer's) sends its switch alone. -> the
+ * body, or why it cannot be saved: hours outside the door's range.
  */
 export function nudgesBody(get: (name: string) => string | undefined, listed: Pick<Nudge, 'key' | 'label' | 'hours'>[]): { body: Record<string, boolean | number>; problem: string | null } {
   const body: Record<string, boolean | number> = {};
@@ -228,8 +230,9 @@ export function nudgesBody(get: (name: string) => string | undefined, listed: Pi
   };
   flag('on');
   for (const n of listed) {
-    if (!SETTING_KEY.test(n.key) || !SETTING_KEY.test(n.hours.key)) continue;
+    if (!SETTING_KEY.test(n.key) || (n.hours && !SETTING_KEY.test(n.hours.key))) continue;
     flag(n.key);
+    if (!n.hours) continue;
     const typed = get(n.hours.key);
     const hours = hoursOf(typed);
     if (hours === undefined) continue; // not a number: stays as it is (the door's rule)

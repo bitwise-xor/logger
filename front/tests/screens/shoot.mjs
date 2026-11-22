@@ -6220,9 +6220,12 @@ async function checkSettings(page, name, theme) {
     assert.equal(await el.locator('[data-this]').count(), s.this ? 1 : 0);
     assert.match(await text(el.locator('[data-line]')), /^on since \d\d\.\d\d\.\d{4}, last delivered \d\d\.\d\d\.\d{4} \d\d:\d\d$/);
   }
-  assert.deepEqual(await page.locator('[data-nudge]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-nudge'), e.querySelector('[data-switch]').getAttribute('aria-checked'), e.querySelector('input').value])),
-    N.nudges.map((x) => [x.key, String(x.on), String(x.hours.value)]));
-  for (const x of N.nudges) {
+  assert.deepEqual(await page.locator('[data-nudge]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-nudge'), e.querySelector('[data-switch]').getAttribute('aria-checked'), e.querySelector('input')?.value ?? null])),
+    N.nudges.map((x) => [x.key, String(x.on), x.hours ? String(x.hours.value) : null]));
+  // web item 57: the Home timer's switch alone, no hours field, its note under the words
+  assert.equal(await page.locator('[data-nudge="home_timer"] input').count(), 0);
+  assert.equal(await text(page.locator('[data-nudge="home_timer"] [data-note]')), N.nudges.find((x) => x.key === 'home_timer').note);
+  for (const x of N.nudges.filter((n) => n.hours)) {
     const input = page.locator(`[data-hours="${x.hours.key}"]`);
     assert.deepEqual([await input.getAttribute('min'), await input.getAttribute('max'), await input.getAttribute('step')], [String(x.hours.min), String(x.hours.max), String(x.hours.step)]);
   }
@@ -6239,11 +6242,13 @@ async function checkSettings(page, name, theme) {
   await headIs('Test notification sent to 2 devices.');
   assert.equal(await tests(), t0 + 1, 'one test sent');
   await page.locator('[data-nudge="idle"] [data-switch]').click();
+  await page.locator('[data-nudge="home_timer"] [data-switch]').click();
   await page.locator('[data-hours="gratitude_after"]').fill('13');
   await page.locator('[data-form="nudges"] button[type=submit]').click();
   await headIs(SETTINGS.saves.nudges.head);
   await page.reload();
   assert.equal(await page.locator('[data-nudge="idle"] [data-switch]').getAttribute('aria-checked'), 'false');
+  assert.equal(await page.locator('[data-nudge="home_timer"] [data-switch]').getAttribute('aria-checked'), 'false', 'a switch alone: saved');
   assert.equal(await page.locator('[data-hours="gratitude_after"]').inputValue(), '13');
   // Web 70: a nudge the core adds later is drawn and saved from the door's list; hours outside its range are refused
   await standinPost('/standin/settings?newnudge=1');

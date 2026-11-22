@@ -2963,10 +2963,11 @@ function settingsSave(path, body) {
   if (path === '/settings/nudges') {
     const N = S.notify;
     for (const k of ['on', ...N.nudges.map((x) => x.key)]) if (k in body && typeof body[k] !== 'boolean') return bad(`${k} must be true or false.`);
-    for (const x of N.nudges) if (x.hours.key in body && typeof body[x.hours.key] !== 'number') return bad(`${x.hours.key} must be a number.`);
+    for (const x of N.nudges) if (x.hours && x.hours.key in body && typeof body[x.hours.key] !== 'number') return bad(`${x.hours.key} must be a number.`);
     if (typeof body.on === 'boolean') N.on = body.on;
     for (const x of N.nudges) {
       if (typeof body[x.key] === 'boolean') x.on = body[x.key];
+      if (!x.hours) continue; // a switch alone (the Home timer's)
       const h = body[x.hours.key];
       if (typeof h === 'number') x.hours.value = Math.min(x.hours.max, Math.max(x.hours.min, Math.round(h * 2) / 2));
     }

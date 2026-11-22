@@ -16,7 +16,7 @@
   // Settings > Notifications (deploy 111): every device that gets nudges, here (logger.) and at app., each with "Turn off"; the amber
   // line when one phone is on at both (the door's `twice`: each nudge comes twice); "Send a test notification" (only when there are
   // devices; the door's refusal when none took it is in the answer bar); the Nudges form (the master switch, each nudge's switch and
-  // hours after waking, the gratitude one's note), Save. Deploy 112: "This device" on top (Turn on here, Turn off): ThisDevice.svelte.
+  // hours after waking, the gratitude one's note; web item 57: a switch without hours, "When the Home timer ends"), Save. Deploy 112: "This device" on top (Turn on here, Turn off): ThisDevice.svelte.
   const page = untrack(() => new SettingsPage<SettingsNotify>('notify', data.read, '/settings/notifications'));
   $effect.pre(() => page.load(data.read));
   const s = $derived(page.read);
@@ -91,6 +91,7 @@
                 {nu.label.replace(/,$/, '')}
                 {#if nu.note}<small class="block text-xs text-muted" data-note>{nu.note}</small>{/if}
               </span>
+              {#if nu.hours}
               <span class="col-start-2 flex items-center gap-2">
                 <input
                   name={nu.hours.key}
@@ -107,6 +108,7 @@
                 />
                 <span class="text-[13px] text-muted">{nu.after}</span>
               </span>
+              {/if}
             </div>
           {/if}
         {/each}
@@ -115,7 +117,8 @@
       <div><button type="submit" class={S.primary} disabled={!!page.busy.nudges}>Save</button></div>
       <p class={S.note}>
         Times count from the time you woke up (the Woke up value). Quiet hours: nothing before you log waking up, nothing after a bed time is logged,
-        nothing later than {s.awake_hours} hours after waking. Each nudge comes at most once a day; the check runs every 5 minutes.
+        nothing later than {s.awake_hours} hours after waking. Each nudge comes at most once a day; the check runs every 5 minutes. The Home timer's
+        comes at the moment it ends, at any hour, once for each timer.
       </p>
     </form>
   </main>

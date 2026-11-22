@@ -95,6 +95,7 @@ describe('the Nudges form', () => {
       ['checkin', true, 'checkin_after', '12'],
       ['bp_evening', false, 'bp_evening_after', '13'],
       ['gratitude', true, 'gratitude_after', '14'],
+      ['home_timer', true, null, ''],
     ]);
   });
 
@@ -105,8 +106,22 @@ describe('the Nudges form', () => {
     d.rows[2]!.hours = ' 6.5 ';
     expect(nudgesFields(d)).toEqual({
       on: '0', weight: '1', weight_after: '2.5', habits: '1', habits_after: '14', idle: '1', idle_hours: '6.5',
-      checkin: '1', checkin_after: '12', bp_evening: '0', bp_evening_after: '13', gratitude: '1', gratitude_after: '14',
+      checkin: '1', checkin_after: '12', bp_evening: '0', bp_evening_after: '13', gratitude: '1', gratitude_after: '14', home_timer: '1',
     });
+  });
+
+  it('web item 57: a switch without hours (the Home timer\'s) is drawn and saved as a switch alone', () => {
+    const timer = NOTIFY.nudges.find((x) => x.key === 'home_timer')!;
+    expect([timer.hours, timer.after, timer.label]).toEqual([null, null, 'When the Home timer ends']);
+    const d = nudgesDraft(NOTIFY);
+    d.rows.at(-1)!.on = false;
+    const fields = nudgesFields(d) as Record<string, string>;
+    expect(fields.home_timer).toBe('0');
+    expect(Object.keys(fields)).not.toContain('null');
+    const { body, problem } = nudgesBody((k) => fields[k], NOTIFY.nudges);
+    expect(problem).toBeNull();
+    expect(body).toMatchObject({ on: true, home_timer: false, gratitude_after: 14 });
+    expect(nudgesBody((k) => ({ home_timer: '1' })[k], NOTIFY.nudges).body).toEqual({ home_timer: true });
   });
 
   it('Web 70: a nudge the door adds later is drawn and saved, with the door\'s keys and ranges only', () => {
