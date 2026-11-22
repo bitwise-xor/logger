@@ -1,7 +1,7 @@
 # The JSON door `/api/v1` (for the new front end)
 
 Since deploys 75 and 76 (16.11.2026); deploy 77 (16.11.2026) made the changes of the door's review (marked "since 77");
-deploy 78 removed the old field names that 77 kept for one deploy; deploy 86 added the usual-meal editor; deploy 89 the scanner, the label photo and the look-up; deploy 91 the Health page and body measurements; deploy 93 the Habits page; deploy 95 the Gym; deploy 98 Home; deploy 101 Trends (Week, Food trends, Insights, the Week review); deploy 104 Library and Medical (the food catalogue, lab reports, tests over time, medication); deploy 107 Search, Recent, Usage and Coach (with Today's Coach card and the day coaching's button); deploy 110 Settings and the notifications of this address (with the export file and Today's `shown`). The front end that calls it: `front/` (`front/README.md`).
+deploy 78 removed the old field names that 77 kept for one deploy; deploy 86 added the usual-meal editor; deploy 89 the scanner, the label photo and the look-up; deploy 91 the Health page and body measurements; deploy 93 the Habits page; deploy 95 the Gym; deploy 98 Home; deploy 101 Trends (Week, Food trends, Insights, the Week review); deploy 104 Library and Medical (the food catalogue, lab reports, tests over time, medication); deploy 107 Search, Recent, Usage and Coach (with Today's Coach card and the day coaching's button); deploy 110 Settings and the notifications of this address (with the export file and Today's `shown`); core item 24 the words review (`GET /food/words`). The front end that calls it: `front/` (`front/README.md`).
 Code: `core/app/api.py` (the door, the saves), `core/app/reads.py` (the reads).
 Tests: `tests/test_api_door.py`, `tests/test_api_reads.py`, `tests/test_api_saves.py`, `tests/test_api_shape.py` (77),
 `tests/test_api_usual.py` (86), `tests/test_api_scan.py` (89), `tests/test_api_health.py` (91), `tests/test_api_habits.py` (93),
@@ -815,6 +815,34 @@ Item = {id, ref, name, basis,
         limits: {name_min: 2, name_max: 120, word_max: 60, words_max: 20, unit_max: 30, grams_max: 2000, barcode_min: 8, barcode_max: 14}}
 ```
 
+#### `GET /api/v1/food/words?q=&shared=1` → `{"words": Words, "undo": Undo}` (core item 24, 22.11.2026)
+
+The words review: every word ("alias") of an **active** food, to find a wrong one. A wrong word makes the wrong food get logged, and
+until now it could only be found by opening each food. `q` (at most 60 characters, else 400 `q must be 60 characters or fewer.`)
+matches the word or the food's name, in any case, as plain text (`%` and `_` are not wildcards); `shared=1` lists only the words that
+more than one active food has (`0` or left out: every word; anything else 400 `shared must be 1 or 0.`).
+
+```
+Words = {count,                                        // the rows returned
+         total,                                        // the rows before the limit (after q and shared)
+         limit: 500,
+         rows: [{word, food_id, food,                  // the word as stored (lower case unless typed by hand), its food's number and name
+                 added_at,                             // ISO time in Berlin with its offset, or null when it is not known
+                 by,                                   // "web" | "chat" | "other" | null
+                 shared,                               // how many active foods have this word, compared in lower case; 1: this food only
+                 month}]}                              // "2026-11", the month of added_at in Berlin; null with added_at
+```
+
+- `added_at` and `by` come from the food's latest `food_changes` row whose new `aliases` have the word and whose old ones do not: `by`
+  is that row's `changed_by` role (`core_rw`, the web app and this door: "web"; `mcp_writer`, the chat connector: "chat"; any other role,
+  `pgadmin` by hand or a migration: "other"). A word with no such row came with the food: `added_at` is the food's `created_at`
+  (`foods.created_at`, NOT NULL, so every word has a time today) and `by` is null. A word added, removed and added again counts from
+  the last adding.
+- Order: newest `added_at` first (unknown ones last, then by word, then by food), at most 500 rows: `total` says how many there were.
+- Only an active food's words are listed and counted for `shared`; a hidden food's words do not make another food's word "shared".
+- One query (`reads.food_words`: `unnest` of the aliases and a lateral join to `food_changes`), no query per word.
+- A word is taken off with the Catalogue's save, `POST /food/catalogue/words` with `act: "remove"` (below), asked for `view: "words"`.
+
 ### Medical (104): lab reports, tests over time, medication
 
 app.'s Medical page as data (`labspage.reports_data`, `tests_data`, `test_chart`, `meds_data`: app.'s three tabs draw from the same,
@@ -1185,7 +1213,7 @@ function takes one, so a re-sent request saves once (`replayed: true`).
 | `/api/v1/home/<action>` (98) | `action` in the path: one of the 20 of `home.ACTIONS` (below); its fields, `key` on six; `view` (+ `view_min`, `view_n`, `view_limit`, `view_id`) for another fresh read | `home.ACTIONS[action]` (app.'s `/web/home/<action>`) |
 | `/api/v1/coach/start` (101) | `kind: "week"` or (107) `"day"`, `start`, `end` (yyyy-mm-dd: the Week review's period, or the day twice); **no `key`**; `view`, `view_p`, `view_day`, `view_f` for another fresh read | `coach.start` (app.'s `/web/coach/start`; see below) |
 | `/api/v1/lookup` (89) | `text` (a name, or a barcode of 8 to 14 digits), optional `question_id` (an open food question it answers; without `text` the question's word is looked up) | `webfood.look_up` → `logbook.food_lookup` (no key: it saves nothing) |
-| `/api/v1/food/catalogue/<action>` (104) | `action` in the path: `values`, `words`, `barcode`, `basics`, `unit`, `reviewed`; `id` (the food's number) and its fields (below), `confirmed` (values); **no `key`** (one sent is ignored); `view` (+ `view_q`, `view_f`, `view_s`, `view_food`) | `webfood.ACTIONS[action]` (app.'s `/web/food/<action>`; `unit` is `webfood.unit_add`) |
+| `/api/v1/food/catalogue/<action>` (104) | `action` in the path: `values`, `words`, `barcode`, `basics`, `unit`, `reviewed`; `id` (the food's number) and its fields (below), `confirmed` (values); **no `key`** (one sent is ignored); `view` (+ `view_q`, `view_f`, `view_s`, `view_food`; `words` also `view: "words"` with `view_q`, `view_shared`, and then an Undo) | `webfood.ACTIONS[action]` (app.'s `/web/food/<action>`; `unit` is `webfood.unit_add`) |
 | `/api/v1/labs/value`, `/labs/report`, `/labs/med` (104) | `id` (the value's, report's or course's number) and its fields (below), `confirmed`; **no `key`** (one sent is ignored); `view` (+ `view_open`, `view_q`, `view_t`) | `weblabs.ACTIONS[action]` (app.'s `/web/labs/<action>`) |
 | `/api/v1/settings/<form>`, `/push/subscribe`, `/push/off`, `/push/test` (110) | see "Settings and notifications (110)" above; **no `key`**; `view` | `websettings.ACTIONS[form]`, `coach.goals_set`; the subscription as `/web/push/subscribe` |
 
@@ -1386,6 +1414,13 @@ entries; these change a food), each through the same function as app.'s form of 
 - The answer carries the fresh Catalogue (`view: "catalogue"`, the default): `catalogue` as `GET /food/catalogue` with `view_q`,
   `view_f`, `view_s` (an unknown filter or order: app.'s default), and `food_item`, the box of `view_food` (12 or "N12") when that food
   is in the list, else null (also after it was hidden, as app. shows no box then); without `view_food` null.
+- **`words` asked for `view: "words"`** (the words review, core item 24; `view_q`, `view_shared: true` as the page shows its list): the
+  answer carries `words`, as `GET /food/words` with that search and chip, instead of the Catalogue, and **an Undo** of this one change
+  (`undo`: token, head, expires_at; `POST /undo` with the token takes the word back, in the other direction, the food's other words
+  untouched: a word taken off is put back even when another food has it now, as it was found, and the Undo's answer is "Undone: …").
+  Only a change that made a difference has it (adding a word the food has, or removing one it has not, is "Nothing changed." or
+  unchanged); without `view: "words"` the save has no Undo, as above. `POST /undo` with `view: "words"` (and the same `view_q`,
+  `view_shared`) answers with the list again.
 - A new food is `POST /lookup` (the read-back, its `yes` through `POST /answer`); send `"view": "catalogue"` (with `view_q`, …) to both
   for the fresh Catalogue with the new food in it.
 
@@ -1471,7 +1506,8 @@ Every save answers (HTTP 200, also when nothing was saved):
                                                        // /home/<action> to its page (see Home's saves);
                                                        // /coach/start to "week" or "day" (see the Week review's button);
                                                        // /settings/<form> and /push/* to their tab (110);
-                                                       // /food/catalogue/<action> to "catalogue", /labs/value and
+                                                       // /food/catalogue/<action> to "catalogue" ("words": the words review, with
+                                                       // view_q, view_shared), /labs/value and
                                                        // /labs/report to "labs", /labs/med to "labs_meds";
                                                        // /habit/day and /habits/manage default to "habits"; /usual/meal and
                                                        // /usual/new default to "usual", /usual/from_meal and /food/* to "food",

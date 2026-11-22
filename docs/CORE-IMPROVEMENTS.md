@@ -11,7 +11,7 @@ Size: S = about an hour, M = about half a day, L = a day or more. Rough guesses.
 ## Priorities (reviewed 21.11.2026)
 
 The combined order with the web list is at the top of `docs/IMPROVEMENTS.md`. For the core: 32, 34, 33 first (a save can be
-undone or made twice; done 21.11.2026, deploy 121), then 35 to 38 and 12 (the doors and the deploy; all done 21.11.2026, deploy 122), then 24, 13, 16, 39, 40. Done since 05.11.: 9
+undone or made twice; done 21.11.2026, deploy 121), then 35 to 38 and 12 (the doors and the deploy; all done 21.11.2026, deploy 122), then 24 (done in the code 22.11.2026), 13, 16, 39, 40. Done since 05.11.: 9
 (connection pool). Dropped: 28 step 2 (a full run takes about 3 minutes). Parked: 25 Telegram. 31 is complete in the code.
 The new items are in section 10.
 
@@ -26,7 +26,7 @@ day, L a day or more):
 3. **13 Remove the pilot tools** (S-M): 9 hidden tools in `mcp_app.py`, plus `service.py` and its tests; dead code that still had to
    follow the new day rule on 05.11.2026.
 4. **31 Check the watch's sleep import** (S, new): no sleep rows have arrived; Today's watch wake-up and the Activity page's sleep need them.
-5. **24 Words review** (S): all learned food words by date, so a wrong one is easy to find.
+5. **24 Words review** (S; done in the code 22.11.2026): all learned food words by date, so a wrong one is easy to find.
 6. **3 Second read** (S): look at the data again around mid-November (owner agreed on 02.11.).
 7. **28 Faster tests, step 2** (M): run in parallel with one test database per worker; goes with 30.
 8. **12 Update alerts** (S): Diun for the images, a monthly look at the pinned Python packages.
@@ -113,7 +113,7 @@ data was fixed the same day (word moved from N138 to N244).
 | 21 | Singular and plural match both ways: compare a word, its singular and its plural forms (cookie / cookies, berry / berries, box / boxes) in a v2 wrapper around `_find_foods`; do not edit the copied v1 `_sing`. Tests with the real cases (cookie, cookies, berries, waffles, chips, noodles) | The same fault hits any food whose name ends in "-ies" typed in the singular | S |
 | 22 | Learn a word only from a good suggestion: do not save the picked word as an alias when the suggestions came from the loose "sounds similar" match; show "saved 'oat cookie' as a word for Pasta, cooked" in the reply with an Undo button | One wrong click gave a permanent wrong word, and later messages matched it silently | S-M |
 | 23 | Better suggestions when nothing matches: list foods that share a whole word first, and say "none of these? look it up or add a new food" as the first choice; never list foods that only share a word ending ("cookie" vs "cooked") | The suggestions were unrelated and pasta came first | S-M |
-| 24 | A "words" review: list all learned words (aliases) by date on the web Catalogue, so a wrong one is easy to find and remove | The fault was found by searching the database | S |
+| 24 | **Done 22.11.2026 (in the code; the deploy follows):** the words review is Library > Foods > Words at logger. (`/library/words`, reached by "Review words" beside the Foods count; not a fifth tab, and not on the web Catalogue). The door's `GET /food/words?q=&shared=1` (`reads.food_words`, one query: `unnest` of the aliases and a lateral join to `food_changes`) lists every word of an active food: the word, its food, when it was added (the food's latest change row that has the word in its new aliases and not in its old ones; `foods.created_at` for a word that came with the food, which has no such row), from where (`changed_by`: `core_rw` is "web", `mcp_writer` "chat", any other role "other", "came with the food" has none) and on how many active foods it is (in lower case), newest first, at most 500, `q` (at most 60 characters) matching the word or the food's name. The page groups the words by month, marks a word that more than one food has in amber and removes one with the Catalogue's word save (`POST /food/catalogue/words`, unchanged in what it checks and does), asked for `view: "words"`: the answer brings the list again and, for this view only, an Undo that takes that one word back (`webundo.words_undo`; the Catalogue's six forms still have none). A word with no date is never answered today (`foods.created_at` is NOT NULL), but the page has its group "Earlier, date unknown". A word put back by Undo counts as added at that moment, by the web (the trigger records it) (`tests/test_food_words.py`). A "words" review: list all learned words (aliases) by date on the web Catalogue, so a wrong one is easy to find and remove | The fault was found by searching the database | S |
 
 Already on other lists, not repeated here: Telegram, the exchange log of the chat, the chat saving a usual meal,
 token counts for food look-ups and lab reports (web list 21, 20, 29).
