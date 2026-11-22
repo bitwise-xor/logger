@@ -8,8 +8,9 @@ import os
 import re
 import secrets
 import time
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Any, Optional
+from typing import Any, Callable, NamedTuple, Optional
 
 from psycopg.types.json import Jsonb
 
@@ -464,7 +465,151 @@ def food_words(food_id: int, words: list, means: bool = False) -> dict[str, Any]
         return resp
 
 
+# answer(): one handler per kind of question (core item 16, 22.11.2026). A new kind is one handler and one entry, in
+# FREE_ANSWERS when it takes a free answer (any reply, before the yes/no rule) or in YES_HANDLERS when it is a yes or no;
+# its tool goes into ANSWER_TOOLS (tests/test_answer_order.py checks that the three agree).
+@dataclass
+class Answer:
+    """One reply being answered, in answer()'s transaction: the open question's row (`pending`, locked) and id, the reply and
+    whether it starts with a yes, where it came from, now, the cursor, and the AI calls the handler made (for the Usage page)."""
+    p: dict
+    question_id: str
+    reply: str
+    yes: bool
+    channel: str
+    now: datetime
+    cur: Any
+    used: list = field(default_factory=list)
+
+    @property
+    def payload(self) -> dict:
+        return self.p["payload"]
+
+
+class FreeAnswer(NamedTuple):
+    """A kind that takes a free answer: for its tool, when matches(a), handle(a) answers instead of the yes/no rule.
+    early: taken before the "already answered or expired" check, because the handler checks that itself (record.answer,
+    in its own words: "that question does not exist, was already answered, or has expired")."""
+    tool: str
+    matches: Callable[[Answer], bool]
+    handle: Callable[[Answer], dict]
+    early: bool = False
+
+
+def _log_item(a: Answer) -> dict:  # which food, how much (record.answer); a no or skip drops the item
+    return record.answer(a.cur, a.question_id, a.reply, a.now)
+
+
+def _log_lookup(a: Answer) -> dict:  # yes to a food found in USDA or Open Food Facts
+    return lookup.accept(a.cur, a.payload["lookup"], a.now, a.question_id, a.payload["item"]["food"])
+
+
+def _log_todo(a: Answer) -> dict:  # which shopping item was meant
+    out = todos.answer(a.cur, provider(), a.p, a.reply, a.now)
+    a.used = out.pop("usages", None) or []
+    return out
+
+
+def _home_choice(a: Answer) -> dict:  # which chore was meant (homechat.py)
+    from . import homechat
+    return homechat.answer(a.cur, a.p, a.reply, a.now)
+
+
+def _command(a: Answer) -> dict:  # which entry was meant: read the request again with the answer
+    prev, _ = _context(a.cur, a.now)
+    out, a.used = commands.handle(a.cur, provider(), f"{a.payload['text']}\n(Asked: {a.p['reason']} Answer: {a.reply})", a.now, prev)
+    a.cur.execute("UPDATE pending SET resolved_at = now(), resolution = 'confirmed' WHERE id = %s", (a.question_id,))
+    return out
+
+
+def _command_past(a: Answer) -> dict:  # change the past entries too (yes) or only new ones (no)
+    out = commands.apply(a.cur, a.payload, a.now, past="yes" if a.yes else "no")
+    if out["outcome"] == "changed":
+        a.cur.execute("UPDATE pending SET resolved_at = now(), resolution = 'confirmed' WHERE id = %s", (a.question_id,))
+    return out
+
+
+def _log_confirm_nap(a: Answer) -> dict:  # the wake-up was a nap or night waking
+    d = a.payload
+    asked = datetime.fromisoformat(d["now"])
+    r = record.settle(a.cur, _food_cat(a.cur), _types(a.cur)[1], record.as_nap(a.cur, d["pred"]), asked)
+    out = record.save(a.cur, r, d["text"], a.channel, asked, confirmed=True)
+    if out["outcome"] in ("saved", "partly_saved"):
+        a.cur.execute("UPDATE pending SET resolved_at = now(), resolution = 'confirmed' WHERE id = %s", (a.question_id,))
+    return out
+
+
+# Checked in this order; the first whose tool and matches() fit answers.
+FREE_ANSWERS = [
+    FreeAnswer("log", lambda a: a.payload.get("kind") != "todo" and not (a.payload.get("lookup") and a.yes), _log_item, early=True),
+    FreeAnswer("log", lambda a: bool(a.payload.get("lookup")), _log_lookup),
+    FreeAnswer("log", lambda a: True, _log_todo),
+    FreeAnswer("home_choice", lambda a: True, _home_choice),
+    FreeAnswer("command", lambda a: True, _command),
+    FreeAnswer("command_confirm", lambda a: bool(a.payload.get("ask_past") and (a.yes or re.match(r"^\s*(no|nein)\b", a.reply, re.I))),
+               _command_past),
+    FreeAnswer("log_confirm", lambda a: bool(a.payload.get("nap") and NAP.match(a.reply)), _log_confirm_nap),
+]
+
+
+def _report_confirm(a: Answer) -> dict:
+    out = labs.save_report(a.cur, a.payload, a.now)
+    if out["outcome"] == "saved":
+        a.cur.execute("UPDATE pending SET resolved_at = now(), resolution = 'confirmed' WHERE id = %s", (a.question_id,))
+    return out
+
+
+def _lookup_confirm(a: Answer) -> dict:
+    d = a.payload
+    out = lookup.accept(a.cur, d["cand"], a.now, d.get("question_id"), d.get("word"))
+    if out["outcome"] in ("saved", "partly_saved"):
+        a.cur.execute("UPDATE pending SET resolved_at = now(), resolution = 'confirmed' WHERE id = %s", (a.question_id,))
+    return out
+
+
+def _command_confirm(a: Answer) -> dict:
+    out = commands.apply(a.cur, a.payload, a.now)
+    if out["outcome"] == "changed":
+        a.cur.execute("UPDATE pending SET resolved_at = now(), resolution = 'confirmed' WHERE id = %s", (a.question_id,))
+    return out
+
+
+def _log_repeat(a: Answer) -> dict:
+    out = _process(a.cur, a.payload["text"], a.now, None, a.channel)
+    a.cur.execute("UPDATE pending SET resolved_at = now(), resolution = 'confirmed' WHERE id = %s", (a.question_id,))
+    return out
+
+
+def _add_food_confirm(a: Answer) -> dict:
+    d = a.payload
+    out = record.add_food(a.cur, d["name"], d["values"], a.channel, a.now, d["question_id"], food_code=d["code"],
+                          confirmed=True, aliases=d.get("aliases") or [])
+    if out["outcome"] == "saved":
+        a.cur.execute("UPDATE pending SET resolved_at = now(), resolution = 'confirmed' WHERE id = %s", (a.question_id,))
+    return out
+
+
+def _log_confirm(a: Answer) -> dict:
+    d = a.payload
+    asked = datetime.fromisoformat(d["now"])
+    r = record.settle(a.cur, _food_cat(a.cur), _types(a.cur)[1], d["pred"], asked)
+    out = record.save(a.cur, r, d["text"], a.channel, asked, confirmed=True)
+    if out["outcome"] in ("saved", "partly_saved"):
+        a.cur.execute("UPDATE pending SET resolved_at = now(), resolution = 'confirmed' WHERE id = %s", (a.question_id,))
+    return out
+
+
+# A yes to a question no free answer took.
+YES_HANDLERS: dict[str, Callable[[Answer], dict]] = {
+    "report_confirm": _report_confirm, "lookup_confirm": _lookup_confirm, "command_confirm": _command_confirm,
+    "log_repeat": _log_repeat, "add_food_confirm": _add_food_confirm, "log_confirm": _log_confirm}
+
+
 def answer(question_id: str, reply: str, channel: str = CHANNEL) -> dict[str, Any]:
+    """The owner's reply to one open question (Today, the chat's answer tool, the door). In this order: a question that is
+    not one answer takes is refused; an early free answer (a food or amount question) checks the question itself; else an
+    answered or expired question is refused; a free answer of its kind (FREE_ANSWERS); a clear no cancels; an unclear reply
+    keeps the question open; a yes goes to its kind's handler (YES_HANDLERS)."""
     now = clock()
     with connect() as conn, conn.cursor() as cur:
         cur.execute("SELECT * FROM pending WHERE id = %s FOR UPDATE", (question_id,))
@@ -472,73 +617,25 @@ def answer(question_id: str, reply: str, channel: str = CHANNEL) -> dict[str, An
         if not p or p["tool"] not in ANSWER_TOOLS:
             _audit(cur, "answer", "rejected", {"why": "unknown question"}, channel)
             return {"outcome": "rejected", "message": "There is no such open question."}
-        yes = bool(YES.match(reply))
-        used: list = []  # the AI calls this answer makes (a change command read again, a new to-do), for the Usage page
-        if p["tool"] == "log" and p["payload"].get("kind") != "todo" and not (p["payload"].get("lookup") and yes):
-            out = record.answer(cur, question_id, reply, now)
+        a = Answer(p, question_id, reply, bool(YES.match(reply)), channel, now, cur)
+        free = next((f for f in FREE_ANSWERS if f.tool == p["tool"] and f.matches(a)), None)
+        if free and free.early:
+            out = free.handle(a)
         elif p["resolved_at"] is not None or p["expires_at"] < now:
             out = {"outcome": "rejected", "reason": "that question was already answered or has expired"}
-        elif p["tool"] == "log" and p["payload"].get("lookup"):  # yes to a food found in USDA or Open Food Facts
-            out = lookup.accept(cur, p["payload"]["lookup"], now, question_id, p["payload"]["item"]["food"])
-        elif p["tool"] == "log":  # which shopping item was meant
-            out = todos.answer(cur, provider(), p, reply, now)
-            used = out.pop("usages", None) or []
-        elif p["tool"] == "home_choice":  # which chore was meant (homechat.py)
-            from . import homechat
-            out = homechat.answer(cur, p, reply, now)
-        elif p["tool"] == "command":  # which entry was meant: read the request again with the answer
-            prev, _ = _context(cur, now)
-            out, used = commands.handle(cur, provider(), f"{p['payload']['text']}\n(Asked: {p['reason']} Answer: {reply})", now, prev)
-            cur.execute("UPDATE pending SET resolved_at = now(), resolution = 'confirmed' WHERE id = %s", (question_id,))
-        elif p["tool"] == "command_confirm" and p["payload"].get("ask_past") and (yes or re.match(r"^\s*(no|nein)\b", reply, re.I)):
-            out = commands.apply(cur, p["payload"], now, past="yes" if yes else "no")
-            if out["outcome"] == "changed":
-                cur.execute("UPDATE pending SET resolved_at = now(), resolution = 'confirmed' WHERE id = %s", (question_id,))
-        elif p["tool"] == "log_confirm" and p["payload"].get("nap") and NAP.match(reply):  # the wake-up was a nap or night waking
-            d = p["payload"]
-            asked = datetime.fromisoformat(d["now"])
-            r = record.settle(cur, _food_cat(cur), _types(cur)[1], record.as_nap(cur, d["pred"]), asked)
-            out = record.save(cur, r, d["text"], channel, asked, confirmed=True)
-            if out["outcome"] in ("saved", "partly_saved"):
-                cur.execute("UPDATE pending SET resolved_at = now(), resolution = 'confirmed' WHERE id = %s", (question_id,))
+        elif free:
+            out = free.handle(a)
         elif NO.match(reply):
             cur.execute("UPDATE pending SET resolved_at = now(), resolution = 'cancelled' WHERE id = %s", (question_id,))
             out = {"outcome": "cancelled"}
-        elif not yes:  # unclear: keep the question open
+        elif not a.yes:  # unclear: keep the question open
             out = {"outcome": "needs_confirmation", "reason": "answer yes to save it, or no to drop it",
                    "questions": [{"pending_id": question_id, "question": "Yes or no?"}]}
-        elif p["tool"] == "report_confirm":
-            out = labs.save_report(cur, p["payload"], now)
-            if out["outcome"] == "saved":
-                cur.execute("UPDATE pending SET resolved_at = now(), resolution = 'confirmed' WHERE id = %s", (question_id,))
-        elif p["tool"] == "lookup_confirm":
-            d = p["payload"]
-            out = lookup.accept(cur, d["cand"], now, d.get("question_id"), d.get("word"))
-            if out["outcome"] in ("saved", "partly_saved"):
-                cur.execute("UPDATE pending SET resolved_at = now(), resolution = 'confirmed' WHERE id = %s", (question_id,))
-        elif p["tool"] == "command_confirm":
-            out = commands.apply(cur, p["payload"], now)
-            if out["outcome"] == "changed":
-                cur.execute("UPDATE pending SET resolved_at = now(), resolution = 'confirmed' WHERE id = %s", (question_id,))
-        elif p["tool"] == "log_repeat":
-            out = _process(cur, p["payload"]["text"], now, None, channel)
-            cur.execute("UPDATE pending SET resolved_at = now(), resolution = 'confirmed' WHERE id = %s", (question_id,))
-        elif p["tool"] == "add_food_confirm":
-            d = p["payload"]
-            out = record.add_food(cur, d["name"], d["values"], channel, now, d["question_id"], food_code=d["code"],
-                                  confirmed=True, aliases=d.get("aliases") or [])
-            if out["outcome"] == "saved":
-                cur.execute("UPDATE pending SET resolved_at = now(), resolution = 'confirmed' WHERE id = %s", (question_id,))
         else:
-            d = p["payload"]
-            asked = datetime.fromisoformat(d["now"])
-            r = record.settle(cur, _food_cat(cur), _types(cur)[1], d["pred"], asked)
-            out = record.save(cur, r, d["text"], channel, asked, confirmed=True)
-            if out["outcome"] in ("saved", "partly_saved"):
-                cur.execute("UPDATE pending SET resolved_at = now(), resolution = 'confirmed' WHERE id = %s", (question_id,))
+            out = YES_HANDLERS[p["tool"]](a)
         if "question" in out and "questions" not in out:  # a follow-up question about the same item
             out["questions"] = [{"pending_id": question_id, "question": out.pop("question")}]
         resp = _public(out)
         _audit(cur, "answer", out["outcome"], {"question_id": question_id, "raw_id": out.get("raw_id"), "steps": out.get("steps"),
-                                               **({"ai": _ai(used)} if used else {})}, channel)
+                                               **({"ai": _ai(a.used)} if a.used else {})}, channel)
         return resp
