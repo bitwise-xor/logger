@@ -271,3 +271,72 @@ def test_the_export_has_the_meal_notes(yday):
         csv = next(z.read(n) for n in z.namelist() if n.endswith("/food_meal_notes.csv")).decode("utf-8-sig")
     assert counts["food_meal_notes"] == 1 and "zz-meal-note" in csv and csv.startswith("id,day,time,note,")
     assert "food_meal_notes" in [name for name, _w, _s in export.FILES]
+
+
+# ---- every value on the Food day (web 73, 23.11.2026) ------------------------------------------------------------
+
+def test_the_food_day_has_every_value_per_row_and_meal_and_the_nutrients_tabs_lines(get):
+    d = day()
+    owner_sql("""INSERT INTO food_targets (valid_from, kcal, protein, fat, carbs, fibre, sugar_added, sodium_mg)
+                 VALUES ('2020-01-01', 2000, 120, 70, 250, 30, 25, 2000)""")  # no target for saturated fat
+    rye, bar, cola = food("Test rye bread"), food("Test nut bar"), food("Test cola", drink=True)
+    eat(d, "08:00", rye, 80, kcal=190, protein=6.4, fat=1.2, sat_fat=0.2, carbs=36, sugar_total=2.1, sugar_added=0, fibre=5.6, sodium_mg=400)
+    eat(d, "08:05", bar, 35, kcal=170, protein=5, fat=11, sat_fat=1.4, carbs=12, sugar_total=8, fibre=2.2, sodium_mg=30)  # added sugar unknown
+    eat(d, "08:10", cola, 330, kcal=139, carbs=35, sugar_total=35, sugar_added=35, sodium_mg=13, caffeine_mg=32)
+    fd = get(f"/food/day?day={d.isoformat()}").json()["food_day"]
+    rows = {r["food"]: r for r in fd["rows"]}
+    v = rows["Test rye bread"]["values"]
+    assert set(v) == {"kcal", "protein", "fat", "sat_fat", "carbs", "sugar_total", "sugar_added", "fibre", "salt", "caffeine_mg", "sodium_mg"}
+    assert v["kcal"] == 190 and v["fibre"] == 5.6 and v["salt"] == 1 and v["sodium_mg"] == 400 and v["caffeine_mg"] is None
+    assert rows["Test nut bar"]["values"]["sugar_added"] is None and rows["Test nut bar"]["values"]["salt"] == 0.07  # 0.075 rounds as Python does
+    assert rows["Test rye bread"]["nutrients"] == {"kcal": 190, "protein": 6.4, "fat": 1.2, "carbs": 36}  # what was there stays
+    # the meals: the known values added up, and how many entries have none
+    m1 = next(m for m in fd["meals"] if m["meal"] == 1)
+    assert m1["values"]["kcal"] == 360 and m1["values"]["sugar_added"] == 0 and m1["unknown"]["sugar_added"] == 1
+    assert m1["values"]["salt"] == 1.07 and m1["unknown"]["caffeine_mg"] == 2 and m1["unknown"]["kcal"] == 0
+    drinks = next(m for m in fd["meals"] if m["meal"] == 0)
+    assert drinks["values"]["caffeine_mg"] == 32 and drinks["unknown"]["caffeine_mg"] == 0 and drinks["note"] is None
+    # the day's lines: the Nutrients tab's for the same day, targets where food_targets has them
+    n = get(f"/food/nutrients?day={d.isoformat()}").json()["food_nutrients"]
+    assert fd["lines"] == n["nutrients"]
+    lines = {x["key"]: x for x in fd["lines"]}
+    assert lines["kcal"]["target"] == 2000 and lines["sat_fat"]["target"] is None and lines["caffeine_mg"]["target"] is None
+    assert lines["sugar_added"]["value"] == 35 and lines["sugar_added"]["unknown"] == 1 and lines["sugar_added"]["unknown_foods"] == 1
+    assert lines["salt"]["target"] == 5 and lines["salt"]["sodium_mg"] == 443 and fd["totals"]["kcal"] == 499 and fd["targets"]["kcal"] == 2000
+
+
+def test_the_food_days_lines_without_targets_and_on_an_empty_day(get):
+    d = day()
+    eat(d, "12:00", food("Test lentil soup"), 300, kcal=270, protein=18)
+    fd = get("/food/day").json()["food_day"]
+    assert [x["target"] for x in fd["lines"]] == [None] * 10 and [x["key"] for x in fd["lines"]][-1] == "caffeine_mg"
+    assert fd["lines"][0]["value"] == 270 and next(x for x in fd["lines"] if x["key"] == "fibre")["unknown"] == 1
+    yd = (d - timedelta(days=1)).isoformat()
+    empty = get(f"/food/day?day={yd}").json()["food_day"]
+    assert empty["rows"] == [] and empty["meals"] == [] and empty["lines"] == get(f"/food/nutrients?day={yd}").json()["food_nutrients"]["nutrients"]
+    assert all(x["value"] == 0 and x["unknown"] == 0 for x in empty["lines"])
+
+
+def test_todays_rows_do_not_grow():
+    d = day()
+    eat(d, "12:00", food("Test lentil soup"), 300, kcal=270, protein=18)
+    (row,) = [r for r in reads.day()["rows"] if r["kind"] == "food"]
+    assert "values" not in row and set(row["nutrients"]) == {"kcal", "protein", "fat", "carbs"}
+
+
+def test_an_entry_has_its_values_and_the_foods_values_per_100(get):
+    oats = food("Test oat flakes", kcal=372, protein=13.5, fat=7, carbs=58.7, fibre=10, sodium_mg=5)  # sugar unknown in the catalogue
+    eid = eat(day(), "08:00", oats, 60, kcal=223, protein=8.1, fat=4.2, carbs=35.2, fibre=6, sodium_mg=3)
+    e = get(f"/food/entry?ref=f{eid}").json()["entry"]
+    assert e["values"]["kcal"] == 223 and e["values"]["fibre"] == 6 and e["values"]["sugar_total"] is None and e["values"]["salt"] == 0.01
+    assert e["per_100"]["kcal"] == 372 and e["per_100"]["salt"] == 0.01 and e["per_100"]["sodium_mg"] == 5 and e["per_100"]["sugar_total"] is None
+    assert set(e["per_100"]) == set(e["values"]) and e["units"][0] == {"unit": "g", "in_basis": 1}
+
+
+def test_a_saves_answer_carries_the_wider_food_day(post):
+    d = day()
+    eid = eat(d, "08:00", food("Test oat flakes"), 60, kcal=223, fibre=6)
+    a = post("/food/entry", ref=f"f{eid}", action="save", amount=90, view="food").json()
+    fd = a["food_day"]
+    assert a["outcome"] == "changed" and fd["rows"][0]["values"]["kcal"] is not None and "unknown" in fd["meals"][0]
+    assert [x["key"] for x in fd["lines"]][:2] == ["kcal", "protein"] and len(fd["lines"]) == 10

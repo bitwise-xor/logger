@@ -337,7 +337,9 @@ def day(asked: Optional[date] = None) -> dict:
 # ---- the Food page's day ---------------------------------------------------------------------------------
 
 def food_day(asked: Optional[date] = None) -> dict:
-    """One day of the food log: its entries with amount, unit and nutrients, the meals' sums, the day's totals and targets."""
+    """One day of the food log: its entries with amount, unit and nutrients, the meals' sums, the day's totals and targets. Since
+    23.11.2026 (web 73) also every tracked value: on each row and meal (`values`, a meal's `unknown` counts) and the day's ten lines
+    exactly as the Nutrients tab has them for that one day (nutrient_lines), so the two tabs cannot disagree."""
     with connect() as conn, conn.cursor() as cur:
         today = foodpage._today(cur)
         the_day = min(asked, today) if asked else today
@@ -346,30 +348,45 @@ def food_day(asked: Optional[date] = None) -> dict:
         total = next((r for r in sums if r["meal"] is None), None)
         tgt = targets(cur, the_day, total)
         notes, day_note = mealnotes.shown(cur, the_day)
+        entries = _entries(cur, the_day, the_day)
+        target_row = _target_row(cur, the_day)
+    by_id = {e["id"]: e for e in entries}
+    by_meal: dict = {}
+    for e in entries:
+        by_meal.setdefault(e["meal"], []).append(e)
+
+    def meal(r):
+        es = by_meal.get(r["meal"], [])
+        return {"meal": r["meal"], "label": r["meal_label"], "nutrients": _macros(r), "note": notes.get(r["meal"]) if r["meal"] else None,
+                "values": _sums(es, all_known=False), "unknown": _unknown(es)}
+
     return {"day": iso(the_day), "today": iso(today), "past": the_day < today,
-            "rows": [_food_row(i, eaten, note=True) for i in items],
+            # `values` (web 73): the entry's every value as eaten, null where it has none; Today's rows (_food_row) stay as they are
+            "rows": [{**_food_row(i, eaten, note=True), "values": _sums([by_id[i["id"]]], all_known=True)} for i in items],
             # a meal's note (21.11.2026, mealnotes.py): the one shown on it, else null; the drinks (meal 0) never have one
-            "meals": [{"meal": r["meal"], "label": r["meal_label"], "nutrients": _macros(r), "note": notes.get(r["meal"]) if r["meal"] else None}
-                      for r in sums if r["meal"] is not None],
+            "meals": [meal(r) for r in sums if r["meal"] is not None],
             "totals": _macros(total), "targets": tgt,
             # a meal note whose meals are all gone: shown as a note on the day (null when there is none, or the day has meals)
-            "day_note": day_note}
+            "day_note": day_note,
+            "lines": nutrient_lines(entries, target_row)}
 
 
 def food_entry(ref: str) -> Optional[dict]:
-    """One food entry with the units its amount can be given in (the food's basis, then its own units, foodpage._entry_panel).
-    None when there is no such entry."""
+    """One food entry with the units its amount can be given in (the food's basis, then its own units, foodpage._entry_panel), and
+    (web 73) its every value as eaten and the food's values per 100 g or ml. None when there is no such entry."""
     if not REF.fullmatch(str(ref or "")):
         return None
     with connect() as c:
-        e = c.execute("""SELECT e.id, e.day, e.food_id, e.amount, e.eaten_at, e.time_known, e.note, f.name, f.basis FROM food_entries e
-                         JOIN foods f ON f.id = e.food_id WHERE e.id = %s""", (int(ref[1:]),)).fetchone()
+        e = c.execute(f"""SELECT e.id, e.day, e.food_id, e.amount, e.eaten_at, e.time_known, e.note, f.name, f.basis, {_VALUES}
+                          FROM food_entries e JOIN foods f ON f.id = e.food_id WHERE e.id = %s""", (int(ref[1:]),)).fetchone()
         if not e:
             return None
         units = c.execute("SELECT unit, grams FROM food_units WHERE food_id = %s ORDER BY grams, unit", (e["food_id"],)).fetchall()
+        f = c.execute(f"SELECT {', '.join(_COLUMNS)} FROM foods WHERE id = %s", (e["food_id"],)).fetchone()
     return {"ref": ref, "day": iso(e["day"]), "food_id": e["food_id"], "food": e["name"], "amount": num(e["amount"]), "unit": e["basis"],
             "at": iso(e["eaten_at"]) if e["time_known"] else None, "time_known": bool(e["time_known"]), "note": e["note"],
-            "units": [{"unit": e["basis"], "in_basis": 1}] + [{"unit": u["unit"], "in_basis": num(u["grams"])} for u in units]}
+            "units": [{"unit": e["basis"], "in_basis": 1}] + [{"unit": u["unit"], "in_basis": num(u["grams"])} for u in units],
+            "values": _sums([e], all_known=True), "per_100": _per_100(f)}
 
 
 # ---- the Food space's Nutrients and Notes tabs (21.11.2026) ------------------------------------------------------------------
@@ -420,36 +437,41 @@ def _unknown(rows: list) -> dict:
     return {k: sum(1 for r in rows if r[COLUMN[k]] is None) for k, *_x in NUTRIENTS}
 
 
-def food_nutrients(asked: Optional[date] = None, days: int = 1) -> dict:
-    """The Nutrients tab: every tracked value of what was eaten in the `days` (1, 7 or 30) ending at the day asked (a later day is
-    today). Per line its total (over 7 or 30 days the average per day that has entries), the target in force on the last day and
-    how many entries have no value: an unknown value is never counted as zero without saying so. The foods eaten, one row per food
-    (amounts, entries and values added up, a value null when one of its entries has none), with their values per 100 and source;
-    for one day the same per meal."""
-    with connect() as conn, conn.cursor() as cur:
-        today = foodpage._today(cur)
-        end = min(asked, today) if asked else today
-        start = end - timedelta(days=days - 1)
-        cur.execute("""SELECT e.id, e.day, e.meal, e.food_id, e.amount, e.eaten_at, e.kcal, e.protein, e.fat, e.sat_fat, e.carbs,
-                              e.fibre, e.sugar_total, e.sugar_added, e.sodium_mg, e.caffeine_mg
-                       FROM food_entries e WHERE e.day BETWEEN %s AND %s ORDER BY e.day, e.eaten_at, e.id""", (start, end))
-        rows = cur.fetchall()
-        cur.execute("""SELECT id, name, basis, is_drink, source, brand, source_note, kcal, protein, fat, sat_fat, carbs, fibre, sugar_total,
-                              sugar_added, sodium_mg, caffeine_mg FROM foods WHERE id = ANY(%s)""", (list({r["food_id"] for r in rows}),))
-        foods = {f["id"]: f for f in cur.fetchall()}
-        cur.execute("SELECT * FROM food_targets WHERE valid_from <= %s ORDER BY valid_from DESC LIMIT 1", (end,))
-        tgt = cur.fetchone() or {}
-    eaten_days = len({r["day"] for r in rows})
+_COLUMNS = ("kcal", "protein", "fat", "sat_fat", "carbs", "fibre", "sugar_total", "sugar_added", "sodium_mg", "caffeine_mg")  # the values
+_VALUES = ", ".join("e." + c for c in _COLUMNS)  # of an entry (e)
+
+
+def _entries(cur, start: date, end: date) -> list:
+    """The food entries of the days start .. end with their values (the rows nutrient_lines, _sums and _unknown take)."""
+    cur.execute(f"""SELECT e.id, e.day, e.meal, e.food_id, e.amount, e.eaten_at, {_VALUES}
+                    FROM food_entries e WHERE e.day BETWEEN %s AND %s ORDER BY e.day, e.eaten_at, e.id""", (start, end))
+    return cur.fetchall()
+
+
+def _target_row(cur, day: date) -> dict:
+    """The food_targets row in force on a day ({} when there is none)."""
+    cur.execute("SELECT * FROM food_targets WHERE valid_from <= %s ORDER BY valid_from DESC LIMIT 1", (day,))
+    return cur.fetchone() or {}
+
+
+def _per_100(f: dict) -> dict:
+    """A catalogue food's values per 100 g or ml in the lines' keys (salt from sodium), sodium_mg beside them."""
+    return {**{k: _val(k, f[COLUMN[k]]) for k, *_x in NUTRIENTS}, "sodium_mg": num(f["sodium_mg"])}
+
+
+def nutrient_lines(rows: list, tgt: dict, eaten_days: Optional[int] = None) -> list:
+    """The ten lines of the entries `rows` (with food_id and the value columns) against `tgt` (a food_targets row): each line's sum of
+    the known values, how many entries and foods have none for it, and its target. With eaten_days (7 or 30 days) `value` is the
+    average per day that has entries. The one place for both the Nutrients tab and the Food day (web 73)."""
     total, unknown = _sums(rows, all_known=False), _unknown(rows)
     by_food: dict = {}
     for r in rows:
         by_food.setdefault(r["food_id"], []).append(r)
     unknown_foods = {k: sum(1 for es in by_food.values() if any(e[COLUMN[k]] is None for e in es)) for k, *_x in NUTRIENTS}
-    per_day = days > 1
 
     def avg(v, k):
         """Over 7 or 30 days: the average per day that has entries (salt to 2 decimals, mg whole, the rest to 1)."""
-        if v is None or not per_day:
+        if v is None or eaten_days is None:
             return v
         return num(round(float(v) / eaten_days, 2 if k == "salt" else 0 if k.endswith("_mg") else 1)) if eaten_days else 0
 
@@ -462,6 +484,30 @@ def food_nutrients(asked: Optional[date] = None, days: int = 1) -> dict:
             line["sodium_mg"] = avg(total["sodium_mg"], "sodium_mg")
             line["target_sodium_mg"] = num(tgt.get("sodium_mg")) if tgt.get("sodium_mg") else None
         lines.append(line)
+    return lines
+
+
+def food_nutrients(asked: Optional[date] = None, days: int = 1) -> dict:
+    """The Nutrients tab: every tracked value of what was eaten in the `days` (1, 7 or 30) ending at the day asked (a later day is
+    today). Per line its total (over 7 or 30 days the average per day that has entries), the target in force on the last day and
+    how many entries have no value: an unknown value is never counted as zero without saying so. The foods eaten, one row per food
+    (amounts, entries and values added up, a value null when one of its entries has none), with their values per 100 and source;
+    for one day the same per meal."""
+    with connect() as conn, conn.cursor() as cur:
+        today = foodpage._today(cur)
+        end = min(asked, today) if asked else today
+        start = end - timedelta(days=days - 1)
+        rows = _entries(cur, start, end)
+        cur.execute("""SELECT id, name, basis, is_drink, source, brand, source_note, kcal, protein, fat, sat_fat, carbs, fibre, sugar_total,
+                              sugar_added, sodium_mg, caffeine_mg FROM foods WHERE id = ANY(%s)""", (list({r["food_id"] for r in rows}),))
+        foods = {f["id"]: f for f in cur.fetchall()}
+        tgt = _target_row(cur, end)
+    eaten_days = len({r["day"] for r in rows})
+    by_food: dict = {}
+    for r in rows:
+        by_food.setdefault(r["food_id"], []).append(r)
+    per_day = days > 1
+    lines = nutrient_lines(rows, tgt, eaten_days if per_day else None)
     food_rows = []
     for fid, es in by_food.items():
         f = foods[fid]
@@ -469,7 +515,7 @@ def food_nutrients(asked: Optional[date] = None, days: int = 1) -> dict:
                           "amount": num(round(sum(float(e["amount"]) for e in es), 1)), "entries": len(es),
                           "refs": [f"f{e['id']}" for e in es] if not per_day else None,
                           "values": _sums(es, all_known=True),
-                          "per_100": {**{k: _val(k, f[COLUMN[k]]) for k, *_x in NUTRIENTS}, "sodium_mg": num(f["sodium_mg"])},
+                          "per_100": _per_100(f),
                           "source": " · ".join(x for x in (f["source"], f["brand"], f["source_note"]) if x)})
     food_rows.sort(key=lambda x: (-(x["values"]["kcal"] or 0), x["name"].lower()))
     meals = []
