@@ -790,6 +790,8 @@ async function checkFoodSpace(page, name, theme) {
   assert.equal(await text(head), 'Meal note removed.', 'meal note removed: the head');
   await checkWidth(page, 'food, meal notes');
 
+  await checkFoodValues(page, name, theme);
+
   // the date field: a day picked leads to that Food day, and the tabs carry it
   const picked = new Date(Date.parse(`${foodDay.day}T12:00:00Z`) - 5 * 86400_000).toISOString().slice(0, 10); // any earlier day
   await page.locator('[data-day-pick] input').fill(picked);
@@ -841,6 +843,116 @@ async function checkFoodSpace(page, name, theme) {
   await page.goto(`${base}/trends`);
   const days = await page.locator('[data-day-link]').evaluateAll((els) => els.map((e) => e.getAttribute('href')));
   assert.ok(days.length > 0 && days.every((h) => /^\/food\?day=\d{4}-\d\d-\d\d$/.test(h)), `The days lead to the Food day (${days.join(' ')})`);
+}
+
+/**
+ * Web 73: every value on the Food day. All values at first: the six more tiles, the ten columns (PC) or the grid under each row (phone),
+ * a total after each meal, the day against the daily budget (PC: four closing rows; phone: the Day total card), an opened row's every
+ * value (phone); Macros: the four macros only; the choice kept after a reload; the page itself never scrolls sideways. The numbers are
+ * the food sample's (the stand-in works the sums out as the core does).
+ */
+async function checkFoodValues(page, name, theme) {
+  const pc = name === 'pc';
+  const shown = (loc) => loc.evaluateAll((els) => els.filter((e) => e.checkVisibility()).length);
+  const shownTexts = (loc) => loc.evaluateAll((els) => els.filter((e) => e.checkVisibility()).map((e) => e.innerText.replace(/\s+/g, ' ').trim()));
+  const seen = async (loc) => (await loc.innerText()).replace(/\s+/g, ' ').trim();
+  const pressed = async () => page.locator('[data-values-switch] [aria-pressed="true"]').filter({ visible: true }).getAttribute('data-mode');
+  const lines = Object.fromEntries(foodDay.lines.map((l) => [l.key, l]));
+  await page.evaluate(() => localStorage.removeItem('logger-food-values'));
+  await page.goto(`${base}/food`);
+  await page.locator('[data-card="food-rows"]').waitFor();
+
+  // All values, the first time
+  assert.equal(await pressed(), 'all', 'All values at first');
+  assert.equal(await shown(page.locator('[data-extra-tile]')), 6, 'six more tiles');
+  const added = page.locator('[data-extra-tile="sugar_added"]');
+  assert.equal(await text(added.locator('[data-extra-note]')), `${lines.sugar_added.unknown_foods} food without a value`, 'added sugar: the unknown mark');
+  assert.match(await text(added), /at least/, 'added sugar: "at least"');
+  assert.equal(await text(page.locator('[data-extra-tile="sat_fat"] [data-extra-note]')), 'no target', 'saturated fat: no target');
+  const rows = new Set(await page.locator('[data-extra-tile]').evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().y))));
+  assert.equal(rows.size, pc ? 1 : 2, 'the six tiles: one row on the PC, three by two on the phone');
+  if (pc) {
+    assert.deepEqual(await shownTexts(page.locator('[data-rows-head] > span')), ['Time', 'Food', 'kcal', 'Prot. g', 'Fat g', 'Sat. g', 'Carbs g', 'Sugar g', 'Added g', 'Fibre g', 'Salt g', 'Caff. mg', ''], 'ten value columns, no Amount');
+    assert.equal(await shown(page.locator('[data-amount-under]')), foodDay.rows.length, 'the amount under each name');
+    const mealRow = page.locator('[data-meal-total="2"]');
+    assert.match(await seen(mealRow), /^Meal 2 total 934 37 29 7\.8 136 35\.5 ≥ 6\.5 25\.6 ≥ 3\.67 0$/, 'meal 2 total, ≥ where a food has no value');
+    assert.deepEqual(await shownTexts(page.locator('[data-day-row] > span:nth-child(2)')), ['Day total', 'Daily budget', 'Difference', 'Difference in %'], 'the four closing rows');
+    const kcalCells = await page.locator('[data-day-row]').evaluateAll((els) => els.map((e) => e.children[3].innerText.trim()));
+    assert.deepEqual(kcalCells, ['1,400', '2,100', '−700', '−33%'], 'kcal: total, budget, difference, in %');
+    const satCells = await page.locator('[data-day-row]').evaluateAll((els) => els.map((e) => e.children[6].innerText.trim()));
+    assert.deepEqual(satCells, ['12.3', '–', '–', '–'], 'saturated fat: no budget');
+    // the columns line up: a food row's, a meal total's and a closing row's kcal cell start at the same x
+    const xs = await page.evaluate(() =>
+      ['[data-row] button[aria-expanded] > [data-kcal]', '[data-meal-total="2"] > span:nth-child(4)', '[data-day-row] > span:nth-child(4)'].map((q) =>
+        Math.round(document.querySelector(q).getBoundingClientRect().right),
+      ),
+    );
+    assert.equal(new Set(xs).size, 1, `the kcal column lines up (${xs.join(', ')})`);
+    // a window of 1120 px: the ten columns do not fit, so the table's box scrolls sideways; the page does not
+    const wide = page.viewportSize();
+    await page.setViewportSize({ width: 1120, height: wide.height });
+    const box = await page.locator('[data-card="food-rows"]').evaluate((e) => e.scrollWidth - e.clientWidth);
+    assert.ok(box > 0, `1120 px: the table scrolls in its box (${box} px)`);
+    await checkWidth(page, 'food, all values at 1120 px');
+    await page.screenshot({ path: `${out}/food-all-1120-${theme}.png`, fullPage: true });
+    await page.setViewportSize(wide);
+  } else {
+    assert.equal(await shown(page.locator('[data-value-grid]')), foodDay.rows.length + foodDay.meals.length, 'a grid under each row and in each meal card');
+    assert.match(await seen(page.locator('[data-meal-card="2"]')), /^Meal 2 total 934 kcal Protein 36\.7 Fat 28\.7 Sat\. fat 7\.8 .* Added ≥ 6\.5 /, 'meal 2 card');
+    assert.equal(await shown(page.locator('[data-day-card-row]')), 10, 'the Day total card: ten rows');
+    const kcal = page.locator('[data-day-card-row="kcal"]');
+    assert.deepEqual([await text(kcal.locator('[data-card-total]')), await text(kcal.locator('[data-card-budget]')), await seen(kcal.locator('[data-card-diff]'))], ['1,400', '2,100', '−700 −33%'], 'the card: kcal');
+    assert.equal(await seen(page.locator('[data-day-card-row="sugar_added"] [data-card-diff]')), '≥ −18.5 ≥ −74%', 'the card: added sugar with ≥');
+    assert.equal(await text(page.locator('[data-day-card-row="caffeine_mg"] [data-card-diff]')), '–', 'the card: no budget');
+  }
+  await checkWidth(page, 'food, all values');
+  await page.screenshot({ path: `${out}/food-all-${name}-${theme}.png`, fullPage: true });
+
+  // an opened row: every value as eaten and per 100 (phone and tablet), its grid hidden while it is open; Today's editor below
+  const bread = FOOD.entry.entry;
+  await page.locator(`[data-row="${bread.ref}"] button[aria-expanded]`).first().click();
+  await page.locator(`[data-food-editor="${bread.ref}"]`).waitFor();
+  const every = page.locator(`[data-every-value="${bread.ref}"]`);
+  if (pc) assert.equal(await shown(every), 0, 'PC: no "Every value" table');
+  else {
+    assert.equal(await every.locator('[data-value-row]').count(), 10, 'every value: ten rows');
+    await every.locator('[data-value-row="salt"] [data-per100]').getByText('1.25 g').waitFor();
+    assert.equal(await text(every.locator('[data-value-row="salt"] [data-eaten]')), '1.00 g', 'salt as eaten');
+    assert.equal(await shown(page.locator(`[data-row="${bread.ref}"] [data-value-grid]`)), 0, 'the grid hidden while the row is open');
+    await every.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: `${out}/food-every-value-${name}-${theme}.png` });
+  }
+  await checkWidth(page, 'food, a row open with every value');
+  await page.locator(`[data-row="${bread.ref}"] button[aria-expanded]`).first().click();
+
+  // Macros: the four macros only, and still the meal totals and the day against its budget
+  await page.locator('[data-values-switch] [data-mode="macros"]').filter({ visible: true }).click();
+  assert.equal(await pressed(), 'macros', 'Macros pressed');
+  assert.equal(await shown(page.locator('[data-extra-tile]')), 0, 'Macros: no extra tiles');
+  if (pc) {
+    assert.deepEqual(await shownTexts(page.locator('[data-rows-head] > span')), ['Time', 'Food', 'Amount', 'kcal', 'Protein', 'Fat', 'Carbs', ''], 'Macros: the table as it was');
+    assert.equal(await seen(page.locator('[data-meal-total="2"]')), 'Meal 2 total 934 37 g 29 g 136 g', 'Macros: meal 2 total');
+    assert.equal(await shown(page.locator('[data-day-row]')), 4, 'Macros: the four closing rows');
+    const protein = await page.locator('[data-day-row]').evaluateAll((els) => els.map((e) => e.children[4].innerText.trim()));
+    assert.deepEqual(protein, ['57 g', '150 g', '−93 g', '−62%'], 'Macros: protein with g');
+  } else {
+    assert.equal(await shown(page.locator('[data-value-grid]')), 0, 'Macros: no grids');
+    assert.equal(await shown(page.locator('[data-day-card-row]')), 4, 'Macros: the card has the four macros');
+    assert.equal(await text(page.locator('[data-meal-card="2"] [data-meal-macros]')), 'P 37 g · F 29 g · C 136 g', 'Macros: the meal card in one line');
+    assert.match(await page.locator(`[data-row="${foodDay.rows[2].ref}"] [data-sub]`).innerText(), / · \d+ g protein$/, 'Macros: amount · protein');
+  }
+  await checkWidth(page, 'food, macros');
+  await page.screenshot({ path: `${out}/food-macros-${name}-${theme}.png`, fullPage: true });
+
+  // kept on the device: after a reload Macros again, set before the page is drawn
+  await page.reload();
+  await page.locator('[data-card="food-rows"]').waitFor();
+  assert.equal(await page.evaluate(() => document.documentElement.getAttribute('data-food-values')), 'macros', 'Macros kept after a reload');
+  assert.equal(await pressed(), 'macros', 'Macros still pressed');
+  assert.equal(await shown(page.locator('[data-extra-tile]')), 0, 'after a reload: no extra tiles');
+  await page.locator('[data-values-switch] [data-mode="all"]').filter({ visible: true }).click();
+  assert.equal(await page.evaluate(() => localStorage.getItem('logger-food-values')), null, 'All values: nothing stored');
+  assert.equal(await shown(page.locator('[data-extra-tile]')), 6, 'All values again');
 }
 
 /** Deploy 87: the Usual meals page, "Save as usual meal" on the Food day, and Today's "Edit" link. */

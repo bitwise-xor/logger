@@ -23,7 +23,20 @@
       "carbs": 3.8
      },
      "food_id": 1,
-     "note": null
+     "note": null,
+     "values": {
+      "kcal": 45,
+      "protein": 2.5,
+      "fat": 2.5,
+      "sat_fat": 1.6,
+      "carbs": 3.8,
+      "sugar_total": 3.8,
+      "sugar_added": 0,
+      "fibre": 0,
+      "salt": 0.25,
+      "caffeine_mg": 80,
+      "sodium_mg": 100
+     }
     },
     {
      "ref": "f4",
@@ -42,7 +55,20 @@
       "carbs": 0
      },
      "food_id": 4,
-     "note": null
+     "note": null,
+     "values": {
+      "kcal": 0,
+      "protein": 0,
+      "fat": 0,
+      "sat_fat": 0,
+      "carbs": 0,
+      "sugar_total": 0,
+      "sugar_added": 0,
+      "fibre": 0,
+      "salt": 0,
+      "caffeine_mg": 0,
+      "sodium_mg": 0
+     }
     },
     {
      "ref": "f2",
@@ -61,7 +87,20 @@
       "carbs": 66
      },
      "food_id": 2,
-     "note": null
+     "note": null,
+     "values": {
+      "kcal": 420,
+      "protein": 18,
+      "fat": 9,
+      "sat_fat": 2.9,
+      "carbs": 66,
+      "sugar_total": 21.4,
+      "sugar_added": 0,
+      "fibre": 7.8,
+      "salt": 0.3,
+      "caffeine_mg": 0,
+      "sodium_mg": 120
+     }
     },
     {
      "ref": "f3",
@@ -80,7 +119,20 @@
       "carbs": 18
      },
      "food_id": 3,
-     "note": null
+     "note": null,
+     "values": {
+      "kcal": 165,
+      "protein": 4.9,
+      "fat": 9,
+      "sat_fat": 1.7,
+      "carbs": 18,
+      "sugar_total": 12.6,
+      "sugar_added": null,
+      "fibre": 3.6,
+      "salt": null,
+      "caffeine_mg": 0,
+      "sodium_mg": null
+     }
     },
     {
      "ref": "f5",
@@ -99,7 +151,20 @@
       "carbs": 24
      },
      "food_id": 5,
-     "note": null
+     "note": null,
+     "values": {
+      "kcal": 160,
+      "protein": 1.6,
+      "fat": 8,
+      "sat_fat": 4.1,
+      "carbs": 24,
+      "sugar_total": 15.2,
+      "sugar_added": 6.5,
+      "fibre": 2.4,
+      "salt": 0.05,
+      "caffeine_mg": 0,
+      "sodium_mg": 20
+     }
     },
     {
      "ref": "f6",
@@ -118,7 +183,20 @@
       "carbs": 56
      },
      "food_id": 6,
-     "note": "toasted"
+     "note": "toasted",
+     "values": {
+      "kcal": 409.5,
+      "protein": 24.2,
+      "fat": 10.5,
+      "sat_fat": 1.8,
+      "carbs": 56,
+      "sugar_total": 5.6,
+      "sugar_added": 0,
+      "fibre": 14,
+      "salt": 2.62,
+      "caffeine_mg": 0,
+      "sodium_mg": 1050
+     }
     },
     {
      "ref": "f7",
@@ -137,7 +215,20 @@
       "carbs": 38.4
      },
      "food_id": 7,
-     "note": null
+     "note": null,
+     "values": {
+      "kcal": 200,
+      "protein": 6,
+      "fat": 1.2,
+      "sat_fat": 0.2,
+      "carbs": 38.4,
+      "sugar_total": 2.1,
+      "sugar_added": 0,
+      "fibre": 5.6,
+      "salt": 1,
+      "caffeine_mg": 0,
+      "sodium_mg": 400
+     }
     }
    ],
    "meals": [
@@ -150,7 +241,32 @@
       "fat": 9,
       "carbs": 66
      },
-     "note": null
+     "note": null,
+     "values": {
+      "kcal": 420,
+      "protein": 18,
+      "fat": 9,
+      "sat_fat": 2.9,
+      "carbs": 66,
+      "sugar_total": 21.4,
+      "sugar_added": 0,
+      "fibre": 7.8,
+      "salt": 0.3,
+      "caffeine_mg": 0,
+      "sodium_mg": 120
+     },
+     "unknown": {
+      "kcal": 0,
+      "protein": 0,
+      "fat": 0,
+      "sat_fat": 0,
+      "carbs": 0,
+      "sugar_total": 0,
+      "sugar_added": 0,
+      "fibre": 0,
+      "salt": 0,
+      "caffeine_mg": 0
+     }
     },
     {
      "meal": 2,
@@ -161,7 +277,32 @@
       "fat": 28.7,
       "carbs": 136.4
      },
-     "note": "Lunch at the desk, soup a bit thin"
+     "note": "Lunch at the desk, soup a bit thin",
+     "values": {
+      "kcal": 934.5,
+      "protein": 36.7,
+      "fat": 28.7,
+      "sat_fat": 7.8,
+      "carbs": 136.4,
+      "sugar_total": 35.5,
+      "sugar_added": 6.5,
+      "fibre": 25.6,
+      "salt": 3.67,
+      "caffeine_mg": 0,
+      "sodium_mg": 1470
+     },
+     "unknown": {
+      "kcal": 0,
+      "protein": 0,
+      "fat": 0,
+      "sat_fat": 0,
+      "carbs": 0,
+      "sugar_total": 0,
+      "sugar_added": 1,
+      "fibre": 0,
+      "salt": 1,
+      "caffeine_mg": 0
+     }
     },
     {
      "meal": 0,
@@ -172,7 +313,32 @@
       "fat": 2.5,
       "carbs": 3.8
      },
-     "note": null
+     "note": null,
+     "values": {
+      "kcal": 45,
+      "protein": 2.5,
+      "fat": 2.5,
+      "sat_fat": 1.6,
+      "carbs": 3.8,
+      "sugar_total": 3.8,
+      "sugar_added": 0,
+      "fibre": 0,
+      "salt": 0.25,
+      "caffeine_mg": 80,
+      "sodium_mg": 100
+     },
+     "unknown": {
+      "kcal": 0,
+      "protein": 0,
+      "fat": 0,
+      "sat_fat": 0,
+      "carbs": 0,
+      "sugar_total": 0,
+      "sugar_added": 0,
+      "fibre": 0,
+      "salt": 0,
+      "caffeine_mg": 0
+     }
     }
    ],
    "totals": {
@@ -187,7 +353,131 @@
     "fat": 70,
     "carbs": 250
    },
-   "day_note": null
+   "day_note": null,
+   "lines": [
+    {
+     "key": "kcal",
+     "label": "Calories",
+     "unit": "kcal",
+     "sub": false,
+     "aim": "under",
+     "sum": 1399.5,
+     "value": 1399.5,
+     "unknown": 0,
+     "unknown_foods": 0,
+     "target": 2100
+    },
+    {
+     "key": "protein",
+     "label": "Protein",
+     "unit": "g",
+     "sub": false,
+     "aim": "reach",
+     "sum": 57.2,
+     "value": 57.2,
+     "unknown": 0,
+     "unknown_foods": 0,
+     "target": 150
+    },
+    {
+     "key": "fat",
+     "label": "Fat",
+     "unit": "g",
+     "sub": false,
+     "aim": "under",
+     "sum": 40.2,
+     "value": 40.2,
+     "unknown": 0,
+     "unknown_foods": 0,
+     "target": 70
+    },
+    {
+     "key": "sat_fat",
+     "label": "of which saturated",
+     "unit": "g",
+     "sub": true,
+     "aim": "under",
+     "sum": 12.3,
+     "value": 12.3,
+     "unknown": 0,
+     "unknown_foods": 0,
+     "target": null
+    },
+    {
+     "key": "carbs",
+     "label": "Carbs",
+     "unit": "g",
+     "sub": false,
+     "aim": "under",
+     "sum": 206.2,
+     "value": 206.2,
+     "unknown": 0,
+     "unknown_foods": 0,
+     "target": 250
+    },
+    {
+     "key": "sugar_total",
+     "label": "of which sugar",
+     "unit": "g",
+     "sub": true,
+     "aim": null,
+     "sum": 60.7,
+     "value": 60.7,
+     "unknown": 0,
+     "unknown_foods": 0,
+     "target": null
+    },
+    {
+     "key": "sugar_added",
+     "label": "Added sugar",
+     "unit": "g",
+     "sub": false,
+     "aim": "under",
+     "sum": 6.5,
+     "value": 6.5,
+     "unknown": 1,
+     "unknown_foods": 1,
+     "target": 25
+    },
+    {
+     "key": "fibre",
+     "label": "Fibre",
+     "unit": "g",
+     "sub": false,
+     "aim": "reach",
+     "sum": 33.4,
+     "value": 33.4,
+     "unknown": 0,
+     "unknown_foods": 0,
+     "target": 30
+    },
+    {
+     "key": "salt",
+     "label": "Salt",
+     "unit": "g",
+     "sub": false,
+     "aim": "under",
+     "sum": 4.22,
+     "value": 4.22,
+     "unknown": 1,
+     "unknown_foods": 1,
+     "target": 6,
+     "sodium_mg": 1690,
+     "target_sodium_mg": 2400
+    },
+    {
+     "key": "caffeine_mg",
+     "label": "Caffeine",
+     "unit": "mg",
+     "sub": false,
+     "aim": null,
+     "sum": 80,
+     "value": 80,
+     "unknown": 0,
+     "unknown_foods": 0,
+     "target": null
+    }
+   ]
   },
   "undo": null
  },
@@ -215,7 +505,20 @@
       "carbs": 5
      },
      "food_id": 8,
-     "note": null
+     "note": null,
+     "values": {
+      "kcal": 126,
+      "protein": 10,
+      "fat": 2,
+      "sat_fat": 1.3,
+      "carbs": 5,
+      "sugar_total": 7,
+      "sugar_added": 0,
+      "fibre": 0,
+      "salt": 0.2,
+      "caffeine_mg": 0,
+      "sodium_mg": 80
+     }
     },
     {
      "ref": "f9",
@@ -234,7 +537,20 @@
       "carbs": 5
      },
      "food_id": 9,
-     "note": null
+     "note": null,
+     "values": {
+      "kcal": 107,
+      "protein": 10,
+      "fat": 2,
+      "sat_fat": 0.1,
+      "carbs": 5,
+      "sugar_total": 14.6,
+      "sugar_added": 0,
+      "fibre": 3.1,
+      "salt": 0,
+      "caffeine_mg": 0,
+      "sodium_mg": 1
+     }
     }
    ],
    "meals": [
@@ -247,7 +563,32 @@
       "fat": 4,
       "carbs": 10
      },
-     "note": null
+     "note": null,
+     "values": {
+      "kcal": 233,
+      "protein": 20,
+      "fat": 4,
+      "sat_fat": 1.4,
+      "carbs": 10,
+      "sugar_total": 21.6,
+      "sugar_added": 0,
+      "fibre": 3.1,
+      "salt": 0.2,
+      "caffeine_mg": 0,
+      "sodium_mg": 81
+     },
+     "unknown": {
+      "kcal": 0,
+      "protein": 0,
+      "fat": 0,
+      "sat_fat": 0,
+      "carbs": 0,
+      "sugar_total": 0,
+      "sugar_added": 0,
+      "fibre": 0,
+      "salt": 0,
+      "caffeine_mg": 0
+     }
     }
    ],
    "totals": {
@@ -262,7 +603,131 @@
     "fat": 70,
     "carbs": 250
    },
-   "day_note": null
+   "day_note": null,
+   "lines": [
+    {
+     "key": "kcal",
+     "label": "Calories",
+     "unit": "kcal",
+     "sub": false,
+     "aim": "under",
+     "sum": 233,
+     "value": 233,
+     "unknown": 0,
+     "unknown_foods": 0,
+     "target": 2100
+    },
+    {
+     "key": "protein",
+     "label": "Protein",
+     "unit": "g",
+     "sub": false,
+     "aim": "reach",
+     "sum": 20,
+     "value": 20,
+     "unknown": 0,
+     "unknown_foods": 0,
+     "target": 150
+    },
+    {
+     "key": "fat",
+     "label": "Fat",
+     "unit": "g",
+     "sub": false,
+     "aim": "under",
+     "sum": 4,
+     "value": 4,
+     "unknown": 0,
+     "unknown_foods": 0,
+     "target": 70
+    },
+    {
+     "key": "sat_fat",
+     "label": "of which saturated",
+     "unit": "g",
+     "sub": true,
+     "aim": "under",
+     "sum": 1.4,
+     "value": 1.4,
+     "unknown": 0,
+     "unknown_foods": 0,
+     "target": null
+    },
+    {
+     "key": "carbs",
+     "label": "Carbs",
+     "unit": "g",
+     "sub": false,
+     "aim": "under",
+     "sum": 10,
+     "value": 10,
+     "unknown": 0,
+     "unknown_foods": 0,
+     "target": 250
+    },
+    {
+     "key": "sugar_total",
+     "label": "of which sugar",
+     "unit": "g",
+     "sub": true,
+     "aim": null,
+     "sum": 21.6,
+     "value": 21.6,
+     "unknown": 0,
+     "unknown_foods": 0,
+     "target": null
+    },
+    {
+     "key": "sugar_added",
+     "label": "Added sugar",
+     "unit": "g",
+     "sub": false,
+     "aim": "under",
+     "sum": 0,
+     "value": 0,
+     "unknown": 0,
+     "unknown_foods": 0,
+     "target": 25
+    },
+    {
+     "key": "fibre",
+     "label": "Fibre",
+     "unit": "g",
+     "sub": false,
+     "aim": "reach",
+     "sum": 3.1,
+     "value": 3.1,
+     "unknown": 0,
+     "unknown_foods": 0,
+     "target": 30
+    },
+    {
+     "key": "salt",
+     "label": "Salt",
+     "unit": "g",
+     "sub": false,
+     "aim": "under",
+     "sum": 0.2,
+     "value": 0.2,
+     "unknown": 0,
+     "unknown_foods": 0,
+     "target": 6,
+     "sodium_mg": 81,
+     "target_sodium_mg": 2400
+    },
+    {
+     "key": "caffeine_mg",
+     "label": "Caffeine",
+     "unit": "mg",
+     "sub": false,
+     "aim": null,
+     "sum": 0,
+     "value": 0,
+     "unknown": 0,
+     "unknown_foods": 0,
+     "target": null
+    }
+   ]
   },
   "undo": null
  },
@@ -287,7 +752,33 @@
      "unit": "slice",
      "in_basis": 40
     }
-   ]
+   ],
+   "values": {
+    "kcal": 200,
+    "protein": 6,
+    "fat": 1.2,
+    "sat_fat": 0.2,
+    "carbs": 38.4,
+    "sugar_total": 2.1,
+    "sugar_added": 0,
+    "fibre": 5.6,
+    "salt": 1,
+    "caffeine_mg": 0,
+    "sodium_mg": 400
+   },
+   "per_100": {
+    "kcal": 250,
+    "protein": 7.5,
+    "fat": 1.5,
+    "sat_fat": 0.2,
+    "carbs": 48,
+    "sugar_total": 2.6,
+    "sugar_added": 0,
+    "fibre": 7,
+    "salt": 1.25,
+    "caffeine_mg": 0,
+    "sodium_mg": 500
+   }
   }
  },
  "saves": {

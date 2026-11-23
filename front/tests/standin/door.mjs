@@ -17,6 +17,9 @@
 // other than 1, 7 or 30 is 400), GET /food/notes (the sample's list, its dates moved so its newest day is the stand-in's today, today's
 // meal notes as kept here; POST /standin/notes-empty: none) and POST /food/mealnote (the door's checks and words; the note kept per
 // meal of today, on the Food day's meals[].note; an earlier day answers "That meal is not there any more.").
+// Web 73 (23.11.2026): the Food day's every value: each row's values (tests/samples/food.json's rows by ref; a row logged here has its
+// four macros and the rest 0), each meal's sums and unknown counts and the day's ten lines worked out here as the core does (the
+// budget: the sample's targets), and GET /food/entry's values and per_100 (worked out from the row's values and amount).
 // Deploy 87: GET /usual (tests/samples/usual.json's list, and three more meals made here from the catalogue), GET /foods?q= (a
 // catalogue made of the samples' foods, each with per_100 worked out from its values), and POST /usual/meal (save: name and the
 // whole list; delete), /usual/new and /usual/from_meal, checked as webfood checks them (a name of 2 to 60 characters no other
@@ -173,11 +176,14 @@ function reset() {
   // the notes of the food sample's rows (the same invented day), kept on the rows so an Undo puts them back too
   const notes = new Map(FOOD.food_day.food_day.rows.map((r) => [r.ref, r.note]));
   for (const r of state.day.rows) if (r.kind === 'food') r.note = notes.get(r.ref) ?? null;
+  // web 73: every value of the sample's rows, kept on the rows (an Undo puts them back too)
+  const values = new Map(FOOD.food_day.food_day.rows.map((r) => [r.ref, r.values]));
+  for (const r of state.day.rows) if (r.kind === 'food' && values.has(r.ref)) r.values = structuredClone(values.get(r.ref));
 }
 
 /** GET /day's day: the rows without the notes the stand-in keeps on them (the door's /day has none). */
 const dayOut = (d) => {
-  const out = { ...d, rows: d.rows.map(({ note: _n, ...r }) => r), coach: setShown('card', 'coach') ? coachDayCard() : null, shown: { review: setShown('review', 'box'), gratitude: setShown('card', 'gratitude') } };
+  const out = { ...d, rows: d.rows.map(({ note: _n, values: _v, ...r }) => r), coach: setShown('card', 'coach') ? coachDayCard() : null, shown: { review: setShown('review', 'box'), gratitude: setShown('card', 'gratitude') } };
   if (state.settings.noShown) delete out.shown;
   return out;
 };
@@ -191,9 +197,53 @@ function foodDay(asked) {
   const rows = d.rows
     .filter((r) => r.kind === 'food')
     .map((r) => ({ ref: r.ref, kind: 'food', meal: r.meal, at: r.at, time_known: r.time_known, food: r.food, amount: r.amount,
-      unit: r.unit, portion_text: r.portion_text, nutrients: r.nutrients, food_id: r.food_id, note: r.note ?? null }));
-  const meals = d.energy.meals.map((m) => ({ ...m, note: m.meal ? (state.mealNotes.get(m.meal) ?? null) : null }));
-  return { day: d.day, today: d.day, past: false, rows, meals, totals: d.energy.totals, targets: d.energy.targets, day_note: null };
+      unit: r.unit, portion_text: r.portion_text, nutrients: r.nutrients, food_id: r.food_id, note: r.note ?? null, values: rowValues(r) }));
+  const meals = d.energy.meals.map((m) => {
+    const vs = rows.filter((r) => r.meal === m.meal).map((r) => r.values);
+    return { ...m, note: m.meal ? (state.mealNotes.get(m.meal) ?? null) : null, values: sums(vs), unknown: unknownOf(vs) };
+  });
+  return { day: d.day, today: d.day, past: false, rows, meals, totals: d.energy.totals, targets: d.energy.targets, day_note: null,
+    lines: nutrientLines(rows) };
+}
+
+// ---- every value (web 73), as the core's reads._sums, _unknown and nutrient_lines ----------------------------------------------
+
+const VALUE_KEYS = ['kcal', 'protein', 'fat', 'sat_fat', 'carbs', 'sugar_total', 'sugar_added', 'fibre', 'salt', 'caffeine_mg'];
+const columnOf = (k) => (k === 'salt' ? 'sodium_mg' : k);
+const saltOf = (mg) => +((mg * 2.5) / 1000).toFixed(2);
+/** A line's value from its column: salt from sodium (2 decimals), caffeine whole, the rest 1 decimal. */
+const valOf = (k, v) => (k === 'salt' ? saltOf(v) : +v.toFixed(k === 'caffeine_mg' ? 0 : 1));
+
+/** A row's every value: the sample's, else (a row logged here) its four macros and 0 for the rest. */
+function rowValues(r) {
+  if (r.values) return structuredClone(r.values);
+  const n = r.nutrients;
+  return { kcal: n.kcal, protein: n.protein, fat: n.fat, sat_fat: 0, carbs: n.carbs, sugar_total: 0, sugar_added: 0, fibre: 0, salt: 0, caffeine_mg: 0, sodium_mg: 0 };
+}
+
+/** The known values added up (and sodium beside salt). */
+function sums(vs) {
+  const out = {};
+  for (const k of VALUE_KEYS) out[k] = valOf(k, vs.reduce((a, v) => a + (v[columnOf(k)] ?? 0), 0));
+  out.sodium_mg = Math.round(vs.reduce((a, v) => a + (v.sodium_mg ?? 0), 0));
+  return out;
+}
+
+const unknownOf = (vs) => Object.fromEntries(VALUE_KEYS.map((k) => [k, vs.filter((v) => v[columnOf(k)] === null).length]));
+
+/** The day's ten lines as GET /food/nutrients has them for one day; the budget: the food sample's targets. */
+function nutrientLines(rows) {
+  const vs = rows.map((r) => r.values);
+  const total = sums(vs);
+  const unknown = unknownOf(vs);
+  const byFood = new Map();
+  for (const r of rows) byFood.set(r.food_id, [...(byFood.get(r.food_id) ?? []), r.values]);
+  return FOOD.food_day.food_day.lines.map((l) => {
+    const line = { ...l, sum: total[l.key], value: total[l.key], unknown: unknown[l.key],
+      unknown_foods: [...byFood.values()].filter((es) => es.some((v) => v[columnOf(l.key)] === null)).length };
+    if (l.key === 'salt') line.sodium_mg = total.sodium_mg;
+    return line;
+  });
 }
 
 // ---- the Food space (21.11.2026) -------------------------------------------------------------------------------------------------
@@ -256,8 +306,11 @@ function foodEntry(ref) {
   const r = state.day.rows.find((x) => x.ref === ref && x.kind === 'food');
   if (!r) return null;
   const e = FOOD.entry.entry;
+  const values = rowValues(r);
+  const k = r.amount > 0 ? 100 / r.amount : 0;
+  const per_100 = Object.fromEntries(Object.entries(values).map(([x, v]) => [x, v === null ? null : +(v * k).toFixed(x === 'salt' ? 2 : x.endsWith('_mg') ? 0 : 1)]));
   return { ref, day: state.day.day, food_id: r.food_id, food: r.food, amount: r.amount, unit: r.unit, at: r.at, time_known: r.time_known,
-    note: r.note ?? null, units: r.food === e.food ? e.units : [{ unit: r.unit, in_basis: 1 }] };
+    note: r.note ?? null, units: r.food === e.food ? e.units : [{ unit: r.unit, in_basis: 1 }], values, per_100 };
 }
 
 /** The day's totals and meals worked out again from its food rows (after a change or a delete). */
@@ -308,6 +361,9 @@ function foodSave(path, b, d) {
   }
   const k = grams / row.amount;
   row.nutrients = Object.fromEntries(Object.entries(row.nutrients).map(([x, v]) => [x, +(v * k).toFixed(1)]));
+  if (row.values) {
+    row.values = Object.fromEntries(Object.entries(row.values).map(([x, v]) => [x, v === null ? null : +(v * k).toFixed(x === 'salt' ? 2 : x.endsWith('_mg') ? 0 : 1)]));
+  }
   // as the core: a new amount replaces the portion's words ("4 slice" in another unit, none in the food's own)
   if (grams !== row.amount) row.portion_text = u.in_basis === 1 ? null : `${a} ${unit}`;
   [row.amount, row.food, row.at, row.time_known] = [grams, name, at, row.time_known || !!b.time];

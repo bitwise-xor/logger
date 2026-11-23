@@ -5,6 +5,7 @@
  */
 import { mealLabel, newestFirst, type Nutrients, type RowBlock, type Targets } from './day.js';
 import { hm, n, pct } from './format.js';
+import type { NutrientKey, NutrientLine, Values } from './nutrients.js';
 
 // ---- the door's shapes -------------------------------------------------------------------------------------------------------
 
@@ -23,6 +24,21 @@ export interface FoodDayRow {
   portion_text: string | null;
   nutrients: Nutrients;
   note: string | null;
+  /** Web 73 (23.11.2026): every value as eaten (the Nutrients tab's FoodRow.values), null where the entry has none. */
+  values: Values;
+}
+
+/** A meal of the Food day: its four macros, its note, and (web 73) every value added up with how many entries have none. */
+export interface FoodDayMeal {
+  meal: number;
+  label: string;
+  nutrients: Nutrients;
+  /** The meal's one-line note (21.11.2026), or null (the drinks never have one). */
+  note: string | null;
+  /** The known values added up. */
+  values: Values;
+  /** Entries without a value, per line. */
+  unknown: Record<NutrientKey, number>;
 }
 
 export interface FoodDay {
@@ -30,12 +46,13 @@ export interface FoodDay {
   today: string;
   past: boolean;
   rows: FoodDayRow[];
-  /** `note` (21.11.2026): the meal's one-line note, or null (the drinks never have one). */
-  meals: { meal: number; label: string; nutrients: Nutrients; note: string | null }[];
+  meals: FoodDayMeal[];
   totals: Nutrients;
   targets: Targets;
   /** A meal note whose meals are all gone: shown as a note on the day; else null. */
   day_note: string | null;
+  /** Web 73: the day's ten lines, exactly as the Nutrients tab has them for this one day (the budget: each line's target). */
+  lines: NutrientLine[];
 }
 
 /** One entry with the units its amount can be given in: the food's own first (in_basis 1), then its others ("slice", 35). */
@@ -50,6 +67,9 @@ export interface FoodEntry {
   time_known: boolean;
   note: string | null;
   units: { unit: string; in_basis: number }[];
+  /** Web 73: every value as eaten, and the food's values per 100 g or ml (null: unknown). */
+  values: Values;
+  per_100: Values;
 }
 
 // ---- the four tiles ----------------------------------------------------------------------------------------------------------
@@ -120,6 +140,9 @@ export interface FoodBlock {
   total: string;
   /** The meal's note (21.11.2026), or null; the drinks have none. */
   note: string | null;
+  /** Web 73: the meal's every value added up, and how many entries have none (the door's meal; none when it is missing). */
+  values: Values | null;
+  unknown: Record<NutrientKey, number> | null;
   lines: FoodLine[];
 }
 
@@ -159,6 +182,8 @@ export function foodBlocks(fd: FoodDay): FoodBlock[] {
       label: mealLabel(b.meal!, meal?.label),
       total: meal ? `${n(meal.nutrients.kcal)} kcal` : '',
       note: meal?.note ?? null,
+      values: meal?.values ?? null,
+      unknown: meal?.unknown ?? null,
       lines: b.rows.map(foodLine),
     };
   });

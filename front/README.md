@@ -440,6 +440,19 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   meal's line, the note under the line in the muted style of a food's note, a tap opens one field with Save, Remove, Cancel (the form
   action `food_mealnote`, the door's `POST /food/mealnote`, no key, no Undo; a refusal is said in the field); a meal note whose meals
   are all gone shows as "Note on this day" (`day_note`, saved as meal 0). Trends > Week > "The days" link to their Food day (idea 63).
+  Every value on the Day tab (web 73, 23.11.2026): a switch "Macros / All values" (`components/food/ValuesSwitch.svelte`; All values at
+  first, Macros kept on the device by `src/lib/foodmode.svelte.ts` and set before first paint by `static/theme.js` as
+  `html[data-food-values]`; each mode's parts are the CSS variants `allvalues:` and `macros:` of `app.css`, so there is no flash). All
+  values: six more tiles under the four (saturated fat, sugar, added sugar, fibre, salt, caffeine: "at least" and "n foods without a
+  value" in amber when entries have none), the PC table with ten value columns (the amount under the name; "of which" values muted; a
+  box that scrolls sideways when they do not fit, about 1100 to 1200 px), on phones a three-by-three grid under each row (hidden while
+  it is open). Both modes: a total after each meal ("Meal 3 total": a row on the PC, a card on phones; the kcal on the meal's line is
+  gone here, not on Today), and the day against the daily budget (the targets in force that day, the door's `lines`): on the PC four
+  closing rows "Day total", "Daily budget", "Difference", "Difference in %", on phones the Day total card
+  (`components/food/FoodDayTotal.svelte`); an opened row on phones shows "Every value" as eaten and per 100 g or ml
+  (`components/food/EveryValue.svelte`, from the row's `values` and GET `/food/entry`'s `per_100`; not in `FoodEditor.svelte`, which
+  Today shares). The rules (number formats, "?" and "≥" in amber for unknown values, the signed difference and its percent, "–" without
+  a budget) are in `src/lib/foodvalues.ts` with tests.
   **Nutrients** (`/food/nutrients?day=&days=1|7|30`, idea 64; `src/lib/nutrients.ts` the door's shapes and plain rules with tests): the
   switch (‹ and › move a whole period) and the 1 / 7 / 30 days chips; the ten lines in the door's order, each a button: value and
   target, a bar where there is a target (protein, fat, carbs and their "of which" in the macro colours, the rest in the ink), the gap in
@@ -451,7 +464,8 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   1100 px. **Notes** (`/food/notes`, `src/lib/foodnotes.ts`): every meal and food note of the last 90 days by day, each row leading to that
   day's Day tab (a meal's note to `#meal-N`, a food's note with `?open=`); empty: how to add one. The stand-in answers GET
   `/food/nutrients`, `/food/notes` and POST `/food/mealnote` from `tests/samples/food_space.json` (POST `/standin/notes-empty`), the Food
-  day's meals with their notes; `SHOOT_ONLY=foodspace` runs these checks.
+  day's meals with their notes (web 73: each row's every value, the meals' sums and the day's lines worked out as the core does);
+  `SHOOT_ONLY=foodspace` runs these checks, both modes of the Day tab included.
 - Today for an earlier day (Web 69, 21.11.2026): `/?day=yyyy-mm-dd` (the door's `GET /day?day=`; a later day or one that is not a date
   is today). Under the heading the Food space's day switch (`DaySwitch.svelte`: ‹, the day, ›, the calendar); on an earlier day
   the heading says "Yesterday" or "n days ago", with "Back to today" and a line that habits and health values are only shown and a

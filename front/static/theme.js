@@ -15,6 +15,16 @@
   for (var i = 0; i < metas.length; i++) metas[i].setAttribute('content', theme === 'light' ? '#f1f1ee' : '#0c0d0f');
 })();
 
+// The Food day's "Macros / All values" switch (web 73): html[data-food-values="macros"] before first paint when Macros was chosen on
+// this device, so the Day tab never shows the other mode first. Keep in step with src/lib/foodmode.svelte.ts.
+(function () {
+  try {
+    if (localStorage.getItem('logger-food-values') === 'macros') document.documentElement.setAttribute('data-food-values', 'macros');
+  } catch {
+    // Storage is blocked: All values.
+  }
+})();
+
 // The compact view (20.11.2026): the hub shows a page in a small frame with ?compact=1, and html.compact (src/app.css) hides the
 // places (the tab bar, the PC's rail) and Today's Sign out and theme button; data and actions stay the same. It is kept for this tab
 // (sessionStorage) and used again only inside a frame, so a link or a reload in the frame stays compact, and this app opened on its

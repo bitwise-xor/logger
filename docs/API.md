@@ -135,12 +135,20 @@ Undo         = null | {token, head, expires_at}         // the session's Undo, t
 ### `GET /api/v1/food/day?day=` → `{"food_day": FoodDay, "undo": Undo}`
 
 ```
-FoodDay = {day, today, past, rows: [Row (food) + note], meals: [{meal, label, nutrients, note}], totals, targets, day_note}
+FoodDay = {day, today, past, rows: [Row (food) + note + values], meals: [{meal, label, nutrients, note, values, unknown}], totals, targets,
+           day_note, lines: [Line]}
 ```
 
 Built on `foodpage._day_rows`. `meals[].note` (21.11.2026): the meal's one-line note (below, `POST /food/mealnote`), null when it has
 none; the drinks (meal 0) never have one. `day_note`: a meal note whose meals are all gone (the day has no food left but drinks, or
 none), shown as a note on the day; else null.
+
+Every value (23.11.2026, web 73; what was there stays, Today's `GET /day` rows do not change): `rows[].values` is the entry's every
+value as eaten, the shape of the Nutrients tab's `FoodRow.values` (the ten keys and `sodium_mg`, null where the entry has none);
+`meals[].values` the meal's known values added up and `meals[].unknown` how many of its entries have none for each key (the
+Nutrients tab's `MealRow`); `lines` the day's ten lines exactly as `GET /food/nutrients?day=` gives them for that one day (`Line`
+below: `value`, `unknown`, `unknown_foods`, `target` from the `food_targets` row in force on the day, salt's sodium fields), built by
+the same `reads.nutrient_lines`, so the two tabs cannot disagree. Every save that answers with `food_day` carries them too.
 
 **Meal notes** (21.11.2026, migration 033, `core/app/mealnotes.py`, the one place that works this out). Meal numbers change (SQL
 `assign_meals` renumbers a day's meals by time whenever its entries change), so a note is not kept against a meal number: it is
@@ -198,8 +206,10 @@ Note = {kind: "meal" | "food" | "day", day, meal, label,   // meal and label ("M
 
 ### `GET /api/v1/food/entry?ref=f<id>` → `{"entry": {...}}`
 
-`{ref, day, food_id, food, amount, unit, at, time_known, note, units: [{unit, in_basis}]}`. `units`: the food's own unit first
-(`in_basis` 1), then its other units with how much of the base unit one is ("slice", 35). Unknown: 404 `no_entry`.
+`{ref, day, food_id, food, amount, unit, at, time_known, note, units: [{unit, in_basis}], values, per_100}`. `units`: the food's own
+unit first (`in_basis` 1), then its other units with how much of the base unit one is ("slice", 35). `values` (23.11.2026): the entry's
+every value as eaten, `per_100` (23.11.2026): the food's catalogue values per 100 g or ml; both in the shape of the Nutrients tab's
+`FoodRow.values` (null where unknown). Unknown: 404 `no_entry`.
 
 ### `GET /api/v1/usual` → `{"usual": [Usual], "undo": Undo}` (86)
 

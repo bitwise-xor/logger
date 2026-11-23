@@ -2,8 +2,10 @@
   import ProblemCard from '#lib/components/ProblemCard.svelte';
   import DaySwitch from '#lib/components/food/DaySwitch.svelte';
   import FoodHeader from '#lib/components/food/FoodHeader.svelte';
+  import FoodDayTotal from '#lib/components/food/FoodDayTotal.svelte';
   import FoodRows from '#lib/components/food/FoodRows.svelte';
   import FoodTiles from '#lib/components/food/FoodTiles.svelte';
+  import ValuesSwitch from '#lib/components/food/ValuesSwitch.svelte';
   import AnswerBar from '#lib/components/today/AnswerBar.svelte';
   import { dayLinks, foodDayHref } from '#lib/food.js';
   import { todayHref } from '#lib/day.js';
@@ -17,7 +19,8 @@
   // Step E (deploy 84): the Food day (the Energy card's "Food day", a food row on Today); since 21.11.2026 the Day tab of the Food
   // space (FoodHeader: Day · Nutrients · Notes, the day carried), with a date field beside ‹ and › (DaySwitch) and a note on each
   // meal. Saves change the page in place (src/lib/foodday.svelte.ts); another day is another load (?day=). The logging box stays on
-  // Today (the mockup's Food page has none: "+ Add food" leads to it).
+  // Today (the mockup's Food page has none: "+ Add food" leads to it). Web 73 (23.11.2026): every tracked value, a total per meal and
+  // the day against the daily budget; "Macros / All values" (ValuesSwitch, kept on the device: foodmode.svelte.ts) picks the columns.
   const food = setFoodPage(untrack(() => new FoodPage(data.foodDay, data.undo, data.open)));
   $effect.pre(() => food.load(data.foodDay, data.undo, data.open));
   // A "Save as usual meal" that met a gone session: sent again after the sign-in (deploy 87).
@@ -57,8 +60,11 @@
       <!-- Web 69: the same day on Today (its habits, health values and Coach card) -->
       <a href={todayHref(fd.day, fd.today)} class="inline-flex min-h-11 shrink-0 items-center font-medium no-underline desktop:min-h-9" data-day-today>On Today</a>
     {/if}
-    <a href="/#log-text" class="ml-auto hidden min-h-9 items-center rounded-lg bg-text px-4 font-medium text-bg no-underline desktop:inline-flex">+ Add food</a>
+    <!-- Web 73: "Macros / All values" before "+ Add food" on the PC; on the phone a full-width switch under the day switch -->
+    <div class="ml-auto hidden desktop:block"><ValuesSwitch /></div>
+    <a href="/#log-text" class="hidden min-h-9 items-center rounded-lg bg-text px-4 font-medium text-bg no-underline desktop:inline-flex">+ Add food</a>
   </div>
+  <div class="desktop:hidden"><ValuesSwitch wide /></div>
 {/if}
 
 {#if !fd}
@@ -67,6 +73,7 @@
   <main class="flex flex-col gap-3 desktop:gap-4">
     <FoodTiles day={fd} />
     <FoodRows day={fd} />
+    <FoodDayTotal day={fd} />
     <div class="flex flex-wrap gap-1.5 desktop:hidden">
       <a href="/#log-text" class="{pill} bg-text font-medium text-bg">+ Add food</a>
     </div>
