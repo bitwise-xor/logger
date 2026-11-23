@@ -47,13 +47,8 @@ services:
       timeout: 5s
       retries: 3
     networks:
-      internal:
-      proxy:
-        # 23.11.2026 (the rename from logger-v2): the Cloudflare tunnel's route for logger-mcp. is set in Cloudflare's dashboard and
-        # still says http://logger-v2-core:8000. This second name keeps it working; remove it once the route says logger-core:8000.
-        # It opens nothing else: the door and the hub's token only accept the Host logger-core.
-        aliases:
-          - logger-v2-core
+      - internal
+      - proxy
 
   # The new front end at logger. (front/, docs/API.md): a small SvelteKit server that Caddy reaches on the proxy network and
   # that calls the core's JSON door at http://logger-core:8000. It never touches the database. Deployed by
