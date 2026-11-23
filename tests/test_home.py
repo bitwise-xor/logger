@@ -1,4 +1,4 @@
-"""The Home page, step 1 of 03.11.2026 (plan in the doc "Logger v2: status and web app plan", tab Current; spec
+"""The Home page, step 1 of 03.11.2026 (plan in the doc "Logger: status and web app plan", tab Current; spec
 docs/specs/home-page-spec.md): the starter list, ages and the order of the chores, ticking (and ticking off) with Undo, "All
 done", the Zones, History and Edit zones pages, chores typed in the chat by word match without the AI (clear lines, questions,
 lines the AI must read), Recent, the Today card and its switch. Every value here is the starter list or invented."""

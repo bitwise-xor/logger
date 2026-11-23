@@ -1,4 +1,4 @@
-"""Body measurements, T1 (03.11.2026; spec docs/specs/body-measurements-spec.md, the owner's answers in the doc "Logger v2:
+"""Body measurements, T1 (03.11.2026; spec docs/specs/body-measurements-spec.md, the owner's answers in the doc "Logger:
 status and web app plan", Current tab): five tape measurements typed as pairs and saved without the AI, the read-backs (a
 second value on a health day, a jump of 4 cm or more, out of range), the Health card with its form, Today's due line,
 Settings, and the Week and Recent lines. Every value here is invented."""

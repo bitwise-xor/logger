@@ -1,4 +1,4 @@
-"""Body measurements (03.11.2026, T1 of docs/specs/body-measurements-spec.md; the owner's answers in the doc "Logger v2: status
+"""Body measurements (03.11.2026, T1 of docs/specs/body-measurements-spec.md; the owner's answers in the doc "Logger: status
 and web app plan", Current tab): five tape measurements in cm, about every 28 days. Stored as measurements like weight; all
 values of one health day (local time minus 5 h) are one session. Since 22.11.2026 (web item 58) the measures are rows of log_types
 (body_measure), which the owner edits in Settings > Body. This module reads them for the Health card, the Today line

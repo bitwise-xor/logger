@@ -1,7 +1,7 @@
 # Web app: improvements and feature ideas
 
 Written 27.10.2026 from a read of the web app's code (`core/app/web*.py`, the page modules, `static/app.css`,
-`static/app.js`) and the plan doc "Logger v2: status and web app plan". The pages were not opened in a browser for
+`static/app.js`) and the plan doc "Logger: status and web app plan". The pages were not opened in a browser for
 this list, so layout points are read from the stylesheet, not seen. Nothing here is decided: each item is an idea.
 Before building one, plan it in the doc first (with a clickable mockup for a new page).
 

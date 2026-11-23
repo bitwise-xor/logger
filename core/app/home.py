@@ -1,4 +1,4 @@
-"""The Home page's data and actions (03.11.2026, step 1 of the plan in the doc "Logger v2: status and web app plan", tab Current;
+"""The Home page's data and actions (03.11.2026, step 1 of the plan in the doc "Logger: status and web app plan", tab Current;
 spec docs/specs/home-page-spec.md on the branch docs/home-page-spec): household chores with an interval and a "last done", apart
 from the habits. A chore belongs to one zone or to the whole flat (Dust, Vacuum, Mop), and then each zone is tracked on its own,
 so a done row always names its zone. The page lists (chore, zone) pairs by how far past its interval each is (time since last done

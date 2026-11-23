@@ -1,4 +1,4 @@
-"""The Gym section's data and actions (02.11.2026, step (a) of the plan in the doc "Logger v2: status and web app plan",
+"""The Gym section's data and actions (02.11.2026, step (a) of the plan in the doc "Logger: status and web app plan",
 section "Gym page plan"): the owner's exercises, a tick that logs an exercise into today's workout (one workout per logging
 day, started by the first tick), removing it again, and Undo for both. A tick writes a raw_inbox row ("gym: Bench press
 3 × 8 at 60 kg") so Recent shows it, and ticks the habit "gym" once a logging day. Each action takes (form, key, session)

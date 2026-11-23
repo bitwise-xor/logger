@@ -1,4 +1,4 @@
-"""The web app's Home page (03.11.2026, step 1 of the plan in the doc "Logger v2: status and web app plan", tab Current; mockups in
+"""The web app's Home page (03.11.2026, step 1 of the plan in the doc "Logger: status and web app plan", tab Current; mockups in
 docs/specs/home-page-mockup/ on the branch docs/home-page-spec): the Now tab (the chores waiting longest, each with a tick circle,
 and what was done lately), the Zones tab (the whole-flat chores zone by zone with "All done", then each zone's chores), the
 History tab (what was ticked, with Remove; grouped by day since round 2) and Edit zones (zones and chores; retired, never deleted), plus the Home card on

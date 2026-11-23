@@ -1,4 +1,4 @@
-"""The web app's Gym section (02.11.2026, step (a) of the plan in the doc "Logger v2: status and web app plan"): the Workout
+"""The web app's Gym section (02.11.2026, step (a) of the plan in the doc "Logger: status and web app plan"): the Workout
 tab (today's list: one tap on the circle logs an exercise with the numbers shown, a tap on the name opens − / + to change
 them; Add exercise; the last 4 weeks), the Exercises tab (the owner's list with Retire / Bring back and New exercise) and the
 Gym card on Today. Step (b): the Plan tab (the split's days with their exercises, in order, with the plan's sets × reps) and

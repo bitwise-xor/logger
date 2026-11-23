@@ -1,4 +1,4 @@
-"""Coaching (web item 52, 04.11.2026; plan and the owner's answers in the doc "Logger v2: status and web app plan", tab Current;
+"""Coaching (web item 52, 04.11.2026; plan and the owner's answers in the doc "Logger: status and web app plan", tab Current;
 mockup https://claude.ai/artifact/4z4HLimQeLi2jo4Z6ZX3ND): a day coaching on Today and a week review on the Week page, by Claude
 Opus at high effort, only when the owner presses the button. The coach reads that day's or week's food, health values, sleep,
 habits, gym workouts and home chores, the days before it, the targets and the owner's own goals (Settings > Coach); never thoughts,
