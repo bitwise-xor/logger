@@ -43,7 +43,7 @@ function door(status: number, body: unknown) {
     if (init.body) bodies.push(JSON.parse(init.body as string) as Record<string, unknown>);
     return new Response(JSON.stringify(body), { status });
   };
-  return { door: makeDoor({ url: 'http://logger-v2-core:8000', token: TOKEN, fetch }), bodies, methods };
+  return { door: makeDoor({ url: 'http://logger-core:8000', token: TOKEN, fetch }), bodies, methods };
 }
 
 const FORM = { password: 'pw', code: '123 456', userAgent: 'Test browser' };
@@ -93,7 +93,7 @@ describe('sign-in', () => {
     const fetch: Fetch = async () => {
       throw new TypeError('fetch failed');
     };
-    const out = await signIn(makeDoor({ url: 'http://logger-v2-core:8000', token: TOKEN, fetch }), jar().cookies, FORM);
+    const out = await signIn(makeDoor({ url: 'http://logger-core:8000', token: TOKEN, fetch }), jar().cookies, FORM);
     expect(out).toMatchObject({ ok: false, status: 503, problem: 'core_down' });
     expect(out.ok === false && out.message).toContain('not answering');
   });
@@ -142,7 +142,7 @@ describe('sign-out', () => {
       throw new TypeError('fetch failed');
     };
     const j = jar({ [SESSION_COOKIE]: SESSION });
-    await signOut(makeDoor({ url: 'http://logger-v2-core:8000', token: TOKEN, fetch }), j.cookies);
+    await signOut(makeDoor({ url: 'http://logger-core:8000', token: TOKEN, fetch }), j.cookies);
     expect(j.deletes).toEqual([SESSION_COOKIE]);
   });
 });

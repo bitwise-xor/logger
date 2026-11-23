@@ -5,8 +5,8 @@ const orDefault = (fallback: string) => (value: string | undefined) => value || 
 
 export const variables = defineEnvVars({
   DOOR_URL: {
-    description: "The core's address inside Docker; the door accepts only the Host logger-v2-core:8000.",
-    schema: orDefault('http://logger-v2-core:8000'),
+    description: "The core's address inside Docker; the door accepts only the Host logger-core:8000.",
+    schema: orDefault('http://logger-core:8000'),
   },
   FRONT_TOKEN: {
     description: 'The service token for the JSON door (the same value as the core has), 32+ characters. Empty: the door is off.',

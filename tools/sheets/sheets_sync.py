@@ -110,7 +110,7 @@ def query(sql):
     pw = os.environ.get("SHEETS_READER_PASSWORD")
     if not pw:
         sys.exit("SHEETS_READER_PASSWORD is not set")
-    cmd = ["docker", "exec", "-i", "-e", "PGPASSWORD=" + pw, os.environ.get("DB_CONTAINER", "logger-v2-db"),
+    cmd = ["docker", "exec", "-i", "-e", "PGPASSWORD=" + pw, os.environ.get("DB_CONTAINER", "logger-db"),
            "psql", "-h", "127.0.0.1", "-U", os.environ.get("DB_USER", "sheets_reader"), "-d", os.environ.get("DB_NAME", "appdata"),
            "-At", "-v", "ON_ERROR_STOP=1", "-c", f"select row_to_json(x)::text from ({sql}) x"]
     r = subprocess.run(cmd, capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=60)
@@ -394,7 +394,7 @@ def main(argv=None):
     ap.add_argument("--dry-run", action="store_true", help="build the rows and print sizes, do not call Google")
     ap.add_argument("--check", action="store_true", help="check the database role and the sheet tabs, write nothing")
     a = ap.parse_args(argv)
-    state = os.path.expanduser(os.environ.get("SYNC_STATE", "/opt/stacks/logger-v2/sheets"))
+    state = os.path.expanduser(os.environ.get("SYNC_STATE", "/opt/stacks/logger/sheets"))
     os.makedirs(state, exist_ok=True)
     lock = open(os.path.join(state, "lock"), "w")
     try:

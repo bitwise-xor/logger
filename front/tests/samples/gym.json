@@ -2663,7 +2663,7 @@
        "code": true
       },
       {
-       "text": ", a space and your token. The token is not set on the server yet: add a line WATCH_TOKEN=… (24 or more letters and digits) to /opt/stacks/logger-v2/.env and restart the core.",
+       "text": ", a space and your token. The token is not set on the server yet: add a line WATCH_TOKEN=… (24 or more letters and digits) to /opt/stacks/logger/.env and restart the core.",
        "code": false
       }
      ],

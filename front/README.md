@@ -13,7 +13,7 @@ tablet and PC width). Then the trial runs (below). Deploy 87: the Usual meals pa
 ## How it fits
 
 Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudflare tunnel) -> this container
-`logger-v2-front` (port 3000, `proxy` network only) -> the core's JSON door `http://logger-v2-core:8000/api/v1`
+`logger-front` (port 3000, `proxy` network only) -> the core's JSON door `http://logger-core:8000/api/v1`
 (`docs/API.md`) -> the database. The browser never talks to the door; this container never touches the database.
 
 - `src/lib/server/door.ts`: the door client. It sends `X-Front-Token` and, signed in, the session as a bearer; it passes on no
@@ -519,7 +519,7 @@ Browser -> Caddy (`logger.`, home network and tailnet only; never in the Cloudfl
   `src/lib/samples.test.ts` holds each sample against the interface that types it, at compile time: `tools/front-pnpm check` fails on a field
   the type names and the sample lacks, or the sample has and the type does not (`v`, the door's version, is left out); run it after writing samples.
 - Deploy: `tools/deploy-front.sh <N>` (the core: `tools/deploy.sh`). Rollback of deploy N:
-  `docker tag logger-v2-front:front-fixesN logger-v2-front:pilot; docker compose up -d front`.
+  `docker tag logger-front:front-fixesN logger-front:pilot; docker compose up -d front`.
 
 ## The trial
 
@@ -528,6 +528,6 @@ which stays complete and is where everything else lives (Trends, Library, More, 
 here since deploy 87). What to
 look for: anything that differs from `app.` (numbers, a save that does not show up there), anything slow or unclear, and how the
 two compare on the phone. Notes go into the plan doc; the decision about the rest of the app comes after it.
-- If the front end misbehaves: roll back (`docker tag logger-v2-front:front-fixesN logger-v2-front:pilot; docker compose up -d
+- If the front end misbehaves: roll back (`docker tag logger-front:front-fixesN logger-front:pilot; docker compose up -d
   front`) or stop it (`docker compose stop front`); `app.` does not depend on it. Switching the door off (empty `FRONT_TOKEN` in
   `.env`, one restart of the core) shows "switched off" on `logger.`.

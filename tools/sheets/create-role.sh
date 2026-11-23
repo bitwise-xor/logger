@@ -7,7 +7,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 ENVFILE="${SYNC_ENV:-$HERE/../../sheets/sync.env}"
 PW="$(grep '^SHEETS_READER_PASSWORD=' "$ENVFILE" 2>/dev/null | cut -d= -f2- || true)"
 [ -n "$PW" ] || { echo "SHEETS_READER_PASSWORD is missing in $ENVFILE (type one there, for example from: openssl rand -hex 24)"; exit 1; }
-docker exec -i logger-v2-db psql -v ON_ERROR_STOP=1 -q -U pgadmin -d appdata <<SQL
+docker exec -i logger-db psql -v ON_ERROR_STOP=1 -q -U pgadmin -d appdata <<SQL
 SELECT 'CREATE ROLE sheets_reader LOGIN' WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'sheets_reader') \gexec
 ALTER ROLE sheets_reader PASSWORD '$PW';
 GRANT CONNECT ON DATABASE appdata TO sheets_reader;

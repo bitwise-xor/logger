@@ -2,7 +2,7 @@
 
 POST /watch/health on the core's public address (the MCP door's host, PUBLIC_URL), sent by the iPhone app Health Auto Export
 (REST API automations, JSON, export version 2) with the header "Authorization: Bearer <WATCH_TOKEN>". It has no sign-in; the token
-is the check. The owner types WATCH_TOKEN into /opt/stacks/logger-v2/.env (compose passes it on); without it the address answers
+is the check. The owner types WATCH_TOKEN into /opt/stacks/logger/.env (compose passes it on); without it the address answers
 503. Each run re-sends yesterday and today, so readings are upserted on (metric, time, source) and workouts on Apple's id: totals
 are overwritten, never added up. Energy is kept in kcal and distance in km whatever the app sends. Only counts go to the audit log,
 never values. The names of the metrics that are skipped (not used by the Activity tab) go to the container's log once per name and

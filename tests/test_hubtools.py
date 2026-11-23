@@ -21,7 +21,7 @@ from test_webtoday import day, eat, no_targets, raw  # noqa: F401 - no_targets: 
 HDR = {"Accept": "application/json, text/event-stream", "Content-Type": "application/json", "Host": "log.example.test"}
 TOKEN = "hub-test-token-0123456789abcdef-0123456789"
 APP = "https://app.example.test/web"
-INSIDE = "logger-v2-core:8000"  # the Host of the hub's calls: it calls the container by its name (auth.from_inside)
+INSIDE = "logger-core:8000"  # the Host of the hub's calls: it calls the container by its name (auth.from_inside)
 KEYS = {"day", "generated_at", "links", "food", "water", "habits", "habit_history", "health", "review", "questions", "chores"}
 # (name, label, group, times a day); the group "behaviour" makes the last one a habit to avoid (habitaim.py)
 HABITS = (("hub_stretch", "Hub stretching", "practice", 1), ("hub_walk", "Hub walk", "practice", 2), ("hub_soda", "Hub soda", "behaviour", 1))
@@ -132,7 +132,7 @@ def test_a_hub_token_shorter_than_32_characters_is_off(monkeypatch):
 
 
 def test_the_hub_token_is_taken_only_from_inside_the_server(monkeypatch, bearer, caplog):
-    """Core 35 (21.11.2026): the hub calls http://logger-v2-core:8000 from its container; a call through the tunnel comes with
+    """Core 35 (21.11.2026): the hub calls http://logger-core:8000 from its container; a call through the tunnel comes with
     the public Host and Cloudflare's headers. The hub's token is refused on any call that is not from inside, quietly as a wrong
     token is; the owner's own sign-in token works on all of them."""
     monkeypatch.setattr(auth, "HUB_TOKEN", TOKEN)
@@ -156,13 +156,13 @@ def test_the_hub_token_is_taken_only_from_inside_the_server(monkeypatch, bearer,
 
 
 def test_from_inside_needs_the_container_name_and_no_proxy_header():
-    assert auth.from_inside("logger-v2-core:8000", ["host", "authorization", "accept", "content-type", "user-agent"])
-    assert auth.from_inside("logger-v2-core", ["host"])
-    for host in ("log.example.test", "logger-mcp.example.org", "127.0.0.1:8000", "localhost:8000", "logger-v2-core.example.org:8000", "", None):
+    assert auth.from_inside("logger-core:8000", ["host", "authorization", "accept", "content-type", "user-agent"])
+    assert auth.from_inside("logger-core", ["host"])
+    for host in ("log.example.test", "logger-mcp.example.org", "127.0.0.1:8000", "localhost:8000", "logger-core.example.org:8000", "", None):
         assert not auth.from_inside(host, ["host"]), host
     for added in ("cf-ray", "cf-connecting-ip", "cf-ipcountry", "cf-visitor", "cdn-loop", "x-forwarded-for", "x-forwarded-proto",
                   "x-forwarded-host", "x-real-ip", "forwarded", "via"):
-        assert not auth.from_inside("logger-v2-core:8000", ["host", added]), added
+        assert not auth.from_inside("logger-core:8000", ["host", added]), added
     assert auth.request_inside.get() is False  # outside a request: not from inside
 
 
@@ -178,13 +178,13 @@ def test_the_compose_file_lets_the_hub_call_the_container_by_its_name(monkeypatc
     assert "HUB_TOKEN: ${HUB_TOKEN:-}" in compose
     value = re.search(r'^\s*ALLOWED_HOSTS:\s*"([^"]+)"', compose, re.M)[1]
     hosts = [h.strip() for h in value.split(",") if h.strip()]  # as config.py reads it
-    assert len(hosts) == 2 and "logger-v2-core:*" in hosts
+    assert len(hosts) == 2 and "logger-core:*" in hosts
     monkeypatch.setattr(mcp_app, "EXTRA_ALLOWED_HOSTS", hosts)
     monkeypatch.setattr(auth, "HUB_TOKEN", TOKEN)
     with client() as c:
-        assert rpc(c, "tools/list", host="logger-v2-core:8000").status_code == 200
+        assert rpc(c, "tools/list", host="logger-core:8000").status_code == 200
         # refused: by the token check (not from inside, 401) before the Host check (421) would
-        assert rpc(c, "tools/list", host="logger-v2-core.example.org:8000").status_code in (401, 421)
+        assert rpc(c, "tools/list", host="logger-core.example.org:8000").status_code in (401, 421)
         assert rpc(c, "tools/list", host="other-container:8000").status_code in (401, 421)
 
 

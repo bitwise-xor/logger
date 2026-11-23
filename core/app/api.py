@@ -3,7 +3,7 @@ and shapes in docs/API.md). Only the front end's own server calls it, from insid
 app. site passes / and /web/* only) and the tunnel's calls carry Cloudflare's headers. Every route goes through one check
 (route below), in this order, and each failure looks the same (404), so the door's existence is not revealed:
   1. the door is on: FRONT_TOKEN is set, 32 characters or more (config.py; unset = every path here answers 404);
-  2. the call comes from inside Docker: Host logger-v2-core:8000, no Cloudflare or proxy headers;
+  2. the call comes from inside Docker: Host logger-core:8000, no Cloudflare or proxy headers;
   3. the front end's service token in X-Front-Token (compared on SHA-256 digests, in constant time);
 then, for every route but the sign-in, the owner's session as "Authorization: Bearer <token>" (a web_sessions row of this
 front end, migration 031; a session of app. never works here and the reverse). A session renews like a page view (30 days
@@ -31,7 +31,7 @@ log = logging.getLogger("logger.api")
 V = 1
 FRONT = "logger"  # web_sessions.front of this front end's sessions
 PREFIX = "/api/v1"
-HOSTS = ("logger-v2-core:8000",)  # the core's name and port on the Docker network
+HOSTS = ("logger-core:8000",)  # the core's name and port on the Docker network
 TOKEN_MIN = 32
 MAX_BODY = 64 * 1024
 # Headers that mark a call that came through Cloudflare or a proxy (Caddy adds the X-Forwarded ones): never the front end's server

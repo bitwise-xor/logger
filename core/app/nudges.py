@@ -1,5 +1,5 @@
 """Nudges (31.10.2026): small reminders sent as phone notifications (web push), checked every 5 minutes by cron:
-`docker exec logger-v2-core python -m app.nudges`. The times count from the day's wake-up time; nothing is sent before
+`docker exec logger-core python -m app.nudges`. The times count from the day's wake-up time; nothing is sent before
 waking, after a bed time logged that evening, or more than 16 hours after waking (quiet hours). Each nudge goes at most
 once a logging day (push_sent); last week's summary (weekdigest, 22.11.2026) once a week, on the first logging day of the week the
 owner is up. The owner turns them on and picks them in Settings > Notifications (ui_settings "nudges").

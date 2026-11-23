@@ -3,8 +3,8 @@
 #
 # One test database per checkout (core item 30, 08.11.2026), so sessions in parallel git worktrees never empty each
 # other's tables:
-#   - the main checkout (and any plain clone, e.g. GitHub's test run): container logger-v2-testdb on 127.0.0.1:55433;
-#   - a linked git worktree: container logger-v2-testdb-<hash> on 127.0.0.1:<56000-56999>, both from a short hash of
+#   - the main checkout (and any plain clone, e.g. GitHub's test run): container logger-testdb on 127.0.0.1:55433;
+#   - a linked git worktree: container logger-testdb-<hash> on 127.0.0.1:<56000-56999>, both from a short hash of
 #     the worktree's folder. tests/conftest.py asks this script ("where") for the port, so pytest finds the same one.
 # TESTDB_PORT and TESTDB_NAME override both (e.g. TESTDB_PORT=56123 TESTDB_NAME=my-db tests/test-db.sh up).
 # TESTDB_ZONE=<compiled zone file> mounts that file at /usr/share/zoneinfo/Europe/Berlin in the database (the night-time
@@ -12,19 +12,19 @@
 #
 # A worktree's database lives in memory and holds up to 512 MB: remove it with "tests/test-db.sh down" (run inside that
 # worktree) before removing the worktree. "tests/test-db.sh prune" removes every worktree database whose folder is gone;
-# "list" shows them all. Neither ever touches the main checkout's logger-v2-testdb.
+# "list" shows them all. Neither ever touches the main checkout's logger-testdb.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
-LABEL=logger-v2.testdb.worktree
+LABEL=logger.testdb.worktree
 
 where() {  # sets NAME, PORT and TOP (the checkout's folder; empty for the main checkout)
-  NAME=logger-v2-testdb; PORT=55433; TOP=""
+  NAME=logger-testdb; PORT=55433; TOP=""
   local gd cd h
   if gd=$(git -C "$HERE" rev-parse --absolute-git-dir 2>/dev/null) \
      && cd=$(git -C "$HERE" rev-parse --path-format=absolute --git-common-dir 2>/dev/null) && [ "$gd" != "$cd" ]; then
     TOP=$(git -C "$HERE" rev-parse --show-toplevel)
     h=$(printf '%s' "$TOP" | sha256sum | cut -c1-8)
-    NAME="logger-v2-testdb-$h"; PORT=$((56000 + 16#$h % 1000))
+    NAME="logger-testdb-$h"; PORT=$((56000 + 16#$h % 1000))
   fi
   NAME=${TESTDB_NAME:-$NAME}; PORT=${TESTDB_PORT:-$PORT}
 }
@@ -36,11 +36,11 @@ case "${1:-}" in
 where) echo "$NAME $PORT"; exit 0;;
 down) docker rm -fv "$NAME" >/dev/null 2>&1 || true; echo "test db $NAME removed"; exit 0;;
 list)
-  docker ps -a --filter "name=^logger-v2-testdb" --format '{{.Names}}\t{{.Ports}}\t{{.Status}}\t{{.Label "'"$LABEL"'"}}'
+  docker ps -a --filter "name=^logger-testdb" --format '{{.Names}}\t{{.Ports}}\t{{.Status}}\t{{.Label "'"$LABEL"'"}}'
   exit 0;;
 prune)
   docker ps -a --filter "label=$LABEL" --format '{{.Names}} {{.Label "'"$LABEL"'"}}' | while read -r n dir; do
-    [ "$n" = logger-v2-testdb ] && continue
+    [ "$n" = logger-testdb ] && continue
     if [ -n "$dir" ] && [ ! -d "$dir" ]; then docker rm -fv "$n" >/dev/null && echo "removed $n (folder $dir is gone)"; fi
   done
   echo "prune done"; exit 0;;

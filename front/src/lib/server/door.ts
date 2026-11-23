@@ -1,6 +1,6 @@
 /**
  * The door client: the only way this app reaches Logger's core. It calls the JSON door `/api/v1` (docs/API.md) at
- * `http://logger-v2-core:8000` over the Docker network, with the service token in `X-Front-Token` and, once signed in,
+ * `http://logger-core:8000` over the Docker network, with the service token in `X-Front-Token` and, once signed in,
  * the owner's session as a bearer token.
  *
  * It passes on no browser headers: a call takes a path, a session and a body, never a request or headers, and builds its
@@ -14,7 +14,7 @@
 export type Fetch = (input: URL, init: RequestInit) => Promise<Response>;
 
 export interface DoorConfig {
-  /** The core's address inside Docker: http://logger-v2-core:8000 (the door accepts only that Host). */
+  /** The core's address inside Docker: http://logger-core:8000 (the door accepts only that Host). */
   url: string;
   /** FRONT_TOKEN, the same value the core has. Empty: the door is off, nothing is called. */
   token: string;

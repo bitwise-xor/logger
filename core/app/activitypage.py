@@ -95,7 +95,7 @@ def _chart(cid: str, data: dict) -> str:
 
 def setup() -> dict:
     """The set-up guide shown before any watch data has come, as data: each step in parts ({text, code}: code is drawn as code)."""
-    ready = "is set on the server" if watch.token() else "is not set on the server yet: add a line WATCH_TOKEN=… (24 or more letters and digits) to /opt/stacks/logger-v2/.env and restart the core"
+    ready = "is set on the server" if watch.token() else "is not set on the server yet: add a line WATCH_TOKEN=… (24 or more letters and digits) to /opt/stacks/logger/.env and restart the core"
     t = lambda x: {"text": x, "code": False}  # noqa: E731
     c = lambda x: {"text": x, "code": True}  # noqa: E731
     return {"title": "No watch data yet", "token_set": bool(watch.token()),

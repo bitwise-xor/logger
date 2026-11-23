@@ -4,7 +4,7 @@ import { call, DoorError, type Fetch, makeDoor } from './door.js';
 
 const TOKEN = 'f'.repeat(40);
 const SESSION = 's'.repeat(43);
-const URL_ = 'http://logger-v2-core:8000';
+const URL_ = 'http://logger-core:8000';
 
 interface Seen {
   url: URL;
@@ -29,8 +29,8 @@ describe('the door client', () => {
     const net = fake();
     await call({ url: URL_, token: TOKEN, fetch: net.fetch }, 'GET', '/day', { session: SESSION });
     const [c] = net.seen;
-    expect(c!.url.href).toBe('http://logger-v2-core:8000/api/v1/day');
-    expect(c!.url.host).toBe('logger-v2-core:8000'); // the Host the door accepts
+    expect(c!.url.href).toBe('http://logger-core:8000/api/v1/day');
+    expect(c!.url.host).toBe('logger-core:8000'); // the Host the door accepts
     expect(c!.headers).toEqual({
       'X-Front-Token': TOKEN,
       Accept: 'application/json',
@@ -206,7 +206,7 @@ describe('a file from the door (POST /export)', () => {
     });
     const f = await makeDoor({ url: URL_, token: TOKEN, fetch: net.fetch }).postFile('/export', SESSION, { private: false });
     const [c] = net.seen;
-    expect(c!.url.href).toBe('http://logger-v2-core:8000/api/v1/export');
+    expect(c!.url.href).toBe('http://logger-core:8000/api/v1/export');
     expect(c!.headers).toEqual({ 'X-Front-Token': TOKEN, Accept: 'application/zip, application/json', Authorization: `Bearer ${SESSION}`, 'Content-Type': 'application/json' });
     expect(c!.init.method).toBe('POST');
     expect(c!.init.body).toBe('{"private":false}');

@@ -64,7 +64,7 @@ def _logged(fn):
     return inner
 
 mcp = MCPServer(
-    "logger-v2",
+    "logger",
     auth_server_provider=provider,
     auth=AuthSettings(
         issuer_url=PUBLIC_URL, resource_server_url=PUBLIC_URL + MCP_PATH, validate_token_resource=False,
@@ -180,7 +180,7 @@ def set_checkin(mood: Optional[int] = None, energy: Optional[int] = None, idempo
 
 @mcp.custom_route("/health", methods=["GET"])
 async def health(_: Request) -> JSONResponse:
-    return JSONResponse({"status": "ok", "service": "logger-v2-core"})
+    return JSONResponse({"status": "ok", "service": "logger-core"})
 
 
 def _db_reachable() -> bool:

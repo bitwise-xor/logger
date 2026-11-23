@@ -36,7 +36,7 @@ function net(status = 200, body: unknown = { v: 1, outcome: 'saved', head: 'Save
       headers: { 'Content-Type': 'application/json', 'X-Session-Expires': '2099-01-01T00:00:00+00:00' },
     });
   };
-  return { door: makeDoor({ url: 'http://logger-v2-core:8000', token: TOKEN, fetch }), seen };
+  return { door: makeDoor({ url: 'http://logger-core:8000', token: TOKEN, fetch }), seen };
 }
 
 describe("the browser's lists and the server's, both made from saverules.ts (Web 65, web 72)", () => {
@@ -169,7 +169,7 @@ describe('a save through the door', () => {
     const refused = async () => {
       throw new TypeError('fetch failed', { cause: { code: 'ECONNREFUSED' } });
     };
-    const down = makeDoor({ url: 'http://logger-v2-core:8000', token: TOKEN, fetch: refused });
+    const down = makeDoor({ url: 'http://logger-core:8000', token: TOKEN, fetch: refused });
     const out = await runSave(down, SESSION, 'water', form({}));
     expect(out).toMatchObject({ ok: false, status: 503, signedOut: false, problem: 'core_down' });
     expect(out.ok === false && out.message).toContain('Nothing was saved');
@@ -178,7 +178,7 @@ describe('a save through the door', () => {
 
   it('says it may have been saved when the door got the save and did not answer in time (Web 65)', async () => {
     const hang: Fetch = (_url, init) => new Promise((_r, reject) => init.signal?.addEventListener('abort', () => reject(init.signal?.reason)));
-    const slow = makeDoor({ url: 'http://logger-v2-core:8000', token: TOKEN, fetch: hang, timeoutMs: 20 });
+    const slow = makeDoor({ url: 'http://logger-core:8000', token: TOKEN, fetch: hang, timeoutMs: 20 });
     const keyed = await runSave(slow, SESSION, 'water', form({ key: KEY }));
     expect(keyed).toMatchObject({ ok: false, status: 504, signedOut: false, problem: 'core_down', unsure: true });
     expect(keyed.ok === false && keyed.message).toMatch(/may have been saved: try again, it will not be saved twice/);
@@ -1215,11 +1215,11 @@ describe('Settings', () => {
     const low = await runSave(net().door, SESSION, 'settings_nudges', form({ weight_after: '0.2' }), undefined, 'settings_notify');
     expect(low.ok === false && low.message).toBe('No weight yet: give a number of hours from 0.5 to 12.');
     // the read fails: nothing was sent, and it says so
-    const down = makeDoor({ url: 'http://logger-v2-core:8000', token: TOKEN, fetch: async () => { throw new TypeError('fetch failed', { cause: { code: 'ECONNREFUSED' } }); } });
+    const down = makeDoor({ url: 'http://logger-core:8000', token: TOKEN, fetch: async () => { throw new TypeError('fetch failed', { cause: { code: 'ECONNREFUSED' } }); } });
     const d = await runSave(down, SESSION, 'settings_nudges', form({ on: '1' }), undefined, 'settings_notify');
     expect(d).toMatchObject({ ok: false, status: 503, problem: 'core_down' });
     const slow: Fetch = (_u, init) => new Promise((_r, reject) => init.signal?.addEventListener('abort', () => reject(init.signal?.reason)));
-    const s = await runSave(makeDoor({ url: 'http://logger-v2-core:8000', token: TOKEN, fetch: slow, timeoutMs: 10 }), SESSION, 'settings_nudges', form({ on: '1' }), undefined, 'settings_notify');
+    const s = await runSave(makeDoor({ url: 'http://logger-core:8000', token: TOKEN, fetch: slow, timeoutMs: 10 }), SESSION, 'settings_nudges', form({ on: '1' }), undefined, 'settings_notify');
     expect(s.ok === false && s.message).toMatch(/Nothing was saved/);
   });
 

@@ -3,7 +3,7 @@
 # v2 migrations, then v1's rows (data only), then tools/import/v1_fixes.sql.
 # Usage: tools/import/sandbox.sh up <v1-dump-file> | down        (Postgres on 127.0.0.1:55435)
 set -euo pipefail
-NAME=logger-v2-sandbox; PORT=55435
+NAME=logger-sandbox; PORT=55435
 HERE="$(cd "$(dirname "$0")/../.." && pwd)"
 case "${1:-}" in
 down) docker rm -fv "$NAME" >/dev/null 2>&1 || true; echo "sandbox removed"; exit 0;;

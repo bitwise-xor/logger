@@ -29,9 +29,9 @@ HUB_ORIGIN = os.environ.get("HUB_ORIGIN", "https://hub.19hospitalroad.fyi").stri
 # The hub (the home dashboard) calls the MCP endpoint from the server with this token instead of the owner's sign-in
 # (auth.hub_access, 13.11.2026). The owner types it into .env; unset or shorter than 32 characters, no such token is accepted.
 HUB_TOKEN = os.environ.get("HUB_TOKEN", "").strip()
-# The core's container name, the Host of a call from another container (the hub's: http://logger-v2-core:8000). The hub's token
+# The core's container name, the Host of a call from another container (the hub's: http://logger-core:8000). The hub's token
 # is taken only with this Host and without a proxy's headers (auth.from_inside, 21.11.2026).
-INTERNAL_HOST = os.environ.get("INTERNAL_HOST", "logger-v2-core").strip().lower()
+INTERNAL_HOST = os.environ.get("INTERNAL_HOST", "logger-core").strip().lower()
 
 # The new front end's service token for the JSON door /api/v1 (api.py, 16.11.2026): its server sends it with every call from
 # inside Docker. The owner types it into .env; unset or shorter than 32 characters, the whole door answers 404.

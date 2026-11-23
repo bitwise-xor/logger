@@ -15,7 +15,7 @@ from test_auth import PW, code_now, set_owner
 from test_web import ORIGIN, client, n, sign_in as web_sign_in, web  # noqa: F401 - web is a fixture
 
 FRONT = "front-test-token-0123456789abcdef-0123456789"  # 44 characters
-HOST = "logger-v2-core:8000"
+HOST = "logger-core:8000"
 ROUTES = (("POST", "/api/v1/session"), ("GET", "/api/v1/session"), ("DELETE", "/api/v1/session"), ("GET", "/api/v1/day"),
           ("GET", "/api/v1/food/day"), ("GET", "/api/v1/food/entry?ref=f1"))
 NOT_FOUND = {"v": 1, "error": "not_found", "message": "Not found."}
@@ -92,8 +92,8 @@ def test_a_wrong_or_missing_service_token_is_a_404(token):
     assert n("SELECT count(*) AS n FROM login_failures") == 0  # refused before anything is checked
 
 
-@pytest.mark.parametrize("scheme,host", [("https", "app.example.test"), ("http", "localhost"), ("http", "logger-v2-core"),
-                                        ("http", "logger-v2-core:8001"), ("https", "log.example.test"), ("http", "127.0.0.1:8000")])
+@pytest.mark.parametrize("scheme,host", [("https", "app.example.test"), ("http", "localhost"), ("http", "logger-core"),
+                                        ("http", "logger-core:8001"), ("https", "log.example.test"), ("http", "127.0.0.1:8000")])
 def test_a_wrong_host_is_a_404(scheme, host):
     _, bearer, _ = signed_in()
     c = door(host=host, scheme=scheme)

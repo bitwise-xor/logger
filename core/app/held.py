@@ -1,6 +1,6 @@
 """Never lose a message (01.11.2026, core items 1 and 2): a typed message is kept in `private.incoming` before the AI
 reads it, and deleted in the transaction that saves what it said (logbook.read_held). When the AI or the save fails it
-stays "not read yet": cron reads it again every 5 minutes for 2 hours (`docker exec logger-v2-core python -m app.held`),
+stays "not read yet": cron reads it again every 5 minutes for 2 hours (`docker exec logger-core python -m app.held`),
 then the phone is told once; the web app shows it on Today and Recent with Try again and Delete. A retry reads it with
 its original time. Kept until read or deleted (the owner's choice); a deleted one is removed for good a day later.
 Only the kind of an error is stored, never the words outside this table."""

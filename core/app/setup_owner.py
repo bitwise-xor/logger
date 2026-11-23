@@ -17,7 +17,7 @@ def main() -> int:
     if getpass.getpass("Repeat password: ") != pw:
         print("Passwords differ."); return 1
     secret = auth.new_totp_secret()
-    uri = "otpauth://totp/" + urllib.parse.quote("Logger v2:owner") + "?" + urllib.parse.urlencode({"secret": secret, "issuer": "Logger v2"})
+    uri = "otpauth://totp/" + urllib.parse.quote("Logger:owner") + "?" + urllib.parse.urlencode({"secret": secret, "issuer": "Logger"})
     print("\nAdd this to your authenticator app (type the secret in, or use the link):")
     print("  Secret:", secret)
     print("  Link:  ", uri)

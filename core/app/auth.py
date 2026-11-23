@@ -93,7 +93,7 @@ PROXY_HEADERS = ("x-forwarded-for", "x-forwarded-host", "x-forwarded-proto", "x-
 
 
 def from_inside(host: str, header_names) -> bool:
-    """True when a request came from another container on the server (the hub calls http://logger-v2-core:8000), not through
+    """True when a request came from another container on the server (the hub calls http://logger-core:8000), not through
     the tunnel or Caddy. Both conditions are needed, because each one alone can be lost:
     - the Host is the container's own name (INTERNAL_HOST, any port): the tunnel passes the public name (logger-mcp.) on as the
       Host, but one setting in Cloudflare's dashboard (the route's "HTTP Host Header") would make it pass the container's name;

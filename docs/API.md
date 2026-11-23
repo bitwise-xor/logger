@@ -17,7 +17,7 @@ The live web app at `app.` does not use it and did not change.
 Every route checks these in order. Steps 1 to 3 all fail the same way (404 `not_found`), so the door is invisible to anyone else.
 
 1. **The door is on:** `FRONT_TOKEN` is set in `.env` (passed by `compose.yaml`), 32 characters or more. Unset: every path answers 404.
-2. **From inside Docker:** the `Host` header is exactly `logger-v2-core:8000`, and there is no Cloudflare or proxy header
+2. **From inside Docker:** the `Host` header is exactly `logger-core:8000`, and there is no Cloudflare or proxy header
    (`cf-ray`, `cf-connecting-ip`, `cf-visitor`, `x-forwarded-for`, `x-forwarded-host`, `x-forwarded-proto`, `forwarded`, `x-real-ip`).
    Caddy's `app.` site forwards only `/` and `/web/*`, so `/api/` never arrives through it.
 3. **The front end's service token:** header `X-Front-Token: <FRONT_TOKEN>` (compared in constant time).

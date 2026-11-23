@@ -6,7 +6,7 @@ import urllib.parse
 import urllib.request
 from typing import Optional
 
-UA = {"User-Agent": "logger-v2/0.1 (personal food logger)"}
+UA = {"User-Agent": "logger/0.1 (personal food logger)"}
 TIMEOUT = 8
 
 
