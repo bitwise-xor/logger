@@ -10,6 +10,11 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* The Food day's "Macros / All values" switch (web 73, src/lib/foodmode.svelte.ts; static/theme.js sets it before first paint):
+   `macros:` applies when Macros is chosen, `allvalues:` otherwise (the default), so each mode's parts are shown without a flash. */
+@custom-variant macros (&:where([data-food-values='macros'] *));
+@custom-variant allvalues (&:where(:root:not([data-food-values='macros']) *));
+
 /* The macro colours of app. (core/app/static/app.css --mp, --mc, --mf), so the pie and the bars match the full app (the owner,
    16.11.2026): protein blue, carbs coral, fat amber; lighter in the dark. */
 :root,
