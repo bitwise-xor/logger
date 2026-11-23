@@ -11,7 +11,8 @@ Gym (gym.json, deploy 95), Home (home.json, deploy 98; day.json has Today's Home
 insights.json, deploy 101), Library and Medical (catalogue.json, labs.json, deploy 104), Search, Recent, Usage and Coach (search.json, recent.json, usage.json,
 coach.json, deploy 107; day.json has Today's Coach card since then), Settings and notifications (settings.json, deploy 110; day.json has
 "shown" since then: added by hand, its dates are pinned by the front's tests), the Food space (food_space.json, 21.11.2026; food.json's
-meals[].note and day_note were added by hand for the same reason), and
+meals[].note and day_note were added by hand for the same reason, and so were its every value of 23.11.2026, web 73: rows[].values,
+meals[].values and .unknown, lines, the entry's values and per_100, made-up numbers with unknown ones), and
 - with WRITE_FRONT_SAMPLES=1: writes the answer to the sample file (then look at the diff and commit it);
 - otherwise: checks that the committed sample still has the door's shape (the same keys at every level), so a change of the door
   that the stand-in does not know about fails here.
